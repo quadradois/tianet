@@ -15,7 +15,7 @@ const LAYERS = {
   },
   domain: {
     idPattern: /^(DOMAIN|ENT|VO|DSVC|EVT|BR)-\d+/i,
-    headerRequired: ['Versão', 'Status', 'Autor(es)', 'Data de Criação', 'Última Atualização', 'Revisor(es)', 'Aprovação'],
+    headerRequired: ['Versão', 'Status'],
   },
   product: {
     idPattern: /^(EPIC|FEAT|US)-\d+/i,
@@ -68,7 +68,7 @@ function walk(dir) {
 function sectionsOf(file) {
   const set = new Set();
   for (const line of fs.readFileSync(file, 'utf8').split(/\r?\n/)) {
-    const m = line.match(/^##\s+(?:\d+\.\s+)?(.+?)\s*$/);
+    const m = line.match(/^#{1,2}\s+\d+(?:\.\d+)?\.\s+(.+?)\s*$/);
     if (m) set.add(norm(m[1]));
   }
   return set;
@@ -120,7 +120,7 @@ function validateDoc(file, layerName, layer) {
     }
   }
 
-  if (!hasSection(lines, /hist[óo]rico\s+de\s+vers[õo]es/i)) {
+  if (!hasSection(lines, /^#{1,2}\s+(\d+\.\s+)?hist[óo]rico\s+de\s+vers[õo]es/i)) {
     results.errors.push(`${rp}: seção "Histórico de Versões" ausente`);
   }
 

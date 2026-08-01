@@ -1,73 +1,181 @@
-# DOMAIN-002: Entity Pessoa
+# DOMAIN-002 — Entity Pessoa
 
-> **Versão:** 0.1.0  
-> **Status:** Rascunho  
-> **Autor(es):** [Nome(s)]  
-> **Data de Criação:** 2026-08-01  
-> **Última Atualização:** 2026-08-01  
-> **Revisor(es):** [Nome(s)]  
-> **Aprovação:** [Nome / Cargo / Data]  
-> **Agregado Pai:** DOMAIN-001 (Aggregate Carteira)
+**ID:** DOMAIN-002
 
----
+**Versão:** 1.0.0
 
-## 1. Definição
+**Status:** Aprovado
 
-> Descreva o que esta entidade é no domínio, com suas próprias palavras, e o que a distingue de outros elementos.
+**Aggregate Pai:** DOMAIN-001 — Aggregate Carteira
 
 ---
 
-## 2. Identidade
+# 1. Definição
 
-> Como a identidade desta entidade é estabelecida e o que a torna única no domínio.
+Pessoa representa um indivíduo com quem o proprietário da Carteira mantém, manteve ou poderá manter um relacionamento financeiro.
 
-- [Critério de identidade 1]
-- [Critério de identidade 2]
+Ela representa o tomador dos empréstimos e concentra todas as informações necessárias para sua identificação, comunicação e histórico dentro da Carteira.
 
----
+Uma Pessoa pode existir mesmo sem possuir empréstimos.
 
-## 3. Responsabilidades
-
-> O que esta entidade é responsável por garantir ou representar.
-
-- [Responsabilidade 1]
-- [Responsabilidade 2]
+A Pessoa nunca representa uma empresa na versão 1 do produto.
 
 ---
 
-## 4. Ciclo de Vida
+# 2. Identidade
 
-> Descreva como esta entidade nasce, evolui e deixa de existir.
+A identidade de uma Pessoa é única dentro de uma Carteira.
 
-| Fase | Evento de Transição | Estado |
-|------|---------------------|--------|
-| [Criação] | [Evento/gatilho] | [Estado] |
-| [Transição] | [Evento/gatilho] | [Estado] |
+Uma Pessoa pertence obrigatoriamente a uma única Carteira.
 
----
-
-## 5. Regras
-
-> Regras de negócio aplicáveis a esta entidade.
-
-| ID | Regra | Fonte |
-|----|-------|-------|
-| BR-[NNN] | [Descrição] | [Foundation/Origem] |
+Sua identidade permanece durante todo seu ciclo de vida, independentemente da quantidade de empréstimos realizados.
 
 ---
 
-## 6. Relacionamentos
+# 3. Responsabilidades
 
-> Relacionamentos desta entidade com os demais elementos do domínio.
+A Pessoa possui as seguintes responsabilidades:
 
-| Elemento | Tipo de Relacionamento | Descrição |
-|----------|------------------------|-----------|
-| [Elemento] | Composição/Referência | [Descrição] |
+- representar o tomador do empréstimo;
+- manter seus dados cadastrais;
+- disponibilizar informações de contato;
+- manter o histórico de relacionamento financeiro;
+- permitir consultas históricas.
+
+A Pessoa não controla valores financeiros.
+
+Valores pertencem ao Empréstimo.
+
+Pagamentos pertencem ao Empréstimo.
+
+Parcelas pertencem ao Empréstimo.
 
 ---
 
-## 7. Histórico de Versões
+# 4. Ciclo de Vida
 
-| Versão | Data | Autor | Descrição da Mudança |
-|--------|------|-------|---------------------|
-| 0.1.0 | 2026-08-01 | [Nome] | Criação inicial |
+## Criada
+
+A Pessoa é cadastrada na Carteira.
+
+---
+
+## Ativa
+
+Pode receber novos empréstimos.
+
+Pode possuir empréstimos ativos.
+
+Pode possuir empréstimos quitados.
+
+---
+
+## Inativa
+
+Não poderá receber novos empréstimos.
+
+Todo seu histórico permanece preservado.
+
+---
+
+# 5. Regras
+
+## RN-001
+
+Toda Pessoa pertence exatamente a uma Carteira.
+
+---
+
+## RN-002
+
+Uma Pessoa pode existir sem possuir empréstimos.
+
+---
+
+## RN-003
+
+Uma Pessoa pode possuir zero ou vários empréstimos.
+
+---
+
+## RN-004
+
+Uma Pessoa nunca poderá representar uma empresa na versão 1.
+
+---
+
+## RN-005
+
+Uma Pessoa com histórico financeiro nunca poderá ser excluída fisicamente.
+
+---
+
+## RN-006
+
+A inativação não altera o histórico financeiro.
+
+---
+
+# 6. Relacionamentos
+
+## Aggregate
+
+Pertence ao Aggregate:
+
+DOMAIN-001 — Aggregate Carteira
+
+---
+
+## Relacionamentos
+
+Pessoa (1)
+
+↓
+
+Empréstimo (0..N)
+
+Uma Pessoa pode possuir nenhum, um ou vários empréstimos.
+
+Todo Empréstimo pertence exatamente a uma Pessoa.
+
+---
+
+# 7. Invariantes
+
+## INV-001
+
+Pessoa sempre pertence a uma Carteira.
+
+---
+
+## INV-002
+
+Pessoa nunca pertence a mais de uma Carteira.
+
+---
+
+## INV-003
+
+Pessoa nunca perde seu histórico financeiro.
+
+---
+
+# 8. Glossário
+
+## Pessoa
+
+Indivíduo cadastrado na Carteira.
+
+---
+
+## Tomador
+
+Pessoa que recebe um empréstimo.
+
+---
+
+# 9. Histórico de Versões
+
+| Versão | Data | Descrição |
+|----------|------------|------------------------------|
+| 1.0.0 | 01/08/2026 | Primeira versão oficial. |
