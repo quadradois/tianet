@@ -69,7 +69,9 @@ Nenhuma task em andamento.
 
 ## Decisões aprovadas
 
-> Nenhuma decisão formal registrada no repositório até o momento.
+| ID | Decisão | Data | Referência |
+|----|---------|------|------------|
+| PD-011 | O sistema armazenará apenas fatos financeiros. Todos os valores derivados (saldo devedor, juros acumulados, valor para quitação, juros por atraso, valor devido hoje e demais cálculos financeiros) serão calculados pelo Domain Service no momento da consulta. Essa decisão passa a orientar toda a modelagem financeira do sistema. | 2026-08-01 | — |
 
 ---
 
@@ -92,3 +94,4 @@ Nenhuma task em andamento.
 | Data | Autor | Resumo da Atualização |
 |------|-------|-----------------------|
 | 2026-08-01 | Head de Produto | Encerramento da fase de infraestrutura documental; projeto entra em Domain Modeling. TASK-001 a TASK-015 concluídas. |
+| 2026-08-01 | Head de Produto | Registro da decisão de domínio PD-011: o sistema armazenará apenas fatos financeiros; valores derivados calculados pelo Domain Service no momento da consulta. |
