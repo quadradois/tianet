@@ -1,113 +1,114 @@
-# FOUNDATION-005: Inventário do Domínio
+# FOUNDATION-005 — Inventário do Domínio
 
-> **Versão:** 0.1.0  
-> **Status:** Rascunho  
-> **Autor(es):** [Nome(s)]  
-> **Data de Criação:** 2026-08-01  
-> **Última Atualização:** 2026-08-01  
-> **Revisor(es):** [Nome(s)]  
-> **Aprovação:** [Nome / Cargo / Data]
+**ID:** FOUNDATION-005
+
+**Versão:** 1.0.0
+
+**Status:** Aprovado
 
 ---
 
-## 1. Objetivo
+# 1. Objetivo
 
-> Descreva brevemente o que este documento foundation aborda, por que ele existe e qual problema resolve.
+Estabelecer o inventário oficial dos conceitos que compõem o domínio da plataforma.
 
----
+Este documento representa a fonte oficial da Linguagem Ubíqua do projeto.
 
-## 2. Contexto
-
-> Descreva o contexto de negócio, ambiente e motivação para este foundation.
+Todo novo conceito deverá ser registrado aqui antes de ser modelado como Aggregate, Entity, Value Object, Domain Service ou Domain Event.
 
 ---
 
-## 3. Contextos do Domínio
+# 2. Regras Gerais
 
-> Contextos de negócio que compõem o domínio e suas responsabilidades.
-
-| Contexto | Responsabilidade | Core Domain? |
-|----------|------------------|--------------|
-| [Contexto 1] | [Responsabilidade] | Sim/Não |
-
----
-
-## 4. Relação entre os Contextos
-
-> Descreva como os contextos se relacionam e o fluxo principal entre eles.
+- Cada conceito possui um único significado.
+- Cada conceito pertence a um único Contexto de Negócio.
+- Um conceito não pode possuir duas definições diferentes.
+- Este documento é a referência oficial da linguagem utilizada em todo o projeto.
 
 ---
 
-## 5. Definições
+# 3. Participantes
 
-> Termos, conceitos e abreviações utilizados neste documento.
-
-| Termo | Definição |
-|-------|-----------|
-| [Termo 1] | [Definição] |
-| [Termo 2] | [Definição] |
+| Conceito | Definição | Contexto |
+|----------|-----------|----------|
+| Credor | Proprietário da carteira que concede o crédito | Carteira |
+| Devedor | Pessoa que recebe o crédito | Cadastro |
 
 ---
 
-## 6. Regras de Negócio (quando aplicável)
+# 4. Operações
 
-> Liste as regras, políticas, constraints ou invariantes que regem este domínio.
-
-| ID | Regra | Descrição | Prioridade | Fonte |
-|----|-------|-----------|------------|-------|
-| BR-001 | [Nome da Regra] | [Descrição detalhada] | Alta/Média/Baixa | [Origem] |
-| BR-002 | [Nome da Regra] | [Descrição detalhada] | Alta/Média/Baixa | [Origem] |
-
----
-
-## 7. Fluxos
-
-> Descreva os fluxos principais (happy path) e alternativos do ponto de vista do negócio.
-
-### 7.1 Fluxo Principal: [Nome do Fluxo]
-
-```mermaid
-flowchart TD
-    A[Início] --> B[Passo 1]
-    B --> C{Decisão?}
-    C -->|Sim| D[Passo 2a]
-    C -->|Não| E[Passo 2b]
-    D --> F[Fim]
-    E --> F
-```
-
-### 7.2 Fluxos Alternativos / Exceções
-
-| Cenário | Gatilho | Comportamento Esperado |
-|---------|---------|------------------------|
-| [Cenário 1] | [Gatilho] | [Comportamento] |
-| [Cenário 2] | [Gatilho] | [Comportamento] |
+| Conceito | Definição | Contexto |
+|----------|-----------|----------|
+| Simulação | Estimativa financeira realizada antes da contratação | Comercial |
+| Proposta | Oferta comercial apresentada ao Devedor | Comercial |
+| Contrato de Crédito | Documento que estabelece as condições da operação | Contratos |
+| Liberação | Ato de disponibilizar o valor contratado | Contratos |
+| Empréstimo | Operação financeira em execução | Motor Financeiro |
+| Renegociação | Alteração das condições de uma operação existente | Motor Financeiro |
+| Quitação | Encerramento financeiro da operação | Motor Financeiro |
 
 ---
 
-## 8. Princípios
+# 5. Financeiro
 
-> Princípios de negócio e diretrizes gerais que orientam este foundation.
-
-- [Princípio 1]
-- [Princípio 2]
-- [Princípio 3]
-
----
-
-## 9. Critérios de Aprovação
-
-> Critérios que este foundation deve atender para ser considerado válido.
-
-| ID | Critério | Como Validar |
-|----|----------|--------------|
-| CF-001 | [Descrição] | [Método] |
-| CF-002 | [Descrição] | [Método] |
+| Conceito | Definição | Contexto |
+|----------|-----------|----------|
+| Principal | Valor originalmente emprestado | Motor Financeiro |
+| Saldo Devedor | Valor do principal ainda não amortizado | Motor Financeiro |
+| Juros | Remuneração do capital emprestado | Motor Financeiro |
+| Juros por Atraso | Juros proporcionais calculados sobre o atraso | Motor Financeiro |
+| Amortização | Redução do saldo principal | Motor Financeiro |
+| Pagamento | Registro de recebimento realizado pelo Devedor | Motor Financeiro |
+| Período Financeiro | Intervalo utilizado para cálculo financeiro | Motor Financeiro |
+| Memória de Cálculo | Demonstrativo completo dos cálculos realizados | Motor Financeiro |
+| Valor para Quitação | Valor necessário para liquidar a operação em determinada data | Motor Financeiro |
 
 ---
 
-## 10. Histórico de Versões
+# 6. Cobrança
 
-| Versão | Data | Autor | Descrição da Mudança |
-|--------|------|-------|---------------------|
-| 0.1.0 | 2026-08-01 | [Nome] | Criação inicial |
+| Conceito | Definição | Contexto |
+|----------|-----------|----------|
+| Cobrança | Processo de recuperação de crédito | Cobrança |
+| Promessa de Pagamento | Compromisso assumido pelo Devedor | Cobrança |
+| Inadimplência | Situação em que existe obrigação vencida e não paga | Cobrança |
+
+---
+
+# 7. Comunicação
+
+| Conceito | Definição | Contexto |
+|----------|-----------|----------|
+| Mensagem | Comunicação enviada ao Devedor | Comunicação |
+| Notificação | Aviso produzido por evento do domínio | Comunicação |
+| Histórico de Comunicação | Registro das interações realizadas | Comunicação |
+
+---
+
+# 8. Agenda
+
+| Conceito | Definição | Contexto |
+|----------|-----------|----------|
+| Vencimento | Data prevista para pagamento | Agenda |
+| Lembrete | Aviso programado | Agenda |
+| Compromisso | Atividade agendada pelo Credor | Agenda |
+
+---
+
+# 9. Configuração
+
+| Conceito | Definição | Contexto |
+|----------|-----------|----------|
+| Taxa de Juros | Percentual aplicado ao principal | Configurações |
+| Modalidade de Empréstimo | Define como a operação será amortizada (Livre ou Prazo Fixo) | Configurações |
+| Regra de Cálculo | Estratégia utilizada pelo Motor Financeiro | Configurações |
+| Calendário Financeiro | Regras para definição dos períodos financeiros | Configurações |
+
+---
+
+# 10. Histórico de Versões
+
+| Versão | Data | Descrição |
+|---------|------|-----------|
+| 1.0.0 | 01/08/2026 | Primeira versão oficial do Inventário do Domínio. |
