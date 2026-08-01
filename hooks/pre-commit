@@ -1,0 +1,6 @@
+#!/bin/sh
+# pre-commit — valida a documentação antes de cada commit.
+# Em caso de erro, o commit é cancelado e o relatório do validador é exibido.
+
+echo "pre-commit: validando documentação..."
+npm run docs:validate
