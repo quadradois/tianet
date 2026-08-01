@@ -84,6 +84,38 @@
 |---------------------|------------------------|-----------|
 | [Elemento] | Composição/Agregado/Referência | [Descrição] |
 
+### 8.1 Diagrama do Agregado
+
+```mermaid
+classDiagram
+    direction LR
+
+    class Carteira {
+        <<raiz do agregado>>
+    }
+    class Pessoa
+    class Empréstimo
+    class Parcela
+    class Pagamento
+    class Dinheiro
+    class Periodicidade
+    class StatusEmpréstimo
+    class EmpréstimoCriado
+    class PagamentoRegistrado
+    class EmpréstimoQuitado
+
+    Carteira *-- Empréstimo : contém
+    Empréstimo *-- Parcela : possui
+    Empréstimo o-- Pagamento : recebe
+    Empréstimo --> Pessoa : tomador
+    Empréstimo --> Dinheiro : valor
+    Empréstimo --> Periodicidade : periodicidade
+    Empréstimo --> StatusEmpréstimo : status
+    Empréstimo ..> EmpréstimoCriado : emite
+    Pagamento ..> PagamentoRegistrado : emite
+    Empréstimo ..> EmpréstimoQuitado : emite
+```
+
 ---
 
 ## 9. Histórico de Versões
