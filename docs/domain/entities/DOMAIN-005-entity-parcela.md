@@ -1,4 +1,4 @@
-# DOMAIN-004: Entity Parcela
+# DOMAIN-005: Entity Parcela
 
 > **Versão:** 0.1.0  
 > **Status:** Rascunho  

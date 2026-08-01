@@ -1,4 +1,4 @@
-# DOMAIN-012: Event Empréstimo Quitado
+# DOMAIN-012: Event Pagamento Registrado
 
 > **Versão:** 0.1.0  
 > **Status:** Rascunho  

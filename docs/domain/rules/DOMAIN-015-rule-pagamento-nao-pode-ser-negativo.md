@@ -1,4 +1,4 @@
-# DOMAIN-015: Rule Empréstimo Quitado Não Recebe Pagamentos
+# DOMAIN-015: Rule Pagamento Não Pode Ser Negativo
 
 > **Versão:** 0.1.0  
 > **Status:** Rascunho  

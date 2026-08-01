@@ -1,4 +1,4 @@
-# DOMAIN-011: Event Pagamento Registrado
+# DOMAIN-013: Event Empréstimo Quitado
 
 > **Versão:** 0.1.0  
 > **Status:** Rascunho  

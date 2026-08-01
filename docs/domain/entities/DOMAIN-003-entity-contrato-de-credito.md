@@ -1,4 +1,4 @@
-# DOMAIN-005: Entity Pagamento
+# DOMAIN-003: Entity Contrato de Crédito
 
 > **Versão:** 0.1.0  
 > **Status:** Rascunho  
@@ -66,7 +66,27 @@
 
 ---
 
-## 7. Histórico de Versões
+## 7. Invariantes
+
+> Condições que devem ser verdadeiras a qualquer momento sobre esta entidade.
+
+| ID | Invariante | Consequência da Violação |
+|----|------------|--------------------------|
+| ENT-[NNN]-INV-001 | [Descrição da condição] | [Consequência] |
+
+---
+
+## 8. Glossário
+
+> Termos específicos desta entidade e seus significados.
+
+| Termo | Definição |
+|-------|-----------|
+| [Termo 1] | [Definição] |
+
+---
+
+## 9. Histórico de Versões
 
 | Versão | Data | Autor | Descrição da Mudança |
 |--------|------|-------|---------------------|

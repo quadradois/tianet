@@ -1,4 +1,4 @@
-# DOMAIN-006: VO Dinheiro
+# DOMAIN-009: VO Status Empréstimo
 
 > **Versão:** 0.1.0  
 > **Status:** Rascunho  

@@ -1,4 +1,4 @@
-# DOMAIN-010: Event Empréstimo Criado
+# DOMAIN-011: Event Empréstimo Criado
 
 > **Versão:** 0.1.0  
 > **Status:** Rascunho  
