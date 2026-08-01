@@ -1,46 +1,47 @@
 # HANDOFF-VIGENTE — Estado Atual do Projeto
 
 > Este documento registra o estado do desenvolvimento entre sessões de trabalho, permitindo que
-> qualquer membro da equipe retome o projeto rapidamente. Este arquivo é um TEMPLATE: deve ser
-> atualizado ao final de cada sessão, substituindo os placeholders abaixo por informações reais.
+> qualquer membro da equipe retome o projeto rapidamente.
 
 ---
 
 ## Objetivo
 
-> [Propósito deste handoff e como utilizá-lo para retomar o trabalho]
+> Registrar o estado do projeto entre sessões de trabalho. Seções sem informação ativa permanecem
+> vazias até que exista conteúdo a registrar.
 
 ---
 
 ## Estado Atual
 
-> [Resumo geral do estado do projeto neste momento]
+O projeto encerra a **fase de infraestrutura documental** e entra oficialmente na fase:
+
+> **Domain Modeling**
 
 ---
 
 ## Foundation
 
-> [Documentos Foundation vigentes e seus status]
+- **FOUNDATION-001** — Visão do Produto: criado e aprovado pelo Product.
+- **FOUNDATION-002** — Modelo de Domínio e Linguagem Ubíqua: estrutura preparada (cabeçalho institucional preenchido, corpo com placeholders), aguardando preenchimento pelo Head de Produto.
 
 ---
 
 ## Product
 
-> [Épicos, Features e User Stories em curso ou previstas]
+> Nenhum documento de Product criado até o momento. Próxima camada a ser trabalhada após o domínio.
 
 ---
 
 ## Architecture
 
-> [Documentos de Arquitetura, decisões técnicas e ADRs vigentes]
+> Nenhum documento de Architecture criado até o momento.
 
 ---
 
 ## Tasks em andamento
 
-| ID | Descrição | Status | Responsável |
-|----|-----------|--------|-------------|
-| TASK-XXX | [Descrição] | [Status] | [Nome] |
+Nenhuma task em andamento.
 
 ---
 
@@ -48,28 +49,41 @@
 
 | ID | Descrição | Conclusão | Commit/Referência |
 |----|-----------|-----------|-------------------|
-| TASK-XXX | [Descrição] | YYYY-MM-DD | [Referência] |
+| TASK-001 | Criar estrutura inicial de documentação | 2026-08-01 | 5354fd8 |
+| TASK-002 | Criar templates oficiais de documentação | 2026-08-01 | a576eb7 |
+| TASK-003 | Refatorar templates para a metodologia do projeto | 2026-08-01 | c39f93b |
+| TASK-004 | Criar estrutura de handoff do projeto | 2026-08-01 | 8435c73 |
+| TASK-005 | Alinhar template Foundation ao padrão de IDs | 2026-08-01 | 5df522d |
+| TASK-006 | Criar documento FOUNDATION-002 (estrutura) | 2026-08-01 | 685e9e8 |
+| TASK-007 | Criar estrutura da camada Domain | 2026-08-01 | 855f89c |
+| TASK-008 | Criar templates da camada Domain | 2026-08-01 | 9ec4270 |
+| TASK-009 | Criar documento DOMAIN-001 (Aggregate Carteira) | 2026-08-01 | 2290b1c |
+| TASK-010 | Criar template para diagramas Mermaid | 2026-08-01 | 323b3fd |
+| TASK-011 | Configurar validação automática da documentação | 2026-08-01 | fdf9c29 |
+| TASK-012 | Integrar validação da documentação ao Git (pre-commit) | 2026-08-01 | 3b3f87d |
+| TASK-013 | Criar documento DOMAIN-002 (Entity Pessoa) | 2026-08-01 | 140fb02 |
+| TASK-014 | Criar documento DOMAIN-003 (Entity Empréstimo) | 2026-08-01 | 59432fb |
+| TASK-015 | Criar documentos restantes da camada Domain | 2026-08-01 | 3826692 |
 
 ---
 
 ## Decisões aprovadas
 
-| ID | Decisão | Data | Referência |
-|----|---------|------|------------|
-| DEC-XXX | [Decisão] | YYYY-MM-DD | [Documento/ADR] |
+> Nenhuma decisão formal registrada no repositório até o momento.
 
 ---
 
 ## Pendências
 
-- [Pendência 1]
-- [Pendência 2]
+- Preencher FOUNDATION-002 (Modelo de Domínio e Linguagem Ubíqua) pelo Head de Produto.
+- Criar documentos da camada Product (épicos, features e user stories) quando o domínio estiver modelado.
+- Registrar decisões arquiteturais (ADR) quando surgirem.
 
 ---
 
 ## Próximo passo
 
-> [Próxima ação planejada para a próxima sessão]
+> Modelagem do DOMAIN-001 — Aggregate Carteira.
 
 ---
 
@@ -77,4 +91,4 @@
 
 | Data | Autor | Resumo da Atualização |
 |------|-------|-----------------------|
-| YYYY-MM-DD | [Nome] | [Resumo] |
+| 2026-08-01 | Head de Produto | Encerramento da fase de infraestrutura documental; projeto entra em Domain Modeling. TASK-001 a TASK-015 concluídas. |
