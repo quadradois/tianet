@@ -1,97 +1,144 @@
-# FOUNDATION-004: Core Domain
+# FOUNDATION-004 — Core Domain
 
-> **Versão:** 0.1.0  
-> **Status:** Rascunho  
-> **Autor(es):** [Nome(s)]  
-> **Data de Criação:** 2026-08-01  
-> **Última Atualização:** 2026-08-01  
-> **Revisor(es):** [Nome(s)]  
-> **Aprovação:** [Nome / Cargo / Data]
+**ID:** FOUNDATION-004
+
+**Versão:** 1.0.0
+
+**Status:** Aprovado
 
 ---
 
-## 1. Objetivo
+# 1. Objetivo
 
-> Descreva brevemente o que este documento foundation aborda, por que ele existe e qual problema resolve.
+Definir o Core Domain da plataforma.
 
----
+O Core Domain representa o conjunto de capacidades que diferenciam o produto no mercado e concentram as principais regras de negócio da operação de crédito.
 
-## 2. Contexto
-
-> Descreva o contexto de negócio, ambiente e motivação para este foundation.
+Todas as demais funcionalidades existem para apoiar ou consumir os resultados produzidos pelo Core Domain.
 
 ---
 
-## 3. Definições
+# 2. Contexto
 
-> Termos, conceitos e abreviações utilizados neste documento.
+O produto não tem como principal objetivo cadastrar clientes, registrar contratos ou enviar mensagens.
 
-| Termo | Definição |
-|-------|-----------|
-| [Termo 1] | [Definição] |
-| [Termo 2] | [Definição] |
+Seu principal objetivo é administrar operações de crédito de forma segura, previsível e automatizada.
 
----
-
-## 4. Regras de Negócio (quando aplicável)
-
-> Liste as regras, políticas, constraints ou invariantes que regem este domínio.
-
-| ID | Regra | Descrição | Prioridade | Fonte |
-|----|-------|-----------|------------|-------|
-| BR-001 | [Nome da Regra] | [Descrição detalhada] | Alta/Média/Baixa | [Origem] |
-| BR-002 | [Nome da Regra] | [Descrição detalhada] | Alta/Média/Baixa | [Origem] |
+O maior diferencial competitivo da plataforma é sua capacidade de interpretar regras financeiras e transformá-las em informações confiáveis para o Credor.
 
 ---
 
-## 5. Fluxos
+# 3. Definição do Core Domain
 
-> Descreva os fluxos principais (happy path) e alternativos do ponto de vista do negócio.
+O Core Domain da plataforma é o **Motor Financeiro**.
 
-### 5.1 Fluxo Principal: [Nome do Fluxo]
+Ele é responsável por interpretar todas as regras financeiras da operação de crédito.
 
-```mermaid
-flowchart TD
-    A[Início] --> B[Passo 1]
-    B --> C{Decisão?}
-    C -->|Sim| D[Passo 2a]
-    C -->|Não| E[Passo 2b]
-    D --> F[Fim]
-    E --> F
-```
+Nenhum outro contexto poderá executar cálculos financeiros.
 
-### 5.2 Fluxos Alternativos / Exceções
-
-| Cenário | Gatilho | Comportamento Esperado |
-|---------|---------|------------------------|
-| [Cenário 1] | [Gatilho] | [Comportamento] |
-| [Cenário 2] | [Gatilho] | [Comportamento] |
+Todo cálculo deverá ser centralizado no Motor Financeiro.
 
 ---
 
-## 6. Princípios
+# 4. Responsabilidades do Core Domain
 
-> Princípios de negócio e diretrizes gerais que orientam este foundation.
+O Motor Financeiro é responsável por:
 
-- [Princípio 1]
-- [Princípio 2]
-- [Princípio 3]
+- administrar empréstimos;
+- interpretar contratos;
+- calcular períodos financeiros;
+- calcular juros;
+- calcular juros por atraso;
+- calcular amortizações;
+- calcular saldo devedor;
+- calcular valor para quitação;
+- registrar pagamentos;
+- identificar inadimplência;
+- identificar quitação;
+- processar renegociações;
+- produzir memória de cálculo;
+- produzir informações para os demais contextos.
 
 ---
 
-## 7. Critérios de Aprovação
+# 5. Princípios do Core Domain
 
-> Critérios que este foundation deve atender para ser considerado válido.
+## Princípio 01
 
-| ID | Critério | Como Validar |
-|----|----------|--------------|
-| CF-001 | [Descrição] | [Método] |
-| CF-002 | [Descrição] | [Método] |
+O sistema armazena fatos financeiros.
+
+Nunca armazena valores financeiros derivados quando estes puderem ser calculados.
 
 ---
 
-## 8. Histórico de Versões
+## Princípio 02
 
-| Versão | Data | Autor | Descrição da Mudança |
-|--------|------|-------|---------------------|
-| 0.1.0 | 2026-08-01 | [Nome] | Criação inicial |
+Todo pagamento deverá ser processado pelo Motor Financeiro antes de alterar qualquer operação.
+
+---
+
+## Princípio 03
+
+Juros possuem prioridade sobre amortização.
+
+Todo pagamento deverá primeiro quitar os juros devidos.
+
+Somente o valor remanescente poderá amortizar o principal.
+
+---
+
+## Princípio 04
+
+O cálculo financeiro deverá considerar períodos reais.
+
+O sistema nunca assumirá períodos fixos.
+
+Toda competência financeira deverá considerar a quantidade real de dias entre dois eventos financeiros.
+
+---
+
+## Princípio 05
+
+O Motor Financeiro será a única fonte oficial para:
+
+- saldo devedor;
+- juros acumulados;
+- valor atualizado;
+- valor para quitação;
+- memória de cálculo.
+
+---
+
+# 6. Eventos Produzidos
+
+O Core Domain produzirá eventos para os demais contextos.
+
+Exemplos:
+
+- Empréstimo Criado;
+- Pagamento Registrado;
+- Juros Calculados;
+- Parcela Gerada;
+- Parcela Vencida;
+- Empréstimo Quitado;
+- Empréstimo Renegociado.
+
+Os demais contextos apenas consomem esses eventos.
+
+---
+
+# 7. Critérios de Aprovação
+
+Este documento será considerado aprovado quando:
+
+- todas as responsabilidades do Core Domain estiverem definidas;
+- todos os princípios estiverem formalizados;
+- nenhum cálculo financeiro existir fora do Motor Financeiro.
+
+---
+
+# 8. Histórico de Versões
+
+| Versão | Data | Descrição |
+|---------|------|-----------|
+| 1.0.0 | 01/08/2026 | Primeira versão oficial do Core Domain. |

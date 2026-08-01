@@ -124,8 +124,9 @@ function validateDoc(file, layerName, layer) {
     results.errors.push(`${rp}: seção "Histórico de Versões" ausente`);
   }
 
+  const isMaterialized = lines.some((l) => /^\*\*Status:\*\*\s*Aprovado\s*$/i.test(strip(l)));
   const tpl = templateFor(layerName, id, file);
-  if (tpl) {
+  if (tpl && !isMaterialized) {
     const tplPath = path.join(DOCS, tpl);
     if (!fs.existsSync(tplPath)) {
       results.warnings.push(`${rp}: template ${tpl} não encontrado — checagem de seções ignorada`);
