@@ -1,73 +1,232 @@
-# DOMAIN-003: Entity Empréstimo
+# DOMAIN-003 — Entity Empréstimo
 
-> **Versão:** 0.1.0  
-> **Status:** Rascunho  
-> **Autor(es):** [Nome(s)]  
-> **Data de Criação:** 2026-08-01  
-> **Última Atualização:** 2026-08-01  
-> **Revisor(es):** [Nome(s)]  
-> **Aprovação:** [Nome / Cargo / Data]  
-> **Agregado Pai:** DOMAIN-001 (Aggregate Carteira)
+**ID:** DOMAIN-003
 
----
+**Versão:** 1.0.0
 
-## 1. Definição
+**Status:** Aprovado
 
-> Descreva o que esta entidade é no domínio, com suas próprias palavras, e o que a distingue de outros elementos.
+**Aggregate Pai:** DOMAIN-001 — Aggregate Carteira
 
 ---
 
-## 2. Identidade
+# 1. Definição
 
-> Como a identidade desta entidade é estabelecida e o que a torna única no domínio.
+O Empréstimo representa um acordo financeiro entre o proprietário da Carteira e uma Pessoa.
 
-- [Critério de identidade 1]
-- [Critério de identidade 2]
+Seu objetivo é registrar a entrega de um valor financeiro, as condições de devolução e acompanhar toda a sua evolução até a quitação ou encerramento.
 
----
-
-## 3. Responsabilidades
-
-> O que esta entidade é responsável por garantir ou representar.
-
-- [Responsabilidade 1]
-- [Responsabilidade 2]
+O Empréstimo é a principal entidade operacional do domínio.
 
 ---
 
-## 4. Ciclo de Vida
+# 2. Identidade
 
-> Descreva como esta entidade nasce, evolui e deixa de existir.
+Um Empréstimo possui identidade única dentro de uma Carteira.
 
-| Fase | Evento de Transição | Estado |
-|------|---------------------|--------|
-| [Criação] | [Evento/gatilho] | [Estado] |
-| [Transição] | [Evento/gatilho] | [Estado] |
+Após sua criação, sua identidade nunca poderá ser alterada.
 
----
-
-## 5. Regras
-
-> Regras de negócio aplicáveis a esta entidade.
-
-| ID | Regra | Fonte |
-|----|-------|-------|
-| BR-[NNN] | [Descrição] | [Foundation/Origem] |
+Todo Empréstimo pertence obrigatoriamente a uma Pessoa.
 
 ---
 
-## 6. Relacionamentos
+# 3. Responsabilidades
 
-> Relacionamentos desta entidade com os demais elementos do domínio.
+O Empréstimo é responsável por:
 
-| Elemento | Tipo de Relacionamento | Descrição |
-|----------|------------------------|-----------|
-| [Elemento] | Composição/Referência | [Descrição] |
+- registrar o valor emprestado;
+- registrar as condições do empréstimo;
+- controlar sua situação;
+- possuir Parcelas;
+- receber Pagamentos;
+- calcular o saldo devedor;
+- determinar quando está quitado;
+- emitir eventos do domínio.
+
+O Empréstimo não envia mensagens.
+
+O Empréstimo não realiza cobranças.
+
+Essas responsabilidades pertencem aos serviços do domínio.
 
 ---
 
-## 7. Histórico de Versões
+# 4. Ciclo de Vida
 
-| Versão | Data | Autor | Descrição da Mudança |
-|--------|------|-------|---------------------|
-| 0.1.0 | 2026-08-01 | [Nome] | Criação inicial |
+## Criado
+
+O empréstimo foi registrado.
+
+---
+
+## Ativo
+
+Possui saldo devedor.
+
+Pode receber pagamentos.
+
+Pode possuir parcelas pendentes.
+
+---
+
+## Quitado
+
+Não possui saldo devedor.
+
+Não poderá receber novos pagamentos.
+
+Seu histórico permanece disponível.
+
+---
+
+## Cancelado
+
+Representa um empréstimo invalidado antes de produzir efeitos financeiros.
+
+Permanece registrado para fins históricos.
+
+---
+
+# 5. Regras
+
+## RN-001
+
+Todo Empréstimo pertence exatamente a uma Pessoa.
+
+---
+
+## RN-002
+
+Todo Empréstimo pertence exatamente a uma Carteira.
+
+---
+
+## RN-003
+
+Todo Empréstimo deve possuir um valor inicial maior que zero.
+
+---
+
+## RN-004
+
+Todo Empréstimo deve possuir pelo menos uma Parcela.
+
+---
+
+## RN-005
+
+Um Empréstimo pode receber vários Pagamentos.
+
+---
+
+## RN-006
+
+Um Empréstimo Quitado não poderá receber novos Pagamentos.
+
+---
+
+## RN-007
+
+Todo Pagamento recebido reduz o saldo devedor.
+
+---
+
+## RN-008
+
+Quando o saldo devedor atingir zero, o Empréstimo deverá assumir automaticamente o status Quitado.
+
+---
+
+# 6. Relacionamentos
+
+## Aggregate
+
+Pertence ao Aggregate:
+
+DOMAIN-001 — Aggregate Carteira
+
+---
+
+## Relacionamentos
+
+Pessoa (1)
+
+↓
+
+Empréstimo (0..N)
+
+---
+
+Empréstimo (1)
+
+↓
+
+Parcela (1..N)
+
+---
+
+Empréstimo (1)
+
+↓
+
+Pagamento (0..N)
+
+---
+
+# 7. Invariantes
+
+## INV-001
+
+Todo Empréstimo pertence exatamente a uma Pessoa.
+
+---
+
+## INV-002
+
+Todo Empréstimo pertence exatamente a uma Carteira.
+
+---
+
+## INV-003
+
+Todo Empréstimo possui pelo menos uma Parcela.
+
+---
+
+## INV-004
+
+O saldo devedor nunca poderá ser negativo.
+
+---
+
+## INV-005
+
+Empréstimos Quitados não recebem novos Pagamentos.
+
+---
+
+# 8. Glossário
+
+## Empréstimo
+
+Acordo financeiro registrado na Carteira.
+
+---
+
+## Saldo Devedor
+
+Valor ainda pendente de pagamento.
+
+---
+
+## Quitação
+
+Estado em que o saldo devedor é igual a zero.
+
+---
+
+# 9. Histórico de Versões
+
+| Versão | Data | Descrição |
+|---------|------------|------------------------------|
+| 1.0.0 | 01/08/2026 | Primeira versão oficial. |
