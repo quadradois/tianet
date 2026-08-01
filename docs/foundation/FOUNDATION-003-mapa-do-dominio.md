@@ -1,97 +1,233 @@
-# FOUNDATION-003: Mapa do Domínio
+# FOUNDATION-003 — Mapa do Domínio
 
-> **Versão:** 0.1.0  
-> **Status:** Rascunho  
-> **Autor(es):** [Nome(s)]  
-> **Data de Criação:** 2026-08-01  
-> **Última Atualização:** 2026-08-01  
-> **Revisor(es):** [Nome(s)]  
-> **Aprovação:** [Nome / Cargo / Data]
+**ID:** FOUNDATION-003
+
+**Versão:** 1.0.0
+
+**Status:** Aprovado
 
 ---
 
-## 1. Objetivo
+# 1. Objetivo
 
-> Descreva brevemente o que este documento foundation aborda, por que ele existe e qual problema resolve.
+Definir os limites do domínio do Sistema de Gestão de Operações de Crédito.
 
----
+Este documento estabelece os principais contextos de negócio da plataforma, suas responsabilidades e a relação entre eles.
 
-## 2. Contexto
-
-> Descreva o contexto de negócio, ambiente e motivação para este foundation.
+Seu objetivo é garantir que cada contexto possua uma única responsabilidade de negócio, reduzindo acoplamento e facilitando a evolução do produto.
 
 ---
 
-## 3. Definições
+# 2. Contexto
 
-> Termos, conceitos e abreviações utilizados neste documento.
+O produto não é apenas um sistema para registrar empréstimos.
 
-| Termo | Definição |
-|-------|-----------|
-| [Termo 1] | [Definição] |
-| [Termo 2] | [Definição] |
+Ele é uma plataforma para administrar toda a operação de crédito de um Credor, desde o cadastro do Devedor até a quitação da dívida e o relacionamento posterior.
 
----
-
-## 4. Regras de Negócio (quando aplicável)
-
-> Liste as regras, políticas, constraints ou invariantes que regem este domínio.
-
-| ID | Regra | Descrição | Prioridade | Fonte |
-|----|-------|-----------|------------|-------|
-| BR-001 | [Nome da Regra] | [Descrição detalhada] | Alta/Média/Baixa | [Origem] |
-| BR-002 | [Nome da Regra] | [Descrição detalhada] | Alta/Média/Baixa | [Origem] |
+Todo o sistema está organizado em Contextos de Negócio (Business Contexts).
 
 ---
 
-## 5. Fluxos
+# 3. Contextos do Domínio
 
-> Descreva os fluxos principais (happy path) e alternativos do ponto de vista do negócio.
+## 3.1 Carteira
 
-### 5.1 Fluxo Principal: [Nome do Fluxo]
+Responsável pela administração da carteira do Credor.
 
-```mermaid
-flowchart TD
-    A[Início] --> B[Passo 1]
-    B --> C{Decisão?}
-    C -->|Sim| D[Passo 2a]
-    C -->|Não| E[Passo 2b]
-    D --> F[Fim]
-    E --> F
-```
+Principais responsabilidades:
 
-### 5.2 Fluxos Alternativos / Exceções
-
-| Cenário | Gatilho | Comportamento Esperado |
-|---------|---------|------------------------|
-| [Cenário 1] | [Gatilho] | [Comportamento] |
-| [Cenário 2] | [Gatilho] | [Comportamento] |
+- administração da carteira;
+- indicadores gerais;
+- visão consolidada da operação.
 
 ---
 
-## 6. Princípios
+## 3.2 Cadastro
 
-> Princípios de negócio e diretrizes gerais que orientam este foundation.
+Responsável pelos cadastros do domínio.
 
-- [Princípio 1]
-- [Princípio 2]
-- [Princípio 3]
+Inclui:
 
----
-
-## 7. Critérios de Aprovação
-
-> Critérios que este foundation deve atender para ser considerado válido.
-
-| ID | Critério | Como Validar |
-|----|----------|--------------|
-| CF-001 | [Descrição] | [Método] |
-| CF-002 | [Descrição] | [Método] |
+- Devedores;
+- informações cadastrais;
+- contatos;
+- documentos.
 
 ---
 
-## 8. Histórico de Versões
+## 3.3 Comercial
 
-| Versão | Data | Autor | Descrição da Mudança |
-|--------|------|-------|---------------------|
-| 0.1.0 | 2026-08-01 | [Nome] | Criação inicial |
+Responsável pela origem da operação.
+
+Inclui:
+
+- simulações;
+- propostas;
+- análise comercial;
+- aprovação.
+
+---
+
+## 3.4 Contratos
+
+Responsável pela formalização da operação.
+
+Inclui:
+
+- contrato;
+- assinatura;
+- liberação do crédito.
+
+---
+
+## 3.5 Motor Financeiro (Core Domain)
+
+É o principal contexto do sistema.
+
+Responsável por:
+
+- empréstimos;
+- períodos financeiros;
+- cálculo de juros;
+- amortizações;
+- pagamentos;
+- saldo devedor;
+- quitação;
+- renegociação;
+- memória de cálculo.
+
+Todo cálculo financeiro da plataforma deverá ocorrer exclusivamente neste contexto.
+
+Nenhum outro contexto poderá calcular juros, saldo ou amortizações.
+
+---
+
+## 3.6 Cobrança
+
+Responsável pela recuperação de crédito.
+
+Inclui:
+
+- cobranças;
+- acordos;
+- promessas de pagamento;
+- acompanhamento da inadimplência.
+
+---
+
+## 3.7 Comunicação
+
+Responsável pelo relacionamento com o Devedor.
+
+Inclui:
+
+- WhatsApp;
+- SMS;
+- E-mail;
+- histórico de comunicações.
+
+Este contexto nunca executa cálculos financeiros.
+
+Ele apenas consome eventos produzidos pelo Motor Financeiro.
+
+---
+
+## 3.8 Agenda
+
+Responsável pelos compromissos da operação.
+
+Inclui:
+
+- vencimentos;
+- retornos;
+- visitas;
+- lembretes.
+
+---
+
+## 3.9 Relatórios
+
+Responsável pela consolidação das informações.
+
+Inclui:
+
+- fluxo de caixa;
+- carteira ativa;
+- inadimplência;
+- juros recebidos;
+- desempenho da operação.
+
+---
+
+## 3.10 Configurações
+
+Responsável pelas parametrizações do sistema.
+
+Inclui:
+
+- taxas padrão;
+- modelos de contrato;
+- regras operacionais;
+- parâmetros financeiros.
+
+---
+
+# 4. Relação entre os Contextos
+
+O fluxo principal do sistema é:
+
+Cadastro
+
+↓
+
+Comercial
+
+↓
+
+Contratos
+
+↓
+
+Motor Financeiro
+
+↓
+
+Cobrança
+
+↓
+
+Comunicação
+
+↓
+
+Relatórios
+
+Todos os demais contextos dependem das informações produzidas pelo Motor Financeiro.
+
+---
+
+# 5. Princípios
+
+- Cada contexto possui responsabilidade única.
+- O Motor Financeiro é o Core Domain da plataforma.
+- Nenhum cálculo financeiro poderá existir fora do Motor Financeiro.
+- Comunicação nunca altera dados financeiros.
+- Relatórios apenas consolidam informações.
+
+---
+
+# 6. Critérios de Aprovação
+
+Este documento será considerado aprovado quando:
+
+- todos os contextos estiverem definidos;
+- cada contexto possuir responsabilidade única;
+- não existirem sobreposições de responsabilidade.
+
+---
+
+# 7. Histórico de Versões
+
+| Versão | Data | Descrição |
+|---------|------|-----------|
+| 1.0.0 | 01/08/2026 | Primeira versão oficial do Mapa do Domínio. |

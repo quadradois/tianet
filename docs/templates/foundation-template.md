@@ -22,7 +22,23 @@
 
 ---
 
-## 3. Definições
+## 3. Contextos do Domínio
+
+> Contextos de negócio que compõem o domínio e suas responsabilidades.
+
+| Contexto | Responsabilidade | Core Domain? |
+|----------|------------------|--------------|
+| [Contexto 1] | [Responsabilidade] | Sim/Não |
+
+---
+
+## 4. Relação entre os Contextos
+
+> Descreva como os contextos se relacionam e o fluxo principal entre eles.
+
+---
+
+## 5. Definições
 
 > Termos, conceitos e abreviações utilizados neste documento.
 
@@ -33,7 +49,7 @@
 
 ---
 
-## 4. Regras de Negócio (quando aplicável)
+## 6. Regras de Negócio (quando aplicável)
 
 > Liste as regras, políticas, constraints ou invariantes que regem este domínio.
 
@@ -44,11 +60,11 @@
 
 ---
 
-## 5. Fluxos
+## 7. Fluxos
 
 > Descreva os fluxos principais (happy path) e alternativos do ponto de vista do negócio.
 
-### 5.1 Fluxo Principal: [Nome do Fluxo]
+### 7.1 Fluxo Principal: [Nome do Fluxo]
 
 ```mermaid
 flowchart TD
@@ -60,7 +76,7 @@ flowchart TD
     E --> F
 ```
 
-### 5.2 Fluxos Alternativos / Exceções
+### 7.2 Fluxos Alternativos / Exceções
 
 | Cenário | Gatilho | Comportamento Esperado |
 |---------|---------|------------------------|
@@ -69,7 +85,7 @@ flowchart TD
 
 ---
 
-## 6. Princípios
+## 8. Princípios
 
 > Princípios de negócio e diretrizes gerais que orientam este foundation.
 
@@ -79,7 +95,7 @@ flowchart TD
 
 ---
 
-## 7. Critérios de Aprovação
+## 9. Critérios de Aprovação
 
 > Critérios que este foundation deve atender para ser considerado válido.
 
@@ -90,7 +106,7 @@ flowchart TD
 
 ---
 
-## 8. Histórico de Versões
+## 10. Histórico de Versões
 
 | Versão | Data | Autor | Descrição da Mudança |
 |--------|------|-------|---------------------|
