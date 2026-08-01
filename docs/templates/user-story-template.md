@@ -56,50 +56,7 @@ Then [mensagem de erro esperada]
 
 ---
 
-## 3. Detalhamento Técnico (Opcional)
-
-> Preencher durante o refinamento técnico / planning.
-
-### 3.1 Tarefas de Implementação
-
-| ID | Tarefa | Tipo | Estimativa (h) | Responsável | Status |
-|----|--------|------|----------------|-------------|--------|
-| TASK-001 | [Descrição] | Backend/Frontend/Infra/Teste | [Horas] | [Nome] | Pendente |
-| TASK-002 | [Descrição] | Backend/Frontend/Infra/Teste | [Horas] | [Nome] | Pendente |
-
-### 3.2 Componentes Afetados
-
-- [Componente/Serviço 1]
-- [Componente/Serviço 2]
-- [Banco de Dados / Tabela]
-
-### 3.3 Alterações de API / Contrato
-
-- **Endpoint:** `[MÉTODO] /api/v1/[recurso]`
-- **Mudança:** [Nova / Alteração / Depreciação]
-- **Breaking Change:** Sim / Não
-
----
-
-## 4. Design / UX (se aplicável)
-
-- **Wireframe/Mockup:** [Link]
-- **Estados:** [Lista de estados da tela]
-- **Acessibilidade:** [Notas específicas]
-
----
-
-## 5. Dados de Teste
-
-| Cenário | Dados de Entrada | Resultado Esperado |
-|---------|------------------|-------------------|
-| Happy Path | [JSON/Descrição] | [JSON/Descrição] |
-| Edge Case 1 | [JSON/Descrição] | [JSON/Descrição] |
-| Error Case | [JSON/Descrição] | [Erro/Comportamento] |
-
----
-
-## 6. Definition of Ready (DoR) — Checklist
+## 3. Definition of Ready (DoR) — Checklist
 
 - [ ] Narrativa clara e completa
 - [ ] Critérios de aceitação escritos em Gherkin
@@ -112,7 +69,7 @@ Then [mensagem de erro esperada]
 
 ---
 
-## 7. Definition of Done (DoD) — Checklist
+## 4. Definition of Done (DoD) — Checklist
 
 - [ ] Código implementado e revisado (PR aprovado)
 - [ ] Testes unitários passando (cobertura ≥ [X]%)
@@ -128,7 +85,7 @@ Then [mensagem de erro esperada]
 
 ---
 
-## 8. Evidências de Validação
+## 5. Evidências de Validação
 
 | Ambiente | Data | Validador | Resultado | Evidência (Link/Print) |
 |----------|------|-----------|-----------|------------------------|
@@ -138,17 +95,8 @@ Then [mensagem de erro esperada]
 
 ---
 
-## 9. Histórico de Versões
+## 6. Histórico de Versões
 
 | Versão | Data | Autor | Mudança |
 |--------|------|-------|---------|
 | 0.1.0 | YYYY-MM-DD | [Nome] | Criação inicial |
-
----
-
-## 10. Anexos
-
-- [Link para PR]
-- [Link para branch]
-- [Evidências de teste]
-- [Notas de refinamento]

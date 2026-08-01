@@ -10,27 +10,21 @@
 
 ---
 
-## 1. Contexto e Propósito
+## 1. Objetivo
 
 > Descreva brevemente o que este documento foundation aborda, por que ele existe e qual problema resolve.
 
-### 1.1 Escopo
+---
 
-- **Inclui:** [Itens dentro do escopo]
-- **Exclui:** [Itens fora do escopo]
+## 2. Contexto
 
-### 1.2 Stakeholders
-
-| Papel | Nome | Responsabilidade |
-|-------|------|------------------|
-| Product Owner | | |
-| Tech Lead | | |
-| UX Designer | | |
-| QA Lead | | |
+> Descreva o contexto de negócio, ambiente e motivação para este foundation.
 
 ---
 
-## 2. Definições e Terminologia
+## 3. Definições
+
+> Termos, conceitos e abreviações utilizados neste documento.
 
 | Termo | Definição |
 |-------|-----------|
@@ -39,7 +33,7 @@
 
 ---
 
-## 3. Regras de Negócio / Políticas
+## 4. Regras de Negócio (quando aplicável)
 
 > Liste as regras, políticas, constraints ou invariantes que regem este domínio.
 
@@ -50,27 +44,9 @@
 
 ---
 
-## 4. Modelos de Dados / Entidades
+## 5. Fluxos
 
-> Descreva as entidades principais, seus atributos e relacionamentos.
-
-### 4.1 Entidade: [Nome da Entidade]
-
-| Atributo | Tipo | Obrigatório | Descrição | Restrições |
-|----------|------|-------------|-----------|------------|
-| id | UUID | Sim | Identificador único | PK |
-| [atributo] | [tipo] | Sim/Não | [descrição] | [regras] |
-
-### 4.2 Relacionamentos
-
-- **[Entidade A]** 1 — N **[Entidade B]**: [Descrição]
-- **[Entidade C]** N — M **[Entidade D]**: [Descrição]
-
----
-
-## 5. Fluxos e Processos
-
-> Descreva os fluxos principais (happy path) e alternativos.
+> Descreva os fluxos principais (happy path) e alternativos do ponto de vista do negócio.
 
 ### 5.1 Fluxo Principal: [Nome do Fluxo]
 
@@ -93,21 +69,24 @@ flowchart TD
 
 ---
 
-## 6. Requisitos Não-Funcionais
+## 6. Princípios
 
-| ID | Categoria | Requisito | Critério de Aceitação |
-|----|-----------|-----------|----------------------|
-| NFR-001 | Performance | [Descrição] | [Métrica/Valor] |
-| NFR-002 | Segurança | [Descrição] | [Métrica/Valor] |
-| NFR-003 | Disponibilidade | [Descrição] | [Métrica/Valor] |
+> Princípios de negócio e diretrizes gerais que orientam este foundation.
+
+- [Princípio 1]
+- [Princípio 2]
+- [Princípio 3]
 
 ---
 
-## 7. Rastreabilidade
+## 7. Critérios de Aprovação
 
-| Item Foundation | Épicos Relacionados | Features Relacionadas | ADRs Relacionados |
-|-----------------|---------------------|----------------------|-------------------|
-| [Seção/Regra] | [EPIC-XXX] | [FEAT-XXX] | [ADR-XXX] |
+> Critérios que este foundation deve atender para ser considerado válido.
+
+| ID | Critério | Como Validar |
+|----|----------|--------------|
+| CF-001 | [Descrição] | [Método] |
+| CF-002 | [Descrição] | [Método] |
 
 ---
 
@@ -116,11 +95,3 @@ flowchart TD
 | Versão | Data | Autor | Descrição da Mudança |
 |--------|------|-------|---------------------|
 | 0.1.0 | YYYY-MM-DD | [Nome] | Criação inicial |
-
----
-
-## 9. Anexos e Referências
-
-- [Link para documento relacionado 1]
-- [Link para documento relacionado 2]
-- [Referência externa]
