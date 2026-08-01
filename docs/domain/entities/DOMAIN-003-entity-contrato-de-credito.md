@@ -1,93 +1,219 @@
-# DOMAIN-003: Entity Contrato de Crédito
+# DOMAIN-003 — Entity Contrato de Crédito
 
-> **Versão:** 0.1.0  
-> **Status:** Rascunho  
-> **Autor(es):** [Nome(s)]  
-> **Data de Criação:** 2026-08-01  
-> **Última Atualização:** 2026-08-01  
-> **Revisor(es):** [Nome(s)]  
-> **Aprovação:** [Nome / Cargo / Data]  
-> **Agregado Pai:** DOMAIN-001 (Aggregate Carteira)
+**ID:** DOMAIN-003
 
----
+**Versão:** 1.0.0
 
-## 1. Definição
+**Status:** Aprovado
 
-> Descreva o que esta entidade é no domínio, com suas próprias palavras, e o que a distingue de outros elementos.
+**Aggregate Pai:** DOMAIN-001 — Aggregate Carteira
 
 ---
 
-## 2. Identidade
+# 1. Definição
 
-> Como a identidade desta entidade é estabelecida e o que a torna única no domínio.
+O Contrato de Crédito representa o acordo formal estabelecido entre o Credor e o Devedor.
 
-- [Critério de identidade 1]
-- [Critério de identidade 2]
+Nele são definidas todas as condições comerciais e financeiras que regerão a operação durante todo o seu ciclo de vida.
 
----
+O Contrato não controla pagamentos, saldos ou amortizações.
 
-## 3. Responsabilidades
-
-> O que esta entidade é responsável por garantir ou representar.
-
-- [Responsabilidade 1]
-- [Responsabilidade 2]
+Seu papel é definir as regras que serão executadas pelo Empréstimo através do Motor Financeiro.
 
 ---
 
-## 4. Ciclo de Vida
+# 2. Identidade
 
-> Descreva como esta entidade nasce, evolui e deixa de existir.
+Um Contrato de Crédito possui identidade única dentro da Carteira.
 
-| Fase | Evento de Transição | Estado |
-|------|---------------------|--------|
-| [Criação] | [Evento/gatilho] | [Estado] |
-| [Transição] | [Evento/gatilho] | [Estado] |
+Após sua formalização, sua identidade permanece imutável.
 
----
-
-## 5. Regras
-
-> Regras de negócio aplicáveis a esta entidade.
-
-| ID | Regra | Fonte |
-|----|-------|-------|
-| BR-[NNN] | [Descrição] | [Foundation/Origem] |
+As condições originalmente pactuadas permanecem registradas para fins históricos, mesmo quando houver renegociação.
 
 ---
 
-## 6. Relacionamentos
+# 3. Responsabilidades
 
-> Relacionamentos desta entidade com os demais elementos do domínio.
+O Contrato de Crédito é responsável por:
 
-| Elemento | Tipo de Relacionamento | Descrição |
-|----------|------------------------|-----------|
-| [Elemento] | Composição/Referência | [Descrição] |
+- definir o valor originalmente contratado;
+- definir a taxa de juros;
+- definir a modalidade da operação;
+- definir a periodicidade financeira;
+- definir a data da contratação;
+- definir o primeiro vencimento;
+- definir o dia de vencimento;
+- registrar as condições negociadas entre as partes;
+- servir como referência para a criação do Empréstimo.
 
----
+O Contrato não realiza cálculos financeiros.
 
-## 7. Invariantes
+O Contrato não recebe pagamentos.
 
-> Condições que devem ser verdadeiras a qualquer momento sobre esta entidade.
-
-| ID | Invariante | Consequência da Violação |
-|----|------------|--------------------------|
-| ENT-[NNN]-INV-001 | [Descrição da condição] | [Consequência] |
-
----
-
-## 8. Glossário
-
-> Termos específicos desta entidade e seus significados.
-
-| Termo | Definição |
-|-------|-----------|
-| [Termo 1] | [Definição] |
+O Contrato não controla saldo devedor.
 
 ---
 
-## 9. Histórico de Versões
+# 4. Ciclo de Vida
 
-| Versão | Data | Autor | Descrição da Mudança |
-|--------|------|-------|---------------------|
-| 0.1.0 | 2026-08-01 | [Nome] | Criação inicial |
+## Proposta
+
+As condições comerciais estão sendo negociadas.
+
+---
+
+## Formalizado
+
+As partes concordaram com as condições.
+
+O contrato está apto para originar um Empréstimo.
+
+---
+
+## Executado
+
+O crédito foi liberado e originou um Empréstimo.
+
+---
+
+## Encerrado
+
+O contrato encontra-se encerrado por conclusão ou substituição em decorrência de renegociação.
+
+Seu histórico permanece preservado.
+
+---
+
+# 5. Regras
+
+## RN-001
+
+Todo Contrato pertence exatamente a uma Carteira.
+
+---
+
+## RN-002
+
+Todo Contrato pertence exatamente a um Devedor.
+
+---
+
+## RN-003
+
+Todo Contrato deve possuir um valor contratado maior que zero.
+
+---
+
+## RN-004
+
+Todo Contrato deve possuir uma taxa de juros válida.
+
+---
+
+## RN-005
+
+Todo Contrato deve possuir uma Modalidade de Empréstimo.
+
+---
+
+## RN-006
+
+Todo Contrato deve possuir uma Periodicidade.
+
+---
+
+## RN-007
+
+Todo Contrato deve definir o primeiro vencimento.
+
+---
+
+## RN-008
+
+Um Contrato somente poderá originar um Empréstimo após sua formalização.
+
+---
+
+# 6. Relacionamentos
+
+## Aggregate
+
+Pertence ao Aggregate:
+
+DOMAIN-001 — Aggregate Carteira
+
+---
+
+## Relacionamentos
+
+Devedor (1)
+
+↓
+
+Contrato de Crédito (0..N)
+
+---
+
+Contrato de Crédito (1)
+
+↓
+
+Empréstimo (0..1)
+
+Na versão 1 do produto, um Contrato origina exatamente um Empréstimo.
+
+Caso exista renegociação, um novo Contrato deverá ser criado, preservando o histórico do anterior.
+
+---
+
+# 7. Invariantes
+
+## INV-001
+
+Todo Contrato pertence exatamente a uma Carteira.
+
+---
+
+## INV-002
+
+Todo Contrato pertence exatamente a um Devedor.
+
+---
+
+## INV-003
+
+As condições originalmente contratadas nunca são alteradas.
+
+---
+
+## INV-004
+
+Todo Empréstimo deve possuir exatamente um Contrato de origem.
+
+---
+
+# 8. Glossário
+
+## Contrato de Crédito
+
+Documento que estabelece as condições comerciais e financeiras da operação.
+
+---
+
+## Formalização
+
+Momento em que as condições deixam de ser proposta e passam a produzir efeitos jurídicos e operacionais.
+
+---
+
+## Originação
+
+Processo de criação de um Empréstimo a partir de um Contrato formalizado.
+
+---
+
+# 9. Histórico de Versões
+
+| Versão | Data | Descrição |
+|---------|------|-----------|
+| 1.0.0 | 01/08/2026 | Primeira versão oficial do Contrato de Crédito. |
