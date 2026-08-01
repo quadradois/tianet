@@ -7,7 +7,7 @@
 > **Última Atualização:** 2026-08-01  
 > **Revisor(es):** [Nome(s)]  
 > **Aprovação:** [Nome / Cargo / Data]  
-> **Agregado de Origem:** AGG-[NNN]
+> **Agregado de Origem:** DOMAIN-001 (Aggregate Carteira)
 
 ---
 
