@@ -18,7 +18,7 @@ const LAYERS = {
     headerRequired: ['Versão', 'Status'],
   },
   product: {
-    idPattern: /^(PRODUCT|EPIC|FEAT|US)-\d+/i,
+    idPattern: /^(PRODUCT|EPIC|FEAT(?:URE)?|US)-\d+/i,
     headerRequired: ['Status'],
   },
   decisions: {
@@ -43,6 +43,7 @@ const DOMAIN_TEMPLATES = {
 const PRODUCT_TEMPLATES = {
   EPIC: 'templates/epic-template.md',
   FEAT: 'templates/feature-template.md',
+  FEATURE: 'templates/feature-template.md',
   US: 'templates/user-story-template.md',
 };
 
@@ -76,7 +77,7 @@ function sectionsOf(file) {
 
 function idOf(lines) {
   for (const line of lines) {
-    const m = line.match(/^#\s+((?:FOUNDATION|DOMAIN|ENT|VO|DSVC|EVT|BR|PRODUCT|EPIC|FEAT|US|ADR)-\d+)\b/i);
+    const m = line.match(/^#\s+((?:FOUNDATION|DOMAIN|ENT|VO|DSVC|EVT|BR|PRODUCT|EPIC|FEAT(?:URE)?|US|ADR)-\d+)\b/i);
     if (m) return m[1];
   }
   return null;
@@ -94,7 +95,7 @@ function templateFor(layerName, id, file) {
     return DOMAIN_TEMPLATES[sub] || null;
   }
   if (layerName === 'product') {
-    const m = id && id.match(/^(EPIC|FEAT|US)-/i);
+    const m = id && id.match(/^(EPIC|FEAT(?:URE)?|US)-/i);
     return m ? PRODUCT_TEMPLATES[m[1].toUpperCase()] : null;
   }
   return null;
@@ -196,7 +197,7 @@ function main() {
     for (const f of walk(dir)) {
       const txt = fs.readFileSync(f, 'utf8');
       const id = idOf(txt.split(/\r?\n/));
-      const re = /(?:FOUNDATION|PRODUCT|EPIC|FEAT|US|DOMAIN|ENT|VO|DSVC|EVT|BR|ADR)-\d{2,}/g;
+      const re = /(?:FOUNDATION|PRODUCT|EPIC|FEAT(?:URE)?|US|DOMAIN|ENT|VO|DSVC|EVT|BR|ADR)-\d{2,}/g;
       const seen = new Set();
       let m;
       while ((m = re.exec(txt))) {
