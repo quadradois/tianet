@@ -1,68 +1,73 @@
-# DOMAIN-015: Rule Pagamento Não Pode Ser Negativo
+# DOMAIN-015 — Business Rule Pagamento não pode ser negativo
 
-> **Versão:** 0.1.0  
-> **Status:** Rascunho  
-> **Autor(es):** [Nome(s)]  
-> **Data de Criação:** 2026-08-01  
-> **Última Atualização:** 2026-08-01  
-> **Revisor(es):** [Nome(s)]  
-> **Aprovação:** [Nome / Cargo / Data]  
-> **Aplicável a:** [FOUNDATION / AGG / ENT / VO]
+**ID:** DOMAIN-015
+
+**Versão:** 1.0.0
+
+**Status:** Aprovado
 
 ---
 
-## 1. Identificador
+# 1. Identificador
 
-> Identificação oficial da regra e onde ela se aplica no domínio.
-
-| Campo | Valor |
-|-------|-------|
-| ID | BR-[NNN] |
-| Área de Aplicação | [FOUNDATION / AGG / ENT / VO] |
-| Documento de Origem | [Foundation/Outro] |
+BR-002
 
 ---
 
-## 2. Descrição
+# 2. Descrição
 
-> Descreva a regra em uma ou duas frases, em linguagem de negócio.
+Todo Pagamento registrado na plataforma deverá possuir valor maior que zero.
 
----
-
-## 3. Motivação
-
-> Por que esta regra existe — o problema que ela evita ou o objetivo que garante.
+A plataforma não permite registros de pagamentos negativos ou iguais a zero.
 
 ---
 
-## 4. Regra
+# 3. Motivação
 
-> Enuncie a regra de forma precisa e verificável, como o negócio a executa.
+Um Pagamento representa o recebimento de um valor pelo Credor.
 
----
+Valores negativos ou nulos não representam um recebimento válido e podem comprometer a integridade financeira da operação.
 
-## 5. Exceções
-
-> Situações em que a regra não se aplica ou se aplica de forma diferente.
-
-| Exceção | Condição | Comportamento Diferente |
-|---------|----------|-------------------------|
-| [Exceção 1] | [Condição] | [Comportamento] |
+Estornos deverão ser tratados por regras próprias, nunca através de pagamentos com valor negativo.
 
 ---
 
-## 6. Exemplos
+# 4. Regra
 
-> Exemplos de aplicação da regra para facilitar a compreensão.
+Todo Pagamento deverá possuir valor monetário maior que zero.
 
-| Situação | Aplicação da Regra | Resultado |
-|----------|--------------------|-----------|
-| [Situação] | [Como a regra se aplica] | [Resultado] |
+Caso contrário, o registro deverá ser rejeitado pelo domínio.
 
 ---
 
-## 7. Histórico de Versões
+# 5. Exceções
 
-| Versão | Data | Autor | Descrição da Mudança |
-|--------|------|-------|---------------------|
-| 0.1.0 | 2026-08-01 | [Nome] | Criação inicial |
+Não existem exceções na versão 1 da plataforma.
+
+Estornos serão tratados por processo específico.
+
+---
+
+# 6. Exemplos
+
+## Válido
+
+Pagamento de R$ 350,00.
+
+Pagamento de R$ 0,01.
+
+---
+
+## Inválido
+
+Pagamento de R$ 0,00.
+
+Pagamento de R$ -100,00.
+
+---
+
+# 7. Histórico de Versões
+
+| Versão | Data | Descrição |
+|---------|------|-----------|
+| 1.0.0 | 01/08/2026 | Primeira versão oficial da regra de validação de valores de Pagamento. |
