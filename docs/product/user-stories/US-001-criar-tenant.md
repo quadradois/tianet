@@ -2,43 +2,66 @@
 
 **ID:** US-001
 
-**Versão:** 0.1.0
+**Versão:** 1.0.0
 
-**Status:** Rascunho
+**Status:** Aprovado
 
 ---
 
 # 1. História
 
-Como <perfil>
+**Como** Administrador da Plataforma
 
-Quero <objetivo>
+**Quero** criar uma nova organização (Tenant)
 
-Para <benefício>
+**Para** disponibilizar um novo ambiente operacional na TiaNet de forma segura, isolada e pronta para utilização.
 
 ---
 
 # 2. Critérios de Aceitação
 
-[placeholder]
+A User Story será considerada concluída quando:
+
+- o sistema permitir informar os dados obrigatórios do Tenant;
+- os dados forem validados antes da criação;
+- a unicidade do Tenant for garantida;
+- o Tenant for criado com sucesso;
+- a Carteira padrão for criada automaticamente;
+- o primeiro Usuário Administrador for criado automaticamente;
+- o Usuário Administrador for associado ao Tenant;
+- as configurações iniciais forem provisionadas;
+- o processo for registrado para auditoria;
+- o sistema confirmar a criação da organização.
 
 ---
 
 # 3. Regras de Negócio Relacionadas
 
-[placeholder]
+Esta User Story está relacionada às seguintes regras e documentos:
+
+- DOMAIN-017 — Aggregate Tenant;
+- DOMAIN-018 — Entity Usuário;
+- DOMAIN-019 — Toda Carteira pertence exatamente a um Tenant;
+- FOUNDATION-006 — Arquitetura Multi-Tenant;
+- FEATURE-001 — Criar Tenant.
 
 ---
 
 # 4. Dependências
 
-[placeholder]
+Esta User Story depende de:
+
+- FEATURE-001 — Criar Tenant;
+- EPIC-001 — Gerenciar Tenant;
+- PRODUCT-001 — Capability Administrar Plataforma.
 
 ---
 
 # 5. Observações Técnicas
 
-[placeholder]
+A implementação deverá tratar a criação do Tenant como um processo de provisionamento e não como um simples cadastro.
+
+Todo o fluxo deverá ser executado de forma consistente, garantindo que a organização esteja pronta para operar ao final do processo.
 
 ---
 
@@ -46,6 +69,4 @@ Para <benefício>
 
 | Versão | Data | Descrição |
 |---------|------|-----------|
-| 0.1.0 | 2026-08-01 | [Descrição da mudança] |
-
----
+| 1.0.0 | 01/08/2026 | Primeira versão oficial da User Story Criar Tenant. |
