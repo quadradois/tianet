@@ -1,53 +1,63 @@
-# DOMAIN-013: Event Empréstimo Quitado
+# DOMAIN-013 — Domain Event Empréstimo Quitado
 
-> **Versão:** 0.1.0  
-> **Status:** Rascunho  
-> **Autor(es):** [Nome(s)]  
-> **Data de Criação:** 2026-08-01  
-> **Última Atualização:** 2026-08-01  
-> **Revisor(es):** [Nome(s)]  
-> **Aprovação:** [Nome / Cargo / Data]  
-> **Agregado de Origem:** DOMAIN-001 (Aggregate Carteira)
+**ID:** DOMAIN-013
+
+**Versão:** 1.0.0
+
+**Status:** Aprovado
 
 ---
 
-## 1. Descrição
+# 1. Descrição
 
-> Descreva o que este evento comunica sobre o domínio — o fato de negócio que aconteceu.
+O evento Empréstimo Quitado representa a conclusão financeira de uma operação de crédito.
 
----
+Ele é publicado quando o Motor Financeiro identifica que o saldo principal da operação foi integralmente amortizado e não existem obrigações financeiras pendentes.
 
-## 2. Quando Ocorre
-
-> Descreva as situações de negócio em que este evento é publicado.
-
-- [Situação 1]
-- [Situação 2]
+A partir deste momento, o Empréstimo passa para o estado **Quitado**.
 
 ---
 
-## 3. Dados Publicados
+# 2. Quando Ocorre
 
-> Informações de negócio que acompanham este evento.
+O evento deverá ser publicado quando:
 
-| Campo | Descrição | Origem |
-|-------|-----------|--------|
-| [Campo 1] | [Descrição] | [Entidade/VO] |
-
----
-
-## 4. Consumidores
-
-> Quem reage a este evento e o que faz em resposta.
-
-| Consumidor | Reação ao Evento |
-|------------|------------------|
-| [Elemento/Sistema] | [Reação] |
+- o saldo principal da operação atingir zero;
+- não existirem parcelas pendentes, quando aplicável;
+- todas as regras financeiras forem satisfeitas;
+- o Empréstimo for atualizado para o estado Quitado.
 
 ---
 
-## 5. Histórico de Versões
+# 3. Dados Publicados
 
-| Versão | Data | Autor | Descrição da Mudança |
-|--------|------|-------|---------------------|
-| 0.1.0 | 2026-08-01 | [Nome] | Criação inicial |
+O evento deverá disponibilizar, no mínimo:
+
+- Identificador do Empréstimo;
+- Identificador do Contrato de Crédito;
+- Identificador da Carteira;
+- Identificador do Devedor;
+- Data da quitação;
+- Valor total amortizado;
+- Valor total de juros pagos;
+- Quantidade de pagamentos realizados;
+- Situação final da operação.
+
+---
+
+# 4. Consumidores
+
+Exemplos de consumidores deste evento:
+
+- Comunicação;
+- Relatórios;
+- Agenda;
+- Auditoria.
+
+---
+
+# 5. Histórico de Versões
+
+| Versão | Data | Descrição |
+|---------|------|-----------|
+| 1.0.0 | 01/08/2026 | Primeira versão oficial do evento Empréstimo Quitado. |
