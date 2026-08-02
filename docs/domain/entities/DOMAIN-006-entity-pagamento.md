@@ -1,73 +1,228 @@
-# DOMAIN-006: Entity Pagamento
+# DOMAIN-006 — Entity Pagamento
 
-> **Versão:** 0.1.0  
-> **Status:** Rascunho  
-> **Autor(es):** [Nome(s)]  
-> **Data de Criação:** 2026-08-01  
-> **Última Atualização:** 2026-08-01  
-> **Revisor(es):** [Nome(s)]  
-> **Aprovação:** [Nome / Cargo / Data]  
-> **Agregado Pai:** DOMAIN-001 (Aggregate Carteira)
+**ID:** DOMAIN-006
 
----
+**Versão:** 1.0.0
 
-## 1. Definição
+**Status:** Aprovado
 
-> Descreva o que esta entidade é no domínio, com suas próprias palavras, e o que a distingue de outros elementos.
+**Aggregate Pai:** DOMAIN-001 — Aggregate Carteira
 
 ---
 
-## 2. Identidade
+# 1. Definição
 
-> Como a identidade desta entidade é estabelecida e o que a torna única no domínio.
+O Pagamento representa o registro financeiro de um valor recebido pelo Credor para liquidação total ou parcial de uma operação de crédito.
 
-- [Critério de identidade 1]
-- [Critério de identidade 2]
+O Pagamento nunca executa cálculos financeiros.
 
----
-
-## 3. Responsabilidades
-
-> O que esta entidade é responsável por garantir ou representar.
-
-- [Responsabilidade 1]
-- [Responsabilidade 2]
+Ele representa o resultado do processamento realizado pelo Motor Financeiro.
 
 ---
 
-## 4. Ciclo de Vida
+# 2. Identidade
 
-> Descreva como esta entidade nasce, evolui e deixa de existir.
+Um Pagamento possui identidade única dentro de um Empréstimo.
 
-| Fase | Evento de Transição | Estado |
-|------|---------------------|--------|
-| [Criação] | [Evento/gatilho] | [Estado] |
-| [Transição] | [Evento/gatilho] | [Estado] |
+Após seu registro sua identidade permanece imutável.
 
 ---
 
-## 5. Regras
+# 3. Responsabilidades
 
-> Regras de negócio aplicáveis a esta entidade.
+O Pagamento é responsável por:
 
-| ID | Regra | Fonte |
-|----|-------|-------|
-| BR-[NNN] | [Descrição] | [Foundation/Origem] |
+- registrar a data do recebimento;
+- registrar o valor recebido;
+- registrar a distribuição do valor entre juros e amortização;
+- registrar quais Parcelas foram liquidadas, quando aplicável;
+- registrar o resultado do processamento financeiro;
+- compor o histórico financeiro da operação.
+
+O Pagamento não calcula juros.
+
+O Pagamento não calcula amortizações.
+
+O Pagamento não altera diretamente o Empréstimo.
+
+Essas responsabilidades pertencem exclusivamente ao Motor Financeiro.
 
 ---
 
-## 6. Relacionamentos
+# 4. Ciclo de Vida
 
-> Relacionamentos desta entidade com os demais elementos do domínio.
+## Recebido
 
-| Elemento | Tipo de Relacionamento | Descrição |
-|----------|------------------------|-----------|
-| [Elemento] | Composição/Referência | [Descrição] |
+O valor foi recebido pelo Credor.
 
 ---
 
-## 7. Histórico de Versões
+## Processado
 
-| Versão | Data | Autor | Descrição da Mudança |
-|--------|------|-------|---------------------|
-| 0.1.0 | 2026-08-01 | [Nome] | Criação inicial |
+O Motor Financeiro distribuiu o pagamento conforme as regras da operação.
+
+---
+
+## Confirmado
+
+O estado do Empréstimo foi atualizado.
+
+O Pagamento passa a compor definitivamente o histórico da operação.
+
+---
+
+## Estornado
+
+O registro permanece preservado para auditoria.
+
+Seu efeito financeiro foi revertido conforme as regras da operação.
+
+---
+
+# 5. Regras
+
+## RN-001
+
+Todo Pagamento pertence exatamente a um Empréstimo.
+
+---
+
+## RN-002
+
+Todo Pagamento possui um valor recebido maior que zero.
+
+---
+
+## RN-003
+
+Todo Pagamento deverá ser processado pelo Motor Financeiro.
+
+---
+
+## RN-004
+
+Todo Pagamento deverá registrar quanto foi destinado aos juros.
+
+---
+
+## RN-005
+
+Todo Pagamento deverá registrar quanto foi destinado à amortização.
+
+---
+
+## RN-006
+
+Quando existirem Parcelas, o Pagamento deverá registrar quais Parcelas foram liquidadas total ou parcialmente.
+
+---
+
+## RN-007
+
+Todo Pagamento deverá atualizar o estado atual do Empréstimo através do Motor Financeiro.
+
+---
+
+# 6. Relacionamentos
+
+## Aggregate
+
+Pertence ao Aggregate:
+
+DOMAIN-001 — Aggregate Carteira
+
+---
+
+## Relacionamentos
+
+Empréstimo (1)
+
+↓
+
+Pagamento (0..N)
+
+---
+
+Pagamento (0..N)
+
+↓
+
+Parcela
+
+(apenas quando a modalidade for Prazo Fixo)
+
+---
+
+Pagamento
+
+↓
+
+Motor Financeiro
+
+↓
+
+Atualiza
+
+↓
+
+Empréstimo
+
+---
+
+# 7. Invariantes
+
+## INV-001
+
+Todo Pagamento pertence exatamente a um Empréstimo.
+
+---
+
+## INV-002
+
+O valor recebido deve ser maior que zero.
+
+---
+
+## INV-003
+
+A soma dos valores destinados aos juros e à amortização deverá ser exatamente igual ao valor recebido.
+
+---
+
+## INV-004
+
+Todo Pagamento confirmado compõe permanentemente o histórico da operação.
+
+---
+
+## INV-005
+
+Nenhum Pagamento poderá alterar diretamente o Empréstimo sem processamento do Motor Financeiro.
+
+---
+
+# 8. Glossário
+
+## Pagamento
+
+Registro financeiro de um valor recebido para liquidação total ou parcial de uma operação.
+
+---
+
+## Processamento Financeiro
+
+Execução realizada pelo Motor Financeiro para distribuir corretamente o valor recebido.
+
+---
+
+## Estorno
+
+Processo controlado de reversão dos efeitos financeiros de um Pagamento.
+
+---
+
+# 9. Histórico de Versões
+
+| Versão | Data | Descrição |
+|---------|------|-----------|
+| 1.0.0 | 01/08/2026 | Primeira versão oficial da Entity Pagamento. |
