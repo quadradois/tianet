@@ -1,90 +1,137 @@
-# DOMAIN-001: Aggregate Carteira
+# DOMAIN-001 — Aggregate Carteira
 
-> **Versão:** 0.1.0  
-> **Status:** Rascunho  
-> **Autor(es):** [Nome(s)]  
-> **Data de Criação:** 2026-08-01  
-> **Última Atualização:** 2026-08-01  
-> **Revisor(es):** [Nome(s)]  
-> **Aprovação:** [Nome / Cargo / Data]  
-> **Foundation Relacionado:** FOUNDATION-[NNN]
+**ID:** DOMAIN-001
+
+**Versão:** 1.0.0
+
+**Status:** Aprovado
 
 ---
 
-## 1. Objetivo
+# 1. Objetivo
 
-> Descreva o propósito deste agregado, o que ele representa no domínio e o problema que resolve.
+A Carteira representa o Aggregate Root do domínio de Operações de Crédito.
 
----
+Ela é a responsável por garantir a consistência de todas as operações financeiras pertencentes ao Credor.
 
-## 2. Responsabilidades
+Toda operação de crédito pertence exatamente a uma Carteira.
 
-> Liste as responsabilidades deste agregado — o que ele é dono e o que ele garante.
-
-- [Responsabilidade 1]
-- [Responsabilidade 2]
+Nenhuma entidade deste domínio poderá existir fora de uma Carteira.
 
 ---
 
-## 3. Invariantes
+# 2. Responsabilidades
 
-> Condições que devem ser verdadeiras a qualquer momento, independentemente do estado em que o agregado se encontra.
+A Carteira é responsável por:
 
-| ID | Invariante | Consequência da Violação |
-|----|------------|--------------------------|
-| AGG-[NNN]-INV-001 | [Descrição da condição] | [Consequência] |
+- manter o conjunto de operações de crédito;
+- manter o conjunto de Devedores;
+- garantir a unicidade das operações;
+- garantir a integridade do Aggregate;
+- servir como fronteira transacional do domínio;
+- impedir relacionamentos entre operações pertencentes a Carteiras distintas.
 
----
+A Carteira não executa cálculos financeiros.
 
-## 4. Entidades Filhas
-
-> Entidades que compõem este agregado e vivem dentro de sua fronteira de consistência.
-
-| ID | Entidade | Papel no Agregado | É a Raiz? |
-|----|----------|-------------------|----------|
-| ENT-[NNN] | [Nome] | [Papel] | Sim/Não |
+Essa responsabilidade pertence exclusivamente ao Motor Financeiro.
 
 ---
 
-## 5. Value Objects
+# 3. Invariantes
 
-> Value Objects que compõem este agregado.
+## INV-001
 
-| ID | Value Object | Uso no Agregado |
-|----|--------------|-----------------|
-| VO-[NNN] | [Nome] | [Como é utilizado] |
+Todo Devedor pertence exatamente a uma Carteira.
 
 ---
 
-## 6. Eventos
+## INV-002
 
-> Domain Events emitidos por este agregado.
-
-| ID | Evento | Significado |
-|----|--------|-------------|
-| EVT-[NNN] | [Nome] | [O que o evento comunica] |
+Todo Contrato de Crédito pertence exatamente a uma Carteira.
 
 ---
 
-## 7. Regras
+## INV-003
 
-> Regras de negócio que governam este agregado.
-
-| ID | Regra | Fonte |
-|----|-------|-------|
-| BR-[NNN] | [Descrição] | [Foundation/Origem] |
+Todo Empréstimo pertence exatamente a uma Carteira.
 
 ---
 
-## 8. Relacionamentos
+## INV-004
 
-> Relacionamentos deste agregado com os demais elementos do domínio.
+Nenhuma entidade poderá ser compartilhada entre Carteiras.
 
-| Agregado / Elemento | Tipo de Relacionamento | Descrição |
-|---------------------|------------------------|-----------|
-| [Elemento] | Composição/Agregado/Referência | [Descrição] |
+---
 
-### 8.1 Diagrama do Agregado
+## INV-005
+
+Toda operação financeira deverá respeitar os limites da própria Carteira.
+
+---
+
+# 4. Entidades Filhas
+
+A Carteira é composta pelas seguintes entidades:
+
+- Devedor
+- Contrato de Crédito
+- Empréstimo
+- Parcela
+- Pagamento
+
+---
+
+# 5. Value Objects
+
+A Carteira utiliza os seguintes Value Objects:
+
+- Dinheiro
+- Periodicidade
+- Modalidade de Empréstimo
+
+---
+
+# 6. Domain Services
+
+A Carteira utiliza o seguinte Domain Service:
+
+- Motor Financeiro
+
+---
+
+# 7. Domain Events
+
+A Carteira produz ou participa dos seguintes eventos:
+
+- Empréstimo Criado
+- Pagamento Registrado
+- Empréstimo Quitado
+
+---
+
+# 8. Relacionamentos
+
+A Carteira estabelece a fronteira de consistência do domínio.
+
+Todas as entidades pertencem exatamente a uma Carteira.
+
+Todo processamento financeiro ocorre dentro dessa fronteira.
+
+O diagrama Mermaid deve representar:
+
+Carteira
+│
+├── Devedor
+├── Contrato de Crédito
+├── Empréstimo
+│ ├── Parcela
+│ └── Pagamento
+│
+├── Dinheiro
+├── Periodicidade
+├── Modalidade de Empréstimo
+│
+└── Motor Financeiro
 
 ```mermaid
 classDiagram
@@ -93,24 +140,29 @@ classDiagram
     class Carteira {
         <<raiz do agregado>>
     }
-    class Pessoa
+    class Devedor
+    class ContratoDeCrédito
     class Empréstimo
     class Parcela
     class Pagamento
     class Dinheiro
     class Periodicidade
-    class StatusEmpréstimo
+    class ModalidadeDeEmpréstimo
+    class MotorFinanceiro
     class EmpréstimoCriado
     class PagamentoRegistrado
     class EmpréstimoQuitado
 
+    Carteira *-- Devedor : contém
+    Carteira *-- ContratoDeCrédito : contém
     Carteira *-- Empréstimo : contém
     Empréstimo *-- Parcela : possui
     Empréstimo o-- Pagamento : recebe
-    Empréstimo --> Pessoa : tomador
-    Empréstimo --> Dinheiro : valor
+    Empréstimo --> ContratoDeCrédito : originado por
+    Empréstimo --> Dinheiro : saldo
     Empréstimo --> Periodicidade : periodicidade
-    Empréstimo --> StatusEmpréstimo : status
+    Empréstimo --> ModalidadeDeEmpréstimo : modalidade
+    Carteira ..> MotorFinanceiro : utiliza
     Empréstimo ..> EmpréstimoCriado : emite
     Pagamento ..> PagamentoRegistrado : emite
     Empréstimo ..> EmpréstimoQuitado : emite
@@ -118,8 +170,8 @@ classDiagram
 
 ---
 
-## 9. Histórico de Versões
+# 9. Histórico de Versões
 
-| Versão | Data | Autor | Descrição da Mudança |
-|--------|------|-------|---------------------|
-| 0.1.0 | 2026-08-01 | [Nome] | Criação inicial |
+| Versão | Data | Descrição |
+|---------|------|-----------|
+| 1.0.0 | 01/08/2026 | Primeira versão oficial do Aggregate Carteira. |
