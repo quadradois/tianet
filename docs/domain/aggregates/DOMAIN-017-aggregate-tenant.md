@@ -1,93 +1,138 @@
-# DOMAIN-017: Aggregate Tenant
+# DOMAIN-017 — Aggregate Tenant
 
-> **Versão:** 0.1.0  
-> **Status:** Rascunho  
-> **Autor(es):** [Nome(s)]  
-> **Data de Criação:** 2026-08-01  
-> **Última Atualização:** 2026-08-01  
-> **Revisor(es):** [Nome(s)]  
-> **Aprovação:** [Nome / Cargo / Data]  
-> **Foundation Relacionado:** FOUNDATION-[NNN]
+**ID:** DOMAIN-017
+
+**Versão:** 1.0.0
+
+**Status:** Aprovado
 
 ---
 
-## 1. Objetivo
+# 1. Objetivo
 
-> Descreva o propósito deste agregado, o que ele representa no domínio e o problema que resolve.
+O Tenant representa o Aggregate Root do Platform Context.
 
----
+Seu objetivo é estabelecer a fronteira de isolamento entre organizações que utilizam a plataforma.
 
-## 2. Responsabilidades
+Todo recurso da plataforma pertence exatamente a um Tenant.
 
-> Liste as responsabilidades deste agregado — o que ele é dono e o que ele garante.
-
-- [Responsabilidade 1]
-- [Responsabilidade 2]
+Nenhum recurso poderá ser compartilhado entre Tenants.
 
 ---
 
-## 3. Invariantes
+# 2. Responsabilidades
 
-> Condições que devem ser verdadeiras a qualquer momento, independentemente do estado em que o agregado se encontra.
+O Tenant é responsável por:
 
-| ID | Invariante | Consequência da Violação |
-|----|------------|--------------------------|
-| AGG-[NNN]-INV-001 | [Descrição da condição] | [Consequência] |
+- manter a identidade da organização;
+- manter seus Usuários;
+- manter suas Configurações;
+- manter suas Carteiras;
+- garantir o isolamento dos dados;
+- estabelecer a fronteira transacional do Platform Context.
 
----
+O Tenant não executa regras financeiras.
 
-## 4. Entidades Filhas
-
-> Entidades que compõem este agregado e vivem dentro de sua fronteira de consistência.
-
-| ID | Entidade | Papel no Agregado | É a Raiz? |
-|----|----------|-------------------|----------|
-| ENT-[NNN] | [Nome] | [Papel] | Sim/Não |
+Essas responsabilidades pertencem exclusivamente ao Credit Context.
 
 ---
 
-## 5. Value Objects
+# 3. Invariantes
 
-> Value Objects que compõem este agregado.
+## INV-001
 
-| ID | Value Object | Uso no Agregado |
-|----|--------------|-----------------|
-| VO-[NNN] | [Nome] | [Como é utilizado] |
+Todo Usuário pertence exatamente a um Tenant.
 
 ---
 
-## 6. Eventos
+## INV-002
 
-> Domain Events emitidos por este agregado.
-
-| ID | Evento | Significado |
-|----|--------|-------------|
-| EVT-[NNN] | [Nome] | [O que o evento comunica] |
+Toda Carteira pertence exatamente a um Tenant.
 
 ---
 
-## 7. Regras
+## INV-003
 
-> Regras de negócio que governam este agregado.
-
-| ID | Regra | Fonte |
-|----|-------|-------|
-| BR-[NNN] | [Descrição] | [Foundation/Origem] |
+Nenhum Usuário poderá pertencer simultaneamente a dois Tenants.
 
 ---
 
-## 8. Relacionamentos
+## INV-004
 
-> Relacionamentos deste agregado com os demais elementos do domínio.
-
-| Agregado / Elemento | Tipo de Relacionamento | Descrição |
-|---------------------|------------------------|-----------|
-| [Elemento] | Composição/Agregado/Referência | [Descrição] |
+Nenhuma Carteira poderá pertencer simultaneamente a dois Tenants.
 
 ---
 
-## 9. Histórico de Versões
+## INV-005
 
-| Versão | Data | Autor | Descrição da Mudança |
-|--------|------|-------|---------------------|
-| 0.1.0 | 2026-08-01 | [Nome] | Criação inicial |
+Um Tenant poderá possuir uma ou mais Carteiras.
+
+Na versão 1 da plataforma, será permitida apenas uma Carteira por Tenant.
+
+Essa limitação é operacional e não altera o modelo de domínio.
+
+---
+
+# 4. Entidades Filhas
+
+O Tenant é composto pelas seguintes entidades:
+
+- Usuário
+- Carteira
+
+---
+
+# 5. Value Objects
+
+O Tenant poderá utilizar Value Objects próprios do Platform Context.
+
+Nenhum Value Object do Credit Context pertence ao Aggregate Tenant.
+
+---
+
+# 6. Domain Services
+
+O Tenant poderá utilizar serviços próprios do Platform Context.
+
+O Motor Financeiro não pertence ao Aggregate Tenant.
+
+---
+
+# 7. Domain Events
+
+Exemplos de eventos produzidos pelo Tenant:
+
+- Tenant Criado
+- Usuário Convidado
+- Usuário Removido
+- Carteira Criada
+
+---
+
+# 8. Relacionamentos
+
+O Tenant representa a fronteira de isolamento da plataforma.
+
+Sua estrutura conceitual é:
+
+Tenant
+│
+├── Usuários
+│
+└── Carteiras
+      │
+      ├── Devedores
+      ├── Contratos de Crédito
+      ├── Empréstimos
+      ├── Parcelas
+      └── Pagamentos
+
+Todo acesso ao Credit Context ocorre através de uma Carteira pertencente ao Tenant.
+
+---
+
+# 9. Histórico de Versões
+
+| Versão | Data | Descrição |
+|---------|------|-----------|
+| 1.0.0 | 01/08/2026 | Primeira versão oficial do Aggregate Tenant. |
