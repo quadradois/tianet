@@ -1,113 +1,163 @@
-# FOUNDATION-008: Escopo Oficial do MVP
+# FOUNDATION-008 — Escopo Oficial do MVP
 
-> **Versão:** 0.1.0  
-> **Status:** Rascunho  
-> **Autor(es):** [Nome(s)]  
-> **Data de Criação:** 2026-08-01  
-> **Última Atualização:** 2026-08-01  
-> **Revisor(es):** [Nome(s)]  
-> **Aprovação:** [Nome / Cargo / Data]
+**ID:** FOUNDATION-008
+
+**Versão:** 1.0.0
+
+**Status:** Aprovado
 
 ---
 
-## 1. Objetivo
+# 1. Objetivo
 
-> Descreva brevemente o que este documento foundation aborda, por que ele existe e qual problema resolve.
+Este documento estabelece o escopo oficial da primeira versão (MVP) da plataforma.
 
----
+Seu objetivo é definir claramente quais capacidades fazem parte da versão inicial e quais serão tratadas em versões futuras.
 
-## 2. Contexto
-
-> Descreva o contexto de negócio, ambiente e motivação para este foundation.
+Toda funcionalidade deverá ser classificada como "Dentro do MVP" ou "Fora do MVP".
 
 ---
 
-## 3. Contextos do Domínio
+# 2. Contexto
 
-> Contextos de negócio que compõem o domínio e suas responsabilidades.
+O MVP representa o menor conjunto de capacidades necessário para permitir que um Credor administre suas operações de crédito de forma segura, previsível e auditável.
 
-| Contexto | Responsabilidade | Core Domain? |
-|----------|------------------|--------------|
-| [Contexto 1] | [Responsabilidade] | Sim/Não |
+O escopo do MVP deverá permanecer estável durante todo o ciclo de desenvolvimento da versão 1.
 
 ---
 
-## 4. Relação entre os Contextos
+# 3. Capacidades Incluídas no MVP
 
-> Descreva como os contextos se relacionam e o fluxo principal entre eles.
+## Plataforma
 
----
-
-## 5. Definições
-
-> Termos, conceitos e abreviações utilizados neste documento.
-
-| Termo | Definição |
-|-------|-----------|
-| [Termo 1] | [Definição] |
-| [Termo 2] | [Definição] |
+- Multi-Tenant Nível 1;
+- Tenant;
+- Usuários;
+- Autenticação;
+- Perfis de Acesso;
+- Permissões.
 
 ---
 
-## 6. Regras de Negócio (quando aplicável)
+## Cadastro
 
-> Liste as regras, políticas, constraints ou invariantes que regem este domínio.
-
-| ID | Regra | Descrição | Prioridade | Fonte |
-|----|-------|-----------|------------|-------|
-| BR-001 | [Nome da Regra] | [Descrição detalhada] | Alta/Média/Baixa | [Origem] |
-| BR-002 | [Nome da Regra] | [Descrição detalhada] | Alta/Média/Baixa | [Origem] |
+- Cadastro de Devedores;
+- Histórico cadastral.
 
 ---
 
-## 7. Fluxos
+## Operações de Crédito
 
-> Descreva os fluxos principais (happy path) e alternativos do ponto de vista do negócio.
-
-### 7.1 Fluxo Principal: [Nome do Fluxo]
-
-```mermaid
-flowchart TD
-    A[Início] --> B[Passo 1]
-    B --> C{Decisão?}
-    C -->|Sim| D[Passo 2a]
-    C -->|Não| E[Passo 2b]
-    D --> F[Fim]
-    E --> F
-```
-
-### 7.2 Fluxos Alternativos / Exceções
-
-| Cenário | Gatilho | Comportamento Esperado |
-|---------|---------|------------------------|
-| [Cenário 1] | [Gatilho] | [Comportamento] |
-| [Cenário 2] | [Gatilho] | [Comportamento] |
+- Contratos de Crédito;
+- Empréstimos;
+- Parcelas;
+- Pagamentos;
+- Motor Financeiro;
+- Memória de Cálculo;
+- Juros;
+- Juros por atraso;
+- Amortização;
+- Quitação;
+- Situação da operação.
 
 ---
 
-## 8. Princípios
+## Cobrança
 
-> Princípios de negócio e diretrizes gerais que orientam este foundation.
-
-- [Princípio 1]
-- [Princípio 2]
-- [Princípio 3]
+- Acompanhamento de vencimentos;
+- Identificação de inadimplência;
+- Cobrança manual.
 
 ---
 
-## 9. Critérios de Aprovação
+## Agenda
 
-> Critérios que este foundation deve atender para ser considerado válido.
-
-| ID | Critério | Como Validar |
-|----|----------|--------------|
-| CF-001 | [Descrição] | [Método] |
-| CF-002 | [Descrição] | [Método] |
+- Agenda financeira;
+- Vencimentos;
+- Lembretes.
 
 ---
 
-## 10. Histórico de Versões
+## Comunicação
 
-| Versão | Data | Autor | Descrição da Mudança |
-|--------|------|-------|---------------------|
-| 0.1.0 | 2026-08-01 | [Nome] | Criação inicial |
+- Registro de contatos;
+- Histórico de comunicação;
+- Comunicação manual.
+
+---
+
+## Relatórios
+
+- Relatórios operacionais;
+- Relatórios financeiros;
+- Indicadores básicos.
+
+---
+
+# 4. Capacidades Fora do MVP
+
+As funcionalidades abaixo não fazem parte da versão 1 da plataforma:
+
+- Inteligência Artificial;
+- Integrações bancárias;
+- PIX automático;
+- Cobrança automática;
+- White Label;
+- Marketplace;
+- API pública;
+- Aplicativo Mobile;
+- Multi-Carteira operacional;
+- Billing;
+- Assinaturas;
+- Integrações com terceiros;
+- Automações avançadas.
+
+---
+
+# 5. Princípios
+
+## Princípio 01
+
+Toda funcionalidade deverá estar classificada neste documento antes de entrar no backlog.
+
+---
+
+## Princípio 02
+
+Funcionalidades fora do MVP deverão ser direcionadas ao Roadmap do produto.
+
+---
+
+## Princípio 03
+
+O escopo do MVP somente poderá ser alterado mediante decisão formal de produto.
+
+---
+
+## Princípio 04
+
+O foco da versão 1 é validar o modelo de negócio, não atender todos os cenários possíveis.
+
+---
+
+## Princípio 05
+
+Simplicidade, previsibilidade e estabilidade têm prioridade sobre quantidade de funcionalidades.
+
+---
+
+# 6. Critérios de Aprovação
+
+Este documento será considerado aprovado quando:
+
+- todas as capacidades do MVP estiverem definidas;
+- as exclusões estiverem explícitas;
+- Product e Development utilizarem este documento como referência oficial de escopo.
+
+---
+
+# 7. Histórico de Versões
+
+| Versão | Data | Descrição |
+|---------|------|-----------|
+| 1.0.0 | 01/08/2026 | Primeira versão oficial do Escopo do MVP. |
