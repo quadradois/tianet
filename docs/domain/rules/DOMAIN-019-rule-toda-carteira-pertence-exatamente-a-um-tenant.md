@@ -1,68 +1,79 @@
-# DOMAIN-019: Business Rule Toda Carteira pertence exatamente a um Tenant
+# DOMAIN-019 — Business Rule Toda Carteira pertence exatamente a um Tenant
 
-> **Versão:** 0.1.0  
-> **Status:** Rascunho  
-> **Autor(es):** [Nome(s)]  
-> **Data de Criação:** 2026-08-01  
-> **Última Atualização:** 2026-08-01  
-> **Revisor(es):** [Nome(s)]  
-> **Aprovação:** [Nome / Cargo / Data]  
-> **Aplicável a:** [FOUNDATION / AGG / ENT / VO]
+**ID:** DOMAIN-019
+
+**Versão:** 1.0.0
+
+**Status:** Aprovado
 
 ---
 
-## 1. Identificador
+# 1. Identificador
 
-> Identificação oficial da regra e onde ela se aplica no domínio.
-
-| Campo | Valor |
-|-------|-------|
-| ID | BR-[NNN] |
-| Área de Aplicação | [FOUNDATION / AGG / ENT / VO] |
-| Documento de Origem | [Foundation/Outro] |
+BR-004
 
 ---
 
-## 2. Descrição
+# 2. Descrição
 
-> Descreva a regra em uma ou duas frases, em linguagem de negócio.
+Toda Carteira deverá pertencer exatamente a um Tenant.
 
----
-
-## 3. Motivação
-
-> Por que esta regra existe — o problema que ela evita ou o objetivo que garante.
+Não é permitida a existência de Carteiras sem Tenant, nem o compartilhamento de uma mesma Carteira entre diferentes Tenants.
 
 ---
 
-## 4. Regra
+# 3. Motivação
 
-> Enuncie a regra de forma precisa e verificável, como o negócio a executa.
+O Tenant representa a fronteira de isolamento da plataforma.
 
----
+A Carteira representa a fronteira operacional do domínio financeiro.
 
-## 5. Exceções
-
-> Situações em que a regra não se aplica ou se aplica de forma diferente.
-
-| Exceção | Condição | Comportamento Diferente |
-|---------|----------|-------------------------|
-| [Exceção 1] | [Condição] | [Comportamento] |
+A associação obrigatória entre Tenant e Carteira garante o isolamento dos dados, a segurança das operações e a integridade do modelo de domínio.
 
 ---
 
-## 6. Exemplos
+# 4. Regra
 
-> Exemplos de aplicação da regra para facilitar a compreensão.
+Toda Carteira deverá estar vinculada a exatamente um Tenant desde sua criação.
 
-| Situação | Aplicação da Regra | Resultado |
-|----------|--------------------|-----------|
-| [Situação] | [Como a regra se aplica] | [Resultado] |
+Essa associação permanecerá durante todo o ciclo de vida da Carteira.
+
+Na versão 1 da plataforma, cada Tenant poderá criar apenas uma Carteira.
+
+Essa limitação é operacional e poderá ser ampliada em versões futuras sem alteração do modelo de domínio.
 
 ---
 
-## 7. Histórico de Versões
+# 5. Exceções
 
-| Versão | Data | Autor | Descrição da Mudança |
-|--------|------|-------|---------------------|
-| 0.1.0 | 2026-08-01 | [Nome] | Criação inicial |
+Não existem exceções na versão 1 da plataforma.
+
+---
+
+# 6. Exemplos
+
+## Válido
+
+Tenant "Financeira ABC"
+
+↓
+
+Carteira Principal
+
+---
+
+## Inválido
+
+Carteira sem Tenant.
+
+---
+
+Carteira pertencendo simultaneamente aos Tenants "Financeira ABC" e "Financeira XPTO".
+
+---
+
+# 7. Histórico de Versões
+
+| Versão | Data | Descrição |
+|---------|------|-----------|
+| 1.0.0 | 01/08/2026 | Primeira versão oficial da regra de associação obrigatória entre Tenant e Carteira. |
