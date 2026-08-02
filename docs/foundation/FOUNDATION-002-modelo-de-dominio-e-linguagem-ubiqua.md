@@ -2,7 +2,7 @@
 
 **ID:** FOUNDATION-002
 
-**Versão:** 1.0.0
+**Versão:** 1.1.0
 
 **Status:** Aprovado
 
@@ -169,6 +169,46 @@ Estado em que existem obrigações financeiras vencidas e não liquidadas.
 
 ---
 
+## Tenant
+
+Organização que utiliza a plataforma.
+
+Representa a fronteira de isolamento entre clientes.
+
+É o Aggregate Root do Platform Context.
+
+---
+
+## Usuário
+
+Pessoa autorizada a acessar a plataforma em nome de um Tenant.
+
+---
+
+## Perfil de Acesso
+
+Conjunto de permissões concedidas ao Usuário.
+
+---
+
+## Permissão
+
+Autorização concedida a um Usuário para executar operações na plataforma conforme seu perfil de acesso.
+
+---
+
+## Autenticação
+
+Processo de verificação da identidade de um Usuário para acesso à plataforma.
+
+---
+
+## Configuração
+
+Parâmetro específico de um Tenant que define o comportamento da plataforma para sua organização.
+
+---
+
 # 4. Princípios da Linguagem Ubíqua
 
 ## Princípio 01
@@ -217,3 +257,4 @@ Este documento será considerado aprovado quando:
 | Versão | Data | Descrição |
 |---------|------|-----------|
 | 1.0.0 | 01/08/2026 | Primeira versão oficial do Modelo de Domínio e Linguagem Ubíqua. |
+| 1.1.0 | 01/08/2026 | Incorporação oficial dos conceitos do Platform Context (Tenant, Usuário, Perfil de Acesso, Permissão, Autenticação e Configuração), mantendo íntegros os conceitos do Credit Context. Consistente com FOUNDATION-006, DOMAIN-017, DOMAIN-018 e DOMAIN-019. |
