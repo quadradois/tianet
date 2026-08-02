@@ -94,3 +94,45 @@ class CarteiraORM(Base):
     criado_em: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )
+
+
+class IdempotencyKeyORM(Base):
+    """Tabela `idempotency_key` — Idempotency-Key (AD-002, IMP-015).
+
+    Constraint único em ``chave``: impede provisionamentos duplicados mesmo
+    em corrida. Registro compartilha a transação do caso de uso.
+    """
+
+    __tablename__ = "idempotency_key"
+    __table_args__ = (UniqueConstraint("chave", name="uq_idempotency_key_chave"),)
+
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True)
+    chave: Mapped[str] = mapped_column(String(255), nullable=False)
+    escopo: Mapped[str] = mapped_column(String(50), nullable=False)
+    solicitacao_hash: Mapped[str] = mapped_column(String(64), nullable=False)
+    estado: Mapped[str] = mapped_column(String(20), nullable=False)
+    resultado: Mapped[str | None] = mapped_column(String(2000), nullable=True)
+    criado_em: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+    concluido_em: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+
+class AuditoriaLogORM(Base):
+    """Tabela `audit_log` — trilha append-only do provisionamento (IMP-016).
+
+    Somente INSERT (imutável); registros de início/falha/rollback persistem
+    em sessão independente e sobrevivem ao rollback da transação de negócio.
+    """
+
+    __tablename__ = "audit_log"
+
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True)
+    entidade: Mapped[str] = mapped_column(String(50), nullable=False)
+    entidade_id: Mapped[uuid.UUID | None] = mapped_column(Uuid, nullable=True)
+    acao: Mapped[str] = mapped_column(String(120), nullable=False)
+    status: Mapped[str] = mapped_column(String(20), nullable=False)
+    detalhes: Mapped[str | None] = mapped_column(String(2000), nullable=True)
+    criado_em: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )

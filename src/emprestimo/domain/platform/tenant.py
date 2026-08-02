@@ -194,3 +194,21 @@ class Tenant:
         ]
         self._configuracoes.extend(novas)
         return tuple(novas)
+
+    # ------------------------------------------------------------------ #
+    # Transições de estado operacional (UC-007, IMP-013)
+    # ------------------------------------------------------------------ #
+
+    def ativar(self) -> None:
+        """Transição Provisão → Ativo, executada na confirmação do provisionamento.
+
+        Apenas Tenants em estado Provisão podem ser ativados (PLAN-001 §5);
+        transições a partir de Ativo/Inativo são bloqueadas.
+        """
+        if self.estado is not TenantState.PROVISAO:
+            raise ViolacaoInvarianteError(
+                "DOMAIN-017",
+                f"apenas Tenants em Provisão podem ser ativados (estado atual: "
+                f"{self.estado.value})",
+            )
+        self.estado = TenantState.ATIVO

@@ -1,7 +1,8 @@
 """Fixtures de integração — PostgreSQL real (DATABASE_URL, padrão Docker Compose).
 
-Schema criado/destruído por sessão de teste via Base.metadata; o commit é
-feito explicitamente nos testes (o UoW pertence à fase de Aplicação).
+Schema criado/destruído por sessão de teste via Base.metadata; cada teste
+inicia com as tabelas truncadas. O commit é controlado pelo Unit of Work
+nos testes de aplicação (AD-001).
 """
 
 from __future__ import annotations
@@ -16,6 +17,15 @@ from emprestimo.infrastructure.db import orm  # noqa: F401 — registra tabelas 
 from emprestimo.infrastructure.db.base import Base
 from emprestimo.infrastructure.db.session import database_url
 
+TABELAS_TRUNCATE = (
+    "idempotency_key",
+    "audit_log",
+    "usuario",
+    "configuracao",
+    "carteira",
+    "tenant",
+)
+
 
 @pytest.fixture(scope="session")
 def engine() -> Engine:
@@ -26,10 +36,14 @@ def engine() -> Engine:
 
 
 @pytest.fixture
-def session(engine: Engine) -> Session:
-    factory = sessionmaker(bind=engine, expire_on_commit=False)
-    s = factory()
-    s.execute(sa.text("TRUNCATE TABLE usuario, configuracao, carteira, tenant"))
+def session_factory(engine: Engine) -> sessionmaker[Session]:
+    return sessionmaker(bind=engine, expire_on_commit=False)
+
+
+@pytest.fixture
+def session(session_factory: sessionmaker[Session]) -> Session:
+    s = session_factory()
+    s.execute(sa.text(f"TRUNCATE TABLE {', '.join(TABELAS_TRUNCATE)}"))
     s.commit()
     yield s
     s.rollback()
