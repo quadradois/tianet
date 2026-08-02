@@ -18,7 +18,7 @@ const LAYERS = {
     headerRequired: ['Versão', 'Status'],
   },
   product: {
-    idPattern: /^(EPIC|FEAT|US)-\d+/i,
+    idPattern: /^(PRODUCT|EPIC|FEAT|US)-\d+/i,
     headerRequired: ['Status'],
   },
   decisions: {
@@ -76,7 +76,7 @@ function sectionsOf(file) {
 
 function idOf(lines) {
   for (const line of lines) {
-    const m = line.match(/^#\s+((?:FOUNDATION|DOMAIN|ENT|VO|DSVC|EVT|BR|EPIC|FEAT|US|ADR)-\d+)\b/i);
+    const m = line.match(/^#\s+((?:FOUNDATION|DOMAIN|ENT|VO|DSVC|EVT|BR|PRODUCT|EPIC|FEAT|US|ADR)-\d+)\b/i);
     if (m) return m[1];
   }
   return null;
@@ -196,7 +196,7 @@ function main() {
     for (const f of walk(dir)) {
       const txt = fs.readFileSync(f, 'utf8');
       const id = idOf(txt.split(/\r?\n/));
-      const re = /(?:FOUNDATION|EPIC|FEAT|US|DOMAIN|ENT|VO|DSVC|EVT|BR|ADR)-\d{2,}/g;
+      const re = /(?:FOUNDATION|PRODUCT|EPIC|FEAT|US|DOMAIN|ENT|VO|DSVC|EVT|BR|ADR)-\d{2,}/g;
       const seen = new Set();
       let m;
       while ((m = re.exec(txt))) {
