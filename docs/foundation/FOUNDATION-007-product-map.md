@@ -1,113 +1,157 @@
-# FOUNDATION-007: Product Map
+# FOUNDATION-007 — Product Map
 
-> **Versão:** 0.1.0  
-> **Status:** Rascunho  
-> **Autor(es):** [Nome(s)]  
-> **Data de Criação:** 2026-08-01  
-> **Última Atualização:** 2026-08-01  
-> **Revisor(es):** [Nome(s)]  
-> **Aprovação:** [Nome / Cargo / Data]
+**ID:** FOUNDATION-007
+
+**Versão:** 1.0.0
+
+**Status:** Aprovado
 
 ---
 
-## 1. Objetivo
+# 1. Objetivo
 
-> Descreva brevemente o que este documento foundation aborda, por que ele existe e qual problema resolve.
+Este documento estabelece o Mapa de Capacidades oficial do produto.
 
----
+Seu objetivo é organizar todas as capacidades funcionais do MVP em uma estrutura única, servindo como base para a definição de Épicos, Features e User Stories.
 
-## 2. Contexto
-
-> Descreva o contexto de negócio, ambiente e motivação para este foundation.
+O Product Map representa **o que o produto é capaz de fazer**, independentemente de telas, menus, APIs ou detalhes técnicos.
 
 ---
 
-## 3. Contextos do Domínio
+# 2. Contexto
 
-> Contextos de negócio que compõem o domínio e suas responsabilidades.
+A plataforma é organizada em capacidades de negócio.
 
-| Contexto | Responsabilidade | Core Domain? |
-|----------|------------------|--------------|
-| [Contexto 1] | [Responsabilidade] | Sim/Não |
+Cada capacidade agrupa funcionalidades relacionadas e deverá evoluir de forma independente.
 
----
-
-## 4. Relação entre os Contextos
-
-> Descreva como os contextos se relacionam e o fluxo principal entre eles.
+Toda funcionalidade implementada deverá estar vinculada a uma capacidade definida neste documento.
 
 ---
 
-## 5. Definições
+# 3. Capacidades do Produto
 
-> Termos, conceitos e abreviações utilizados neste documento.
+## 3.1 Administrar Plataforma
 
-| Termo | Definição |
-|-------|-----------|
-| [Termo 1] | [Definição] |
-| [Termo 2] | [Definição] |
+Responsável por:
 
----
-
-## 6. Regras de Negócio (quando aplicável)
-
-> Liste as regras, políticas, constraints ou invariantes que regem este domínio.
-
-| ID | Regra | Descrição | Prioridade | Fonte |
-|----|-------|-----------|------------|-------|
-| BR-001 | [Nome da Regra] | [Descrição detalhada] | Alta/Média/Baixa | [Origem] |
-| BR-002 | [Nome da Regra] | [Descrição detalhada] | Alta/Média/Baixa | [Origem] |
+- Tenant;
+- Usuários;
+- Autenticação;
+- Perfis de Acesso;
+- Permissões;
+- Configurações.
 
 ---
 
-## 7. Fluxos
+## 3.2 Administrar Cadastro
 
-> Descreva os fluxos principais (happy path) e alternativos do ponto de vista do negócio.
+Responsável por:
 
-### 7.1 Fluxo Principal: [Nome do Fluxo]
-
-```mermaid
-flowchart TD
-    A[Início] --> B[Passo 1]
-    B --> C{Decisão?}
-    C -->|Sim| D[Passo 2a]
-    C -->|Não| E[Passo 2b]
-    D --> F[Fim]
-    E --> F
-```
-
-### 7.2 Fluxos Alternativos / Exceções
-
-| Cenário | Gatilho | Comportamento Esperado |
-|---------|---------|------------------------|
-| [Cenário 1] | [Gatilho] | [Comportamento] |
-| [Cenário 2] | [Gatilho] | [Comportamento] |
+- Devedores;
+- Consultas cadastrais;
+- Histórico cadastral.
 
 ---
 
-## 8. Princípios
+## 3.3 Administrar Operações de Crédito
 
-> Princípios de negócio e diretrizes gerais que orientam este foundation.
+Responsável por:
 
-- [Princípio 1]
-- [Princípio 2]
-- [Princípio 3]
-
----
-
-## 9. Critérios de Aprovação
-
-> Critérios que este foundation deve atender para ser considerado válido.
-
-| ID | Critério | Como Validar |
-|----|----------|--------------|
-| CF-001 | [Descrição] | [Método] |
-| CF-002 | [Descrição] | [Método] |
+- Contratos de Crédito;
+- Empréstimos;
+- Parcelas;
+- Pagamentos;
+- Processamento Financeiro;
+- Memória de Cálculo;
+- Situação da Operação.
 
 ---
 
-## 10. Histórico de Versões
+## 3.4 Administrar Cobranças
 
-| Versão | Data | Autor | Descrição da Mudança |
-|--------|------|-------|---------------------|
-| 0.1.0 | 2026-08-01 | [Nome] | Criação inicial |
+Responsável por:
+
+- Cobranças;
+- Inadimplência;
+- Acompanhamento de vencimentos.
+
+---
+
+## 3.5 Administrar Agenda
+
+Responsável por:
+
+- Agenda financeira;
+- Compromissos;
+- Lembretes;
+- Vencimentos.
+
+---
+
+## 3.6 Administrar Comunicação
+
+Responsável por:
+
+- Mensagens;
+- Notificações;
+- Histórico de comunicação.
+
+---
+
+## 3.7 Administrar Relatórios
+
+Responsável por:
+
+- Indicadores;
+- Relatórios operacionais;
+- Relatórios financeiros.
+
+---
+
+# 4. Princípios
+
+## Princípio 01
+
+Toda funcionalidade pertence exatamente a uma capacidade.
+
+---
+
+## Princípio 02
+
+Nenhuma funcionalidade poderá existir fora do Product Map.
+
+---
+
+## Princípio 03
+
+Todo Épico deverá estar vinculado a uma capacidade.
+
+---
+
+## Princípio 04
+
+Toda Feature deverá pertencer a um Épico.
+
+---
+
+## Princípio 05
+
+Toda User Story deverá pertencer a uma Feature.
+
+---
+
+# 5. Critérios de Aprovação
+
+Este documento será considerado aprovado quando:
+
+- todas as capacidades do MVP estiverem definidas;
+- não existirem sobreposições entre capacidades;
+- Foundation, Domain e Product estiverem consistentes.
+
+---
+
+# 6. Histórico de Versões
+
+| Versão | Data | Descrição |
+|---------|------|-----------|
+| 1.0.0 | 01/08/2026 | Primeira versão oficial do Product Map do MVP. |
