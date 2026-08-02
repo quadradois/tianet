@@ -1,53 +1,63 @@
-# DOMAIN-012: Event Pagamento Registrado
+# DOMAIN-012 — Domain Event Pagamento Registrado
 
-> **Versão:** 0.1.0  
-> **Status:** Rascunho  
-> **Autor(es):** [Nome(s)]  
-> **Data de Criação:** 2026-08-01  
-> **Última Atualização:** 2026-08-01  
-> **Revisor(es):** [Nome(s)]  
-> **Aprovação:** [Nome / Cargo / Data]  
-> **Agregado de Origem:** DOMAIN-001 (Aggregate Carteira)
+**ID:** DOMAIN-012
+
+**Versão:** 1.0.0
+
+**Status:** Aprovado
 
 ---
 
-## 1. Descrição
+# 1. Descrição
 
-> Descreva o que este evento comunica sobre o domínio — o fato de negócio que aconteceu.
+O evento Pagamento Registrado representa a conclusão do processamento financeiro de um pagamento.
 
----
-
-## 2. Quando Ocorre
-
-> Descreva as situações de negócio em que este evento é publicado.
-
-- [Situação 1]
-- [Situação 2]
+Ele é publicado após o Motor Financeiro validar, processar e atualizar o estado da operação de crédito.
 
 ---
 
-## 3. Dados Publicados
+# 2. Quando Ocorre
 
-> Informações de negócio que acompanham este evento.
+O evento deverá ser publicado quando:
 
-| Campo | Descrição | Origem |
-|-------|-----------|--------|
-| [Campo 1] | [Descrição] | [Entidade/VO] |
-
----
-
-## 4. Consumidores
-
-> Quem reage a este evento e o que faz em resposta.
-
-| Consumidor | Reação ao Evento |
-|------------|------------------|
-| [Elemento/Sistema] | [Reação] |
+- um Pagamento for processado com sucesso;
+- o Empréstimo for atualizado;
+- a Memória de Cálculo for produzida;
+- todas as regras financeiras forem aplicadas.
 
 ---
 
-## 5. Histórico de Versões
+# 3. Dados Publicados
 
-| Versão | Data | Autor | Descrição da Mudança |
-|--------|------|-------|---------------------|
-| 0.1.0 | 2026-08-01 | [Nome] | Criação inicial |
+O evento deverá disponibilizar, no mínimo:
+
+- Identificador do Pagamento;
+- Identificador do Empréstimo;
+- Identificador do Contrato de Crédito;
+- Identificador da Carteira;
+- Data do processamento;
+- Valor recebido;
+- Valor destinado aos juros;
+- Valor destinado à amortização;
+- Saldo principal atualizado;
+- Situação atual do Empréstimo.
+
+---
+
+# 4. Consumidores
+
+Exemplos de consumidores deste evento:
+
+- Cobrança;
+- Comunicação;
+- Agenda;
+- Relatórios;
+- Auditoria.
+
+---
+
+# 5. Histórico de Versões
+
+| Versão | Data | Descrição |
+|---------|------|-----------|
+| 1.0.0 | 01/08/2026 | Primeira versão oficial do evento Pagamento Registrado. |
