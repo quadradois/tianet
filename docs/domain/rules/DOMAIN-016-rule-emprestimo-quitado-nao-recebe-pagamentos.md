@@ -1,68 +1,69 @@
-# DOMAIN-016: Rule Empréstimo Quitado Não Recebe Pagamentos
+# DOMAIN-016 — Business Rule Empréstimo Quitado não Recebe Pagamentos
 
-> **Versão:** 0.1.0  
-> **Status:** Rascunho  
-> **Autor(es):** [Nome(s)]  
-> **Data de Criação:** 2026-08-01  
-> **Última Atualização:** 2026-08-01  
-> **Revisor(es):** [Nome(s)]  
-> **Aprovação:** [Nome / Cargo / Data]  
-> **Aplicável a:** [FOUNDATION / AGG / ENT / VO]
+**ID:** DOMAIN-016
+
+**Versão:** 1.0.0
+
+**Status:** Aprovado
 
 ---
 
-## 1. Identificador
+# 1. Identificador
 
-> Identificação oficial da regra e onde ela se aplica no domínio.
-
-| Campo | Valor |
-|-------|-------|
-| ID | BR-[NNN] |
-| Área de Aplicação | [FOUNDATION / AGG / ENT / VO] |
-| Documento de Origem | [Foundation/Outro] |
+BR-003
 
 ---
 
-## 2. Descrição
+# 2. Descrição
 
-> Descreva a regra em uma ou duas frases, em linguagem de negócio.
+Uma operação de crédito que esteja no estado **Quitado** não poderá receber novos pagamentos.
 
----
-
-## 3. Motivação
-
-> Por que esta regra existe — o problema que ela evita ou o objetivo que garante.
+Qualquer tentativa de registrar um novo Pagamento deverá ser rejeitada pelo domínio.
 
 ---
 
-## 4. Regra
+# 3. Motivação
 
-> Enuncie a regra de forma precisa e verificável, como o negócio a executa.
+Um Empréstimo Quitado representa uma operação cuja obrigação financeira foi integralmente cumprida.
 
----
+Permitir novos pagamentos comprometeria a consistência financeira da operação e poderia gerar saldos negativos ou registros incorretos.
 
-## 5. Exceções
-
-> Situações em que a regra não se aplica ou se aplica de forma diferente.
-
-| Exceção | Condição | Comportamento Diferente |
-|---------|----------|-------------------------|
-| [Exceção 1] | [Condição] | [Comportamento] |
+Caso seja necessário corrigir uma operação quitada, deverá ser utilizado um processo específico de estorno ou ajuste operacional.
 
 ---
 
-## 6. Exemplos
+# 4. Regra
 
-> Exemplos de aplicação da regra para facilitar a compreensão.
+Sempre que um novo Pagamento for solicitado, o domínio deverá verificar o estado atual do Empréstimo.
 
-| Situação | Aplicação da Regra | Resultado |
-|----------|--------------------|-----------|
-| [Situação] | [Como a regra se aplica] | [Resultado] |
+Se o estado for **Quitado**, o registro do Pagamento deverá ser recusado.
 
 ---
 
-## 7. Histórico de Versões
+# 5. Exceções
 
-| Versão | Data | Autor | Descrição da Mudança |
-|--------|------|-------|---------------------|
-| 0.1.0 | 2026-08-01 | [Nome] | Criação inicial |
+Não existem exceções na versão 1 da plataforma.
+
+Processos de estorno, correção ou reabertura de operações serão tratados por funcionalidades específicas em versões futuras.
+
+---
+
+# 6. Exemplos
+
+## Válido
+
+Empréstimo Ativo recebe um novo Pagamento.
+
+---
+
+## Inválido
+
+Empréstimo Quitado recebe um novo Pagamento.
+
+---
+
+# 7. Histórico de Versões
+
+| Versão | Data | Descrição |
+|---------|------|-----------|
+| 1.0.0 | 01/08/2026 | Primeira versão oficial da regra que impede pagamentos em operações quitadas. |
