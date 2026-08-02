@@ -1,52 +1,90 @@
-# DOMAIN-008: VO Periodicidade
+# DOMAIN-008 — Value Object Periodicidade
 
-> **Versão:** 0.1.0  
-> **Status:** Rascunho  
-> **Autor(es):** [Nome(s)]  
-> **Data de Criação:** 2026-08-01  
-> **Última Atualização:** 2026-08-01  
-> **Revisor(es):** [Nome(s)]  
-> **Aprovação:** [Nome / Cargo / Data]
+**ID:** DOMAIN-008
+
+**Versão:** 1.0.0
+
+**Status:** Aprovado
 
 ---
 
-## 1. Definição
+# 1. Definição
 
-> Descreva o que este value object representa no domínio e por que ele existe como um conceito próprio.
+Periodicidade representa o intervalo utilizado para determinar a recorrência das obrigações financeiras de uma operação de crédito.
 
----
+É um Value Object imutável.
 
-## 2. Imutabilidade
+Não possui identidade própria.
 
-> Explique por que este value object deve ser imutável e como novos valores substituem os antigos.
-
-- [Justificativa de imutabilidade 1]
-- [Justificativa de imutabilidade 2]
+Seu valor é definido exclusivamente pela periodicidade escolhida para a operação.
 
 ---
 
-## 3. Regras de Validação
+# 2. Imutabilidade
 
-> Regras que todo valor deste type deve satisfazer para ser válido no domínio.
+Após criada, uma Periodicidade nunca poderá ser alterada.
 
-| ID | Regra | Fonte |
-|----|-------|-------|
-| VO-[NNN]-VAL-001 | [Descrição da regra] | [Foundation/Origem] |
+Toda alteração na periodicidade deverá resultar na criação de um novo Value Object.
 
 ---
 
-## 4. Exemplos
+# 3. Regras de Validação
 
-> Exemplos de valores válidos, inválidos e situações de fronteira.
+## RN-001
 
-| Situação | Valor | Válido? | Observação |
-|----------|-------|---------|------------|
-| [Situação] | [Valor] | Sim/Não | [Observação] |
+Toda operação de crédito deverá possuir exatamente uma Periodicidade.
 
 ---
 
-## 5. Histórico de Versões
+## RN-002
 
-| Versão | Data | Autor | Descrição da Mudança |
-|--------|------|-------|---------------------|
-| 0.1.0 | 2026-08-01 | [Nome] | Criação inicial |
+A Periodicidade define apenas a recorrência das obrigações financeiras.
+
+Ela não define datas específicas de vencimento.
+
+---
+
+## RN-003
+
+As datas efetivas de vencimento serão determinadas em conjunto com o Calendário Financeiro e as regras do Contrato de Crédito.
+
+---
+
+## RN-004
+
+A Periodicidade deverá pertencer ao conjunto de valores suportados pela plataforma.
+
+Na versão 1 são suportadas:
+
+- Diária
+- Semanal
+- Quinzenal
+- Mensal
+
+---
+
+## RN-005
+
+A Periodicidade não executa cálculos financeiros.
+
+Ela apenas representa a recorrência utilizada pela operação.
+
+---
+
+# 4. Exemplos
+
+Mensal
+
+Quinzenal
+
+Semanal
+
+Diária
+
+---
+
+# 5. Histórico de Versões
+
+| Versão | Data | Descrição |
+|---------|------|-----------|
+| 1.0.0 | 01/08/2026 | Primeira versão oficial do VO Periodicidade. |
