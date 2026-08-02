@@ -25,6 +25,7 @@ import json
 import uuid
 from collections.abc import Callable
 from dataclasses import dataclass
+from datetime import datetime
 
 from emprestimo.application.errors import IdempotenciaConflitoError
 from emprestimo.application.ports import AuditoriaRegistro, UnitOfWork
@@ -46,11 +47,17 @@ TRILHA_UC006 = (
 
 @dataclass(frozen=True)
 class TenantProvisionado:
-    """Resultado do provisionamento (UC-007) — estado final Ativo (IMP-013)."""
+    """Resultado do provisionamento (UC-007) — estado final Ativo (IMP-013).
+
+    Dados suficientes para a confirmação na API (IMP-017): identidade,
+    dados institucionais, estado final e timestamp de criação.
+    """
 
     tenant_id: uuid.UUID
     identificador_institucional: str
+    nome: str
     estado: TenantState
+    criado_em: datetime
 
 
 def _solicitacao_hash(identificador_institucional: str, nome: str, email_administrador: str) -> str:
@@ -133,7 +140,9 @@ class TenantProvisioningService:
                 resultado = TenantProvisionado(
                     tenant_id=tenant.id,
                     identificador_institucional=identificador,
+                    nome=tenant.nome,
                     estado=TenantState.ATIVO,
+                    criado_em=tenant.criado_em,
                 )
                 uow.idempotencia.concluir(idempotency_key, _serializar_resultado(resultado))
                 uow.commit()
@@ -186,7 +195,9 @@ def _serializar_resultado(resultado: TenantProvisionado) -> str:
         {
             "tenant_id": str(resultado.tenant_id),
             "identificador_institucional": resultado.identificador_institucional,
+            "nome": resultado.nome,
             "estado": resultado.estado.value,
+            "criado_em": resultado.criado_em.isoformat(),
         }
     )
 
@@ -198,5 +209,7 @@ def _desserializar_resultado(conteudo: str | None) -> TenantProvisionado:
     return TenantProvisionado(
         tenant_id=uuid.UUID(dados["tenant_id"]),
         identificador_institucional=dados["identificador_institucional"],
+        nome=dados["nome"],
         estado=TenantState(dados["estado"]),
+        criado_em=datetime.fromisoformat(dados["criado_em"]),
     )
