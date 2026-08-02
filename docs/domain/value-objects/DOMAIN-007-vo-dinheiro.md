@@ -1,52 +1,79 @@
-# DOMAIN-007: VO Dinheiro
+# DOMAIN-007 — Value Object Dinheiro
 
-> **Versão:** 0.1.0  
-> **Status:** Rascunho  
-> **Autor(es):** [Nome(s)]  
-> **Data de Criação:** 2026-08-01  
-> **Última Atualização:** 2026-08-01  
-> **Revisor(es):** [Nome(s)]  
-> **Aprovação:** [Nome / Cargo / Data]
+**ID:** DOMAIN-007
+
+**Versão:** 1.0.0
+
+**Status:** Aprovado
 
 ---
 
-## 1. Definição
+# 1. Definição
 
-> Descreva o que este value object representa no domínio e por que ele existe como um conceito próprio.
+Dinheiro representa um valor monetário utilizado nas operações financeiras da plataforma.
 
----
+É um Value Object imutável.
 
-## 2. Imutabilidade
+Não possui identidade própria.
 
-> Explique por que este value object deve ser imutável e como novos valores substituem os antigos.
-
-- [Justificativa de imutabilidade 1]
-- [Justificativa de imutabilidade 2]
+Seu valor é definido exclusivamente por sua composição.
 
 ---
 
-## 3. Regras de Validação
+# 2. Imutabilidade
 
-> Regras que todo valor deste type deve satisfazer para ser válido no domínio.
+Após criado, um objeto Dinheiro nunca poderá ser alterado.
 
-| ID | Regra | Fonte |
-|----|-------|-------|
-| VO-[NNN]-VAL-001 | [Descrição da regra] | [Foundation/Origem] |
+Toda operação financeira deverá produzir um novo Value Object.
 
 ---
 
-## 4. Exemplos
+# 3. Regras de Validação
 
-> Exemplos de valores válidos, inválidos e situações de fronteira.
+## RN-001
 
-| Situação | Valor | Válido? | Observação |
-|----------|-------|---------|------------|
-| [Situação] | [Valor] | Sim/Não | [Observação] |
+Todo valor monetário deverá possuir exatamente duas casas decimais.
 
 ---
 
-## 5. Histórico de Versões
+## RN-002
 
-| Versão | Data | Autor | Descrição da Mudança |
-|--------|------|-------|---------------------|
-| 0.1.0 | 2026-08-01 | [Nome] | Criação inicial |
+Não são permitidos valores indefinidos.
+
+---
+
+## RN-003
+
+Operações matemáticas deverão preservar a precisão financeira.
+
+---
+
+## RN-004
+
+Comparações entre valores monetários deverão considerar a precisão decimal.
+
+---
+
+## RN-005
+
+O Value Object não executa regras de negócio.
+
+Ele apenas representa um valor monetário.
+
+---
+
+# 4. Exemplos
+
+R$ 1.000,00
+
+R$ 35,40
+
+R$ 0,00
+
+---
+
+# 5. Histórico de Versões
+
+| Versão | Data | Descrição |
+|---------|------|-----------|
+| 1.0.0 | 01/08/2026 | Primeira versão oficial do VO Dinheiro. |
