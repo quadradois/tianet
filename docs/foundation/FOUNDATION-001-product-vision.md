@@ -1,113 +1,117 @@
-# FOUNDATION-001: Product Vision
+# FOUNDATION-001 — Product Vision
 
-> **Versão:** 0.1.0  
-> **Status:** Rascunho  
-> **Autor(es):** [Nome(s)]  
-> **Data de Criação:** 2026-08-01  
-> **Última Atualização:** 2026-08-01  
-> **Revisor(es):** [Nome(s)]  
-> **Aprovação:** [Nome / Cargo / Data]
+**ID:** FOUNDATION-001
+
+**Versão:** 1.0.0
+
+**Status:** Aprovado
 
 ---
 
-## 1. Objetivo
+# 1. Propósito
 
-> Descreva brevemente o que este documento foundation aborda, por que ele existe e qual problema resolve.
+A TiaNet existe para simplificar a administração de operações de crédito.
 
----
+Nossa missão é transformar controles manuais, planilhas e cálculos complexos em um processo seguro, previsível, auditável e simples de operar.
 
-## 2. Contexto
-
-> Descreva o contexto de negócio, ambiente e motivação para este foundation.
+Mais do que registrar empréstimos, a TiaNet busca proporcionar tranquilidade ao Credor, garantindo que todas as operações financeiras sejam processadas com precisão e transparência.
 
 ---
 
-## 3. Contextos do Domínio
+# 2. Problema
 
-> Contextos de negócio que compõem o domínio e suas responsabilidades.
+Grande parte das operações de crédito de pequeno e médio porte ainda é administrada por meio de planilhas, cadernos ou sistemas genéricos.
 
-| Contexto | Responsabilidade | Core Domain? |
-|----------|------------------|--------------|
-| [Contexto 1] | [Responsabilidade] | Sim/Não |
+Essa realidade gera:
 
----
+- cálculos inconsistentes;
+- erros de juros;
+- dificuldade para calcular atrasos;
+- ausência de histórico auditável;
+- falta de previsibilidade;
+- alto risco operacional.
 
-## 4. Relação entre os Contextos
-
-> Descreva como os contextos se relacionam e o fluxo principal entre eles.
-
----
-
-## 5. Definições
-
-> Termos, conceitos e abreviações utilizados neste documento.
-
-| Termo | Definição |
-|-------|-----------|
-| [Termo 1] | [Definição] |
-| [Termo 2] | [Definição] |
+A TiaNet nasce para eliminar esses problemas.
 
 ---
 
-## 6. Regras de Negócio (quando aplicável)
+# 3. Público-Alvo
 
-> Liste as regras, políticas, constraints ou invariantes que regem este domínio.
+A TiaNet foi concebida para organizações e profissionais que administram operações de crédito recorrentes.
 
-| ID | Regra | Descrição | Prioridade | Fonte |
-|----|-------|-----------|------------|-------|
-| BR-001 | [Nome da Regra] | [Descrição detalhada] | Alta/Média/Baixa | [Origem] |
-| BR-002 | [Nome da Regra] | [Descrição detalhada] | Alta/Média/Baixa | [Origem] |
+Entre eles:
 
----
-
-## 7. Fluxos
-
-> Descreva os fluxos principais (happy path) e alternativos do ponto de vista do negócio.
-
-### 7.1 Fluxo Principal: [Nome do Fluxo]
-
-```mermaid
-flowchart TD
-    A[Início] --> B[Passo 1]
-    B --> C{Decisão?}
-    C -->|Sim| D[Passo 2a]
-    C -->|Não| E[Passo 2b]
-    D --> F[Fim]
-    E --> F
-```
-
-### 7.2 Fluxos Alternativos / Exceções
-
-| Cenário | Gatilho | Comportamento Esperado |
-|---------|---------|------------------------|
-| [Cenário 1] | [Gatilho] | [Comportamento] |
-| [Cenário 2] | [Gatilho] | [Comportamento] |
+- financeiras;
+- correspondentes financeiros;
+- empresas de crédito;
+- investidores privados;
+- gestores de carteiras de crédito.
 
 ---
 
-## 8. Princípios
+# 4. Proposta de Valor
 
-> Princípios de negócio e diretrizes gerais que orientam este foundation.
+A TiaNet oferece uma plataforma especializada para administração completa de operações de crédito.
 
-- [Princípio 1]
-- [Princípio 2]
-- [Princípio 3]
+Seu diferencial é possuir um Motor Financeiro capaz de processar toda a operação utilizando regras únicas, auditáveis e consistentes.
 
----
-
-## 9. Critérios de Aprovação
-
-> Critérios que este foundation deve atender para ser considerado válido.
-
-| ID | Critério | Como Validar |
-|----|----------|--------------|
-| CF-001 | [Descrição] | [Método] |
-| CF-002 | [Descrição] | [Método] |
+Toda informação financeira possui uma única fonte oficial de cálculo.
 
 ---
 
-## 10. Histórico de Versões
+# 5. Princípios do Produto
 
-| Versão | Data | Autor | Descrição da Mudança |
-|--------|------|-------|---------------------|
-| 0.1.0 | 2026-08-01 | [Nome] | Criação inicial |
+## Princípio 01
+
+Simplicidade antes da complexidade.
+
+---
+
+## Princípio 02
+
+Uma única fonte oficial para todas as informações financeiras.
+
+---
+
+## Princípio 03
+
+Todo cálculo deve ser reproduzível e auditável.
+
+---
+
+## Princípio 04
+
+Automação deve reduzir trabalho, nunca reduzir transparência.
+
+---
+
+## Princípio 05
+
+O domínio financeiro é o coração do produto e deve permanecer protegido de regras externas.
+
+---
+
+# 6. Objetivos Estratégicos
+
+A evolução da TiaNet deverá buscar continuamente:
+
+- reduzir erros operacionais;
+- aumentar a produtividade do Credor;
+- automatizar processos repetitivos;
+- garantir rastreabilidade completa;
+- oferecer previsibilidade financeira;
+- permitir crescimento sustentável da plataforma.
+
+---
+
+# 7. Critérios de Sucesso
+
+A Product Vision será considerada atendida quando a plataforma permitir que um Credor administre integralmente suas operações de crédito de forma simples, segura, previsível e auditável.
+
+---
+
+# 8. Histórico de Versões
+
+| Versão | Data | Descrição |
+|---------|------|-----------|
+| 1.0.0 | 01/08/2026 | Primeira versão oficial da Product Vision da TiaNet. |
