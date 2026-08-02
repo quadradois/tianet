@@ -55,6 +55,7 @@ class UsuarioORM(Base):
     )
     nome: Mapped[str] = mapped_column(String(200), nullable=False)
     email: Mapped[str] = mapped_column(String(254), nullable=False)
+    perfil_acesso: Mapped[str | None] = mapped_column(String(50), nullable=True)
     estado: Mapped[str] = mapped_column(String(20), nullable=False)
     criado_em: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False

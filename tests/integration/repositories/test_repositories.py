@@ -14,6 +14,7 @@ from tests.factories import (
     UsuarioFactory,
 )
 
+from emprestimo.domain.common.errors import TenantJaExisteError
 from emprestimo.domain.credit.carteira import Carteira
 from emprestimo.domain.platform.configuracao import Configuracao
 from emprestimo.domain.platform.usuario import Usuario
@@ -54,16 +55,30 @@ def test_tenant_repository_find_all(session: Session) -> None:
 
 
 def test_tenant_repository_unicidade_do_identificador(session: Session) -> None:
+    """IMP-008: violação de constraint em corrida → TenantJaExisteError (AD-002)."""
     repo = SqlAlchemyTenantRepository(session)
     primeiro = TenantFactory.build(identificador_institucional="IDENT-UNICO")
     repo.save(primeiro)
     session.commit()
 
     duplicado = TenantFactory.build(identificador_institucional="IDENT-UNICO")
-    repo.save(duplicado)
-    with pytest.raises(IntegrityError):
-        session.commit()
+    with pytest.raises(TenantJaExisteError):
+        repo.save(duplicado)
     session.rollback()
+
+
+def test_tenant_repository_busca_por_identificador(session: Session) -> None:
+    """IMP-008: consulta de unicidade pelo identificador institucional (UC-002)."""
+    repo = SqlAlchemyTenantRepository(session)
+    tenant = TenantFactory.build(identificador_institucional="IDENT-CONSULTA")
+    repo.save(tenant)
+    session.commit()
+
+    encontrado = repo.find_by_identificador_institucional("IDENT-CONSULTA")
+
+    assert encontrado is not None
+    assert encontrado.id == tenant.id
+    assert repo.find_by_identificador_institucional("IDENT-AUSENTE") is None
 
 
 def test_usuario_repository_round_trip(session: Session) -> None:
@@ -78,6 +93,21 @@ def test_usuario_repository_round_trip(session: Session) -> None:
     assert carregado is not None
     assert carregado.tenant_id == tenant.id
     assert carregado.email == usuario.email
+    assert carregado.perfil_acesso is None
+
+
+def test_usuario_repository_persiste_perfil_de_acesso(session: Session) -> None:
+    """IMP-011: perfil Administrador do primeiro Usuário persistido (RN-002)."""
+    tenant = TenantFactory.build()
+    SqlAlchemyTenantRepository(session).save(tenant)
+    admin = UsuarioFactory.build(tenant_id=tenant.id, perfil_acesso="administrador")
+    SqlAlchemyUsuarioRepository(session).save(admin)
+    session.commit()
+
+    carregado = SqlAlchemyUsuarioRepository(session).find_by_id(admin.id)
+
+    assert carregado is not None
+    assert carregado.perfil_acesso == "administrador"
 
 
 def test_usuario_repository_busca_por_tenant(session: Session) -> None:

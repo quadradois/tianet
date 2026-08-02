@@ -9,8 +9,10 @@ from __future__ import annotations
 import uuid
 
 from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
+from emprestimo.domain.common.errors import TenantJaExisteError
 from emprestimo.domain.credit.carteira import Carteira
 from emprestimo.domain.credit.ports import CarteiraRepository
 from emprestimo.domain.platform.configuracao import Configuracao
@@ -31,18 +33,30 @@ class SqlAlchemyTenantRepository(TenantRepository):
         self._session = session
 
     def save(self, tenant: Tenant) -> None:
-        self._session.merge(
-            TenantORM(
-                id=tenant.id,
-                identificador_institucional=tenant.identificador_institucional,
-                nome=tenant.nome,
-                estado=tenant.estado.value,
-                criado_em=tenant.criado_em,
+        try:
+            self._session.merge(
+                TenantORM(
+                    id=tenant.id,
+                    identificador_institucional=tenant.identificador_institucional,
+                    nome=tenant.nome,
+                    estado=tenant.estado.value,
+                    criado_em=tenant.criado_em,
+                )
             )
-        )
+            self._session.flush()
+        except IntegrityError as exc:
+            if "uq_tenant_identificador_institucional" in str(exc.orig):
+                raise TenantJaExisteError(tenant.identificador_institucional) from exc
+            raise
 
     def find_by_id(self, tenant_id: uuid.UUID) -> Tenant | None:
         row = self._session.get(TenantORM, tenant_id)
+        return _to_tenant(row) if row is not None else None
+
+    def find_by_identificador_institucional(self, identificador: str) -> Tenant | None:
+        row = self._session.scalar(
+            select(TenantORM).where(TenantORM.identificador_institucional == identificador)
+        )
         return _to_tenant(row) if row is not None else None
 
     def find_all(self) -> list[Tenant]:
@@ -63,6 +77,7 @@ class SqlAlchemyUsuarioRepository(UsuarioRepository):
                 tenant_id=usuario.tenant_id,
                 nome=usuario.nome,
                 email=usuario.email,
+                perfil_acesso=usuario.perfil_acesso,
                 estado=usuario.estado.value,
                 criado_em=usuario.criado_em,
             )
@@ -150,6 +165,7 @@ def _to_usuario(row: UsuarioORM) -> Usuario:
         tenant_id=row.tenant_id,
         nome=row.nome,
         email=row.email,
+        perfil_acesso=row.perfil_acesso,
         estado=UsuarioState(row.estado),
         criado_em=row.criado_em,
     )

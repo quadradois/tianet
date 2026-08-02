@@ -28,13 +28,16 @@ class UsuarioState(StrEnum):
 class Usuario:
     """Entidade Usuário, sempre vinculada a exatamente um Tenant (DOMAIN-018 INV-001).
 
-    Nesta fase (IMP-002) apenas a estrutura é disponibilizada; as regras
-    (RN-001..RN-005) pertencem às fases seguintes.
+    Atributos de estrutura disponibilizados na Fase 1 (IMP-002); as regras
+    de negócio (RN-001..RN-005) pertencem às fases seguintes. O perfil de
+    acesso (RN-002) é preenchido pelo Aggregate Tenant no provisionamento
+    (IMP-011) e permanece ``None`` até que um perfil seja atribuído.
     """
 
     tenant_id: uuid.UUID
     nome: str
     email: str
     id: uuid.UUID = field(default_factory=uuid.uuid4)
+    perfil_acesso: str | None = None
     estado: UsuarioState = UsuarioState.CONVIDADO
     criado_em: datetime = field(default_factory=lambda: datetime.now(UTC))

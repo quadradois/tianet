@@ -24,6 +24,9 @@ class TenantRepository(ABC):
     def find_by_id(self, tenant_id: uuid.UUID) -> Tenant | None: ...
 
     @abstractmethod
+    def find_by_identificador_institucional(self, identificador: str) -> Tenant | None: ...
+
+    @abstractmethod
     def find_all(self) -> list[Tenant]: ...
 
 

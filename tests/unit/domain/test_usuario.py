@@ -36,3 +36,10 @@ def test_ciclo_de_vida_aceita_estados_oficiais() -> None:
     assert ativo.estado == UsuarioState.ATIVO
     assert inativo.estado == UsuarioState.INATIVO
     assert removido.estado == UsuarioState.REMOVIDO
+
+
+def test_perfil_de_acesso_default_e_none() -> None:
+    """RN-002: perfil não é auto-atribuído; o Aggregate o define (IMP-011)."""
+    usuario = Usuario(tenant_id=uuid.uuid4(), nome="Maria", email="maria@exemplo.com")
+
+    assert usuario.perfil_acesso is None
