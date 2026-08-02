@@ -1,44 +1,70 @@
-# US-010 — Consultar Tenant por Identificador
+# US-010 — Consultar Tenant por Identificador Institucional
 
 **ID:** US-010
 
-**Versão:** 0.1.0
+**Versão:** 1.0.0
 
-**Status:** Rascunho
+**Status:** Aprovado
 
 ---
 
 # 1. História
 
-Como <perfil>
+**Como** Administrador da Plataforma
 
-Quero <objetivo>
+**Quero** consultar uma organização (Tenant) utilizando seu identificador institucional
 
-Para <benefício>
+**Para** localizar rapidamente uma organização sem conhecer seu identificador interno.
 
 ---
 
 # 2. Critérios de Aceitação
 
-[placeholder]
+A User Story será considerada concluída quando:
+
+- o sistema permitir consultar um Tenant pelo identificador institucional;
+- apenas um Tenant puder ser retornado para cada identificador;
+- a busca respeitar a unicidade definida pelo domínio;
+- o resultado retornar apenas as informações previstas para consulta;
+- nenhuma informação interna da infraestrutura for exposta;
+- a operação não alterar qualquer estado do domínio;
+- o sistema retornar 404 quando o identificador não existir;
+- a resposta seguir o contrato oficial da API.
 
 ---
 
 # 3. Regras de Negócio Relacionadas
 
-[placeholder]
+Esta User Story está relacionada aos seguintes documentos:
+
+- DOMAIN-017 — Aggregate Tenant;
+- FOUNDATION-006 — Arquitetura Multi-Tenant;
+- PRODUCT-001 — Capability Administrar Plataforma;
+- EPIC-001 — Gerenciar Tenant;
+- FEATURE-002 — Consultar Tenant.
 
 ---
 
 # 4. Dependências
 
-[placeholder]
+Esta User Story depende de:
+
+- FEATURE-001 — Criar Tenant;
+- FEATURE-002 — Consultar Tenant.
 
 ---
 
 # 5. Observações Técnicas
 
-[placeholder]
+A consulta deverá ser exclusivamente de leitura.
+
+O identificador institucional deverá ser tratado como único dentro da plataforma.
+
+Nenhuma regra de negócio poderá ser executada durante a operação.
+
+O Aggregate Tenant não deverá sofrer qualquer alteração de estado.
+
+A resposta deverá utilizar DTO específico da camada Presentation.
 
 ---
 
@@ -46,6 +72,4 @@ Para <benefício>
 
 | Versão | Data | Descrição |
 |---------|------|-----------|
-| 0.1.0 | 2026-08-02 | Estrutura inicial (rascunho) |
-
----
+| 1.0.0 | 02/08/2026 | Primeira versão oficial da User Story Consultar Tenant por Identificador Institucional. |
