@@ -1,93 +1,189 @@
-# DOMAIN-018: Entity Usuário
+# DOMAIN-018 — Entity Usuário
 
-> **Versão:** 0.1.0  
-> **Status:** Rascunho  
-> **Autor(es):** [Nome(s)]  
-> **Data de Criação:** 2026-08-01  
-> **Última Atualização:** 2026-08-01  
-> **Revisor(es):** [Nome(s)]  
-> **Aprovação:** [Nome / Cargo / Data]  
-> **Agregado Pai:** AGG-[NNN]
+**ID:** DOMAIN-018
 
----
+**Versão:** 1.0.0
 
-## 1. Definição
+**Status:** Aprovado
 
-> Descreva o que esta entidade é no domínio, com suas próprias palavras, e o que a distingue de outros elementos.
+**Aggregate Pai:** DOMAIN-017 — Aggregate Tenant
 
 ---
 
-## 2. Identidade
+# 1. Definição
 
-> Como a identidade desta entidade é estabelecida e o que a torna única no domínio.
+O Usuário representa uma pessoa autorizada a acessar a plataforma em nome de um Tenant.
 
-- [Critério de identidade 1]
-- [Critério de identidade 2]
+Seu papel é interagir com a plataforma conforme as permissões concedidas.
 
----
+O Usuário pertence exclusivamente ao Platform Context.
 
-## 3. Responsabilidades
-
-> O que esta entidade é responsável por garantir ou representar.
-
-- [Responsabilidade 1]
-- [Responsabilidade 2]
+Ele nunca pertence ao domínio financeiro.
 
 ---
 
-## 4. Ciclo de Vida
+# 2. Identidade
 
-> Descreva como esta entidade nasce, evolui e deixa de existir.
+Um Usuário possui identidade única dentro de um Tenant.
 
-| Fase | Evento de Transição | Estado |
-|------|---------------------|--------|
-| [Criação] | [Evento/gatilho] | [Estado] |
-| [Transição] | [Evento/gatilho] | [Estado] |
+Após sua criação, sua identidade permanece estável durante todo o seu ciclo de vida.
 
----
-
-## 5. Regras
-
-> Regras de negócio aplicáveis a esta entidade.
-
-| ID | Regra | Fonte |
-|----|-------|-------|
-| BR-[NNN] | [Descrição] | [Foundation/Origem] |
+Um mesmo Usuário não poderá pertencer simultaneamente a dois Tenants.
 
 ---
 
-## 6. Relacionamentos
+# 3. Responsabilidades
 
-> Relacionamentos desta entidade com os demais elementos do domínio.
+O Usuário é responsável por:
 
-| Elemento | Tipo de Relacionamento | Descrição |
-|----------|------------------------|-----------|
-| [Elemento] | Composição/Referência | [Descrição] |
+- autenticar-se na plataforma;
+- acessar os recursos autorizados;
+- executar operações conforme suas permissões;
+- manter seus dados cadastrais;
+- registrar sua atividade para fins de auditoria.
 
----
+O Usuário não executa regras financeiras.
 
-## 7. Invariantes
-
-> Condições que devem ser verdadeiras a qualquer momento sobre esta entidade.
-
-| ID | Invariante | Consequência da Violação |
-|----|------------|--------------------------|
-| ENT-[NNN]-INV-001 | [Descrição da condição] | [Consequência] |
+O Usuário não é proprietário de operações de crédito.
 
 ---
 
-## 8. Glossário
+# 4. Ciclo de Vida
 
-> Termos específicos desta entidade e seus significados.
+## Convidado
 
-| Termo | Definição |
-|-------|-----------|
-| [Termo 1] | [Definição] |
+Usuário criado, aguardando ativação.
 
 ---
 
-## 9. Histórico de Versões
+## Ativo
 
-| Versão | Data | Autor | Descrição da Mudança |
-|--------|------|-------|---------------------|
-| 0.1.0 | 2026-08-01 | [Nome] | Criação inicial |
+Usuário habilitado para utilizar a plataforma.
+
+---
+
+## Inativo
+
+Usuário temporariamente impedido de acessar a plataforma.
+
+Seu histórico permanece preservado.
+
+---
+
+## Removido
+
+Usuário desvinculado do Tenant.
+
+Seu histórico de auditoria permanece preservado.
+
+---
+
+# 5. Regras
+
+## RN-001
+
+Todo Usuário pertence exatamente a um Tenant.
+
+---
+
+## RN-002
+
+Todo Usuário deverá possuir um perfil de acesso.
+
+---
+
+## RN-003
+
+Usuários somente poderão acessar recursos pertencentes ao seu Tenant.
+
+---
+
+## RN-004
+
+A remoção de um Usuário nunca poderá eliminar registros históricos da plataforma.
+
+---
+
+## RN-005
+
+Um Usuário poderá exercer diferentes papéis conforme suas permissões.
+
+---
+
+# 6. Relacionamentos
+
+## Aggregate
+
+Pertence ao Aggregate:
+
+DOMAIN-017 — Aggregate Tenant
+
+---
+
+## Relacionamentos
+
+Tenant (1)
+
+↓
+
+Usuário (0..N)
+
+---
+
+Usuário
+
+↓
+
+Perfis de Acesso
+
+↓
+
+Permissões
+
+---
+
+# 7. Invariantes
+
+## INV-001
+
+Todo Usuário pertence exatamente a um Tenant.
+
+---
+
+## INV-002
+
+Nenhum Usuário poderá acessar recursos de outro Tenant.
+
+---
+
+## INV-003
+
+Toda ação realizada por um Usuário deverá ser auditável.
+
+---
+
+# 8. Glossário
+
+## Usuário
+
+Pessoa autorizada a utilizar a plataforma.
+
+---
+
+## Perfil de Acesso
+
+Conjunto de permissões concedidas ao Usuário.
+
+---
+
+## Auditoria
+
+Registro das ações realizadas pelo Usuário dentro da plataforma.
+
+---
+
+# 9. Histórico de Versões
+
+| Versão | Data | Descrição |
+|---------|------|-----------|
+| 1.0.0 | 01/08/2026 | Primeira versão oficial da Entity Usuário. |
