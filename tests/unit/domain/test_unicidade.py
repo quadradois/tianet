@@ -7,7 +7,12 @@ import uuid
 import pytest
 
 from emprestimo.domain.common.errors import TenantJaExisteError
-from emprestimo.domain.platform.ports import TenantRepository
+from emprestimo.domain.platform.ports import (
+    TenantFiltro,
+    TenantOrdenacao,
+    TenantPaginado,
+    TenantRepository,
+)
 from emprestimo.domain.platform.tenant import Tenant
 from emprestimo.domain.platform.unicidade import UnicidadeTenantService
 
@@ -29,6 +34,39 @@ class _TenantRepositoryFake(TenantRepository):
 
     def find_all(self) -> list[Tenant]:
         return list(self._por_identificador.values())
+
+    def find_all_paginated(
+        self,
+        page: int = 1,
+        size: int = 20,
+        ordenacao: TenantOrdenacao | None = None,
+        filtro: TenantFiltro | None = None,
+    ) -> TenantPaginado:
+        from math import ceil
+
+        tenants = list(self._por_identificador.values())
+        if filtro and filtro.estado is not None:
+            tenants = [t for t in tenants if t.estado == filtro.estado]
+
+        if ordenacao is None:
+            ordenacao = TenantOrdenacao()
+
+        reverse = ordenacao.direcao == "desc"
+        tenants.sort(key=lambda t: t.id)
+        tenants.sort(key=lambda t: getattr(t, ordenacao.campo), reverse=reverse)
+
+        total = len(tenants)
+        offset = (page - 1) * size
+        items = tenants[offset : offset + size]
+        pages = ceil(total / size) if size > 0 else 0
+
+        return TenantPaginado(
+            items=items,
+            total=total,
+            page=page,
+            size=size,
+            pages=pages,
+        )
 
 
 def test_unicidade_aceita_organizacao_inexistente() -> None:

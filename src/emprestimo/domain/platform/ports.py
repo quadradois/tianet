@@ -8,10 +8,38 @@ from __future__ import annotations
 
 import uuid
 from abc import ABC, abstractmethod
+from dataclasses import dataclass
+from typing import Literal
 
 from emprestimo.domain.platform.configuracao import Configuracao
-from emprestimo.domain.platform.tenant import Tenant
+from emprestimo.domain.platform.tenant import Tenant, TenantState
 from emprestimo.domain.platform.usuario import Usuario
+
+
+@dataclass(frozen=True)
+class TenantFiltro:
+    """Filtros para listagem de Tenants (IMP-025)."""
+
+    estado: TenantState | None = None
+
+
+@dataclass(frozen=True)
+class TenantOrdenacao:
+    """Ordenação para listagem de Tenants (IMP-025)."""
+
+    campo: Literal["criado_em", "identificador_institucional", "nome", "estado"] = "criado_em"
+    direcao: Literal["asc", "desc"] = "asc"
+
+
+@dataclass(frozen=True)
+class TenantPaginado:
+    """Resultado paginado de Tenants (IMP-025)."""
+
+    items: list[Tenant]
+    total: int
+    page: int
+    size: int
+    pages: int
 
 
 class TenantRepository(ABC):
@@ -28,6 +56,15 @@ class TenantRepository(ABC):
 
     @abstractmethod
     def find_all(self) -> list[Tenant]: ...
+
+    @abstractmethod
+    def find_all_paginated(
+        self,
+        page: int = 1,
+        size: int = 20,
+        ordenacao: TenantOrdenacao | None = None,
+        filtro: TenantFiltro | None = None,
+    ) -> TenantPaginado: ...
 
 
 class UsuarioRepository(ABC):

@@ -1,4 +1,4 @@
-"""Casos de uso de consulta de Tenant (IMP-025, IMP-026).
+"""Casos de uso de consulta de Tenant (IMP-025, IMP-026, IMP-027).
 
 Reutilizam exclusivamente métodos do TenantRepository.
 Retornam o Aggregate `Tenant` ou `None` — sem transformação para DTO.
@@ -11,6 +11,7 @@ import uuid
 from collections.abc import Callable
 
 from emprestimo.application.ports import UnitOfWork
+from emprestimo.domain.platform.ports import TenantFiltro, TenantOrdenacao, TenantPaginado
 from emprestimo.domain.platform.tenant import Tenant
 
 
@@ -50,3 +51,36 @@ class TenantConsultaPorIdService:
         """
         with self._uow_factory() as uow:
             return uow.tenant.find_by_id(tenant_id)
+
+
+class TenantListagemService:
+    """Caso de uso para listagem paginada de Tenants (IMP-027)."""
+
+    def __init__(self, uow_factory: Callable[[], UnitOfWork]) -> None:
+        self._uow_factory = uow_factory
+
+    def listar(
+        self,
+        page: int = 1,
+        size: int = 20,
+        ordenacao: TenantOrdenacao | None = None,
+        filtro: TenantFiltro | None = None,
+    ) -> TenantPaginado:
+        """Lista Tenants com paginação, ordenação e filtro.
+
+        Args:
+            page: Número da página (base 1, default 1).
+            size: Tamanho da página (default 20, max 100).
+            ordenacao: Ordenação dos resultados (default criado_em asc).
+            filtro: Filtros opcionais (estado).
+
+        Returns:
+            TenantPaginado com items, total, page, size, pages.
+        """
+        with self._uow_factory() as uow:
+            return uow.tenant.find_all_paginated(
+                page=page,
+                size=size,
+                ordenacao=ordenacao,
+                filtro=filtro,
+            )

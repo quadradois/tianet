@@ -7,8 +7,9 @@ transacional pertencem ao Unit of Work da fase de Aplicação (IMP-014).
 from __future__ import annotations
 
 import uuid
+from math import ceil
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
@@ -18,6 +19,9 @@ from emprestimo.domain.credit.ports import CarteiraRepository
 from emprestimo.domain.platform.configuracao import Configuracao
 from emprestimo.domain.platform.ports import (
     ConfiguracaoRepository,
+    TenantFiltro,
+    TenantOrdenacao,
+    TenantPaginado,
     TenantRepository,
     UsuarioRepository,
 )
@@ -58,6 +62,55 @@ class SqlAlchemyTenantRepository(TenantRepository):
             select(TenantORM).where(TenantORM.identificador_institucional == identificador)
         )
         return _to_tenant(row) if row is not None else None
+
+    def find_all_paginated(
+        self,
+        page: int = 1,
+        size: int = 20,
+        ordenacao: TenantOrdenacao | None = None,
+        filtro: TenantFiltro | None = None,
+    ) -> TenantPaginado:
+        # Validar e limitar parâmetros
+        page = max(1, page)
+        size = min(max(1, size), 100)
+
+        # Base query
+        query = select(TenantORM)
+        count_query = select(func.count(TenantORM.id))
+
+        # Aplicar filtro de estado
+        if filtro and filtro.estado is not None:
+            query = query.where(TenantORM.estado == filtro.estado.value)
+            count_query = count_query.where(TenantORM.estado == filtro.estado.value)
+
+        # Total count
+        total = self._session.scalar(count_query) or 0
+
+        # Aplicar ordenação
+        if ordenacao is None:
+            ordenacao = TenantOrdenacao()
+
+        order_column = getattr(TenantORM, ordenacao.campo, TenantORM.criado_em)
+        order_column = order_column.desc() if ordenacao.direcao == "desc" else order_column.asc()
+        # Adicionar id como tie-breaker para ordenação determinística
+        query = query.order_by(order_column, TenantORM.id.asc())
+
+        # Paginação
+        offset = (page - 1) * size
+        query = query.offset(offset).limit(size)
+
+        rows = self._session.scalars(query).all()
+        items = [_to_tenant(row) for row in rows]
+
+        pages = ceil(total / size) if size > 0 else 0
+
+        return TenantPaginado(
+            items=items,
+            total=total,
+            page=page,
+            size=size,
+            pages=pages,
+        )
 
     def find_all(self) -> list[Tenant]:
         rows = self._session.scalars(select(TenantORM).order_by(TenantORM.criado_em)).all()
