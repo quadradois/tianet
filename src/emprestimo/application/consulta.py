@@ -28,6 +28,5 @@ class TenantConsultaService:
         Returns:
             Aggregate `Tenant` se encontrado, `None` caso contrário.
         """
-        identificador = identificador_institucional.strip()
         with self._uow_factory() as uow:
-            return uow.tenant.find_by_identificador_institucional(identificador)
+            return uow.tenant.find_by_identificador_institucional(identificador_institucional)

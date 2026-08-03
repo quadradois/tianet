@@ -1,7 +1,7 @@
 """Testes unitários do TenantConsultaService (IMP-025).
 
 Usam fakes em memória para UoW e repositório — nenhuma persistência real.
-Cobertura: Tenant encontrado, Tenant inexistente, repository chamado uma vez.
+Cobertura: Tenant encontrado, Tenant inexistente, delegação ao Repository.
 """
 
 from __future__ import annotations
@@ -21,9 +21,11 @@ class _FakeTenantRepo:
 
     tenants: dict[str, Tenant] = field(default_factory=dict)
     chamadas_find_by_identificador: int = 0
+    ultimo_identificador_recebido: str | None = None
 
     def find_by_identificador_institucional(self, identificador: str) -> Tenant | None:
         self.chamadas_find_by_identificador += 1
+        self.ultimo_identificador_recebido = identificador
         return self.tenants.get(identificador)
 
     def save(self, tenant: Tenant) -> None:
@@ -85,28 +87,17 @@ def test_consulta_tenant_inexistente_retorna_none() -> None:
     assert uow.tenant.chamadas_find_by_identificador == 1
 
 
-def test_consulta_repository_chamado_exatamente_uma_vez() -> None:
-    """Repository deve ser chamado exatamente uma vez por consulta."""
+def test_consulta_delega_ao_repository_sem_transformacao() -> None:
+    """O serviço deve delegar a chamada ao Repository sem transformar a entrada."""
     uow = _FakeUoW()
     uow.tenant.save(_make_tenant("IDENT-0001"))
     service = TenantConsultaService(uow_factory=lambda: uow)
 
-    service.consultar_por_identificador("IDENT-0001")
+    # Chama com identificador que tem espaços - o serviço NÃO deve fazer strip
+    service.consultar_por_identificador("  IDENT-0001  ")
 
-    assert uow.tenant.chamadas_find_by_identificador == 1
-
-
-def test_consulta_sem_logica_adicional_alem_da_orquestracao() -> None:
-    """O caso de uso não deve conter lógica além da orquestração (strip + repo call)."""
-    uow = _FakeUoW()
-    uow.tenant.save(_make_tenant("IDENT-0001"))
-    service = TenantConsultaService(uow_factory=lambda: uow)
-
-    # Testa que apenas faz strip e delega ao repo
-    resultado = service.consultar_por_identificador("  IDENT-0001  ")
-
-    assert resultado is not None
-    assert resultado.identificador_institucional == "IDENT-0001"
+    # Verifica que o identificador foi passado EXATAMENTE como recebido
+    assert uow.tenant.ultimo_identificador_recebido == "  IDENT-0001  "
     assert uow.tenant.chamadas_find_by_identificador == 1
 
 
