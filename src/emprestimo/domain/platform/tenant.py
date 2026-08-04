@@ -245,7 +245,7 @@ class Tenant:
         a partir de Provisão/Inativo são bloqueadas. Nenhum dado cadastral é
         alterado: ``id``, ``identificador_institucional``, ``nome`` e
         ``criado_em`` permanecem intactos. A reversão (Inativo → Ativo) é
-        prevista pela FEATURE-004 (reativação) em implementação futura.
+        prevista pela FEATURE-004 (reativação).
         """
         if self.estado is not TenantState.ATIVO:
             raise ViolacaoInvarianteError(
@@ -254,3 +254,19 @@ class Tenant:
                 f"{self.estado.value})",
             )
         self.estado = TenantState.INATIVO
+
+    def reativar(self) -> None:
+        """Transição Inativo → Ativo (FEATURE-004, US-014).
+
+        Apenas Tenants Inativos podem ser reativados (PLAN-001 §5);
+        transições a partir de Provisão/Ativo são bloqueadas. Nenhum dado
+        cadastral é alterado: ``id``, ``identificador_institucional``, ``nome``
+        e ``criado_em`` permanecem intactos — nada é recriado.
+        """
+        if self.estado is not TenantState.INATIVO:
+            raise ViolacaoInvarianteError(
+                "DOMAIN-017",
+                f"apenas Tenants Inativos podem ser reativados (estado atual: "
+                f"{self.estado.value})",
+            )
+        self.estado = TenantState.ATIVO

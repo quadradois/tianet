@@ -203,3 +203,96 @@ def test_inativar_preserva_identidade_e_vinculos() -> None:
 
     assert tenant.id == id_original
     assert tenant.identificador_institucional == "IDENT-0001"
+
+
+# --------------------------------------------------------------------------- #
+# Transições de estado operacional — reativação (IMP-033)
+# --------------------------------------------------------------------------- #
+
+
+def test_reativar_tenant_inativo_transiciona_para_ativo() -> None:
+    tenant = Tenant(
+        identificador_institucional="IDENT-0001",
+        nome="Financeira ABC",
+        estado=TenantState.INATIVO,
+    )
+
+    tenant.reativar()
+
+    assert tenant.estado == TenantState.ATIVO
+
+
+def test_reativar_tenant_ja_ativo_lanca_violacao() -> None:
+    tenant = Tenant(
+        identificador_institucional="IDENT-0001",
+        nome="Financeira ABC",
+        estado=TenantState.ATIVO,
+    )
+
+    with pytest.raises(ViolacaoInvarianteError) as excinfo:
+        tenant.reativar()
+
+    assert excinfo.value.codigo == "DOMAIN-017"
+    assert "reativados" in excinfo.value.mensagem.lower()
+    assert tenant.estado == TenantState.ATIVO
+
+
+def test_reativar_tenant_em_provisao_lanca_violacao() -> None:
+    tenant = Tenant(identificador_institucional="IDENT-0001", nome="Financeira ABC")
+
+    assert tenant.estado == TenantState.PROVISAO
+
+    with pytest.raises(ViolacaoInvarianteError) as excinfo:
+        tenant.reativar()
+
+    assert excinfo.value.codigo == "DOMAIN-017"
+    assert "reativados" in excinfo.value.mensagem.lower()
+    assert tenant.estado == TenantState.PROVISAO
+
+
+def test_reativar_preserva_atributos_cadastrais() -> None:
+    tenant = Tenant(
+        identificador_institucional="IDENT-0001",
+        nome="Financeira ABC",
+        estado=TenantState.INATIVO,
+    )
+    id_original = tenant.id
+    identificador_original = tenant.identificador_institucional
+    nome_original = tenant.nome
+    criado_em_original = tenant.criado_em
+
+    tenant.reativar()
+
+    assert tenant.id == id_original
+    assert tenant.identificador_institucional == identificador_original
+    assert tenant.nome == nome_original
+    assert tenant.criado_em == criado_em_original
+
+
+def test_reativar_preserva_identidade() -> None:
+    tenant = Tenant(
+        identificador_institucional="IDENT-0001",
+        nome="Financeira ABC",
+        estado=TenantState.INATIVO,
+    )
+    id_original = tenant.id
+
+    tenant.reativar()
+
+    assert tenant.id == id_original
+    assert tenant.identificador_institucional == "IDENT-0001"
+
+
+def test_ciclo_inativar_reativar_retorna_ao_estado_ativo() -> None:
+    """US-013 + US-014: inativar seguido de reativar restaura Ativo."""
+    tenant = Tenant(
+        identificador_institucional="IDENT-0001",
+        nome="Financeira ABC",
+        estado=TenantState.ATIVO,
+    )
+
+    tenant.inativar()
+    assert tenant.estado == TenantState.INATIVO
+
+    tenant.reativar()
+    assert tenant.estado == TenantState.ATIVO
