@@ -14,7 +14,7 @@ from datetime import UTC, datetime
 import pytest
 
 from emprestimo.application.atualizacao import TenantAtualizacaoService
-from emprestimo.application.ports import UnitOfWork
+from emprestimo.application.ports import AuditoriaRegistro, UnitOfWork
 from emprestimo.domain.platform.tenant import Tenant, TenantState
 
 
@@ -37,6 +37,24 @@ class _FakeTenantRepo:
         self.chamadas_save += 1
         self.ultimo_tenant_salvo = tenant
         self.tenants[tenant.id] = tenant
+
+
+@dataclass
+class _FakeAuditoria(AuditoriaRegistro):
+    """Fake da AuditoriaRegistro — captura os eventos registrados."""
+
+    eventos: list[tuple[str, uuid.UUID | None, str, str]] = field(default_factory=list)
+
+    def registrar(
+        self,
+        entidade: str,
+        entidade_id: uuid.UUID | None,
+        acao: str,
+        status: str,
+        detalhes: str | None = None,
+    ) -> None:
+        del detalhes
+        self.eventos.append((entidade, entidade_id, acao, status))
 
 
 @dataclass
@@ -73,6 +91,16 @@ def _make_tenant(
     )
 
 
+def _fazer_servico(uow: _FakeUoW) -> tuple[TenantAtualizacaoService, _FakeAuditoria]:
+    """Cria o serviço de atualização com UoW e auditoria fakes."""
+    auditoria = _FakeAuditoria()
+    service = TenantAtualizacaoService(
+        uow_factory=lambda: uow,
+        auditoria=auditoria,
+    )
+    return service, auditoria
+
+
 # --- Testes do TenantAtualizacaoService (IMP-030) ---
 
 
@@ -81,7 +109,7 @@ def test_atualizacao_com_sucesso() -> None:
     tenant = _make_tenant(nome="Nome Original")
     uow = _FakeUoW()
     uow.tenant.save(tenant)  # Setup: 1 save
-    service = TenantAtualizacaoService(uow_factory=lambda: uow)
+    service, _ = _fazer_servico(uow)
 
     resultado = service.atualizar_nome(tenant.id, "Nome Atualizado")
 
@@ -100,7 +128,7 @@ def test_atualizacao_com_sucesso() -> None:
 def test_atualizacao_tenant_inexistente_retorna_none() -> None:
     """Deve retornar None quando Tenant não existe (sem exceção)."""
     uow = _FakeUoW()
-    service = TenantAtualizacaoService(uow_factory=lambda: uow)
+    service, _ = _fazer_servico(uow)
 
     resultado = service.atualizar_nome(uuid.uuid4(), "Qualquer Nome")
 
@@ -115,7 +143,7 @@ def test_atualizacao_delega_ao_aggregate() -> None:
     tenant = _make_tenant(nome="Nome Original")
     uow = _FakeUoW()
     uow.tenant.save(tenant)
-    service = TenantAtualizacaoService(uow_factory=lambda: uow)
+    service, _ = _fazer_servico(uow)
 
     service.atualizar_nome(tenant.id, "Novo Nome")
 
@@ -131,7 +159,7 @@ def test_atualizacao_persiste_via_repository() -> None:
     tenant = _make_tenant(nome="Nome Original")
     uow = _FakeUoW()
     uow.tenant.save(tenant)  # Setup: 1 save
-    service = TenantAtualizacaoService(uow_factory=lambda: uow)
+    service, _ = _fazer_servico(uow)
 
     resultado = service.atualizar_nome(tenant.id, "Nome Atualizado")
 
@@ -145,7 +173,7 @@ def test_atualizacao_commit_da_uow() -> None:
     tenant = _make_tenant(nome="Nome Original")
     uow = _FakeUoW()
     uow.tenant.save(tenant)
-    service = TenantAtualizacaoService(uow_factory=lambda: uow)
+    service, _ = _fazer_servico(uow)
 
     service.atualizar_nome(tenant.id, "Nome Atualizado")
 
@@ -157,7 +185,7 @@ def test_atualizacao_sem_rollback_quando_sucesso() -> None:
     tenant = _make_tenant(nome="Nome Original")
     uow = _FakeUoW()
     uow.tenant.save(tenant)
-    service = TenantAtualizacaoService(uow_factory=lambda: uow)
+    service, _ = _fazer_servico(uow)
 
     service.atualizar_nome(tenant.id, "Nome Atualizado")
 
@@ -173,7 +201,7 @@ def test_atualizacao_nao_altera_estado_nem_identificador() -> None:
     )
     uow = _FakeUoW()
     uow.tenant.save(tenant)
-    service = TenantAtualizacaoService(uow_factory=lambda: uow)
+    service, _ = _fazer_servico(uow)
 
     resultado = service.atualizar_nome(tenant.id, "Novo Nome")
 
@@ -190,7 +218,7 @@ def test_atualizacao_propaga_violacao_invariante_do_aggregate() -> None:
     tenant = _make_tenant(nome="Nome Original")
     uow = _FakeUoW()
     uow.tenant.save(tenant)
-    service = TenantAtualizacaoService(uow_factory=lambda: uow)
+    service, _ = _fazer_servico(uow)
 
     try:
         service.atualizar_nome(tenant.id, "")
@@ -211,7 +239,7 @@ def test_atualizacao_propaga_violacao_nome_longo_do_aggregate() -> None:
     tenant = _make_tenant(nome="Nome Original")
     uow = _FakeUoW()
     uow.tenant.save(tenant)
-    service = TenantAtualizacaoService(uow_factory=lambda: uow)
+    service, _ = _fazer_servico(uow)
 
     try:
         service.atualizar_nome(tenant.id, "A" * 201)
@@ -229,7 +257,7 @@ def test_atualizacao_multiplas_chamadas_independentes() -> None:
     tenant = _make_tenant(nome="Nome Original")
     uow = _FakeUoW()
     uow.tenant.save(tenant)  # Setup: 1 save
-    service = TenantAtualizacaoService(uow_factory=lambda: uow)
+    service, _ = _fazer_servico(uow)
 
     service.atualizar_nome(tenant.id, "Nome 1")
     service.atualizar_nome(tenant.id, "Nome 2")
@@ -245,7 +273,7 @@ def test_atualizacao_sem_logica_adicional_alem_delegacao() -> None:
     tenant = _make_tenant(nome="Nome Original")
     uow = _FakeUoW()
     uow.tenant.save(tenant)
-    service = TenantAtualizacaoService(uow_factory=lambda: uow)
+    service, _ = _fazer_servico(uow)
 
     # Passa nome já formatado - serviço não deve fazer strip, normalização, etc.
     resultado = service.atualizar_nome(tenant.id, "  Nome com Espaços  ")
@@ -253,3 +281,67 @@ def test_atualizacao_sem_logica_adicional_alem_delegacao() -> None:
     # O Aggregate Tenant.atualizar_nome faz strip e validação
     # O serviço apenas delega
     assert resultado.nome == "Nome com Espaços"  # Aggregate fez strip
+
+
+# --- Testes de auditoria de atualização (IMP-031) ---
+
+
+def test_auditoria_registrada_em_atualizacao_bem_sucedida() -> None:
+    """Deve registrar atualizar.inicio e atualizar.sucesso, sem atualizar.falha."""
+    tenant = _make_tenant(nome="Nome Original")
+    uow = _FakeUoW()
+    uow.tenant.save(tenant)
+    service, auditoria = _fazer_servico(uow)
+
+    service.atualizar_nome(tenant.id, "Nome Atualizado")
+
+    acoes = [evento[2] for evento in auditoria.eventos]
+    assert "atualizar.inicio" in acoes
+    assert "atualizar.sucesso" in acoes
+    assert "atualizar.falha" not in acoes
+    # Eventos vinculados ao tenant correto
+    assert all(evento[0] == "tenant" for evento in auditoria.eventos)
+    assert all(evento[1] == tenant.id for evento in auditoria.eventos)
+
+
+def test_auditoria_ausente_quando_tenant_inexistente() -> None:
+    """Não deve registrar nenhum evento de auditoria quando o Tenant não existe."""
+    uow = _FakeUoW()
+    service, auditoria = _fazer_servico(uow)
+
+    resultado = service.atualizar_nome(uuid.uuid4(), "Qualquer Nome")
+
+    assert resultado is None
+    assert auditoria.eventos == []
+
+
+def test_auditoria_de_falha_em_violacao_de_invariante() -> None:
+    """Deve registrar atualizar.falha quando o Aggregate lança ViolacaoInvarianteError."""
+    from emprestimo.domain.common.errors import ViolacaoInvarianteError
+
+    tenant = _make_tenant(nome="Nome Original")
+    uow = _FakeUoW()
+    uow.tenant.save(tenant)
+    service, auditoria = _fazer_servico(uow)
+
+    with pytest.raises(ViolacaoInvarianteError):
+        service.atualizar_nome(tenant.id, "")
+
+    acoes = [evento[2] for evento in auditoria.eventos]
+    assert "atualizar.inicio" in acoes
+    assert "atualizar.falha" in acoes
+    assert "atualizar.sucesso" not in acoes
+
+
+def test_auditoria_ordem_dos_eventos_no_sucesso() -> None:
+    """A sequência deve respeitar: inicio → ... → sucesso."""
+    tenant = _make_tenant(nome="Nome Original")
+    uow = _FakeUoW()
+    uow.tenant.save(tenant)
+    service, auditoria = _fazer_servico(uow)
+
+    service.atualizar_nome(tenant.id, "Nome Atualizado")
+
+    eventos = [evento[2] for evento in auditoria.eventos]
+    assert eventos[0] == "atualizar.inicio"
+    assert eventos[-1] == "atualizar.sucesso"
