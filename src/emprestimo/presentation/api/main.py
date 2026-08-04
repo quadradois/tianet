@@ -20,7 +20,10 @@ from fastapi import FastAPI, HTTPException, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 
-from emprestimo.application.errors import IdempotenciaConflitoError
+from emprestimo.application.errors import (
+    IdempotenciaConflitoError,
+    TransicaoEstadoInvalidaError,
+)
 from emprestimo.domain.common.errors import TenantJaExisteError, ViolacaoInvarianteError
 from emprestimo.presentation.api.routes import router
 
@@ -37,6 +40,7 @@ def create_app() -> FastAPI:
     app.add_exception_handler(RequestValidationError, _payload_invalido)
     app.add_exception_handler(TenantJaExisteError, _tenant_ja_existe)
     app.add_exception_handler(IdempotenciaConflitoError, _conflito_idempotencia)
+    app.add_exception_handler(TransicaoEstadoInvalidaError, _conflito_estado)
     app.add_exception_handler(ViolacaoInvarianteError, _regra_violada)
     app.add_exception_handler(HTTPException, _http_exception)
     app.add_exception_handler(Exception, _erro_inesperado)
@@ -67,6 +71,10 @@ async def _tenant_ja_existe(_: Request, exc: Exception) -> JSONResponse:
 
 async def _conflito_idempotencia(_: Request, exc: Exception) -> JSONResponse:
     return JSONResponse(status_code=409, content=_corpo("conflito_idempotencia", str(exc)))
+
+
+async def _conflito_estado(_: Request, exc: Exception) -> JSONResponse:
+    return JSONResponse(status_code=409, content=_corpo("conflito_estado", str(exc)))
 
 
 async def _regra_violada(_: Request, exc: Exception) -> JSONResponse:

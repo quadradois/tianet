@@ -17,6 +17,7 @@ from emprestimo.application.consulta import (
     TenantConsultaService,
     TenantListagemService,
 )
+from emprestimo.application.estado import TenantEstadoService
 from emprestimo.application.provisioning import TenantProvisioningService
 from emprestimo.domain.platform.ports import TenantRepository
 from emprestimo.domain.platform.unicidade import UnicidadeTenantService
@@ -88,6 +89,17 @@ def get_tenant_atualizacao_service(
     """Serviço de atualização cadastral de Tenants (IMP-030/031/032)."""
     session_factory = get_session_factory()
     return TenantAtualizacaoService(
+        uow_factory=lambda: SqlAlchemyUnitOfWork(session_factory),
+        auditoria=SqlAlchemyAuditoriaRegistro(session_factory),
+    )
+
+
+def get_tenant_estado_service(
+    session: Session = Depends(_get_session),
+) -> TenantEstadoService:
+    """Serviço de transições de estado de Tenants (IMP-034/035/036)."""
+    session_factory = get_session_factory()
+    return TenantEstadoService(
         uow_factory=lambda: SqlAlchemyUnitOfWork(session_factory),
         auditoria=SqlAlchemyAuditoriaRegistro(session_factory),
     )

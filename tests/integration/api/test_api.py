@@ -567,3 +567,125 @@ def test_patch_persistencia_real(client: TestClient) -> None:
     resp = client.get(f"/platform/tenants/{criado['id']}")
     assert resp.status_code == 200
     assert resp.json()["nome"] == "Nome Persistido"
+
+
+# --- Testes dos endpoints POST inativar/reativar (IMP-036, FEATURE-004) ---
+
+
+def test_post_inativar_200(client: TestClient) -> None:
+    """IMP-036, US-013: POST /tenants/{id}/inativar responde TenantResponse."""
+    criado = _post(client, chave="chave-inat-ok").json()
+
+    resp = client.post(f"/platform/tenants/{criado['id']}/inativar")
+
+    assert resp.status_code == 200
+    corpo = resp.json()
+    assert set(corpo) == CAMPO_RESPONSE
+    assert corpo["id"] == criado["id"]
+    assert corpo["estado"] == "inativo"
+    assert corpo["identificador_institucional"] == criado["identificador_institucional"]
+    assert corpo["nome"] == criado["nome"]
+
+
+def test_post_inativar_tenant_inexistente_404(client: TestClient) -> None:
+    """Deve responder 404 quando o Tenant não existe."""
+    resp = client.post("/platform/tenants/00000000-0000-0000-0000-000000000000/inativar")
+
+    assert resp.status_code == 404
+    assert resp.json()["codigo"] == "tenant_nao_encontrado"
+
+
+def test_post_inativar_ja_inativo_409(client: TestClient) -> None:
+    """Estado divergente (já Inativo) → 409 conflito_estado."""
+    criado = _post(client, chave="chave-inat-409").json()
+    client.post(f"/platform/tenants/{criado['id']}/inativar")
+
+    resp = client.post(f"/platform/tenants/{criado['id']}/inativar")
+
+    assert resp.status_code == 409
+    assert resp.json()["codigo"] == "conflito_estado"
+
+
+def test_post_reativar_200(client: TestClient) -> None:
+    """IMP-036, US-014: POST /tenants/{id}/reativar responde TenantResponse."""
+    criado = _post(client, chave="chave-reat-ok").json()
+    client.post(f"/platform/tenants/{criado['id']}/inativar")
+
+    resp = client.post(f"/platform/tenants/{criado['id']}/reativar")
+
+    assert resp.status_code == 200
+    corpo = resp.json()
+    assert set(corpo) == CAMPO_RESPONSE
+    assert corpo["id"] == criado["id"]
+    assert corpo["estado"] == "ativo"
+    assert corpo["identificador_institucional"] == criado["identificador_institucional"]
+
+
+def test_post_reativar_tenant_inexistente_404(client: TestClient) -> None:
+    """Deve responder 404 quando o Tenant não existe."""
+    resp = client.post("/platform/tenants/00000000-0000-0000-0000-000000000000/reativar")
+
+    assert resp.status_code == 404
+    assert resp.json()["codigo"] == "tenant_nao_encontrado"
+
+
+def test_post_reativar_ja_ativo_409(client: TestClient) -> None:
+    """Estado divergente (já Ativo) → 409 conflito_estado."""
+    criado = _post(client, chave="chave-reat-409").json()
+
+    resp = client.post(f"/platform/tenants/{criado['id']}/reativar")
+
+    assert resp.status_code == 409
+    assert resp.json()["codigo"] == "conflito_estado"
+
+
+def test_post_inativar_persistencia_real(client: TestClient) -> None:
+    """Após inativar, a consulta GET reflete o estado Inativo (persistência)."""
+    criado = _post(client, chave="chave-inat-persist").json()
+
+    client.post(f"/platform/tenants/{criado['id']}/inativar")
+
+    resp = client.get(f"/platform/tenants/{criado['id']}")
+    assert resp.status_code == 200
+    assert resp.json()["estado"] == "inativo"
+
+
+def test_post_inativar_preserva_dados_cadastrais(client: TestClient) -> None:
+    """Inativação altera apenas o estado; cadastro permanece intacto."""
+    criado = _post(client, chave="chave-inat-preserva").json()
+
+    resp = client.post(f"/platform/tenants/{criado['id']}/inativar")
+
+    assert resp.status_code == 200
+    corpo = resp.json()
+    assert corpo["id"] == criado["id"]
+    assert corpo["identificador_institucional"] == criado["identificador_institucional"]
+    assert corpo["nome"] == criado["nome"]
+    assert corpo["criado_em"] == criado["criado_em"]
+
+
+def test_post_reativar_nao_recria_dados(client: TestClient) -> None:
+    """Reativação preserva identidade; nada é recriado."""
+    criado = _post(client, chave="chave-reat-preserva").json()
+    client.post(f"/platform/tenants/{criado['id']}/inativar")
+
+    resp = client.post(f"/platform/tenants/{criado['id']}/reativar")
+
+    assert resp.status_code == 200
+    corpo = resp.json()
+    assert corpo["id"] == criado["id"]
+    assert corpo["identificador_institucional"] == criado["identificador_institucional"]
+    assert corpo["nome"] == criado["nome"]
+    assert corpo["criado_em"] == criado["criado_em"]
+
+
+def test_listagem_filtra_estado_inativo_apos_inativacao(client: TestClient) -> None:
+    """IMP-039: após inativar, o filtro por estado inativo encontra o Tenant."""
+    criado = _post(client, chave="chave-inat-filtro").json()
+    client.post(f"/platform/tenants/{criado['id']}/inativar")
+
+    resp = client.get("/platform/tenants", params={"estado": "inativo", "size": 10}).json()
+
+    nossos = [item for item in resp["items"] if item["id"] == criado["id"]]
+    assert len(nossos) == 1
+    assert nossos[0]["estado"] == "inativo"

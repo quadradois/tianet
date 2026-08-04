@@ -1,5 +1,5 @@
-"""Rotas da API pública da FEATURE-001 (IMP-017/018), FEATURE-002 (IMP-026/027/028)
-e FEATURE-003 (IMP-032).
+"""Rotas da API pública da FEATURE-001 (IMP-017/018), FEATURE-002 (IMP-026/027/028),
+FEATURE-003 (IMP-032) e FEATURE-004 (IMP-036).
 
 A camada Presentation apenas: valida entrada (header/body/query), monta DTOs,
 chama os casos de uso da Application e converte o resultado em resposta HTTP.
@@ -20,12 +20,14 @@ from emprestimo.application.consulta import (
     TenantConsultaService,
     TenantListagemService,
 )
+from emprestimo.application.estado import TenantEstadoService
 from emprestimo.application.provisioning import TenantProvisioningService
 from emprestimo.domain.platform.ports import TenantFiltro, TenantOrdenacao
 from emprestimo.presentation.api.dependencies import (
     get_tenant_atualizacao_service,
     get_tenant_consulta_por_id_service,
     get_tenant_consulta_service,
+    get_tenant_estado_service,
     get_tenant_listagem_service,
     get_tenant_provisioning_service,
 )
@@ -181,6 +183,66 @@ def atualizar_tenant(
     422 ``regra_violada`` (handler do main.py).
     """
     tenant = service.atualizar_nome(tenant_id, payload.nome)
+    if tenant is None:
+        raise HTTPException(
+            status_code=404,
+            detail={"codigo": "tenant_nao_encontrado", "mensagem": "Tenant inexistente"},
+        )
+    return TenantResponse(
+        id=tenant.id,
+        identificador_institucional=tenant.identificador_institucional,
+        nome=tenant.nome,
+        estado=tenant.estado,
+        criado_em=tenant.criado_em,
+    )
+
+
+@router.post(
+    "/tenants/{tenant_id}/inativar",
+    response_model=TenantResponse,
+    summary="Inativar um Tenant (IMP-036, US-013, DA-205)",
+)
+def inativar_tenant(
+    tenant_id: uuid.UUID,
+    service: TenantEstadoService = Depends(get_tenant_estado_service),
+) -> TenantResponse:
+    """Transição Ativo → Inativo (FEATURE-004).
+
+    Sem corpo de request. Estado divergente responde 409 ``conflito_estado``
+    (traduzido de ``TransicaoEstadoInvalidaError`` no main.py); a regra de
+    transição permanece no Aggregate (DOMAIN-017).
+    """
+    tenant = service.inativar(tenant_id)
+    if tenant is None:
+        raise HTTPException(
+            status_code=404,
+            detail={"codigo": "tenant_nao_encontrado", "mensagem": "Tenant inexistente"},
+        )
+    return TenantResponse(
+        id=tenant.id,
+        identificador_institucional=tenant.identificador_institucional,
+        nome=tenant.nome,
+        estado=tenant.estado,
+        criado_em=tenant.criado_em,
+    )
+
+
+@router.post(
+    "/tenants/{tenant_id}/reativar",
+    response_model=TenantResponse,
+    summary="Reativar um Tenant (IMP-036, US-014, DA-205)",
+)
+def reativar_tenant(
+    tenant_id: uuid.UUID,
+    service: TenantEstadoService = Depends(get_tenant_estado_service),
+) -> TenantResponse:
+    """Transição Inativo → Ativo (FEATURE-004).
+
+    Sem corpo de request. Estado divergente responde 409 ``conflito_estado``
+    (traduzido de ``TransicaoEstadoInvalidaError`` no main.py); a regra de
+    transição permanece no Aggregate (DOMAIN-017).
+    """
+    tenant = service.reativar(tenant_id)
     if tenant is None:
         raise HTTPException(
             status_code=404,
