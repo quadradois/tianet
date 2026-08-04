@@ -1,8 +1,8 @@
 """DTOs da API REST (RA-012 — Presentation nunca expõe Aggregates).
 
-Contratos de entrada e saída de IMP-017/018/026/027, desacoplados das entidades de
-domínio. Nenhuma regra de negócio vive aqui; apenas validação de entrada e
-serialização.
+Contratos de entrada e saída de IMP-017/018/026/027/032, desacoplados das
+entidades de domínio. Nenhuma regra de negócio vive aqui; apenas validação
+de entrada e serialização.
 """
 
 from __future__ import annotations
@@ -84,6 +84,26 @@ class TenantListagemResponse(BaseModel):
     page: int
     size: int
     pages: int
+
+
+class TenantUpdateRequest(BaseModel):
+    """Payload de atualização parcial do Tenant (IMP-032, US-012, DA-205).
+
+    Apenas o nome é atualizável no MVP (FEATURE-003). Regras de domínio
+    (não vazio, <= 200 caracteres) permanecem no Aggregate (IMP-029) —
+    a violação responde 422 ``regra_violada`` pelo handler do main.py.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    nome: str
+
+    @field_validator("nome", mode="before")
+    @classmethod
+    def _normalizar_texto(cls, valor: Any) -> Any:
+        if isinstance(valor, str):
+            return valor.strip()
+        return valor
 
 
 class ErroResponse(BaseModel):

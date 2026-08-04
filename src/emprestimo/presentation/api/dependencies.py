@@ -11,6 +11,7 @@ from collections.abc import Iterator
 from fastapi import Depends
 from sqlalchemy.orm import Session
 
+from emprestimo.application.atualizacao import TenantAtualizacaoService
 from emprestimo.application.consulta import (
     TenantConsultaPorIdService,
     TenantConsultaService,
@@ -78,4 +79,15 @@ def get_tenant_listagem_service(
     session_factory = get_session_factory()
     return TenantListagemService(
         uow_factory=lambda: SqlAlchemyUnitOfWork(session_factory),
+    )
+
+
+def get_tenant_atualizacao_service(
+    session: Session = Depends(_get_session),
+) -> TenantAtualizacaoService:
+    """Serviço de atualização cadastral de Tenants (IMP-030/031/032)."""
+    session_factory = get_session_factory()
+    return TenantAtualizacaoService(
+        uow_factory=lambda: SqlAlchemyUnitOfWork(session_factory),
+        auditoria=SqlAlchemyAuditoriaRegistro(session_factory),
     )

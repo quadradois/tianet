@@ -432,3 +432,138 @@ def test_listar_tenants_size_maximo_100(client: TestClient) -> None:
 
     assert resp.status_code == 400
     assert resp.json()["codigo"] == "payload_invalido"
+
+
+# --- Testes do endpoint PATCH /platform/tenants/{id} (IMP-032, FEATURE-003) ---
+
+
+def test_patch_atualiza_nome_200(client: TestClient) -> None:
+    """IMP-032, US-012: PATCH atualiza o nome e responde TenantResponse."""
+    criado = _post(client, chave="chave-patch-ok").json()
+
+    resp = client.patch(
+        f"/platform/tenants/{criado['id']}",
+        json={"nome": "Financeira Atualizada"},
+    )
+
+    assert resp.status_code == 200
+    corpo = resp.json()
+    assert set(corpo) == CAMPO_RESPONSE  # DTO compatível com FEATURE-002
+    assert corpo["id"] == criado["id"]
+    assert corpo["nome"] == "Financeira Atualizada"
+
+
+def test_patch_tenant_inexistente_404(client: TestClient) -> None:
+    """Deve responder 404 quando o Tenant não existe."""
+    resp = client.patch(
+        "/platform/tenants/00000000-0000-0000-0000-000000000000",
+        json={"nome": "Qualquer Nome"},
+    )
+
+    assert resp.status_code == 404
+    assert resp.json()["codigo"] == "tenant_nao_encontrado"
+
+
+def test_patch_payload_invalido_sem_nome_400(client: TestClient) -> None:
+    """Payload sem o campo nome → 400 payload_invalido."""
+    resp = client.patch(
+        "/platform/tenants/00000000-0000-0000-0000-000000000000",
+        json={},
+    )
+
+    assert resp.status_code == 400
+    assert resp.json()["codigo"] == "payload_invalido"
+
+
+def test_patch_payload_tipo_invalido_400(client: TestClient) -> None:
+    """Nome com tipo inválido (não-string) → 400 payload_invalido."""
+    resp = client.patch(
+        "/platform/tenants/00000000-0000-0000-0000-000000000000",
+        json={"nome": 123},
+    )
+
+    assert resp.status_code == 400
+    assert resp.json()["codigo"] == "payload_invalido"
+
+
+def test_patch_nome_vazio_422(client: TestClient) -> None:
+    """Nome vazio → violação de invariante no Aggregate → 422 regra_violada."""
+    criado = _post(client, chave="chave-patch-vazio").json()
+
+    resp = client.patch(
+        f"/platform/tenants/{criado['id']}",
+        json={"nome": "   "},
+    )
+
+    assert resp.status_code == 422
+    assert resp.json()["codigo"] == "regra_violada"
+
+
+def test_patch_nome_acima_do_limite_422(client: TestClient) -> None:
+    """Nome com mais de 200 caracteres → 422 regra_violada."""
+    criado = _post(client, chave="chave-patch-longo").json()
+
+    resp = client.patch(
+        f"/platform/tenants/{criado['id']}",
+        json={"nome": "A" * 201},
+    )
+
+    assert resp.status_code == 422
+    assert resp.json()["codigo"] == "regra_violada"
+
+
+def test_patch_preserva_identificador_institucional(client: TestClient) -> None:
+    """A atualização não altera o identificador institucional."""
+    criado = _post(client, chave="chave-patch-ident").json()
+
+    resp = client.patch(
+        f"/platform/tenants/{criado['id']}",
+        json={"nome": "Novo Nome"},
+    )
+
+    assert resp.status_code == 200
+    corpo = resp.json()
+    assert corpo["identificador_institucional"] == criado["identificador_institucional"]
+    assert corpo["id"] == criado["id"]
+
+
+def test_patch_preserva_estado_e_criacao(client: TestClient) -> None:
+    """A atualização preserva estado e criado_em."""
+    criado = _post(client, chave="chave-patch-estado").json()
+
+    resp = client.patch(
+        f"/platform/tenants/{criado['id']}",
+        json={"nome": "Financeira Atualizada"},
+    )
+
+    assert resp.status_code == 200
+    corpo = resp.json()
+    assert corpo["estado"] == criado["estado"]
+    assert corpo["criado_em"] == criado["criado_em"]
+
+
+def test_patch_normaliza_nome_com_espacos(client: TestClient) -> None:
+    """A Presentation normaliza (strip) o nome na borda."""
+    criado = _post(client, chave="chave-patch-strip").json()
+
+    resp = client.patch(
+        f"/platform/tenants/{criado['id']}",
+        json={"nome": "  Financeira Normalizada  "},
+    )
+
+    assert resp.status_code == 200
+    assert resp.json()["nome"] == "Financeira Normalizada"
+
+
+def test_patch_persistencia_real(client: TestClient) -> None:
+    """Após PATCH, a consulta GET reflete o nome atualizado (persistência)."""
+    criado = _post(client, chave="chave-patch-persist").json()
+
+    client.patch(
+        f"/platform/tenants/{criado['id']}",
+        json={"nome": "Nome Persistido"},
+    )
+
+    resp = client.get(f"/platform/tenants/{criado['id']}")
+    assert resp.status_code == 200
+    assert resp.json()["nome"] == "Nome Persistido"

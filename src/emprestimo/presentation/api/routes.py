@@ -1,4 +1,5 @@
-"""Rotas da API pública da FEATURE-001 (IMP-017/018) e FEATURE-002 (IMP-026/027/028).
+"""Rotas da API pública da FEATURE-001 (IMP-017/018), FEATURE-002 (IMP-026/027/028)
+e FEATURE-003 (IMP-032).
 
 A camada Presentation apenas: valida entrada (header/body/query), monta DTOs,
 chama os casos de uso da Application e converte o resultado em resposta HTTP.
@@ -13,6 +14,7 @@ from typing import Literal, cast
 
 from fastapi import APIRouter, Depends, Header, HTTPException, Query
 
+from emprestimo.application.atualizacao import TenantAtualizacaoService
 from emprestimo.application.consulta import (
     TenantConsultaPorIdService,
     TenantConsultaService,
@@ -21,6 +23,7 @@ from emprestimo.application.consulta import (
 from emprestimo.application.provisioning import TenantProvisioningService
 from emprestimo.domain.platform.ports import TenantFiltro, TenantOrdenacao
 from emprestimo.presentation.api.dependencies import (
+    get_tenant_atualizacao_service,
     get_tenant_consulta_por_id_service,
     get_tenant_consulta_service,
     get_tenant_listagem_service,
@@ -31,6 +34,7 @@ from emprestimo.presentation.api.schemas import (
     TenantListagemParams,
     TenantListagemResponse,
     TenantResponse,
+    TenantUpdateRequest,
 )
 
 router = APIRouter(prefix="/platform", tags=["platform"])
@@ -146,6 +150,37 @@ def obter_tenant_por_id(
 ) -> TenantResponse:
     """Retorna o Tenant e seu estado operacional (UC-007 — confirmação)."""
     tenant = service.consultar_por_id(tenant_id)
+    if tenant is None:
+        raise HTTPException(
+            status_code=404,
+            detail={"codigo": "tenant_nao_encontrado", "mensagem": "Tenant inexistente"},
+        )
+    return TenantResponse(
+        id=tenant.id,
+        identificador_institucional=tenant.identificador_institucional,
+        nome=tenant.nome,
+        estado=tenant.estado,
+        criado_em=tenant.criado_em,
+    )
+
+
+@router.patch(
+    "/tenants/{tenant_id}",
+    response_model=TenantResponse,
+    summary="Atualizar nome do Tenant (IMP-032, US-012, DA-205)",
+)
+def atualizar_tenant(
+    tenant_id: uuid.UUID,
+    payload: TenantUpdateRequest,
+    service: TenantAtualizacaoService = Depends(get_tenant_atualizacao_service),
+) -> TenantResponse:
+    """Atualização parcial (PATCH) do nome institucional (FEATURE-003).
+
+    A normalização (strip) acontece no DTO; a validação de domínio
+    (não vazio, <= 200) permanece no Aggregate — a violação responde
+    422 ``regra_violada`` (handler do main.py).
+    """
+    tenant = service.atualizar_nome(tenant_id, payload.nome)
     if tenant is None:
         raise HTTPException(
             status_code=404,
