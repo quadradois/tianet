@@ -1,7 +1,7 @@
-"""Rotas da API pública da FEATURE-001 (IMP-017/018).
+"""Rotas da API pública da FEATURE-001 (IMP-017/018) e FEATURE-002 (IMP-026/027/028).
 
-A camada Presentation apenas: valida entrada (header/body), monta DTOs,
-chama o TenantProvisioningService e converte o resultado em resposta HTTP.
+A camada Presentation apenas: valida entrada (header/body/query), monta DTOs,
+chama os casos de uso da Application e converte o resultado em resposta HTTP.
 Nenhuma regra de negócio existe aqui — erros de domínio/aplicação são
 traduzidos por exception handlers registrados no app (main.py).
 """
@@ -9,16 +9,29 @@ traduzidos por exception handlers registrados no app (main.py).
 from __future__ import annotations
 
 import uuid
+from typing import Literal, cast
 
-from fastapi import APIRouter, Depends, Header, HTTPException
+from fastapi import APIRouter, Depends, Header, HTTPException, Query
 
-from emprestimo.application.provisioning import TenantProvisioningService
-from emprestimo.domain.platform.ports import TenantRepository
-from emprestimo.presentation.api.dependencies import (
-    get_tenant_provisioning_service,
-    get_tenant_repository,
+from emprestimo.application.consulta import (
+    TenantConsultaPorIdService,
+    TenantConsultaService,
+    TenantListagemService,
 )
-from emprestimo.presentation.api.schemas import TenantCreateRequest, TenantResponse
+from emprestimo.application.provisioning import TenantProvisioningService
+from emprestimo.domain.platform.ports import TenantFiltro, TenantOrdenacao
+from emprestimo.presentation.api.dependencies import (
+    get_tenant_consulta_por_id_service,
+    get_tenant_consulta_service,
+    get_tenant_listagem_service,
+    get_tenant_provisioning_service,
+)
+from emprestimo.presentation.api.schemas import (
+    TenantCreateRequest,
+    TenantListagemParams,
+    TenantListagemResponse,
+    TenantResponse,
+)
 
 router = APIRouter(prefix="/platform", tags=["platform"])
 
@@ -61,16 +74,78 @@ def criar_tenant(
 
 
 @router.get(
+    "/tenants",
+    response_model=TenantListagemResponse | TenantResponse,
+    summary="Consultar por identificador institucional (IMP-026) ou listar (IMP-027)",
+)
+def consultar_ou_listar_tenants(
+    identificador_institucional: str | None = Query(
+        default=None,
+        min_length=1,
+        max_length=120,
+        description="Consulta exata por identificador institucional (US-010, DA-002)",
+    ),
+    params: TenantListagemParams = Depends(),
+    service_consulta: TenantConsultaService = Depends(get_tenant_consulta_service),
+    service_listagem: TenantListagemService = Depends(get_tenant_listagem_service),
+) -> TenantListagemResponse | TenantResponse:
+    """Consulta exata por identificador (200/404) ou listagem paginada (US-011, DA-003)."""
+    if identificador_institucional is not None:
+        # Normalização na Presentation (IMP-025 ajuste)
+        identificador = identificador_institucional.strip()
+        tenant = service_consulta.consultar_por_identificador(identificador)
+        if tenant is None:
+            raise HTTPException(
+                status_code=404,
+                detail={"codigo": "tenant_nao_encontrado", "mensagem": "Tenant inexistente"},
+            )
+        return TenantResponse(
+            id=tenant.id,
+            identificador_institucional=tenant.identificador_institucional,
+            nome=tenant.nome,
+            estado=tenant.estado,
+            criado_em=tenant.criado_em,
+        )
+
+    # Listagem paginada (IMP-027)
+    ordenacao = _parse_ordenacao(params.sort)
+    filtro = TenantFiltro(estado=params.estado) if params.estado else None
+
+    resultado = service_listagem.listar(
+        page=params.page,
+        size=params.size,
+        ordenacao=ordenacao,
+        filtro=filtro,
+    )
+    return TenantListagemResponse(
+        items=[
+            TenantResponse(
+                id=t.id,
+                identificador_institucional=t.identificador_institucional,
+                nome=t.nome,
+                estado=t.estado,
+                criado_em=t.criado_em,
+            )
+            for t in resultado.items
+        ],
+        total=resultado.total,
+        page=resultado.page,
+        size=resultado.size,
+        pages=resultado.pages,
+    )
+
+
+@router.get(
     "/tenants/{tenant_id}",
     response_model=TenantResponse,
-    summary="Consultar um Tenant",
+    summary="Consultar um Tenant por ID (IMP-026, US-009, DA-001)",
 )
-def obter_tenant(
+def obter_tenant_por_id(
     tenant_id: uuid.UUID,
-    repository: TenantRepository = Depends(get_tenant_repository),
+    service: TenantConsultaPorIdService = Depends(get_tenant_consulta_por_id_service),
 ) -> TenantResponse:
     """Retorna o Tenant e seu estado operacional (UC-007 — confirmação)."""
-    tenant = repository.find_by_id(tenant_id)
+    tenant = service.consultar_por_id(tenant_id)
     if tenant is None:
         raise HTTPException(
             status_code=404,
@@ -82,4 +157,20 @@ def obter_tenant(
         nome=tenant.nome,
         estado=tenant.estado,
         criado_em=tenant.criado_em,
+    )
+
+
+CampoOrdenacao = Literal["criado_em", "identificador_institucional", "nome", "estado"]
+DirecaoOrdenacao = Literal["asc", "desc"]
+
+
+def _parse_ordenacao(sort: str) -> TenantOrdenacao:
+    """Converte ``campo:direcao`` (já validado pelo pattern do schema) em port.
+
+    O cast é seguro: TenantListagemParams.sort valida o pattern na Presentation.
+    """
+    campo, direcao = sort.split(":")
+    return TenantOrdenacao(
+        campo=cast(CampoOrdenacao, campo),
+        direcao=cast(DirecaoOrdenacao, direcao),
     )

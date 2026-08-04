@@ -227,3 +227,208 @@ def test_concorrencia_mesma_chave_payload_divergente(
 
     assert codigos == [201, 409]
     assert _contar_tenants(session_factory) == 1
+
+
+# --- Testes dos novos endpoints da IMP-026 / IMP-027 (FEATURE-002) ---
+
+
+def test_get_por_identificador_200(client: TestClient) -> None:
+    """IMP-026, US-010: GET /platform/tenants?identificador_institucional=..."""
+    criado = _post(client, chave="chave-ident").json()
+
+    resp = client.get(
+        "/platform/tenants",
+        params={"identificador_institucional": criado["identificador_institucional"]},
+    )
+
+    assert resp.status_code == 200
+    corpo = resp.json()
+    assert set(corpo) == CAMPO_RESPONSE
+    assert corpo["id"] == criado["id"]
+    assert corpo["identificador_institucional"] == criado["identificador_institucional"]
+
+
+def test_get_por_identificador_com_espacos_normaliza(client: TestClient) -> None:
+    """Presentation deve normalizar (strip) o identificador antes de consultar."""
+    _post(client, chave="chave-ident-espacos")
+
+    # Chama com espaços - a Presentation deve fazer strip
+    resp = client.get(
+        "/platform/tenants",
+        params={"identificador_institucional": "  IDENT-API  "},
+    )
+
+    assert resp.status_code == 200
+    assert resp.json()["identificador_institucional"] == "IDENT-API"
+
+
+def test_get_por_identificador_404(client: TestClient) -> None:
+    """Deve retornar 404 quando identificador não existe."""
+    resp = client.get(
+        "/platform/tenants",
+        params={"identificador_institucional": "IDENT-INEXISTENTE"},
+    )
+
+    assert resp.status_code == 404
+    assert resp.json()["codigo"] == "tenant_nao_encontrado"
+
+
+def test_get_sem_parametros_lista_tenants(client: TestClient) -> None:
+    """Sem identificador_institucional, o GET /platform/tenants vira listagem (200)."""
+    resp = client.get("/platform/tenants")
+
+    assert resp.status_code == 200
+    corpo = resp.json()
+    assert "items" in corpo
+    assert "total" in corpo
+
+
+def test_get_por_identificador_vazio_400(client: TestClient) -> None:
+    """Identificador vazio (min_length=1) falha a validação → 400 payload_invalido."""
+    resp = client.get("/platform/tenants", params={"identificador_institucional": ""})
+
+    assert resp.status_code == 400
+    assert resp.json()["codigo"] == "payload_invalido"
+
+
+def test_listar_tenants_200(client: TestClient) -> None:
+    """IMP-027, US-011: GET /platform/tenants - listagem paginada."""
+    _post(
+        client, chave="chave-list-1", payload={**PAYLOAD, "identificador_institucional": "IDENT-L1"}
+    )
+    _post(
+        client,
+        chave="chave-list-2",
+        payload={**PAYLOAD, "identificador_institucional": "IDENT-L2", "nome": "Outra"},
+    )
+    _post(
+        client,
+        chave="chave-list-3",
+        payload={**PAYLOAD, "identificador_institucional": "IDENT-L3", "nome": "Terceira"},
+    )
+
+    resp = client.get("/platform/tenants", params={"page": 1, "size": 10})
+
+    assert resp.status_code == 200
+    corpo = resp.json()
+    assert "items" in corpo
+    assert "total" in corpo
+    assert "page" in corpo
+    assert "size" in corpo
+    assert "pages" in corpo
+    assert corpo["total"] >= 3
+    assert len(corpo["items"]) >= 3
+    assert corpo["page"] == 1
+    assert corpo["size"] == 10
+    # Verificar envelope e serialização
+    for item in corpo["items"]:
+        assert set(item) == CAMPO_RESPONSE
+
+
+def test_listar_tenants_paginacao(client: TestClient) -> None:
+    """Deve respeitar paginação (page, size)."""
+    for i in range(5):
+        _post(
+            client,
+            chave=f"chave-pag-{i}",
+            payload={
+                **PAYLOAD,
+                "identificador_institucional": f"IDENT-PAG-{i}",
+                "nome": f"Tenant {i}",
+            },
+        )
+
+    page1 = client.get("/platform/tenants", params={"page": 1, "size": 2}).json()
+    page2 = client.get("/platform/tenants", params={"page": 2, "size": 2}).json()
+    page3 = client.get("/platform/tenants", params={"page": 3, "size": 2}).json()
+
+    assert page1["total"] >= 5
+    assert len(page1["items"]) == 2
+    assert len(page2["items"]) == 2
+    assert len(page3["items"]) >= 1
+    assert page1["page"] == 1
+    assert page2["page"] == 2
+    assert page3["page"] == 3
+    assert page1["pages"] >= 3
+
+
+def test_listar_tenants_ordenacao(client: TestClient) -> None:
+    """Deve ordenar conforme sort (campo:direcao)."""
+    _post(
+        client,
+        chave="chave-ord-1",
+        payload={**PAYLOAD, "identificador_institucional": "IDENT-Z", "nome": "Zebra"},
+    )
+    _post(
+        client,
+        chave="chave-ord-2",
+        payload={**PAYLOAD, "identificador_institucional": "IDENT-A", "nome": "Alpha"},
+    )
+
+    # Ordenação por identificador_institucional asc
+    resp = client.get(
+        "/platform/tenants", params={"sort": "identificador_institucional:asc", "size": 10}
+    ).json()
+
+    # Encontrar nossos tenants na lista
+    nossos = [
+        item
+        for item in resp["items"]
+        if item["identificador_institucional"] in ("IDENT-A", "IDENT-Z")
+    ]
+    assert len(nossos) == 2
+    # Deve vir A antes de Z
+    assert nossos[0]["identificador_institucional"] == "IDENT-A"
+    assert nossos[1]["identificador_institucional"] == "IDENT-Z"
+
+
+def test_listar_tenants_filtro_estado(client: TestClient) -> None:
+    """Deve filtrar por estado operacional."""
+    # Criar tenants (todos ficam ativo após provisionamento)
+    _post(
+        client,
+        chave="chave-est-1",
+        payload={**PAYLOAD, "identificador_institucional": "IDENT-EST-1"},
+    )
+    _post(
+        client,
+        chave="chave-est-2",
+        payload={**PAYLOAD, "identificador_institucional": "IDENT-EST-2"},
+    )
+
+    # Filtrar por ativo
+    resp = client.get("/platform/tenants", params={"estado": "ativo", "size": 10}).json()
+
+    nossos = [
+        item
+        for item in resp["items"]
+        if item["identificador_institucional"].startswith("IDENT-EST-")
+    ]
+    assert len(nossos) == 2
+    for item in nossos:
+        assert item["estado"] == "ativo"
+
+    # Filtrar por inativo (não deve encontrar os recém-criados)
+    resp = client.get("/platform/tenants", params={"estado": "inativo", "size": 10}).json()
+    nossos = [
+        item
+        for item in resp["items"]
+        if item["identificador_institucional"].startswith("IDENT-EST-")
+    ]
+    assert len(nossos) == 0
+
+
+def test_listar_tenants_sort_invalido_400(client: TestClient) -> None:
+    """Deve retornar 400 (payload_invalido) para parâmetro sort inválido."""
+    resp = client.get("/platform/tenants", params={"sort": "campo_inexistente:asc"})
+
+    assert resp.status_code == 400
+    assert resp.json()["codigo"] == "payload_invalido"
+
+
+def test_listar_tenants_size_maximo_100(client: TestClient) -> None:
+    """Deve limitar size a 100 (validação no schema)."""
+    resp = client.get("/platform/tenants", params={"size": 150})
+
+    assert resp.status_code == 400
+    assert resp.json()["codigo"] == "payload_invalido"

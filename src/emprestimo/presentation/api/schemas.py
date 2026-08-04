@@ -1,6 +1,6 @@
 """DTOs da API REST (RA-012 — Presentation nunca expõe Aggregates).
 
-Contratos de entrada e saída de IMP-017/018, desacoplados das entidades de
+Contratos de entrada e saída de IMP-017/018/026/027, desacoplados das entidades de
 domínio. Nenhuma regra de negócio vive aqui; apenas validação de entrada e
 serialização.
 """
@@ -60,6 +60,30 @@ class TenantResponse(BaseModel):
     nome: str
     estado: TenantState
     criado_em: datetime
+
+
+class TenantListagemParams(BaseModel):
+    """Parâmetros de query para listagem paginada de Tenants (IMP-027, US-011)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    page: int = Field(default=1, ge=1)
+    size: int = Field(default=20, ge=1, le=100)
+    sort: str = Field(
+        default="criado_em:asc",
+        pattern=r"^(criado_em|identificador_institucional|nome|estado):(asc|desc)$",
+    )
+    estado: TenantState | None = None
+
+
+class TenantListagemResponse(BaseModel):
+    """Resposta paginada de listagem de Tenants (IMP-027)."""
+
+    items: list[TenantResponse]
+    total: int
+    page: int
+    size: int
+    pages: int
 
 
 class ErroResponse(BaseModel):
