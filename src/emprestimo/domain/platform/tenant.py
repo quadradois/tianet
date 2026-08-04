@@ -196,6 +196,31 @@ class Tenant:
         return tuple(novas)
 
     # ------------------------------------------------------------------ #
+    # Atualização cadastral (US-012, IMP-029)
+    # ------------------------------------------------------------------ #
+
+    def atualizar_nome(self, novo_nome: str) -> None:
+        """Atualiza o nome institucional do Tenant (IMP-029, US-012).
+
+        Validação na fronteira do Aggregate: nome não pode ser vazio nem
+        ultrapassar 200 caracteres. A atualização cadastral no MVP altera
+        apenas o atributo ``nome``, preservando ``id``, ``identificador_institucional``,
+        ``criado_em`` e ``estado`` (FEATURE-003).
+        """
+        nome = novo_nome.strip()
+        if not nome:
+            raise ViolacaoInvarianteError(
+                "DOMAIN-017",
+                "nome do Tenant não pode ser vazio",
+            )
+        if len(nome) > 200:
+            raise ViolacaoInvarianteError(
+                "DOMAIN-017",
+                "nome do Tenant deve ter no máximo 200 caracteres",
+            )
+        self.nome = nome
+
+    # ------------------------------------------------------------------ #
     # Transições de estado operacional (UC-007, IMP-013)
     # ------------------------------------------------------------------ #
 
