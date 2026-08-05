@@ -2,7 +2,7 @@
 
 **ID:** PRODUCT-001
 
-**Versão:** 1.0.0
+**Versão:** 2.0.0
 
 **Status:** Aprovado
 
@@ -13,6 +13,8 @@
 Esta Capability é responsável por administrar toda a infraestrutura organizacional da plataforma.
 
 Seu objetivo é garantir que cada Tenant possa operar de forma isolada, segura e controlada, disponibilizando usuários, autenticação, perfis de acesso, permissões e configurações.
+
+Esta Capability segue a hierarquia oficial de governança **Capability → Bounded Context → EPIC → Feature → User Story** definida no FOUNDATION-009 — Capability Map, que é a raiz da camada Product.
 
 Nenhuma operação financeira pertence a esta Capability.
 
@@ -31,12 +33,10 @@ Sem esta Capability não existe controle de acesso, isolamento entre organizaç�
 Esta Capability é responsável por:
 
 - administrar Tenants;
-- administrar Usuários;
-- administrar Perfis de Acesso;
-- administrar Permissões;
-- administrar Configurações da plataforma;
 - controlar autenticação;
 - controlar autorização;
+- administrar Usuários, Perfis de Acesso e Permissões (via IAM — EPIC-006);
+- administrar Configurações da plataforma;
 - garantir isolamento entre Tenants;
 - registrar informações de auditoria relacionadas ao acesso.
 
@@ -58,6 +58,8 @@ Esta Capability não é responsável por:
 
 Essas responsabilidades pertencem às respectivas Capabilities do produto.
 
+Adicionalmente, **Configurações Financeiras** (taxas, modalidades, regras de cálculo e calendário financeiro) não pertencem a esta Capability: são responsabilidade do contexto **Configurações** (FOUNDATION-009 §5), distinto de **Configurações da Plataforma**, que pertence a esta Capability.
+
 ---
 
 # 5. Dependências
@@ -68,6 +70,7 @@ Esta Capability depende de:
 - FOUNDATION-006 — Arquitetura Multi-Tenant;
 - FOUNDATION-007 — Product Map;
 - FOUNDATION-008 — Escopo do MVP;
+- FOUNDATION-009 — Capability Map (hierarquia oficial e vínculo Capacidade → Contexto → EPIC);
 - DOMAIN-017 — Aggregate Tenant;
 - DOMAIN-018 — Entity Usuário;
 - DOMAIN-019 — Business Rule Toda Carteira pertence exatamente a um Tenant.
@@ -76,14 +79,16 @@ Esta Capability depende de:
 
 # 6. Épicos
 
-Esta Capability é composta pelos seguintes Épicos:
+Esta Capability é atendida pelos seguintes Épicos (numeração **global** conforme FOUNDATION-009, BR-003 — sem numeração local por capacidade):
 
-- EPIC-001 — Gerenciar Tenant;
-- EPIC-002 — Gerenciar Usuários;
-- EPIC-003 — Gerenciar Perfis de Acesso;
-- EPIC-004 — Gerenciar Permissões;
-- EPIC-005 — Gerenciar Configurações da Plataforma;
-- EPIC-006 — Autenticação e Controle de Acesso.
+- **EPIC-001 — Gerenciar Tenant** (concluído; Bounded Context: Platform);
+- **EPIC-006 — IAM — Autenticação, Usuários, Perfis e Permissões** (emergente; Bounded Context: Platform/IAM).
+
+A gestão de Usuários, Perfis de Acesso e Permissões é entregue via **EPIC-006 (IAM)** — não como Épicos independentes.
+
+**Configurações da Plataforma** permanece responsabilidade desta Capability e será entregue quando houver Discovery real (FOUNDATION-009, BR-006), sem EPIC pré-atribuído.
+
+**EPIC ≠ Bounded Context** (FOUNDATION-009, BR-002): um contexto pode conter múltiplos EPICs.
 
 ---
 
@@ -91,9 +96,9 @@ Esta Capability é composta pelos seguintes Épicos:
 
 Esta Capability será considerada concluída quando:
 
-- todos os Épicos estiverem implementados;
+- os Épicos da Capability (EPIC-001 e EPIC-006) estiverem implementados conforme a numeração global;
 - o isolamento entre Tenants estiver garantido;
-- autenticação e autorização estiverem operacionais;
+- autenticação e autorização estiverem operacionais (EPIC-006 — IAM);
 - usuários puderem administrar a plataforma conforme suas permissões;
 - todas as funcionalidades estiverem dentro do escopo definido pelo MVP.
 
@@ -104,3 +109,4 @@ Esta Capability será considerada concluída quando:
 | Versão | Data | Descrição |
 |---------|------|-----------|
 | 1.0.0 | 01/08/2026 | Primeira versão oficial da Capability Administrar Plataforma. |
+| 2.0.0 | 05/08/2026 | Alinhamento ao FOUNDATION-009 (v1.0.0): hierarquia oficial Capability → Bounded Context → EPIC → Feature → User Story; numeração global de Épicos (EPIC-001 concluído e EPIC-006 IAM); gestão de Usuários/Perfis/Permissões integrada ao IAM; remoção da numeração local EPIC-002..005; desambiguação de Configurações (Plataforma × Financeiras); dependência do FOUNDATION-009 adicionada; critérios de aprovação alinhados. Sem alteração de IDs ou semântica fora do relatório aprovado. |
