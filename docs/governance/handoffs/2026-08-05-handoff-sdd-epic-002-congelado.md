@@ -177,6 +177,8 @@ O próximo ciclo começará **completamente limpo** (estado de implementação z
 
 > Implementar integralmente o PLAN-003-EXEC (IMP-042 → IMP-064), preservando integralmente a arquitetura congelada.
 
+Para este ciclo, a sessão assume o papel **Chief Architect & Principal Engineer**, definido em `docs/governance/ARCHITECTURAL-SUCCESSION-ROLE.md` — **fonte de verdade do julgamento** (papel, filosofia, critérios de decisão, antipatterns de review, objetivo e alvo de sucesso).
+
 ---
 
 ## Histórico de Atualizações
@@ -184,3 +186,4 @@ O próximo ciclo começará **completamente limpo** (estado de implementação z
 | Data | Autor | Resumo da Atualização |
 |------|-------|-----------------------|
 | 2026-08-05 | Agente (sessão) | Marco oficial de transição Arquitetura → Execução: congela o pacote SDD do EPIC-002 (TASK-086). Substitui o handoff de 2026-08-04 como vigente. |
+| 2026-08-05 | Agente (sessão) | Referencia o ARCHITECTURAL-SUCCESSION-ROLE.md como fonte de verdade do julgamento para o ciclo de execução (epígrafe na §9). |
