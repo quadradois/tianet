@@ -6,6 +6,8 @@
 
 **Status:** Proposto
 
+> **A execução deste backlog deve seguir obrigatoriamente o AGENT-LOOP-EXECUTION-PROTOCOL (ALP-001).**
+
 ---
 
 # 1. Contexto
