@@ -64,9 +64,37 @@ O **PLAN-002 (EPIC-001 — Gerenciar Tenant)** está **integralmente implementad
 
 ---
 
+## Migração da Arquitetura Documental
+
+A arquitetura documental foi migrada para a estrutura alvo mínima aprovada:
+
+- `docs/foundation/` — 8 documentos inalterados.
+- `docs/domain/platform/` e `docs/domain/credit/` — 19 documentos DDD reorganizados por bounded context.
+- `docs/product/platform/` — 14 documentos de product reorganizados por bounded context.
+- `docs/architecture/amp/` — AMP, DISCOVERY, MIGRATION-PLAN e MANIFEST.
+- `docs/architecture/adrs/` — ADR-001 e ADR-002.
+- `docs/implementation/plans/` e `docs/implementation/backlogs/` — planos técnicos e backlogs separados.
+- `docs/governance/handoffs/` e `docs/governance/decision-requests/` — handoff e pedido de orientação.
+- `docs/audits/audits/` e `docs/audits/discoveries/` — auditorias e descobertas.
+- `docs/templates/`, `docs/assets/`, `docs/ux/` — mantidos no local atual.
+
+**Removidos:** duplicatas, arquivos corrompidos, `.gitkeep` vazios, `docs/graphify-out/` e `docs/handoffs/HANDOFF-VIGENTE.md` do repo.
+
+**Validações após migração:**
+
+| Validação | Resultado |
+|-----------|-----------|
+| `npm run docs:validate` | 58 OK / 31 avisos / 0 erros |
+| `uv run pytest` | 178 passed |
+| `uv run ruff check src tests` | All checks passed |
+| `uv run black --check src tests` | 51 files unchanged |
+| `uv run mypy src` | Success: no issues found |
+
+Branch: `docs/migration-2026-08-04` — pronto para PR.
+
 ## Próximo passo
 
-Aguardar **revisão arquitetural consolidada da FEATURE-004** (slice completo) antes de novas features. Sequência futura natural no PLAN-002 §8: EPIC-002 em diante (depende de fonte oficial do Product) e implementação de autenticação/autorização (EPIC-006, fora do escopo atual).
+EPIC-002 (Cadastro de Devedores) pode ser iniciado sobre a nova estrutura documental. Nenhuma outra mudança arquitetural documental está prevista até que surja uma necessidade real.
 
 ---
 
