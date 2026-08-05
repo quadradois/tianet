@@ -21,3 +21,7 @@ htmlcov/
 
 # Docker
 postgres-data/
+
+# Tools cache
+/graphify-out/
+/docs/graphify-out/

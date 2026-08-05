@@ -6,8 +6,11 @@ const path = require('path');
 
 const ROOT = path.resolve(__dirname, '..');
 const DOCS = path.join(ROOT, 'docs');
-const EXCLUDED_DIRS = new Set(['templates', 'handoffs', 'assets']);
 
+// Pastas que não precisam de validação estruturada (apenas links quebrados).
+const FREE_DIRS = new Set(['templates', 'assets', 'ux']);
+
+// Camadas reconhecidas. Cada camada pode ter subcategorias.
 const LAYERS = {
   foundation: {
     idPattern: /^FOUNDATION-\d+/i,
@@ -21,13 +24,33 @@ const LAYERS = {
     idPattern: /^(PRODUCT|EPIC|FEAT(?:URE)?|US)-\d+/i,
     headerRequired: ['Status'],
   },
-  decisions: {
-    idPattern: /^ADR-\d+/i,
-    headerRequired: ['Status'],
-  },
   architecture: {
+    subcategories: {
+      adrs: {
+        idPattern: /^ADR-\d+/i,
+        headerRequired: ['Status'],
+      },
+      amp: {
+        idPattern: null,
+        headerRequired: ['Versão', 'Status'],
+      },
+      reviews: {
+        idPattern: null,
+        headerRequired: ['Versão', 'Status'],
+      },
+    },
+  },
+  implementation: {
+    idPattern: /^PLAN-\d+/i,
+    headerRequired: [],
+  },
+  governance: {
     idPattern: null,
-    headerRequired: ['Versão', 'Status'],
+    headerRequired: [],
+  },
+  audits: {
+    idPattern: null,
+    headerRequired: [],
   },
 };
 
@@ -77,7 +100,7 @@ function sectionsOf(file) {
 
 function idOf(lines) {
   for (const line of lines) {
-    const m = line.match(/^#\s+((?:FOUNDATION|DOMAIN|ENT|VO|DSVC|EVT|BR|PRODUCT|EPIC|FEAT(?:URE)?|US|ADR)-\d+)\b/i);
+    const m = line.match(/^#\s+((?:FOUNDATION|DOMAIN|ENT|VO|DSVC|EVT|BR|PRODUCT|EPIC|FEAT(?:URE)?|US|ADR|PLAN)-\d+)\b/i);
     if (m) return m[1];
   }
   return null;
@@ -87,9 +110,18 @@ function hasSection(lines, re) {
   return lines.some((l) => re.test(l));
 }
 
-function templateFor(layerName, id, file) {
+function skipIdRegistration(file) {
+  const rp = rel(file);
+  return rp.startsWith('docs/audits/discoveries/') || rp.startsWith('docs/implementation/backlogs/');
+}
+
+function skipHistorySection(layerName) {
+  return layerName === 'governance' || layerName === 'audits';
+}
+
+function templateFor(layerName, subcategory, id, file) {
   if (layerName === 'foundation') return 'templates/foundation-template.md';
-  if (layerName === 'decisions') return 'templates/adr-template.md';
+  if (layerName === 'architecture' && subcategory === 'adrs') return 'templates/adr-template.md';
   if (layerName === 'domain') {
     const sub = path.basename(path.dirname(file));
     return DOMAIN_TEMPLATES[sub] || null;
@@ -101,7 +133,7 @@ function templateFor(layerName, id, file) {
   return null;
 }
 
-function validateDoc(file, layerName, layer) {
+function validateDoc(file, layerName, subcategory, layer) {
   const txt = fs.readFileSync(file, 'utf8');
   const lines = txt.split(/\r?\n/);
   const id = idOf(lines);
@@ -121,12 +153,12 @@ function validateDoc(file, layerName, layer) {
     }
   }
 
-  if (!hasSection(lines, /^#{1,2}\s+(\d+\.\s+)?hist[óo]rico\s+de\s+vers[õo]es/i)) {
+  if (!skipHistorySection(layerName) && !hasSection(lines, /^#{1,2}\s+(\d+\.\s+)?hist[óo]rico\s+de\s+vers[õo]es/i)) {
     results.errors.push(`${rp}: seção "Histórico de Versões" ausente`);
   }
 
   const isMaterialized = lines.some((l) => /^\*\*Status:\*\*\s*Aprovado\s*$/i.test(strip(l)));
-  const tpl = templateFor(layerName, id, file);
+  const tpl = templateFor(layerName, subcategory, id, file);
   if (tpl && !isMaterialized) {
     const tplPath = path.join(DOCS, tpl);
     if (!fs.existsSync(tplPath)) {
@@ -161,16 +193,36 @@ function brokenLinks(file) {
   }
 }
 
+function getLayer(file) {
+  const parts = rel(file).split('/');
+  // parts[0] === 'docs'
+  const layerName = parts[1];
+  if (!LAYERS[layerName]) return null;
+
+  const layer = LAYERS[layerName];
+  if (layer.subcategories) {
+    const subcategory = parts[2];
+    if (layer.subcategories[subcategory]) {
+      return { layerName, subcategory, layer: layer.subcategories[subcategory] };
+    }
+  }
+  return { layerName, subcategory: null, layer };
+}
+
 function main() {
   const knownIds = new Map();
 
+  // Validar documentos estruturados.
   for (const layerName of Object.keys(LAYERS)) {
     const dir = path.join(DOCS, layerName);
     if (!fs.existsSync(dir)) continue;
     const files = walk(dir).sort();
     for (const f of files) {
+      const info = getLayer(f);
+      if (!info) continue;
+
       const id = idOf(fs.readFileSync(f, 'utf8').split(/\r?\n/));
-      if (id) {
+      if (id && !skipIdRegistration(f)) {
         const key = id.toUpperCase();
         if (knownIds.has(key)) {
           results.errors.push(`ID duplicado ${id} em ${rel(f)} (também em ${knownIds.get(key)})`);
@@ -178,26 +230,29 @@ function main() {
           knownIds.set(key, rel(f));
         }
       }
-      validateDoc(f, layerName, LAYERS[layerName]);
+      validateDoc(f, info.layerName, info.subcategory, info.layer);
     }
   }
 
   const knownSet = new Set(knownIds.keys());
 
+  // Verificar links quebrados em toda a documentação (exceto templates/assets/ux).
   for (const entry of fs.readdirSync(DOCS, { withFileTypes: true })) {
-    if (!entry.isDirectory() || EXCLUDED_DIRS.has(entry.name)) continue;
+    if (!entry.isDirectory() || FREE_DIRS.has(entry.name)) continue;
     for (const f of walk(path.join(DOCS, entry.name))) {
       brokenLinks(f);
     }
   }
 
-  for (const layerName of ['product']) {
+  // Verificar referências cruzadas em product, implementation, audits e governance.
+  const crossRefLayers = ['product', 'implementation', 'audits', 'governance'];
+  for (const layerName of crossRefLayers) {
     const dir = path.join(DOCS, layerName);
     if (!fs.existsSync(dir)) continue;
     for (const f of walk(dir)) {
       const txt = fs.readFileSync(f, 'utf8');
       const id = idOf(txt.split(/\r?\n/));
-      const re = /(?:FOUNDATION|PRODUCT|EPIC|FEAT(?:URE)?|US|DOMAIN|ENT|VO|DSVC|EVT|BR|ADR)-\d{2,}/g;
+      const re = /(?:FOUNDATION|PRODUCT|EPIC|FEAT(?:URE)?|US|DOMAIN|ENT|VO|DSVC|EVT|BR|ADR|PLAN)-\d{2,}/g;
       const seen = new Set();
       let m;
       while ((m = re.exec(txt))) {
@@ -210,6 +265,17 @@ function main() {
         }
       }
     }
+  }
+
+  // Validações de higiene da migração.
+  if (fs.existsSync(path.join(DOCS, 'handoffs', 'HANDOFF-VIGENTE.md'))) {
+    results.errors.push('docs/handoffs/HANDOFF-VIGENTE.md ainda existe (deve ser removido do repo)');
+  }
+  if (fs.existsSync(path.join(DOCS, 'implementationplans'))) {
+    results.errors.push('docs/implementationplans/ ainda existe (deve ser removido)');
+  }
+  if (fs.existsSync(path.join(DOCS, 'implementation', 'plansPLAN-002-epic-001-tenant-management.md'))) {
+    results.errors.push('docs/implementation/plansPLAN-002-epic-001-tenant-management.md ainda existe (deve ser removido)');
   }
 
   const print = results.ok.length + results.warnings.length + results.errors.length > 0;
