@@ -7,6 +7,8 @@ DomainError em respostas HTTP sem conhecer detalhes de persistência.
 
 from __future__ import annotations
 
+import uuid
+
 
 class DomainError(Exception):
     """Falha de regra de negócio do domínio."""
@@ -50,3 +52,19 @@ class DocumentoInvalidoError(DomainError):
         super().__init__(f"Documento inválido: {documento!r} — {motivo}")
         self.documento = documento
         self.motivo = motivo
+
+
+class DevedorJaExisteError(DomainError):
+    """Documento do Devedor já cadastrado na Carteira (IMP-046, DOMAIN-024).
+
+    Levantada pelo UnicidadeDevedorService quando já existe Devedor com o
+    mesmo documento na mesma Carteira, independentemente do estado (Ativo
+    ou Inativo).
+    """
+
+    def __init__(self, documento: str, carteira_id: uuid.UUID) -> None:
+        super().__init__(
+            f"Devedor com documento {documento!r} já existente na " f"Carteira {carteira_id}"
+        )
+        self.documento = documento
+        self.carteira_id = carteira_id
