@@ -37,3 +37,16 @@ class TenantJaExisteError(DomainError):
     def __init__(self, identificador_institucional: str) -> None:
         super().__init__(f"Organização já existente: {identificador_institucional!r}")
         self.identificador_institucional = identificador_institucional
+
+
+class DocumentoInvalidoError(DomainError):
+    """CPF informado não é válido (IMP-043, DOMAIN-022 VO-022-VAL-001/002).
+
+    Levantada pelo Value Object ``Documento`` quando o valor informado não
+    contém 11 dígitos ou falha no algoritmo dos dígitos verificadores.
+    """
+
+    def __init__(self, documento: str, motivo: str) -> None:
+        super().__init__(f"Documento inválido: {documento!r} — {motivo}")
+        self.documento = documento
+        self.motivo = motivo
