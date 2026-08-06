@@ -7,12 +7,6 @@ import uuid
 import pytest
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
-from tests.factories import (
-    CarteiraFactory,
-    ConfiguracaoFactory,
-    TenantFactory,
-    UsuarioFactory,
-)
 
 from emprestimo.domain.common.errors import TenantJaExisteError
 from emprestimo.domain.credit.carteira import Carteira
@@ -23,6 +17,12 @@ from emprestimo.infrastructure.repositories import (
     SqlAlchemyConfiguracaoRepository,
     SqlAlchemyTenantRepository,
     SqlAlchemyUsuarioRepository,
+)
+from tests.factories import (
+    CarteiraFactory,
+    ConfiguracaoFactory,
+    TenantFactory,
+    UsuarioFactory,
 )
 
 
