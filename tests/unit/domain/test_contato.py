@@ -4,10 +4,14 @@ from __future__ import annotations
 
 import uuid
 
+import pytest
+
 from emprestimo.domain.credit.contato import (
     Contato,
     ContatoInvalidoError,
+    DevedorIdInvalidoError,
     TipoContato,
+    TipoContatoInvalidoError,
 )
 
 DEVEDOR_ID = uuid.UUID("12345678-1234-5678-1234-567812345678")
@@ -91,3 +95,50 @@ def test_rejeita_valor_vazio() -> None:
         raise AssertionError("esperava-se ContatoInvalidoError")
     except ContatoInvalidoError as exc:
         assert exc.tipo == TipoContato.TELEFONE
+
+
+# --------------------------------------------------------------------------- #
+# Validações de precisão (TASK-091-A)
+# --------------------------------------------------------------------------- #
+
+
+def test_rejeita_tipo_invalido() -> None:
+    with pytest.raises(TipoContatoInvalidoError):
+        Contato(devedor_id=DEVEDOR_ID, tipo="telefone", valor="(11) 1234-5678")  # type: ignore[arg-type]
+
+
+def test_rejeita_tipo_nulo() -> None:
+    with pytest.raises(TipoContatoInvalidoError):
+        Contato(devedor_id=DEVEDOR_ID, tipo=None, valor="(11) 1234-5678")  # type: ignore[arg-type]
+
+
+def test_rejeita_devedor_id_invalido() -> None:
+    with pytest.raises(DevedorIdInvalidoError):
+        Contato(devedor_id="nao-uuid", tipo=TipoContato.TELEFONE, valor="(11) 1234-5678")  # type: ignore[arg-type]
+
+
+def test_rejeita_devedor_id_nulo() -> None:
+    with pytest.raises(DevedorIdInvalidoError):
+        Contato(devedor_id=None, tipo=TipoContato.TELEFONE, valor="(11) 1234-5678")  # type: ignore[arg-type]
+
+
+def test_rejeita_telefone_apenas_mascara_sem_digitos_reais() -> None:
+    with pytest.raises(ContatoInvalidoError) as exc:
+        Contato(devedor_id=DEVEDOR_ID, tipo=TipoContato.TELEFONE, valor="(  )      -    ")
+
+    assert exc.value.tipo == TipoContato.TELEFONE
+    assert "10 dígitos" in exc.value.motivo
+
+
+def test_rejeita_telefone_com_poucos_digitos_reais() -> None:
+    with pytest.raises(ContatoInvalidoError) as exc:
+        Contato(devedor_id=DEVEDOR_ID, tipo=TipoContato.TELEFONE, valor="(11) 1234-567")
+
+    assert exc.value.tipo == TipoContato.TELEFONE
+    assert "10 dígitos" in exc.value.motivo
+
+
+def test_normaliza_valor_com_espacos_ao_redor() -> None:
+    contato = Contato(devedor_id=DEVEDOR_ID, tipo=TipoContato.EMAIL, valor="  joao@exemplo.com  ")
+
+    assert contato.valor == "joao@exemplo.com"
