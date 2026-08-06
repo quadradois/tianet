@@ -17,6 +17,8 @@ from emprestimo.infrastructure.idempotencia import SqlAlchemyIdempotenciaRegistr
 from emprestimo.infrastructure.repositories import (
     SqlAlchemyCarteiraRepository,
     SqlAlchemyConfiguracaoRepository,
+    SqlAlchemyContatoRepository,
+    SqlAlchemyDevedorRepository,
     SqlAlchemyTenantRepository,
     SqlAlchemyUsuarioRepository,
 )
@@ -31,6 +33,8 @@ class SqlAlchemyUnitOfWork(UnitOfWork):
         self.usuario = SqlAlchemyUsuarioRepository(self._session)
         self.configuracao = SqlAlchemyConfiguracaoRepository(self._session)
         self.carteira = SqlAlchemyCarteiraRepository(self._session)
+        self.devedor = SqlAlchemyDevedorRepository(self._session)
+        self.contato = SqlAlchemyContatoRepository(self._session)
         self.idempotencia = SqlAlchemyIdempotenciaRegistro(self._session)
 
     def commit(self) -> None:

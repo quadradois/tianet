@@ -12,7 +12,11 @@ import uuid
 from abc import ABC, abstractmethod
 from typing import Any
 
-from emprestimo.domain.credit.ports import CarteiraRepository
+from emprestimo.domain.credit.ports import (
+    CarteiraRepository,
+    ContatoRepository,
+    DevedorRepository,
+)
 from emprestimo.domain.platform.ports import (
     ConfiguracaoRepository,
     TenantRepository,
@@ -68,6 +72,8 @@ class UnitOfWork(ABC):
     usuario: UsuarioRepository
     configuracao: ConfiguracaoRepository
     carteira: CarteiraRepository
+    devedor: DevedorRepository
+    contato: ContatoRepository
     idempotencia: IdempotenciaRegistro
 
     @abstractmethod

@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import uuid
 from math import ceil
+from typing import TYPE_CHECKING
 
 from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
@@ -15,7 +16,17 @@ from sqlalchemy.orm import Session
 
 from emprestimo.domain.common.errors import TenantJaExisteError
 from emprestimo.domain.credit.carteira import Carteira
-from emprestimo.domain.credit.ports import CarteiraRepository
+from emprestimo.domain.credit.contato import Contato, TipoContato
+from emprestimo.domain.credit.devedor import Devedor, DevedorState
+from emprestimo.domain.credit.documento import Documento
+from emprestimo.domain.credit.ports import (
+    CarteiraRepository,
+    ContatoRepository,
+    DevedorFiltros,
+    DevedorRepository,
+    DevedorResultadoPaginado,
+    Paginacao,
+)
 from emprestimo.domain.platform.configuracao import Configuracao
 from emprestimo.domain.platform.ports import (
     ConfiguracaoRepository,
@@ -27,7 +38,17 @@ from emprestimo.domain.platform.ports import (
 )
 from emprestimo.domain.platform.tenant import Tenant, TenantState
 from emprestimo.domain.platform.usuario import Usuario, UsuarioState
-from emprestimo.infrastructure.db.orm import CarteiraORM, ConfiguracaoORM, TenantORM, UsuarioORM
+from emprestimo.infrastructure.db.orm import (
+    CarteiraORM,
+    ConfiguracaoORM,
+    ContatoORM,
+    DevedorORM,
+    TenantORM,
+    UsuarioORM,
+)
+
+if TYPE_CHECKING:
+    from collections.abc import Sequence
 
 
 class SqlAlchemyTenantRepository(TenantRepository):
@@ -240,4 +261,149 @@ def _to_carteira(row: CarteiraORM) -> Carteira:
         tenant_id=row.tenant_id,
         nome=row.nome,
         criado_em=row.criado_em,
+    )
+
+
+class DevedorJaExisteError(Exception):
+    """Exceção levantada quando há violação de unicidade do documento na Carteira."""
+
+    def __init__(self, documento: str, carteira_id: uuid.UUID) -> None:
+        super().__init__(
+            f"Devedor com documento {documento} já existe na Carteira {carteira_id}"
+        )
+        self.documento = documento
+        self.carteira_id = carteira_id
+
+
+class SqlAlchemyDevedorRepository(DevedorRepository):
+    """Implementação SQLAlchemy do DevedorRepository (IMP-049).
+
+    Segue o padrão do EPIC-001: merge/flush no repositório, commit no UoW.
+    """
+
+    def __init__(self, session: Session) -> None:
+        self._session = session
+
+    def save(self, devedor: Devedor) -> None:
+        try:
+            self._session.merge(
+                DevedorORM(
+                    id=devedor.id,
+                    carteira_id=devedor.carteira_id,
+                    documento=devedor.documento.valor,
+                    nome=devedor.nome,
+                    estado=devedor.estado.value,
+                    criado_em=devedor.criado_em,
+                    atualizado_em=devedor.atualizado_em,
+                )
+            )
+            self._session.flush()
+        except IntegrityError as exc:
+            if "uq_devedor_carteira_documento" in str(exc.orig):
+                raise DevedorJaExisteError(devedor.documento.valor, devedor.carteira_id) from exc
+            raise
+
+    def find_by_id(self, devedor_id: uuid.UUID) -> Devedor | None:
+        row = self._session.get(DevedorORM, devedor_id)
+        return _to_devedor(row) if row is not None else None
+
+    def find_by_documento_carteira(
+        self, documento: Documento, carteira_id: uuid.UUID
+    ) -> Devedor | None:
+        row = self._session.scalar(
+            select(DevedorORM).where(
+                DevedorORM.carteira_id == carteira_id,
+                DevedorORM.documento == documento.valor,
+            )
+        )
+        return _to_devedor(row) if row is not None else None
+
+    def listar_paginado(
+        self,
+        carteira_id: uuid.UUID,
+        filtros: DevedorFiltros,
+        paginacao: Paginacao,
+    ) -> DevedorResultadoPaginado:
+        query = select(DevedorORM).where(DevedorORM.carteira_id == carteira_id)
+        count_query = select(func.count(DevedorORM.id)).where(
+            DevedorORM.carteira_id == carteira_id
+        )
+
+        if filtros.nome:
+            query = query.where(DevedorORM.nome.ilike(f"%{filtros.nome}%"))
+            count_query = count_query.where(DevedorORM.nome.ilike(f"%{filtros.nome}%"))
+
+        if filtros.estado:
+            query = query.where(DevedorORM.estado == filtros.estado)
+            count_query = count_query.where(DevedorORM.estado == filtros.estado)
+
+        if filtros.documento:
+            query = query.where(DevedorORM.documento == filtros.documento)
+            count_query = count_query.where(DevedorORM.documento == filtros.documento)
+
+        total = self._session.scalar(count_query) or 0
+
+        query = query.order_by(DevedorORM.criado_em, DevedorORM.id)
+        query = query.offset(paginacao.offset).limit(paginacao.limit)
+
+        rows = self._session.scalars(query).all()
+        items = [_to_devedor(row) for row in rows]
+
+        return DevedorResultadoPaginado(
+            items=items,
+            total=total,
+            pagina=paginacao.pagina,
+            tamanho=paginacao.tamanho,
+        )
+
+
+class SqlAlchemyContatoRepository(ContatoRepository):
+    """Implementação SQLAlchemy do ContatoRepository (IMP-049).
+
+    Segue o mesmo padrão: merge/flush no repositório, commit no UoW.
+    """
+
+    def __init__(self, session: Session) -> None:
+        self._session = session
+
+    def save(self, contato: Contato) -> None:
+        self._session.merge(
+            ContatoORM(
+                id=contato.id,
+                devedor_id=contato.devedor_id,
+                tipo=contato.tipo.value,
+                valor=contato.valor,
+                preferencial=contato.preferencial,
+                criado_em=contato.criado_em,
+                atualizado_em=contato.atualizado_em,
+            )
+        )
+
+    def find_by_id(self, contato_id: uuid.UUID) -> Contato | None:
+        row = self._session.get(ContatoORM, contato_id)
+        return _to_contato(row) if row is not None else None
+
+
+def _to_devedor(row: DevedorORM) -> Devedor:
+    devedor = Devedor.__new__(Devedor)
+    devedor.id = row.id
+    devedor.carteira_id = row.carteira_id
+    devedor._documento = Documento.from_str(row.documento)
+    devedor.nome = row.nome
+    devedor.estado = DevedorState(row.estado)
+    devedor.criado_em = row.criado_em
+    devedor.atualizado_em = row.atualizado_em
+    devedor._contatos = []
+    return devedor
+
+
+def _to_contato(row: ContatoORM) -> Contato:
+    return Contato(
+        id=row.id,
+        devedor_id=row.devedor_id,
+        tipo=TipoContato(row.tipo),
+        valor=row.valor,
+        preferencial=row.preferencial,
+        criado_em=row.criado_em,
+        atualizado_em=row.atualizado_em,
     )

@@ -136,3 +136,53 @@ class AuditoriaLogORM(Base):
     criado_em: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )
+
+
+class DevedorORM(Base):
+    """Tabela `devedor` — Aggregate Root Devedor (DOMAIN-020, IMP-042)."""
+
+    __tablename__ = "devedor"
+    __table_args__ = (
+        UniqueConstraint(
+            "carteira_id", "documento", name="uq_devedor_carteira_documento"
+        ),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True)
+    carteira_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid, ForeignKey("carteira.id"), nullable=False, index=True
+    )
+    documento: Mapped[str] = mapped_column(String(11), nullable=False)
+    nome: Mapped[str] = mapped_column(String(200), nullable=False)
+    estado: Mapped[str] = mapped_column(String(20), nullable=False)
+    criado_em: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+    atualizado_em: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+
+
+class ContatoORM(Base):
+    """Tabela `contato` — Entity Contato (DOMAIN-021, IMP-042)."""
+
+    __tablename__ = "contato"
+    __table_args__ = (
+        UniqueConstraint(
+            "devedor_id", "tipo", "valor", name="uq_contato_devedor_tipo_valor"
+        ),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True)
+    devedor_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid, ForeignKey("devedor.id"), nullable=False, index=True
+    )
+    tipo: Mapped[str] = mapped_column(String(20), nullable=False)
+    valor: Mapped[str] = mapped_column(String(254), nullable=False)
+    preferencial: Mapped[bool] = mapped_column(nullable=False, default=False)
+    criado_em: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+    atualizado_em: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
