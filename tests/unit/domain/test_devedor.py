@@ -472,6 +472,45 @@ def test_mutacao_externa_da_lista_de_contatos_nao_afeta_aggregate() -> None:
     assert devedor.contatos[0].preferencial is True
 
 
+def test_criar_nao_armazena_instancia_externa_de_contato() -> None:
+    contato_externo = Contato(
+        devedor_id=DEVEDOR_ID,
+        tipo=TipoContato.TELEFONE,
+        valor="(11) 1234-5678",
+        preferencial=True,
+    )
+    devedor = Devedor.criar(
+        carteira_id=CARTEIRA_ID,
+        documento=DOCUMENTO,
+        nome="João da Silva",
+        contatos=[contato_externo],
+    )
+
+    contato_externo.preferencial = False  # type: ignore[misc]
+    contato_externo.valor = "(21) 99999-9999"  # type: ignore[misc]
+
+    assert devedor.contatos[0].preferencial is True
+    assert devedor.contatos[0].valor == "(11) 1234-5678"
+
+
+def test_adicionar_contato_nao_armazena_instancia_recebida() -> None:
+    devedor = _devedor()
+    contato_externo = Contato(
+        devedor_id=devedor.id,
+        tipo=TipoContato.WHATSAPP,
+        valor="(11) 98765-4321",
+        preferencial=False,
+    )
+
+    devedor.adicionar_contato(contato_externo)
+    contato_externo.valor = "(21) 99999-9999"  # type: ignore[misc]
+
+    assert len(devedor.contatos) == 2
+    assert any(
+        c.tipo == TipoContato.WHATSAPP and c.valor == "(11) 98765-4321" for c in devedor.contatos
+    )
+
+
 # --------------------------------------------------------------------------- #
 # Rastreabilidade
 # --------------------------------------------------------------------------- #

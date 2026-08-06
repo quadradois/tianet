@@ -112,8 +112,6 @@ class Devedor:
     # ------------------------------------------------------------------ #
     # Criacao (RN-003)
     # ------------------------------------------------------------------ #
-    # Criação (RN-003)
-    # ------------------------------------------------------------------ #
 
     @classmethod
     def criar(
@@ -124,12 +122,12 @@ class Devedor:
         nome: str,
         contatos: Sequence[Contato],
     ) -> Devedor:
-        """Cria um Devedor exigindo ao menos um Contato válido (RN-003).
+        """Cria um Devedor exigindo ao menos um Contato valido (RN-003).
 
-        O Aggregate assume a posse dos Contatos: o ``devedor_id`` de cada
-        Contato é vinculado à identidade do Devedor recém-criado (RN-001).
-        A validação de unicidade do documento dentro da Carteira (INV-002)
-        é responsabilidade do UnicidadeDevedorService (IMP-046).
+        O Aggregate nao armazena as instancias externas de Contato: cria
+        copias validadas com o vinculo correto ao Devedor recém-criado
+        (RN-001). A validacao de unicidade do documento dentro da Carteira
+        (INV-002) eh responsabilidade do UnicidadeDevedorService (IMP-046).
         """
         devedor = cls(carteira_id=carteira_id, nome=nome)
         if not isinstance(documento, Documento):
@@ -139,12 +137,11 @@ class Devedor:
             )
         devedor._documento = documento
         for contato in contatos:
-            contato.devedor_id = devedor.id
-            devedor.adicionar_contato(contato)
+            devedor.adicionar_contato(replace(contato, devedor_id=devedor.id))
         if not devedor._contatos:
             raise ViolacaoInvarianteError(
                 "RN-003",
-                "ao menos um Contato é obrigatório na criação do Devedor",
+                "ao menos um Contato eh obrigatório na criacao do Devedor",
             )
         return devedor
 
@@ -180,10 +177,12 @@ class Devedor:
         ):
             raise ViolacaoInvarianteError(
                 "RN-005",
-                f"Já existe um Contato preferencial do tipo {contato.tipo.value!r} "
+                f"Ja existe um Contato preferencial do tipo {contato.tipo.value!r} "
                 "neste Devedor",
             )
-        self._contatos.append(contato)
+        # Armazena copia defensiva para impedir mutacao externa do objeto
+        # recebido (TASK-092-B).
+        self._contatos.append(replace(contato, devedor_id=self.id))
         self._marcar_atualizado()
 
     def atualizar_contato(
