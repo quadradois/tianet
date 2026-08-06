@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import pytest
 import sqlalchemy as sa
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, inspect
 from sqlalchemy.engine import Engine
 from sqlalchemy.orm import Session, sessionmaker
 
@@ -18,6 +18,19 @@ from emprestimo.infrastructure.db.base import Base
 from emprestimo.infrastructure.db.session import database_url
 
 TABELAS_TRUNCATE = (
+    "contato",
+    "devedor",
+    "idempotency_key",
+    "audit_log",
+    "usuario",
+    "configuracao",
+    "carteira",
+    "tenant",
+)
+
+TABELAS_DROP = (
+    "contato",
+    "devedor",
     "idempotency_key",
     "audit_log",
     "usuario",
@@ -27,12 +40,23 @@ TABELAS_TRUNCATE = (
 )
 
 
+def _get_existing_tables(engine: Engine) -> set[str]:
+    """Retorna conjunto de tabelas que existem no banco."""
+    insp = inspect(engine)
+    return set(insp.get_table_names())
+
+
 @pytest.fixture(scope="session")
 def engine() -> Engine:
     e = create_engine(database_url())
     Base.metadata.create_all(e)
     yield e
-    Base.metadata.drop_all(e)
+    # Drop tables in FK-respecting order to avoid FK constraint errors
+    existing = _get_existing_tables(e)
+    with e.begin() as conn:
+        for tabela in TABELAS_DROP:
+            if tabela in existing:
+                conn.execute(sa.text(f"DROP TABLE IF EXISTS {tabela} CASCADE"))
 
 
 @pytest.fixture
@@ -43,8 +67,12 @@ def session_factory(engine: Engine) -> sessionmaker[Session]:
 @pytest.fixture
 def session(session_factory: sessionmaker[Session]) -> Session:
     s = session_factory()
-    s.execute(sa.text(f"TRUNCATE TABLE {', '.join(TABELAS_TRUNCATE)}"))
-    s.commit()
+    # Truncate only tables that exist in the database
+    existing = _get_existing_tables(s.bind)
+    truncate_list = [t for t in TABELAS_TRUNCATE if t in existing]
+    if truncate_list:
+        s.execute(sa.text(f"TRUNCATE TABLE {', '.join(truncate_list)} CASCADE"))
+        s.commit()
     yield s
     s.rollback()
     s.close()
