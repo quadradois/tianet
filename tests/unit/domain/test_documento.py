@@ -74,7 +74,34 @@ def test_rejeita_letras_na_mascara() -> None:
     with pytest.raises(DocumentoInvalidoError) as exc:
         Documento.from_str("529.982.247-XX")
 
-    assert "11 dígitos" in exc.value.motivo
+    assert "caracteres inválidos" in exc.value.motivo
+
+
+def test_rejeita_letras_misturadas_ao_cpf_valido() -> None:
+    with pytest.raises(DocumentoInvalidoError) as exc:
+        Documento.from_str("abc529.982.247-25xyz")
+
+    assert "caracteres inválidos" in exc.value.motivo
+
+
+def test_rejeita_espacos_no_meio_do_cpf() -> None:
+    with pytest.raises(DocumentoInvalidoError) as exc:
+        Documento.from_str("529 982 247 25")
+
+    assert "caracteres inválidos" in exc.value.motivo
+
+
+def test_aceita_cpf_com_espacos_ao_redor() -> None:
+    doc = Documento.from_str("  529.982.247-25  ")
+
+    assert doc.valor == "52998224725"
+
+
+def test_rejeita_caracteres_especiais_nao_da_mascara() -> None:
+    with pytest.raises(DocumentoInvalidoError) as exc:
+        Documento.from_str("529.982.247/25")
+
+    assert "caracteres inválidos" in exc.value.motivo
 
 
 # --------------------------------------------------------------------------- #

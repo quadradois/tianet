@@ -54,8 +54,25 @@ class Documento:
 
 
 def _normalizar(raw: str) -> str:
-    """Remove máscara e caracteres inválidos, mantendo apenas dígitos."""
-    return "".join(caractere for caractere in raw if caractere.isdigit())
+    """Normaliza a máscara do CPF e valida os caracteres permitidos.
+
+    Aceita apenas:
+      - dígitos ASCII (0-9);
+      - caracteres de máscara do CPF: ``.`` e ``-``;
+      - espaços em branco ao redor (retirados).
+
+    Rejeita letras ou qualquer outro caractere não pertencente à máscara
+    (VO-022-VAL-001). Levanta ``DocumentoInvalidoError`` quando o valor
+    contém caracteres inválidos.
+    """
+    valor = raw.strip()
+    permitidos = set("0123456789.-")
+    if any(caractere not in permitidos for caractere in valor):
+        raise DocumentoInvalidoError(
+            valor,
+            "CPF contém caracteres inválidos (apenas dígitos, '.' e '-' são permitidos)",
+        )
+    return "".join(caractere for caractere in valor if caractere.isdigit())
 
 
 def _validar(valor: str) -> None:
