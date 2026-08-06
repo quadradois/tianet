@@ -83,6 +83,13 @@ class Devedor:
             )
         self.nome = nome
 
+        # INV-005: estado deve ser um DevedorState valido
+        if not isinstance(self.estado, DevedorState):
+            raise ViolacaoInvarianteError(
+                "INV-005",
+                f"estado deve ser DevedorState, recebido {self.estado!r}",
+            )
+
     # ------------------------------------------------------------------ #
     # Estado interno (somente leitura fora do aggregate)
     # ------------------------------------------------------------------ #
@@ -94,9 +101,16 @@ class Devedor:
 
     @property
     def contatos(self) -> tuple[Contato, ...]:
-        """Contatos vinculados ao Devedor (DOMAIN-021)."""
-        return tuple(self._contatos)
+        """Contatos vinculados ao Devedor (DOMAIN-021).
 
+        Retorna copias defensivas das entidades para impedir que mutacoes
+        externas quebrem as invariantes do Aggregate (RN-005 e unicidade
+        tipo+valor).
+        """
+        return tuple(replace(c) for c in self._contatos)
+
+    # ------------------------------------------------------------------ #
+    # Criacao (RN-003)
     # ------------------------------------------------------------------ #
     # Criação (RN-003)
     # ------------------------------------------------------------------ #
@@ -118,6 +132,11 @@ class Devedor:
         é responsabilidade do UnicidadeDevedorService (IMP-046).
         """
         devedor = cls(carteira_id=carteira_id, nome=nome)
+        if not isinstance(documento, Documento):
+            raise ViolacaoInvarianteError(
+                "INV-003",
+                f"documento deve ser um Documento valido, recebido {documento!r}",
+            )
         devedor._documento = documento
         for contato in contatos:
             contato.devedor_id = devedor.id
@@ -182,23 +201,25 @@ class Devedor:
         """
         contato = self._buscar_contato(contato_id)
 
-        if valor is not None and valor != contato.valor:
-            for existente in self._contatos:
-                if (
-                    existente.id != contato_id
-                    and existente.tipo == contato.tipo
-                    and existente.valor == valor
-                ):
-                    raise ViolacaoInvarianteError(
-                        "DOMAIN-021",
-                        f"Contato {contato.tipo.value!r} com valor {valor!r} "
-                        "já existente neste Devedor",
-                    )
-            # Reconstrói o Contato com o novo valor; o __post_init__ da
-            # entity revalida RN-004 (formato conforme o tipo).
-            contato_reconstruido = replace(contato, valor=valor)
-            self._contatos[self._contatos.index(contato)] = contato_reconstruido
-            contato = contato_reconstruido
+        if valor is not None:
+            valor_normalizado = valor.strip()
+            if valor_normalizado != contato.valor:
+                for existente in self._contatos:
+                    if (
+                        existente.id != contato_id
+                        and existente.tipo == contato.tipo
+                        and existente.valor == valor_normalizado
+                    ):
+                        raise ViolacaoInvarianteError(
+                            "DOMAIN-021",
+                            f"Contato {contato.tipo.value!r} com valor {valor_normalizado!r} "
+                            "ja existente neste Devedor",
+                        )
+                # Reconstroi o Contato com o novo valor; o __post_init__ da
+                # entity revalida RN-004 (formato conforme o tipo).
+                contato_reconstruido = replace(contato, valor=valor_normalizado)
+                self._contatos[self._contatos.index(contato)] = contato_reconstruido
+                contato = contato_reconstruido
 
         if preferencial is True and not contato.preferencial:
             if any(

@@ -120,6 +120,29 @@ def test_documento_preservado_apos_atualizacoes() -> None:
     assert devedor.documento == DOCUMENTO
 
 
+def test_rejeita_documento_nao_documento() -> None:
+    with pytest.raises(ViolacaoInvarianteError) as exc:
+        Devedor.criar(
+            carteira_id=CARTEIRA_ID,
+            documento="52998224725",  # type: ignore[arg-type]
+            nome="João da Silva",
+            contatos=[_contato_telefone()],
+        )
+
+    assert exc.value.codigo == "INV-003"
+
+
+def test_rejeita_estado_invalido() -> None:
+    with pytest.raises(ViolacaoInvarianteError) as exc:
+        Devedor(
+            carteira_id=CARTEIRA_ID,
+            nome="João da Silva",
+            estado="ativo",  # type: ignore[arg-type]
+        )
+
+    assert exc.value.codigo == "INV-005"
+
+
 # --------------------------------------------------------------------------- #
 # RN-003 — ao menos um contato na criação
 # --------------------------------------------------------------------------- #
@@ -280,13 +303,33 @@ def test_rejeita_valor_duplicado_na_atualizacao() -> None:
     assert exc.value.codigo == "DOMAIN-021"
 
 
+def test_rejeita_valor_duplicado_com_espacos_na_atualizacao() -> None:
+    email_a = Contato(
+        devedor_id=DEVEDOR_ID,
+        tipo=TipoContato.EMAIL,
+        valor="a@exemplo.com",
+    )
+    email_b = Contato(
+        devedor_id=DEVEDOR_ID,
+        tipo=TipoContato.EMAIL,
+        valor="b@exemplo.com",
+    )
+    devedor = _devedor([_contato_telefone(), email_a, email_b])
+    email_a_entity = devedor.contatos[1]
+
+    with pytest.raises(ViolacaoInvarianteError) as exc:
+        devedor.atualizar_contato(email_a_entity.id, valor="  b@exemplo.com  ")
+
+    assert exc.value.codigo == "DOMAIN-021"
+
+
 def test_promove_contato_a_preferencial() -> None:
     devedor = _devedor([_contato_telefone(), _contato_email()])
     email = devedor.contatos[1]
 
     devedor.atualizar_contato(email.id, preferencial=True)
 
-    assert email.preferencial is True
+    assert devedor.contatos[1].preferencial is True
 
 
 def test_remove_preferencial() -> None:
@@ -295,7 +338,7 @@ def test_remove_preferencial() -> None:
 
     devedor.atualizar_contato(telefone.id, preferencial=False)
 
-    assert telefone.preferencial is False
+    assert devedor.contatos[0].preferencial is False
 
 
 def test_remover_contato() -> None:
@@ -403,6 +446,30 @@ def test_rejeita_reativar_devedor_ativo() -> None:
         devedor.reativar()
 
     assert exc.value.codigo == "INV-005"
+
+
+# --------------------------------------------------------------------------- #
+# Defesa contra mutação externa
+# --------------------------------------------------------------------------- #
+
+
+def test_mutacao_externa_de_contato_nao_afeta_aggregate() -> None:
+    devedor = _devedor([_contato_telefone(preferencial=True)])
+    contato_exposto = devedor.contatos[0]
+
+    # Tentativa de quebrar RN-005 por mutação externa
+    contato_exposto.preferencial = False  # type: ignore[misc]
+
+    assert devedor.contatos[0].preferencial is True
+
+
+def test_mutacao_externa_da_lista_de_contatos_nao_afeta_aggregate() -> None:
+    devedor = _devedor([_contato_telefone(preferencial=True)])
+    contatos = devedor.contatos
+
+    contatos[0].preferencial = False  # type: ignore[misc]
+
+    assert devedor.contatos[0].preferencial is True
 
 
 # --------------------------------------------------------------------------- #
