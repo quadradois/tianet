@@ -5,6 +5,7 @@
   "description": "Sistema de Gestão de Empréstimos — documentação",
   "scripts": {
     "docs:validate": "node scripts/validate-docs.js",
+    "docs:test": "node scripts/tests/test-validator.js",
     "docs:hooks": "git config core.hooksPath hooks"
   }
 }

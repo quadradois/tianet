@@ -116,6 +116,8 @@ A trilha de auditoria do provisionamento será append-only e imutável, registra
   - `409` — organização já existente ou Idempotency Key já utilizada com resultado divergente;
   - `422` — dados obrigatórios inválidos.
 - `GET /platform/tenants/{id}` — consulta o Tenant e seu estado operacional (suporte ao fluxo de confirmação — UC-007);
+  - `200` — Tenant encontrado (com ID e estado atual);
+  - `404` — Tenant inexistente;
 - Endpoints internos de contexto (fora da API pública): criar-carteira, criar-usuário-administrador, inicializar-configurações.
 
 Autenticação está fora do escopo da FEATURE-001 (§4); o endpoint opera no contexto autenticado existente do MVP (FOUNDATION-008).
@@ -166,3 +168,4 @@ Autenticação está fora do escopo da FEATURE-001 (§4); o endpoint opera no co
 | Versão | Data | Descrição |
 |---------|------|-----------|
 | 1.0.0 | 01/08/2026 | Primeira versão oficial do Plano Técnico da FEATURE-001 — Criar Tenant, incorporando decisões de estratégia transacional (transação única no MVP) e idempotência (Idempotency Key). |
+| 1.0.1 | 07/08/2026 | §6 — respostas `200`/`404` do `GET /platform/tenants/{id}` explicitadas. Divergência detectada pelo validador de consistência (TASK-090B): o contrato já constava do backlog, da implementação e dos testes; apenas o plano o omitia. Nenhum comportamento alterado. |

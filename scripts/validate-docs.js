@@ -3,6 +3,7 @@
 
 const fs = require('fs');
 const path = require('path');
+const { verificarContratos } = require('./contract-check.js');
 
 const ROOT = path.resolve(__dirname, '..');
 const DOCS = path.join(ROOT, 'docs');
@@ -277,6 +278,10 @@ function main() {
   if (fs.existsSync(path.join(DOCS, 'implementation', 'plansPLAN-002-epic-001-tenant-management.md'))) {
     results.errors.push('docs/implementation/plansPLAN-002-epic-001-tenant-management.md ainda existe (deve ser removido)');
   }
+
+  // Consistência arquitetural entre documentos (SPEC-001) — as fixtures de teste
+  // do próprio validador ficam fora de docs/ e não entram aqui.
+  verificarContratos({ root: ROOT, results });
 
   const print = results.ok.length + results.warnings.length + results.errors.length > 0;
   console.log('docs:validate — Validação da documentação');
