@@ -180,8 +180,44 @@ No domínio Credit, o Devedor é entidade da fronteira da Carteira (DOMAIN-001 �
 
 ---
 
+## Identidade externa (ADR-018)
+
+As duas leituras do parágrafo anterior não competem: descrevem planos distintos,
+e a ADR-018 estabelece qual governa cada um.
+
+**O Devedor permanece Aggregate Root do contexto Cadastro.** Ele protege suas
+próprias invariantes (§3), possui identidade (`id`), ciclo de vida (Ativo/Inativo)
+e entidade filha (Contato, §4) próprios, e é carregado e persistido como uma
+unidade de consistência.
+
+**A identidade externa, porém, pertence à Carteira.** Ser Aggregate Root é uma
+propriedade da consistência transacional interna, não uma afirmação sobre como o
+recurso é endereçado por um cliente externo. Como a Carteira é a fronteira de
+consistência do domínio (DOMAIN-001 §114) e o isolamento entre Tenants se dá via
+Carteira (§5), o Devedor não é endereçável de forma independente.
+
+**A fronteira HTTP acompanha a Carteira.** A hierarquia oficial de endereçamento
+é `Tenant → Carteira → Devedor`, e toda operação sobre o Devedor ocorre sob
+`/credit/carteiras/{carteira_id}/devedores`. Um Devedor requisitado sob uma
+Carteira à qual não pertence responde `404 devedor_nao_encontrado` — o mesmo
+código de um identificador inexistente, para não revelar sua existência através
+da fronteira.
+
+Princípios registrados na ADR-018:
+
+- Aggregate Root não determina identidade externa da API.
+- Recursos subordinados podem possuir identidade própria no domínio e ainda assim
+  possuir identidade contextualizada externamente.
+
+Este esclarecimento define exclusivamente o endereçamento externo; nenhuma
+invariante, regra de negócio ou relação de domínio deste documento é alterada
+por ele.
+
+---
+
 # 9. Histórico de Versões
 
 | Versão | Data | Descrição |
 |---------|------|-----------|
 | 1.0.0 | 05/08/2026 | Primeira versão oficial do Aggregate Devedor, criada no ciclo SDD do EPIC-002 (contexto Cadastro). |
+| 1.1.0 | 07/08/2026 | Seção 9 (Identidade externa) — ambiguidade do §179 eliminada conforme ADR-018. Nenhuma regra de domínio alterada. |

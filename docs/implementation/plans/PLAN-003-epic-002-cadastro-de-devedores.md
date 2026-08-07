@@ -103,7 +103,11 @@ Nenhuma tabela existente (tenant, carteira, usuario, configuracao, idempotency_k
 - `POST /credit/carteiras/{carteira_id}/devedores/{id}/reativar` — transição Inativo → Ativo (US-026);
 - `GET /credit/carteiras/{carteira_id}/devedores/{id}/historico` — histórico cadastral (US-027).
 
+Todos os endpoints são aninhados sob `/credit/carteiras/{carteira_id}` (ADR-018): a identidade externa do Devedor é contextualizada pela Carteira, ainda que ele permaneça Aggregate Root do contexto Cadastro. Não existe rota oficial em `/credit/devedores/...`.
+
 Padrões de erro: 400 payload_invalido / 404 devedor_nao_encontrado, carteira_nao_encontrada / 409 documento_ja_cadastrado, conflito_idempotencia, conflito_estado / 422 regra_violada / 500.
+
+Pertinência Carteira↔Devedor (ADR-018): quando o Devedor existe mas pertence a outra Carteira, a resposta é **404 devedor_nao_encontrado** — o mesmo código de identificador inexistente. A indistinguibilidade é intencional: um código distinto confirmaria a existência do identificador em outra Carteira, vazando informação através da fronteira de isolamento. A validação é centralizada em dependência única de rota, nunca duplicada nos handlers.
 
 # 7. Estratégia de Testes
 
@@ -156,3 +160,4 @@ Cada tarefa só inicia com todas as suas dependências concluídas.
 | Versão | Data | Descrição |
 |---------|------|-----------|
 | 1.0.0 | 05/08/2026 | Plano Consolidado de Implementação do EPIC-002 — Cadastro de Devedores, reutilizando a infraestrutura do EPIC-001 com backlog IMP-042+. |
+| 1.1.0 | 07/08/2026 | §6 — endpoints aninhados confirmados como contrato oficial e contrato de erro de pertinência Carteira↔Devedor registrado, conforme ADR-018. |

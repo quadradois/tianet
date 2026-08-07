@@ -10,6 +10,8 @@ from __future__ import annotations
 
 import uuid
 from abc import ABC, abstractmethod
+from dataclasses import dataclass
+from datetime import datetime
 from typing import Any
 
 from emprestimo.domain.credit.ports import (
@@ -57,6 +59,35 @@ class AuditoriaRegistro(ABC):
         status: str,
         detalhes: str | None = None,
     ) -> None: ...
+
+
+@dataclass(frozen=True)
+class EventoAuditoria:
+    """Um evento da trilha append-only, para leitura (US-027).
+
+    Espelha uma linha de ``audit_log``. Imutável: a trilha é somente INSERT.
+    """
+
+    id: uuid.UUID
+    entidade: str
+    entidade_id: uuid.UUID | None
+    acao: str
+    status: str
+    detalhes: str | None
+    criado_em: datetime
+
+
+class AuditoriaConsulta(ABC):
+    """Leitura da trilha append-only (US-027, ADR-002).
+
+    Contrato separado de ``AuditoriaRegistro``: escrever e ler a trilha são
+    responsabilidades distintas, e a leitura não deve poder gravar.
+    """
+
+    @abstractmethod
+    def listar_por_entidade(
+        self, entidade: str, entidade_id: uuid.UUID
+    ) -> list[EventoAuditoria]: ...
 
 
 class UnitOfWork(ABC):

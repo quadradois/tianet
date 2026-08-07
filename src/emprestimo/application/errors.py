@@ -7,6 +7,8 @@ violação de unicidade.
 
 from __future__ import annotations
 
+import uuid
+
 from emprestimo.domain.common.errors import DomainError
 
 
@@ -22,6 +24,18 @@ class IdempotenciaConflitoError(DomainError):
         super().__init__(f"Conflito de Idempotency-Key {idempotency_key!r}: {motivo}")
         self.idempotency_key = idempotency_key
         self.motivo = motivo
+
+
+class DevedorNaoEncontradoError(DomainError):
+    """Devedor não encontrado na base (IMP-054).
+
+    Levantada quando uma operação de atualização, estado ou consulta por ID
+    não localiza o Devedor correspondente.
+    """
+
+    def __init__(self, devedor_id: uuid.UUID) -> None:
+        super().__init__(f"Devedor não encontrado: {devedor_id}")
+        self.devedor_id = devedor_id
 
 
 class TransicaoEstadoInvalidaError(DomainError):

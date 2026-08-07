@@ -14,7 +14,7 @@ from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-from emprestimo.domain.common.errors import TenantJaExisteError
+from emprestimo.domain.common.errors import DevedorJaExisteError, TenantJaExisteError
 from emprestimo.domain.credit.carteira import Carteira
 from emprestimo.domain.credit.contato import Contato, TipoContato
 from emprestimo.domain.credit.devedor import Devedor, DevedorState
@@ -25,6 +25,7 @@ from emprestimo.domain.credit.ports import (
     DevedorFiltros,
     DevedorRepository,
     DevedorResultadoPaginado,
+    DevedorUniquenessChecker,
     Paginacao,
 )
 from emprestimo.domain.platform.configuracao import Configuracao
@@ -264,21 +265,12 @@ def _to_carteira(row: CarteiraORM) -> Carteira:
     )
 
 
-class DevedorJaExisteError(Exception):
-    """Exceção levantada quando há violação de unicidade do documento na Carteira."""
-
-    def __init__(self, documento: str, carteira_id: uuid.UUID) -> None:
-        super().__init__(
-            f"Devedor com documento {documento} já existe na Carteira {carteira_id}"
-        )
-        self.documento = documento
-        self.carteira_id = carteira_id
-
-
-class SqlAlchemyDevedorRepository(DevedorRepository):
+class SqlAlchemyDevedorRepository(DevedorRepository, DevedorUniquenessChecker):
     """Implementação SQLAlchemy do DevedorRepository (IMP-049).
 
     Segue o padrão do EPIC-001: merge/flush no repositório, commit no UoW.
+    Também satisfaz ``DevedorUniquenessChecker`` (IMP-046), consumido pelo
+    UnicidadeDevedorService na criação e na atualização.
     """
 
     def __init__(self, session: Session) -> None:
@@ -303,9 +295,29 @@ class SqlAlchemyDevedorRepository(DevedorRepository):
                 raise DevedorJaExisteError(devedor.documento.valor, devedor.carteira_id) from exc
             raise
 
+    def _contatos_de(self, devedor_ids: list[uuid.UUID]) -> dict[uuid.UUID, list[Contato]]:
+        """Carrega os contatos de vários Devedores em uma única query (evita N+1).
+
+        Não há ``relationship`` entre DevedorORM e ContatoORM (IMP-042), então a
+        coleção do Aggregate é remontada explicitamente na leitura.
+        """
+        if not devedor_ids:
+            return {}
+        rows = self._session.scalars(
+            select(ContatoORM)
+            .where(ContatoORM.devedor_id.in_(devedor_ids))
+            .order_by(ContatoORM.criado_em, ContatoORM.id)
+        ).all()
+        por_devedor: dict[uuid.UUID, list[Contato]] = {}
+        for row in rows:
+            por_devedor.setdefault(row.devedor_id, []).append(_to_contato(row))
+        return por_devedor
+
     def find_by_id(self, devedor_id: uuid.UUID) -> Devedor | None:
         row = self._session.get(DevedorORM, devedor_id)
-        return _to_devedor(row) if row is not None else None
+        if row is None:
+            return None
+        return _to_devedor(row, self._contatos_de([row.id]).get(row.id, []))
 
     def find_by_documento_carteira(
         self, documento: Documento, carteira_id: uuid.UUID
@@ -316,7 +328,23 @@ class SqlAlchemyDevedorRepository(DevedorRepository):
                 DevedorORM.documento == documento.valor,
             )
         )
-        return _to_devedor(row) if row is not None else None
+        if row is None:
+            return None
+        return _to_devedor(row, self._contatos_de([row.id]).get(row.id, []))
+
+    def exists_by_documento_carteira(
+        self, documento: Documento, carteira_id: uuid.UUID
+    ) -> bool:
+        """Verificação de unicidade do documento na Carteira (IMP-046, INV-002)."""
+        return (
+            self._session.scalar(
+                select(func.count(DevedorORM.id)).where(
+                    DevedorORM.carteira_id == carteira_id,
+                    DevedorORM.documento == documento.valor,
+                )
+            )
+            or 0
+        ) > 0
 
     def listar_paginado(
         self,
@@ -347,7 +375,8 @@ class SqlAlchemyDevedorRepository(DevedorRepository):
         query = query.offset(paginacao.offset).limit(paginacao.limit)
 
         rows = self._session.scalars(query).all()
-        items = [_to_devedor(row) for row in rows]
+        contatos = self._contatos_de([row.id for row in rows])
+        items = [_to_devedor(row, contatos.get(row.id, [])) for row in rows]
 
         return DevedorResultadoPaginado(
             items=items,
@@ -384,7 +413,7 @@ class SqlAlchemyContatoRepository(ContatoRepository):
         return _to_contato(row) if row is not None else None
 
 
-def _to_devedor(row: DevedorORM) -> Devedor:
+def _to_devedor(row: DevedorORM, contatos: list[Contato] | None = None) -> Devedor:
     devedor = Devedor.__new__(Devedor)
     devedor.id = row.id
     devedor.carteira_id = row.carteira_id
@@ -393,7 +422,7 @@ def _to_devedor(row: DevedorORM) -> Devedor:
     devedor.estado = DevedorState(row.estado)
     devedor.criado_em = row.criado_em
     devedor.atualizado_em = row.atualizado_em
-    devedor._contatos = []
+    devedor._contatos = contatos if contatos is not None else []
     return devedor
 
 

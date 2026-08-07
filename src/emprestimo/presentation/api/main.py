@@ -21,10 +21,18 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 
 from emprestimo.application.errors import (
+    DevedorNaoEncontradoError,
     IdempotenciaConflitoError,
     TransicaoEstadoInvalidaError,
 )
-from emprestimo.domain.common.errors import TenantJaExisteError, ViolacaoInvarianteError
+from emprestimo.domain.common.errors import (
+    DevedorJaExisteError,
+    DocumentoInvalidoError,
+    TenantJaExisteError,
+    ViolacaoInvarianteError,
+)
+from emprestimo.domain.credit.contato import ContatoInvalidoError
+from emprestimo.presentation.api.devedores_routes import router as devedores_router
 from emprestimo.presentation.api.routes import router
 
 logger = logging.getLogger(__name__)
@@ -37,11 +45,16 @@ def create_app() -> FastAPI:
     """Factory do app — permite instâncias isoladas em testes."""
     app = FastAPI(title=TITLE, version=VERSION)
     app.include_router(router)
+    app.include_router(devedores_router)
     app.add_exception_handler(RequestValidationError, _payload_invalido)
     app.add_exception_handler(TenantJaExisteError, _tenant_ja_existe)
+    app.add_exception_handler(DevedorJaExisteError, _devedor_ja_existe)
+    app.add_exception_handler(DevedorNaoEncontradoError, _devedor_nao_encontrado)
     app.add_exception_handler(IdempotenciaConflitoError, _conflito_idempotencia)
     app.add_exception_handler(TransicaoEstadoInvalidaError, _conflito_estado)
     app.add_exception_handler(ViolacaoInvarianteError, _regra_violada)
+    app.add_exception_handler(DocumentoInvalidoError, _regra_violada)
+    app.add_exception_handler(ContatoInvalidoError, _regra_violada)
     app.add_exception_handler(HTTPException, _http_exception)
     app.add_exception_handler(Exception, _erro_inesperado)
 
@@ -67,6 +80,14 @@ async def _payload_invalido(_: Request, exc: Exception) -> JSONResponse:
 
 async def _tenant_ja_existe(_: Request, exc: Exception) -> JSONResponse:
     return JSONResponse(status_code=409, content=_corpo("tenant_ja_existe", str(exc)))
+
+
+async def _devedor_ja_existe(_: Request, exc: Exception) -> JSONResponse:
+    return JSONResponse(status_code=409, content=_corpo("devedor_ja_existe", str(exc)))
+
+
+async def _devedor_nao_encontrado(_: Request, exc: Exception) -> JSONResponse:
+    return JSONResponse(status_code=404, content=_corpo("devedor_nao_encontrado", str(exc)))
 
 
 async def _conflito_idempotencia(_: Request, exc: Exception) -> JSONResponse:

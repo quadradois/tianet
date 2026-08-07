@@ -207,21 +207,29 @@ permitindo rastreabilidade entre Product → Implementation → Código.
 
 ## IMP-058 — Endpoints de consulta (GET devedores)
 
-- **Objetivo:** GET `/devedores/{id}` (US-021), GET por documento (US-022) e listagem
-  paginada (US-023) com filtros `nome`, `estado`, `documento`.
+- **Objetivo:** GET `/carteiras/{carteira_id}/devedores/{id}` (US-021), GET por documento
+  (US-022) e listagem paginada (US-023) com filtros `nome`, `estado`, `documento`.
 - **Componentes afetados:** `routes/api`, `dependencies.py`.
 - **Dependências:** IMP-052, IMP-053, IMP-056.
-- **Critérios de conclusão:** 200 com DTO único; 404 inexistente; leitura sem auditoria;
-  ordenação determinística.
+- **Critérios de conclusão:** 200 com DTO único; 404 inexistente; 404
+  `devedor_nao_encontrado` quando o Devedor pertence a outra Carteira (ADR-018); leitura
+  sem auditoria; ordenação determinística.
 
 ## IMP-059 — Endpoints PATCH, inativar/reativar e histórico
 
-- **Objetivo:** PATCH `/devedores/{id}` (US-024), POST `/devedores/{id}/inativar` e
-  `/reativar` (US-025/026), GET `/devedores/{id}/historico` (US-027).
+- **Objetivo:** PATCH `/carteiras/{carteira_id}/devedores/{id}` (US-024), POST
+  `/carteiras/{carteira_id}/devedores/{id}/inativar` e `/reativar` (US-025/026), GET
+  `/carteiras/{carteira_id}/devedores/{id}/historico` (US-027).
 - **Componentes afetados:** `routes/api`, `dependencies.py`.
 - **Dependências:** IMP-054, IMP-055.
-- **Critérios de conclusão:** 200 com DTO atualizado; 404; 409 `conflito_estado`; histórico
+- **Critérios de conclusão:** 200 com DTO atualizado; 404; 404 `devedor_nao_encontrado`
+  quando o Devedor pertence a outra Carteira (ADR-018); 409 `conflito_estado`; histórico
   com trilha.
+
+> **Contrato oficial (ADR-018):** todos os endpoints de Devedor são aninhados sob
+> `/credit/carteiras/{carteira_id}/devedores`. Não existe rota oficial em
+> `/credit/devedores/...`. A validação de pertinência Carteira↔Devedor é centralizada
+> em dependência única de rota, nunca duplicada nos handlers.
 
 ---
 
@@ -305,3 +313,4 @@ documental desta missão).
 | Versão | Data | Descrição |
 |---------|------|-----------|
 | 1.0.0 | 05/08/2026 | Backlog de Execução do PLAN-003 — EPIC-002, IMP-042..IMP-064. |
+| 1.1.0 | 07/08/2026 | IMP-058/IMP-059 — rotas corrigidas de `/devedores/{id}` para o contrato aninhado oficial, conforme ADR-018. |
