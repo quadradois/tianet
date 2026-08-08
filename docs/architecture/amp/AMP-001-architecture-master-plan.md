@@ -2,11 +2,15 @@
 
 **ID:** AMP-001
 
-**Versão:** 1.1.0
+**Versão:** 1.2.0
 
 **Status:** Rascunho para revisão arquitetural
 
 **Data:** 2026-08-08
+
+**Alteração na v1.2.0:** a ADR-004 (Autenticação e Autorização) deixou de ser
+reserva — foi emitida em 08/08/2026 com escopo reduzido: ABAC, OIDC e MFA
+ficaram fora. Tabela do §8 atualizada. Nenhuma outra alteração.
 
 **Alteração na v1.1.0:** numeração de Épicos alinhada à sequência oficial do
 [ROADMAP-ALIGNMENT §5.2](../ROADMAP-ALIGNMENT-PRODUCT-AMP.md). O identificador
@@ -347,7 +351,7 @@ Não criar as ADRs agora. Listar apenas o que provavelmente será necessário, c
 | ADR | Nome | Motivo | Momento adequado |
 |-----|------|--------|------------------|
 | **ADR-003** | Nível de isolamento Multi-Tenant | Decidir se evolui para schema separado ou banco separado. | Quando houver requisito regulatório, contrato enterprise ou degradação de performance. |
-| **ADR-004** | Autenticação e Autorização (IAM) | JWT, RBAC, ABAC, OIDC, MFA. | Imediato, antes de produção real. |
+| ~~**ADR-004**~~ | ~~Autenticação e Autorização (IAM)~~ | **EMITIDA em 08/08/2026** — ver [ADR-004](../adrs/ADR-004-autenticacao-e-autorizacao-iam.md). Escopo reduzido em relação à reserva: ABAC, OIDC e MFA ficaram fora. | — |
 | **ADR-005** | Event Bus / Mensageria | Transporte de eventos de domínio entre contextos. | Quando separar contextos físicos ou introduzir read models. |
 | **ADR-006** | Workflow / Orchestration | Processos de renegociação, acordos, aprovações. | Quando esses processos se tornarem complexos. |
 | **ADR-007** | Scheduler / Batch Processing | Agendamento de cobranças, lembretes, vencimentos. | Quando agenda/cobrança automática entrar. |
