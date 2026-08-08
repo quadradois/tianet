@@ -122,7 +122,7 @@ permitindo rastreabilidade entre Product → Implementation → Código.
 - **Dependências:** IMP-042, IMP-048.
 - **Critérios de conclusão:** repositórios com `find_by_id`, `find_by_documento_carteira`,
   `listar_paginado`; tradução de `IntegrityError` UNIQUE em `DevedorJaExisteError`
-  (padrão IMP-008/IMP-21 do EPIC-001).
+  (padrão IMP-008/IMP-021 do EPIC-001).
 
 ## IMP-050 — Integração no UnitOfWork e suporte de troca
 

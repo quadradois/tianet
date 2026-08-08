@@ -198,12 +198,12 @@ mocks que testariam o mock, não o código.
 1. **`ruff` e `mypy` mantêm achados pré-existentes.** Comparados item a item com
    o baseline: nenhum introduzido por este trabalho. O `ruff` inclusive caiu de
    63 para 50 após a formatação.
-2. **Divergência de ordem entre serviços.** `cadastro_devedor.py` e
-   `provisioning.py` avaliam o hash **antes** do estado da chave; `estado_devedor.py`
-   e `atualizacao_devedor.py` avaliam o estado antes. A AD-002 não especifica a
-   ordem, então nenhuma viola a regra — mas a mesma situação produz mensagens de
-   erro diferentes conforme o caso de uso. **Não corrigido:** exigiria decisão
-   arquitetural sobre qual ordem é canônica.
+2. ~~**Divergência de ordem entre serviços.**~~ **RESOLVIDA em 08/08/2026.** Os
+   quatro casos de uso avaliam agora o **estado antes do hash**: se a operação
+   anterior não terminou, esse é o fato dominante — um hash divergente durante
+   operação em curso é sintoma, não causa. A AD-002 não fixa a ordem; a escolha
+   foi por uniformidade de mensagem. Verificado nos quatro serviços; 408 testes
+   verdes.
 3. **Sem autenticação.** Nenhum endpoint valida tenant ou usuário. É o EPIC-006
    (IAM), classificado como pré-requisito de segurança no roadmap. O EPIC-002
    está certificado como funcionalidade, **não** como pronto para dado real.

@@ -7,11 +7,7 @@ from unittest.mock import Mock
 
 import pytest
 
-from emprestimo.application.cadastro_devedor import (
-    DevedorCadastroService,
-    DevedorCriado,
-    _solicitacao_hash,
-)
+from emprestimo.application.cadastro_devedor import DevedorCadastroService, DevedorCriado
 from emprestimo.application.errors import IdempotenciaConflitoError
 from emprestimo.application.ports import AuditoriaRegistro, UnitOfWork
 from emprestimo.domain.credit.contato import Contato, TipoContato
@@ -281,12 +277,11 @@ class TestDevedorCadastroService:
         registro e a conclusao: o estado permanece diferente de "finished".
         """
         contatos = [{"tipo": "telefone", "valor": "(11) 1234-5678", "preferencial": True}]
-        # O hash precisa COINCIDIR para o fluxo alcançar a checagem de estado:
-        # este serviço avalia o hash antes do estado (ver ressalva no GATE).
-        hash_igual = _solicitacao_hash(CARTEIRA_ID, DOCUMENTO, "Joao da Silva")
+        # O estado é avaliado ANTES do hash nos quatro casos de uso, então um hash
+        # qualquer basta: "em andamento" prevalece sobre "divergente".
         uow = _mock_uow_factory()
         uow.idempotencia.find_by_chave.return_value = {
-            "solicitacao_hash": hash_igual,
+            "solicitacao_hash": "hash-qualquer",
             "estado": "running",
             "resultado": None,
         }

@@ -2,11 +2,19 @@
 
 **ID:** AMP-001
 
-**Versão:** 1.0.0
+**Versão:** 1.1.0
 
 **Status:** Rascunho para revisão arquitetural
 
-**Data:** 2026-08-04
+**Data:** 2026-08-08
+
+**Alteração na v1.1.0:** numeração de Épicos alinhada à sequência oficial do
+[ROADMAP-ALIGNMENT §5.2](../ROADMAP-ALIGNMENT-PRODUCT-AMP.md). O identificador
+EPIC-003 designava dois temas distintos ("Comercial/Propostas" em §10.1 item 2 e
+"Contratos" em §10.1 item 3) — conflito CP-003 do relatório de alinhamento.
+Passam a valer: EPIC-003 = Comercial, EPIC-004 = Contratos de Crédito,
+EPIC-005 = Empréstimos/Pagamentos/Motor Financeiro, EPIC-007 = Operação Diária.
+Nenhuma decisão arquitetural de conteúdo foi alterada.
 
 **Autor:** Principal Software Architect / Domain Architect / CTO
 
@@ -98,7 +106,7 @@ Objetivo: **MVP operacional e seguro**.
 - EPIC-001 concluído (Tenant Management).
 - EPIC-006 (IAM) implementado: autenticação JWT, autorização RBAC, perfis e permissões.
 - EPIC-002 (Cadastro de Devedores) concluído.
-- EPIC-003 (Comercial + Contratos) iniciado.
+- EPIC-003 (Comercial — Propostas/Simulação) iniciado.
 - CI/CD, logs estruturados, observabilidade básica e healthcheck real implementados.
 - Eventos de domínio publicados em memória (bus interno) para desacoplar contextos dentro do monólito.
 - Inativação de Tenant com semântica de desligamento (revogação de tokens, suspensão de jobs).
@@ -108,8 +116,9 @@ Objetivo: **MVP operacional e seguro**.
 
 Objetivo: **Operação de crédito completa**.
 
-- EPIC-004 (Empréstimos e Pagamentos) concluído — Motor Financeiro operacional.
-- EPIC-005 (Cobrança, Agenda, Comunicação e Relatórios) operacional.
+- EPIC-004 (Contratos de Crédito) concluído.
+- EPIC-005 (Empréstimos, Pagamentos e Motor Financeiro) concluído — Motor Financeiro operacional.
+- EPIC-007 (Operação Diária — Cobrança, Agenda, Comunicação e Relatórios) operacional.
 - Read models / projections para relatórios e listagens pesadas.
 - Event Bus formalizado (possivelmente mensageria leve) para comunicação cross-context.
 - Search básico para devedores, contratos e operações.
@@ -399,12 +408,12 @@ Não criar as ADRs agora. Listar apenas o que provavelmente será necessário, c
    - Início do EPIC-003: Comercial/Propostas
 
 3. **Contratos e Operação Financeira (3-9 meses)**
-   - EPIC-003: Contratos
-   - EPIC-004: Empréstimos + Pagamentos + Motor Financeiro
+   - EPIC-004: Contratos de Crédito
+   - EPIC-005: Empréstimos + Pagamentos + Motor Financeiro
    - Event Bus interno (ADR-005)
 
 4. **Operação Diária (9-12 meses)**
-   - EPIC-005: Cobrança, Agenda, Comunicação, Relatórios
+   - EPIC-007: Cobrança, Agenda, Comunicação, Relatórios
    - Scheduler (ADR-007)
    - Notification (ADR-009)
    - Read Models / Projections (ADR-013)

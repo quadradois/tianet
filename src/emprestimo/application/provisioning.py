@@ -178,10 +178,13 @@ class TenantProvisioningService:
         if existente is None:
             uow.idempotencia.registrar(idempotency_key, ESCOPO_IDEMPOTENCIA, hash_solicitacao)
             return None
-        if existente["solicitacao_hash"] != hash_solicitacao:
-            raise IdempotenciaConflitoError(idempotency_key, "resultado divergente")
+        # Estado ANTES do hash: se a operação anterior não terminou, esse é o fato
+        # dominante — um hash divergente durante operação em curso é sintoma, não
+        # causa. Ordem uniforme nos quatro casos de uso (AD-002).
         if existente["estado"] != "finished":
             raise IdempotenciaConflitoError(idempotency_key, "provisionamento em andamento")
+        if existente["solicitacao_hash"] != hash_solicitacao:
+            raise IdempotenciaConflitoError(idempotency_key, "resultado divergente")
         self._auditoria.registrar(
             "tenant",
             None,
