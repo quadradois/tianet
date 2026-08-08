@@ -25,3 +25,10 @@ postgres-data/
 # Tools cache
 /graphify-out/
 /docs/graphify-out/
+
+# Configuração específica de agentes — pertence ao ambiente do executor, não ao
+# produto. Conhecimento reutilizável vai para docs/governance/agents/.
+/CLAUDE.md
+/CODEX.md
+/CURSOR.md
+/GEMINI.md

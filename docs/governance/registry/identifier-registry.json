@@ -1,0 +1,447 @@
+{
+  "$schema": "./identifier-registry.schema.md",
+  "versao": "1.0.0",
+  "atualizadoEm": "2026-08-07",
+  "normativo": true,
+  "especificacao": "docs/governance/SPEC-002-governance-identifier-system.md",
+  "gramatica": "<NAMESPACE>-<NUMERO:3digitos>[-<QUALIFICADOR>]",
+  "observacoes": [
+    "Documento NORMATIVO (DA-098-006): autoridade oficial sobre criacao de IDs,",
+    "namespaces, gramatica, estados e depreciacao. Novo namespace altera PRIMEIRO",
+    "este arquivo, depois os demais documentos.",
+    "O qualificador faz parte do identificador (AC-003): TASK-092 e TASK-092-A sao",
+    "identificadores distintos, nao colisao.",
+    "Classes: DOCUMENT (um arquivo por ID) | OPERATIONAL (sem arquivo, vive no Git)",
+    "| INLINE (ancora dentro de um documento) | PRINCIPLE (principio de governanca)."
+  ],
+  "namespaces": {
+    "FOUNDATION": {
+      "prefixo": "FOUNDATION",
+      "nome": "Documento fundacional do produto",
+      "classe": "DOCUMENT",
+      "governadoPor": "sequencial",
+      "regraNumeracao": "ultimo + 1",
+      "ultimo": 9,
+      "status": "ACTIVE",
+      "validador": "docs:validate/identifiers",
+      "local": "docs/foundation/"
+    },
+    "PRODUCT": {
+      "prefixo": "PRODUCT",
+      "nome": "Capability de produto",
+      "classe": "DOCUMENT",
+      "governadoPor": "sequencial",
+      "regraNumeracao": "ultimo + 1",
+      "ultimo": 4,
+      "status": "ACTIVE",
+      "validador": "docs:validate/identifiers",
+      "local": "docs/product/**/capabilities/"
+    },
+    "EPIC": {
+      "prefixo": "EPIC",
+      "nome": "Epico de produto",
+      "classe": "DOCUMENT",
+      "governadoPor": "sequencial",
+      "regraNumeracao": "ultimo + 1",
+      "ultimo": 7,
+      "status": "ACTIVE",
+      "validador": "docs:validate/identifiers",
+      "local": "docs/product/**/epics/"
+    },
+    "FEATURE": {
+      "prefixo": "FEATURE",
+      "nome": "Feature de produto",
+      "classe": "DOCUMENT",
+      "governadoPor": "sequencial",
+      "regraNumeracao": "ultimo + 1",
+      "ultimo": 8,
+      "status": "ACTIVE",
+      "validador": "docs:validate/identifiers",
+      "local": "docs/product/**/features/"
+    },
+    "US": {
+      "prefixo": "US",
+      "nome": "User Story",
+      "classe": "DOCUMENT",
+      "governadoPor": "sequencial",
+      "regraNumeracao": "ultimo + 1",
+      "ultimo": 27,
+      "status": "ACTIVE",
+      "validador": "docs:validate/identifiers",
+      "local": "docs/product/**/user-stories/"
+    },
+    "DOMAIN": {
+      "prefixo": "DOMAIN",
+      "nome": "Artefato do modelo de dominio (aggregate, entity, VO, evento, regra, servico)",
+      "classe": "DOCUMENT",
+      "governadoPor": "sequencial",
+      "regraNumeracao": "ultimo + 1",
+      "ultimo": 29,
+      "status": "ACTIVE",
+      "validador": "docs:validate/identifiers",
+      "local": "docs/domain/**"
+    },
+    "ADR": {
+      "prefixo": "ADR",
+      "nome": "Architectural Decision Record",
+      "classe": "DOCUMENT",
+      "governadoPor": "AMP-001",
+      "regraNumeracao": "consultar a tabela de ADRs previstas em AMP-001 §354; NAO usar ultimo+1",
+      "status": "ACTIVE",
+      "validador": "docs:validate/identifiers",
+      "local": "docs/architecture/adrs/",
+      "nota": "DA-098-002: o Registry nao calcula o proximo ADR nem transcreve as reservas — o AMP-001 e a unica fonte de verdade. ADR-003..ADR-017 estao reservadas; por isso a decisao de identidade do Devedor recebeu ADR-018."
+    },
+    "AMP": {
+      "prefixo": "AMP",
+      "nome": "Architecture Master Plan",
+      "classe": "DOCUMENT",
+      "governadoPor": "sequencial",
+      "regraNumeracao": "ultimo + 1",
+      "ultimo": 1,
+      "status": "ACTIVE",
+      "validador": "docs:validate/identifiers",
+      "local": "docs/architecture/amp/"
+    },
+    "PLAN": {
+      "prefixo": "PLAN",
+      "nome": "Plano de implementacao (e seu execution backlog)",
+      "classe": "DOCUMENT",
+      "governadoPor": "sequencial",
+      "regraNumeracao": "ultimo + 1",
+      "ultimo": 4,
+      "status": "ACTIVE",
+      "validador": "docs:validate/identifiers",
+      "local": "docs/implementation/{plans,backlogs}/"
+    },
+    "SPEC": {
+      "prefixo": "SPEC",
+      "nome": "Especificacao tecnica de governanca",
+      "classe": "DOCUMENT",
+      "governadoPor": "sequencial",
+      "regraNumeracao": "ultimo + 1",
+      "ultimo": 2,
+      "status": "ACTIVE",
+      "validador": "docs:validate/identifiers",
+      "local": "docs/governance/"
+    },
+    "DR": {
+      "prefixo": "DR",
+      "nome": "Decision Request — solicitacao de decisao a Arquitetura",
+      "classe": "DOCUMENT",
+      "governadoPor": "sequencial",
+      "regraNumeracao": "ultimo + 1",
+      "ultimo": 1,
+      "status": "ACTIVE",
+      "validador": "docs:validate/identifiers",
+      "local": "docs/governance/decision-requests/"
+    },
+    "DECISION": {
+      "prefixo": "DECISION",
+      "nome": "Decisao arquitetural (nomenclatura anterior a ADR)",
+      "classe": "DOCUMENT",
+      "governadoPor": "—",
+      "regraNumeracao": "nao emitir",
+      "status": "LEGACY",
+      "sucessor": "ADR",
+      "validador": "docs:validate/identifiers",
+      "nota": "DA-098-004: nao sera apagado nem renumerado. DECISION-001 permanece referenciado como alias de ADR-001 em 5 documentos. Nenhum DECISION novo pode ser criado; referencia futura aponta para ADR."
+    },
+    "TASK": {
+      "prefixo": "TASK",
+      "nome": "Unidade operacional de execucao",
+      "classe": "OPERATIONAL",
+      "governadoPor": "git",
+      "regraNumeracao": "max(TASK no historico Git) + 1",
+      "status": "ACTIVE",
+      "validador": "docs:validate/identifiers",
+      "nota": "DA-098-001: o Git e a fonte da verdade — documentos atrasam, commits nao. GP-001: TASK e artefato efemero; apos concluida, a rastreabilidade oficial passa a ser o hash do commit, a ADR, o PLAN ou a Feature correspondente."
+    },
+    "AC": {
+      "prefixo": "AC",
+      "nome": "Architectural Command — comando operacional do arquiteto",
+      "classe": "PRINCIPLE",
+      "governadoPor": "Arquitetura",
+      "regraNumeracao": "sequencial na emissao",
+      "status": "ACTIVE",
+      "validador": "docs:validate/identifiers",
+      "nota": "Namespace criado em AC-001 apos o incidente de colisao com DA (Design Assumption)."
+    },
+    "GA": {
+      "prefixo": "GA",
+      "nome": "Governance Axiom — principio permanente de governanca",
+      "classe": "PRINCIPLE",
+      "governadoPor": "Arquitetura",
+      "regraNumeracao": "sequencial na emissao",
+      "status": "ACTIVE",
+      "validador": "docs:validate/identifiers",
+      "hospedeiro": "docs/audits/audits/auditoria-as-is-to-be-ecossistema.md",
+      "nota": "GA-001 — unicidade global de identificadores."
+    },
+    "GP": {
+      "prefixo": "GP",
+      "nome": "Governance Principle",
+      "classe": "PRINCIPLE",
+      "governadoPor": "Arquitetura",
+      "regraNumeracao": "sequencial na emissao",
+      "status": "ACTIVE",
+      "validador": "docs:validate/identifiers",
+      "nota": "GP-001 — efemeridade das TASKs."
+    },
+    "ALP": {
+      "prefixo": "ALP",
+      "nome": "Agent Loop Protocol",
+      "classe": "PRINCIPLE",
+      "governadoPor": "Arquitetura",
+      "regraNumeracao": "sequencial",
+      "ultimo": 1,
+      "status": "ACTIVE",
+      "validador": "docs:validate/identifiers",
+      "hospedeiro": "docs/governance/agent-loop/AGENT-LOOP-EXECUTION-PROTOCOL.md"
+    },
+    "IMP": {
+      "prefixo": "IMP",
+      "nome": "Item de implementacao do execution backlog",
+      "classe": "INLINE",
+      "governadoPor": "PLAN-*-execution-backlog",
+      "regraNumeracao": "sequencial dentro do backlog hospedeiro",
+      "status": "ACTIVE",
+      "validador": "docs:validate/contracts",
+      "hospedeiro": "docs/implementation/backlogs/"
+    },
+    "UC": {
+      "prefixo": "UC",
+      "nome": "Use Case",
+      "classe": "INLINE",
+      "governadoPor": "documento hospedeiro",
+      "regraNumeracao": "sequencial dentro do hospedeiro",
+      "status": "ACTIVE",
+      "validador": "docs:validate/identifiers",
+      "hospedeiro": "docs/audits/discoveries/, docs/implementation/plans/"
+    },
+    "RN": {
+      "prefixo": "RN",
+      "nome": "Regra de Negocio",
+      "classe": "INLINE",
+      "governadoPor": "documento de dominio hospedeiro",
+      "regraNumeracao": "sequencial dentro do hospedeiro",
+      "status": "ACTIVE",
+      "validador": "docs:validate/identifiers",
+      "hospedeiro": "docs/domain/**"
+    },
+    "INV": {
+      "prefixo": "INV",
+      "nome": "Invariante de Aggregate",
+      "classe": "INLINE",
+      "governadoPor": "aggregate hospedeiro",
+      "regraNumeracao": "sequencial dentro do aggregate",
+      "status": "ACTIVE",
+      "validador": "docs:validate/identifiers",
+      "hospedeiro": "docs/domain/**/aggregates/"
+    },
+    "BR": {
+      "prefixo": "BR",
+      "nome": "Business Rule (nivel AMP)",
+      "classe": "INLINE",
+      "governadoPor": "AMP-001",
+      "regraNumeracao": "sequencial dentro do AMP",
+      "status": "ACTIVE",
+      "validador": "docs:validate/identifiers",
+      "hospedeiro": "docs/architecture/amp/AMP-001-architecture-master-plan.md"
+    },
+    "AD": {
+      "prefixo": "AD",
+      "nome": "Architectural Decision (item interno de ADR)",
+      "classe": "INLINE",
+      "governadoPor": "ADR hospedeira",
+      "regraNumeracao": "sequencial dentro da ADR",
+      "status": "ACTIVE",
+      "validador": "docs:validate/identifiers",
+      "hospedeiro": "docs/architecture/adrs/"
+    },
+    "DA": {
+      "prefixo": "DA",
+      "nome": "Design / Discovery Assumption",
+      "classe": "INLINE",
+      "governadoPor": "documento de discovery ou plano hospedeiro",
+      "regraNumeracao": "sequencial dentro do hospedeiro; faixas por contexto (001+, 201+, 301+)",
+      "status": "ACTIVE",
+      "validador": "docs:validate/identifiers",
+      "hospedeiro": "docs/audits/discoveries/, docs/implementation/plans/",
+      "nota": "Namespace consolidado com 20 IDs em uso (DA-001..014, DA-201..205, DA-301..307). Tentativa de reuso do prefixo para 'Architectural Command' foi barrada; ver AC-001."
+    },
+    "RB": {
+      "prefixo": "RB",
+      "nome": "Rastreabilidade / Backlog item de auditoria",
+      "classe": "INLINE",
+      "governadoPor": "documento de auditoria hospedeiro",
+      "regraNumeracao": "sequencial dentro do hospedeiro",
+      "status": "ACTIVE",
+      "validador": "docs:validate/identifiers",
+      "hospedeiro": "docs/audits/audits/"
+    },
+    "RA": {
+      "prefixo": "RA",
+      "nome": "Requisito Arquitetural",
+      "classe": "INLINE",
+      "governadoPor": "documento hospedeiro",
+      "regraNumeracao": "sequencial dentro do hospedeiro",
+      "status": "ACTIVE",
+      "validador": "docs:validate/identifiers",
+      "hospedeiro": "docs/audits/audits/"
+    },
+    "CA": {
+      "prefixo": "CA",
+      "nome": "Criterio de Aceitacao",
+      "classe": "INLINE",
+      "governadoPor": "especificacao hospedeira",
+      "regraNumeracao": "sequencial dentro da spec",
+      "status": "ACTIVE",
+      "validador": "docs:validate/identifiers",
+      "hospedeiro": "docs/governance/SPEC-*.md"
+    },
+    "CB": {
+      "prefixo": "CB",
+      "nome": "Criterio de Aceitacao (SPEC-002)",
+      "classe": "INLINE",
+      "governadoPor": "especificacao hospedeira",
+      "regraNumeracao": "sequencial dentro da spec",
+      "status": "ACTIVE",
+      "validador": "docs:validate/identifiers",
+      "hospedeiro": "docs/governance/SPEC-002-governance-identifier-system.md"
+    },
+    "CC": {
+      "prefixo": "CC",
+      "nome": "Criterio de Conformidade",
+      "classe": "INLINE",
+      "governadoPor": "relatorio de alinhamento hospedeiro",
+      "regraNumeracao": "sequencial dentro do hospedeiro",
+      "status": "ACTIVE",
+      "validador": "docs:validate/identifiers",
+      "hospedeiro": "docs/architecture/PRODUCT-001-ALIGNMENT-REPORT.md"
+    },
+    "CP": {
+      "prefixo": "CP",
+      "nome": "Capability (roadmap)",
+      "classe": "INLINE",
+      "governadoPor": "documento de roadmap hospedeiro",
+      "regraNumeracao": "sequencial dentro do hospedeiro",
+      "status": "ACTIVE",
+      "validador": "docs:validate/identifiers",
+      "hospedeiro": "docs/architecture/ROADMAP-ALIGNMENT-PRODUCT-AMP.md"
+    },
+    "CF": {
+      "prefixo": "CF",
+      "nome": "Capability Foundation",
+      "classe": "INLINE",
+      "governadoPor": "FOUNDATION-009",
+      "regraNumeracao": "sequencial dentro do capability map",
+      "status": "ACTIVE",
+      "validador": "docs:validate/identifiers",
+      "hospedeiro": "docs/foundation/FOUNDATION-009-capability-map.md"
+    },
+    "VO": {
+      "prefixo": "VO",
+      "nome": "Value Object (referencia curta a DOMAIN VO)",
+      "classe": "INLINE",
+      "governadoPor": "documento de dominio hospedeiro",
+      "regraNumeracao": "espelha o numero do DOMAIN correspondente",
+      "status": "ACTIVE",
+      "validador": "docs:validate/identifiers",
+      "hospedeiro": "docs/domain/credit/value-objects/",
+      "nota": "Alias curto: VO-022 refere-se a DOMAIN-022. Gera aviso de referencia cruzada desconhecida no validador."
+    },
+    "ENT": {
+      "prefixo": "ENT",
+      "nome": "Entity (referencia curta a DOMAIN entity)",
+      "classe": "INLINE",
+      "governadoPor": "documento de dominio hospedeiro",
+      "regraNumeracao": "espelha o numero do DOMAIN correspondente",
+      "status": "ACTIVE",
+      "validador": "docs:validate/identifiers",
+      "hospedeiro": "docs/domain/**/entities/"
+    },
+    "VAL": {
+      "prefixo": "VAL",
+      "nome": "Regra de validacao de Value Object",
+      "classe": "INLINE",
+      "governadoPor": "VO hospedeiro",
+      "regraNumeracao": "sequencial dentro do VO",
+      "status": "ACTIVE",
+      "validador": "docs:validate/identifiers",
+      "hospedeiro": "docs/domain/credit/value-objects/"
+    },
+    "GT": {
+      "prefixo": "GT",
+      "nome": "Gap Tecnico (auditoria as-is/to-be)",
+      "classe": "INLINE",
+      "governadoPor": "documento de auditoria hospedeiro",
+      "regraNumeracao": "sequencial dentro do hospedeiro",
+      "status": "ACTIVE",
+      "validador": "docs:validate/identifiers",
+      "hospedeiro": "docs/audits/audits/auditoria-as-is-to-be-ecossistema.md"
+    },
+    "GF": {
+      "prefixo": "GF",
+      "nome": "Gap Funcional (auditoria as-is/to-be)",
+      "classe": "INLINE",
+      "governadoPor": "documento de auditoria hospedeiro",
+      "regraNumeracao": "sequencial dentro do hospedeiro",
+      "status": "ACTIVE",
+      "validador": "docs:validate/identifiers",
+      "hospedeiro": "docs/audits/audits/auditoria-as-is-to-be-ecossistema.md"
+    },
+    "GD": {
+      "prefixo": "GD",
+      "nome": "Gap Documental (auditoria as-is/to-be)",
+      "classe": "INLINE",
+      "governadoPor": "documento de auditoria hospedeiro",
+      "regraNumeracao": "sequencial dentro do hospedeiro",
+      "status": "ACTIVE",
+      "validador": "docs:validate/identifiers",
+      "hospedeiro": "docs/audits/audits/auditoria-as-is-to-be-ecossistema.md"
+    },
+    "PD": {
+      "prefixo": "PD",
+      "nome": "Ponto de Decisao (raio-x arquitetural)",
+      "classe": "INLINE",
+      "governadoPor": "documento de auditoria hospedeiro",
+      "regraNumeracao": "sequencial dentro do hospedeiro",
+      "status": "ACTIVE",
+      "validador": "docs:validate/identifiers",
+      "hospedeiro": "docs/audits/audits/raio-x-arquitetural-ecossistema.md"
+    },
+    "AG": {
+      "prefixo": "AG",
+      "nome": "Acao de Governanca",
+      "classe": "INLINE",
+      "governadoPor": "documento de discovery hospedeiro",
+      "regraNumeracao": "sequencial dentro do hospedeiro",
+      "status": "ACTIVE",
+      "validador": "docs:validate/identifiers",
+      "hospedeiro": "docs/audits/discoveries/"
+    },
+    "FEATURES": {
+      "prefixo": "FEATURES",
+      "nome": "Erro de digitacao historico de FEATURE (plural)",
+      "classe": "DOCUMENT",
+      "governadoPor": "—",
+      "regraNumeracao": "nao emitir",
+      "status": "LEGACY",
+      "sucessor": "FEATURE",
+      "validador": "docs:validate/identifiers",
+      "hospedeiro": "docs/governance/decision-requests/PEDIDO-ORIENTACAO-IMP-033-FEATURE-004.md",
+      "nota": "Ocorrencia unica: 'FEATURES-001..004' na linha 88, onde se pretendia FEATURE. Registrado como LEGACY em vez de corrigido — GP-001 desaconselha reescrever documento historico. Detectado pela regra 5.2 na primeira execucao da familia Identifiers."
+    },
+    "ALIGNMENT": {
+      "prefixo": "ALIGNMENT",
+      "nome": "Item de relatorio de alinhamento",
+      "classe": "INLINE",
+      "governadoPor": "relatorio hospedeiro",
+      "regraNumeracao": "sequencial dentro do hospedeiro",
+      "status": "ACTIVE",
+      "validador": "docs:validate/identifiers",
+      "hospedeiro": "docs/architecture/PRODUCT-001-ALIGNMENT-REPORT.md"
+    }
+  }
+}
