@@ -227,3 +227,27 @@ class TestDevedorListagemService:
         assert call_args[0][1].nome == "João"
         assert call_args[0][1].estado == DevedorState.ATIVO
         assert call_args[0][1].documento == "529"
+
+
+class TestPaginacao:
+    """Validação dos parâmetros de paginação (IMP-063).
+
+    ``Paginacao`` protege os próprios limites no ``__post_init__``; sem isso um
+    ``pagina=0`` produziria offset negativo na query.
+    """
+
+    def test_rejeita_pagina_menor_que_um(self) -> None:
+        with pytest.raises(ValueError, match="pagina deve ser >= 1"):
+            Paginacao(pagina=0, tamanho=20)
+
+    def test_rejeita_tamanho_zero(self) -> None:
+        with pytest.raises(ValueError, match="tamanho deve ser entre 1 e 100"):
+            Paginacao(pagina=1, tamanho=0)
+
+    def test_rejeita_tamanho_acima_do_maximo(self) -> None:
+        with pytest.raises(ValueError, match="tamanho deve ser entre 1 e 100"):
+            Paginacao(pagina=1, tamanho=101)
+
+    def test_offset_e_limit_derivam_da_pagina(self) -> None:
+        assert Paginacao(pagina=3, tamanho=20).offset == 40
+        assert Paginacao(pagina=3, tamanho=20).limit == 20

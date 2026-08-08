@@ -117,8 +117,21 @@ def test_rejeita_cpf_com_digitos_repetidos() -> None:
 
 
 def test_rejeita_digito_verificador_incorreto() -> None:
+    """Erra o SEGUNDO dígito verificador (último)."""
     with pytest.raises(DocumentoInvalidoError) as exc:
         Documento.from_str("529.982.247-26")
+
+    assert "dígito verificador" in exc.value.motivo
+
+
+def test_rejeita_primeiro_digito_verificador_incorreto() -> None:
+    """Erra o PRIMEIRO dígito verificador (décimo) — caminho distinto do acima.
+
+    O CPF válido é 529.982.247-25; aqui o décimo dígito vira 3, de modo que a
+    validação falha antes de chegar ao segundo verificador (IMP-063).
+    """
+    with pytest.raises(DocumentoInvalidoError) as exc:
+        Documento.from_str("529.982.247-35")
 
     assert "dígito verificador" in exc.value.motivo
 
@@ -133,3 +146,36 @@ def test_documento_e_imutavel() -> None:
 
     with pytest.raises(AttributeError):
         doc.valor = "11144477735"  # type: ignore[misc]
+
+
+# --------------------------------------------------------------------------- #
+# Igualdade com outros tipos e validação direta (IMP-063)
+# --------------------------------------------------------------------------- #
+
+
+def test_comparacao_com_outro_tipo_nao_e_igual() -> None:
+    """``__eq__`` devolve NotImplemented, e o Python conclui por desigualdade."""
+    doc = Documento.from_str("52998224725")
+
+    assert doc != "52998224725"
+    assert doc != 52998224725
+    assert doc is not None
+
+
+def test_rejeita_construcao_direta_com_nao_digitos() -> None:
+    """A validação de dígitos vale também sem passar por ``from_str``.
+
+    ``from_str`` remove a máscara antes de validar; construir direto expõe o
+    caminho em que o valor chega com caracteres não numéricos.
+    """
+    with pytest.raises(DocumentoInvalidoError) as exc:
+        Documento(valor="5299822472a")
+
+    assert "apenas dígitos" in str(exc.value)
+
+
+def test_rejeita_construcao_direta_com_digitos_repetidos() -> None:
+    with pytest.raises(DocumentoInvalidoError) as exc:
+        Documento(valor="11111111111")
+
+    assert "dígitos iguais" in str(exc.value)

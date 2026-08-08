@@ -32,20 +32,21 @@ from emprestimo.domain.platform.tenant import TenantState
 class _FakeIdempotencia(IdempotenciaRegistro):
     registros: dict[str, dict] = field(default_factory=dict)
 
+    # A identidade do registro é o par (chave, escopo) — AD-002, TASK-100.
     def registrar(self, chave: str, escopo: str, solicitacao_hash: str) -> None:
-        self.registros[chave] = {
+        self.registros[(chave, escopo)] = {
             "escopo": escopo,
             "solicitacao_hash": solicitacao_hash,
             "estado": "running",
             "resultado": None,
         }
 
-    def find_by_chave(self, chave: str) -> dict | None:
-        return self.registros.get(chave)
+    def find_by_chave(self, chave: str, escopo: str) -> dict | None:
+        return self.registros.get((chave, escopo))
 
-    def concluir(self, chave: str, resultado: str) -> None:
-        self.registros[chave]["estado"] = "finished"
-        self.registros[chave]["resultado"] = resultado
+    def concluir(self, chave: str, escopo: str, resultado: str) -> None:
+        self.registros[(chave, escopo)]["estado"] = "finished"
+        self.registros[(chave, escopo)]["resultado"] = resultado
 
 
 @dataclass
@@ -152,7 +153,7 @@ def test_provisionamento_completo() -> None:
     assert len(ctx.uow.configuracao.salvos) == len(("moeda",))  # CONFIGURACOES_PADRAO
     assert ctx.uow.commit_count == 1
     assert ctx.uow.rollback_count == 0
-    chave = ctx.uow.idempotencia.registros["chave-1"]
+    chave = ctx.uow.idempotencia.registros[("chave-1", ESCOPO_IDEMPOTENCIA)]
     assert chave["estado"] == "finished"
     assert chave["escopo"] == ESCOPO_IDEMPOTENCIA
 

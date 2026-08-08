@@ -7,7 +7,11 @@ from unittest.mock import Mock
 
 import pytest
 
-from emprestimo.application.cadastro_devedor import DevedorCadastroService, DevedorCriado
+from emprestimo.application.cadastro_devedor import (
+    DevedorCadastroService,
+    DevedorCriado,
+    _solicitacao_hash,
+)
 from emprestimo.application.errors import IdempotenciaConflitoError
 from emprestimo.application.ports import AuditoriaRegistro, UnitOfWork
 from emprestimo.domain.credit.contato import Contato, TipoContato
@@ -74,7 +78,9 @@ class TestDevedorCadastroService:
             {"tipo": "email", "valor": "joao@exemplo.com", "preferencial": False},
         ]
 
-        resultado = service.criar(CARTEIRA_ID, DOCUMENTO, "João da Silva", contatos, IDEMPOTENCY_KEY)
+        resultado = service.criar(
+            CARTEIRA_ID, DOCUMENTO, "João da Silva", contatos, IDEMPOTENCY_KEY
+        )
 
         assert isinstance(resultado, DevedorCriado)
         assert resultado.carteira_id == CARTEIRA_ID
@@ -84,7 +90,9 @@ class TestDevedorCadastroService:
         assert len(resultado.contatos) == 2
 
         # Verifica chamadas de auditoria
-        assert auditoria.registrar.call_count >= 3  # inicio, aggregate_criado, evento_cadastrado, sucesso
+        assert (
+            auditoria.registrar.call_count >= 3
+        )  # inicio, aggregate_criado, evento_cadastrado, sucesso
 
         # Verifica unicidade chamada
         unicidade.verificar_documento_disponivel.assert_called_once()
@@ -108,7 +116,9 @@ class TestDevedorCadastroService:
         contatos = [{"tipo": "telefone", "valor": "(11) 1234-5678", "preferencial": True}]
 
         # Primeira chamada
-        resultado1 = service.criar(CARTEIRA_ID, DOCUMENTO, "João da Silva", contatos, IDEMPOTENCY_KEY)
+        resultado1 = service.criar(
+            CARTEIRA_ID, DOCUMENTO, "João da Silva", contatos, IDEMPOTENCY_KEY
+        )
 
         # Segunda chamada (replay) - configura mock para retornar o resultado
         uow_replay = _mock_uow_factory()
@@ -116,7 +126,11 @@ class TestDevedorCadastroService:
 
         # Simula o registro de idempotência já concluído
         uow_replay.idempotencia.find_by_chave.return_value = {
-            "solicitacao_hash": uow_first.idempotencia.registrar.call_args[0][2] if uow_first.idempotencia.registrar.call_args else "hash",
+            "solicitacao_hash": (
+                uow_first.idempotencia.registrar.call_args[0][2]
+                if uow_first.idempotencia.registrar.call_args
+                else "hash"
+            ),
             "estado": "finished",
             "resultado": json.dumps(
                 {
@@ -135,7 +149,9 @@ class TestDevedorCadastroService:
             return uow_replay
 
         service2 = DevedorCadastroService(uow_factory_replay, unicidade, auditoria)
-        resultado2 = service2.criar(CARTEIRA_ID, DOCUMENTO, "João da Silva", contatos, IDEMPOTENCY_KEY)
+        resultado2 = service2.criar(
+            CARTEIRA_ID, DOCUMENTO, "João da Silva", contatos, IDEMPOTENCY_KEY
+        )
 
         assert resultado2.devedor_id == resultado1.devedor_id
         assert resultado2.documento == resultado1.documento
@@ -143,8 +159,11 @@ class TestDevedorCadastroService:
 
         # Auditoria de replay registrada
         auditoria.registrar.assert_any_call(
-            "devedor", None, "criar.replay", "ok",
-            detalhes=json.dumps({"idempotency_key": IDEMPOTENCY_KEY})
+            "devedor",
+            None,
+            "criar.replay",
+            "ok",
+            detalhes=json.dumps({"idempotency_key": IDEMPOTENCY_KEY}),
         )
 
     def test_criar_devedor_conflito_idempotencia_hash_divergente(self) -> None:
@@ -176,7 +195,9 @@ class TestDevedorCadastroService:
         uow = _mock_uow_factory()
         uow_factory = lambda: uow
         unicidade = _mock_unicidade()
-        unicidade.verificar_documento_disponivel.side_effect = DevedorJaExisteError(DOCUMENTO, CARTEIRA_ID)
+        unicidade.verificar_documento_disponivel.side_effect = DevedorJaExisteError(
+            DOCUMENTO, CARTEIRA_ID
+        )
         auditoria = _mock_auditoria()
 
         service = DevedorCadastroService(uow_factory, unicidade, auditoria)
@@ -190,8 +211,11 @@ class TestDevedorCadastroService:
         assert exc_info.value.carteira_id == CARTEIRA_ID
         # Auditoria de falha registrada
         auditoria.registrar.assert_any_call(
-            "devedor", None, "criar.falha", "falhou",
-            detalhes=f"DevedorJaExisteError: Devedor com documento {DOCUMENTO!r} já existente na Carteira {CARTEIRA_ID}"
+            "devedor",
+            None,
+            "criar.falha",
+            "falhou",
+            detalhes=f"DevedorJaExisteError: Devedor com documento {DOCUMENTO!r} já existente na Carteira {CARTEIRA_ID}",
         )
         auditoria.registrar.assert_any_call("devedor", None, "criar.rollback", "rollback_aplicado")
 
@@ -249,3 +273,26 @@ class TestDevedorCadastroService:
             service.criar(CARTEIRA_ID, DOCUMENTO, "João da Silva", contatos, IDEMPOTENCY_KEY)
 
         assert exc_info.value.codigo == "RN-005"
+
+    def test_conflito_chave_em_andamento(self) -> None:
+        """Chave registrada e ainda nao concluida bloqueia (IMP-063).
+
+        Ocorre quando uma requisicao anterior com a mesma chave falhou entre o
+        registro e a conclusao: o estado permanece diferente de "finished".
+        """
+        contatos = [{"tipo": "telefone", "valor": "(11) 1234-5678", "preferencial": True}]
+        # O hash precisa COINCIDIR para o fluxo alcançar a checagem de estado:
+        # este serviço avalia o hash antes do estado (ver ressalva no GATE).
+        hash_igual = _solicitacao_hash(CARTEIRA_ID, DOCUMENTO, "Joao da Silva")
+        uow = _mock_uow_factory()
+        uow.idempotencia.find_by_chave.return_value = {
+            "solicitacao_hash": hash_igual,
+            "estado": "running",
+            "resultado": None,
+        }
+        service = DevedorCadastroService(lambda: uow, _mock_unicidade(), _mock_auditoria())
+
+        with pytest.raises(IdempotenciaConflitoError) as exc_info:
+            service.criar(CARTEIRA_ID, DOCUMENTO, "Joao da Silva", contatos, IDEMPOTENCY_KEY)
+
+        assert "andamento" in exc_info.value.motivo

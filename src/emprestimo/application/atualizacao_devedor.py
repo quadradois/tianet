@@ -70,8 +70,7 @@ def _solicitacao_hash(
 
 def _contatos_para_dict(contatos: tuple[Contato, ...]) -> tuple[dict[str, object], ...]:
     return tuple(
-        {"tipo": c.tipo.value, "valor": c.valor, "preferencial": c.preferencial}
-        for c in contatos
+        {"tipo": c.tipo.value, "valor": c.valor, "preferencial": c.preferencial} for c in contatos
     )
 
 
@@ -134,6 +133,7 @@ class DevedorAtualizacaoService:
                 devedor = uow.devedor.find_by_id(devedor_id)
                 if devedor is None:
                     from emprestimo.application.errors import DevedorNaoEncontradoError
+
                     raise DevedorNaoEncontradoError(devedor_id)
 
                 # 2. Capturar estado anterior para evento de auditoria
@@ -148,7 +148,10 @@ class DevedorAtualizacaoService:
                 if contatos is not None:
                     if not contatos:
                         from emprestimo.domain.common.errors import ViolacaoInvarianteError
-                        raise ViolacaoInvarianteError("RN-003", "Devedor deve ter pelo menos um contato")
+
+                        raise ViolacaoInvarianteError(
+                            "RN-003", "Devedor deve ter pelo menos um contato"
+                        )
 
                     # Remove todos os contatos atuais e adiciona os novos
                     # Para isso, criamos novos contatos com o devedor_id correto
@@ -190,7 +193,15 @@ class DevedorAtualizacaoService:
 
                 # 5. Persistir via UoW (mesma transação)
                 uow.devedor.save(devedor)
-                # Contatos são salvos em cascata via merge do DevedorORM
+
+                # Não há relationship entre DevedorORM e ContatoORM: a coleção do
+                # Aggregate precisa ser reconciliada explicitamente com o banco.
+                # Sem apagar os que saíram, a linha antiga sobrevive e reaparece
+                # na leitura — o estado persistido divergiria do Aggregate.
+                ids_atuais = {c.id for c in devedor.contatos}
+                for persistido in uow.contato.find_by_devedor(devedor.id):
+                    if persistido.id not in ids_atuais:
+                        uow.contato.remove(persistido.id)
                 for contato in devedor.contatos:
                     uow.contato.save(contato)
 
@@ -220,7 +231,9 @@ class DevedorAtualizacaoService:
                     estado=devedor.estado,
                     atualizado_em=devedor.atualizado_em or datetime.now(),
                 )
-                uow.idempotencia.concluir(idempotency_key, _serializar_resultado(resultado))
+                uow.idempotencia.concluir(
+                    idempotency_key, ESCOPO_IDEMPOTENCIA, _serializar_resultado(resultado)
+                )
                 uow.commit()
 
             self._auditoria.registrar(
@@ -241,14 +254,16 @@ class DevedorAtualizacaoService:
                 "falhou",
                 detalhes=f"{type(exc).__name__}: {exc}",
             )
-            self._auditoria.registrar("devedor", devedor_id, "atualizar.rollback", "rollback_aplicado")
+            self._auditoria.registrar(
+                "devedor", devedor_id, "atualizar.rollback", "rollback_aplicado"
+            )
             raise
 
     def _replay_ou_registrar_chave(
         self, uow: UnitOfWork, idempotency_key: str, hash_solicitacao: str
     ) -> DevedorAtualizadoResultado | None:
         """Replay seguro (AD-002): mesma chave → mesmo resultado; divergente → conflito."""
-        existente = uow.idempotencia.find_by_chave(idempotency_key)
+        existente = uow.idempotencia.find_by_chave(idempotency_key, ESCOPO_IDEMPOTENCIA)
         if existente is None:
             uow.idempotencia.registrar(idempotency_key, ESCOPO_IDEMPOTENCIA, hash_solicitacao)
             return None

@@ -31,16 +31,22 @@ class IdempotenciaRegistro(ABC):
 
     O registro pertence à mesma transação do caso de uso (Unit of Work):
     a chave só fica visível como concluída junto com o resultado persistido.
+
+    A identidade do registro é o par ``(chave, escopo)``, não a chave sozinha
+    (TASK-100): a mesma chave em casos de uso distintos designa operações
+    distintas. Por isso ``escopo`` é obrigatório nas três operações — antes ele
+    era gravado por ``registrar`` e ignorado na busca, o que fazia um cadastro
+    e uma inativação com a mesma chave colidirem indevidamente.
     """
 
     @abstractmethod
     def registrar(self, chave: str, escopo: str, solicitacao_hash: str) -> None: ...
 
     @abstractmethod
-    def find_by_chave(self, chave: str) -> dict[str, Any] | None: ...
+    def find_by_chave(self, chave: str, escopo: str) -> dict[str, Any] | None: ...
 
     @abstractmethod
-    def concluir(self, chave: str, resultado: str) -> None: ...
+    def concluir(self, chave: str, escopo: str, resultado: str) -> None: ...
 
 
 class AuditoriaRegistro(ABC):

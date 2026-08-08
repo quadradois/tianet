@@ -59,9 +59,7 @@ class SqlAlchemyAuditoriaConsulta(AuditoriaConsulta):
     def __init__(self, session: Session) -> None:
         self._session = session
 
-    def listar_por_entidade(
-        self, entidade: str, entidade_id: uuid.UUID
-    ) -> list[EventoAuditoria]:
+    def listar_por_entidade(self, entidade: str, entidade_id: uuid.UUID) -> list[EventoAuditoria]:
         """Eventos de uma entidade em ordem cronológica (mais antigo primeiro)."""
         rows = self._session.scalars(
             select(AuditoriaLogORM)

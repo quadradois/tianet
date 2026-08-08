@@ -55,8 +55,7 @@ def _solicitacao_hash(carteira_id: uuid.UUID, documento: str, nome: str) -> str:
 
 def _contatos_para_dict(contatos: tuple[Contato, ...]) -> tuple[dict[str, object], ...]:
     return tuple(
-        {"tipo": c.tipo.value, "valor": c.valor, "preferencial": c.preferencial}
-        for c in contatos
+        {"tipo": c.tipo.value, "valor": c.valor, "preferencial": c.preferencial} for c in contatos
     )
 
 
@@ -170,7 +169,9 @@ class DevedorCadastroService:
                     estado=devedor.estado,
                     criado_em=devedor.criado_em,
                 )
-                uow.idempotencia.concluir(idempotency_key, _serializar_resultado(resultado))
+                uow.idempotencia.concluir(
+                    idempotency_key, ESCOPO_IDEMPOTENCIA, _serializar_resultado(resultado)
+                )
                 uow.commit()
 
             self._auditoria.registrar(
@@ -198,7 +199,7 @@ class DevedorCadastroService:
         self, uow: UnitOfWork, idempotency_key: str, hash_solicitacao: str
     ) -> DevedorCriado | None:
         """Replay seguro (AD-002): mesma chave → mesmo resultado; divergente → conflito."""
-        existente = uow.idempotencia.find_by_chave(idempotency_key)
+        existente = uow.idempotencia.find_by_chave(idempotency_key, ESCOPO_IDEMPOTENCIA)
         if existente is None:
             uow.idempotencia.registrar(idempotency_key, ESCOPO_IDEMPOTENCIA, hash_solicitacao)
             return None

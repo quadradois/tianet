@@ -46,9 +46,7 @@ class DevedorConsultaPorDocumentoService:
     def __init__(self, uow_factory: Callable[[], UnitOfWork]) -> None:
         self._uow_factory = uow_factory
 
-    def consultar_por_documento(
-        self, carteira_id: uuid.UUID, documento: str
-    ) -> Devedor | None:
+    def consultar_por_documento(self, carteira_id: uuid.UUID, documento: str) -> Devedor | None:
         """Busca um Devedor pelo documento normalizado na Carteira.
 
         Args:

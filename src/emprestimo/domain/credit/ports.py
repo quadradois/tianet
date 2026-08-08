@@ -128,3 +128,16 @@ class ContatoRepository(ABC):
 
     @abstractmethod
     def find_by_id(self, contato_id: uuid.UUID) -> Contato | None: ...
+
+    @abstractmethod
+    def find_by_devedor(self, devedor_id: uuid.UUID) -> list[Contato]: ...
+
+    @abstractmethod
+    def remove(self, contato_id: uuid.UUID) -> None:
+        """Remove um Contato da persistência (TASK-099).
+
+        Necessário porque não há ``relationship`` entre DevedorORM e ContatoORM:
+        um Contato retirado da coleção do Aggregate não desaparece do banco por
+        cascata, e sem esta operação a linha permaneceria órfã — o estado
+        persistido deixaria de representar o estado do Aggregate.
+        """

@@ -8,7 +8,10 @@ from unittest.mock import Mock
 
 import pytest
 
-from emprestimo.application.atualizacao_devedor import DevedorAtualizacaoService, DevedorAtualizadoResultado
+from emprestimo.application.atualizacao_devedor import (
+    DevedorAtualizacaoService,
+    DevedorAtualizadoResultado,
+)
 from emprestimo.application.errors import IdempotenciaConflitoError
 from emprestimo.application.ports import UnitOfWork
 from emprestimo.domain.credit.contato import Contato, TipoContato
@@ -67,6 +70,10 @@ def _mock_uow_factory(devedor: Devedor | None = None, carteira: Mock | None = No
     uow.devedor.save = Mock()
     uow.contato = Mock()
     uow.contato.save = Mock()
+    # TASK-099: a atualização reconcilia a coleção com o banco. Sem contatos
+    # previamente persistidos, nada há para remover.
+    uow.contato.find_by_devedor.return_value = []
+    uow.contato.remove = Mock()
     uow.carteira = Mock()
     uow.carteira.find_by_id.return_value = carteira or _mock_carteira()
     uow.idempotencia = Mock()
@@ -185,8 +192,10 @@ class TestDevedorAtualizacaoService:
         devedor = _mock_devedor()
         uow = _mock_uow_factory(devedor)
         import json
+
         # O hash deve ser calculado da mesma forma que o service: nome.strip() e contatos ordenados
         from emprestimo.application.atualizacao_devedor import _solicitacao_hash
+
         hash_esperado = _solicitacao_hash(
             DEVEDOR_ID,
             nome="João da Silva Atualizado",
@@ -197,15 +206,19 @@ class TestDevedorAtualizacaoService:
             "escopo": "devedor-atualizacao",
             "solicitacao_hash": hash_esperado,  # hash calculado consistentemente
             "estado": "finished",
-            "resultado": json.dumps({
-                "devedor_id": str(DEVEDOR_ID),
-                "carteira_id": str(CARTEIRA_ID),
-                "documento": DOCUMENTO,
-                "nome": "João da Silva Atualizado",
-                "contatos": [{"tipo": "telefone", "valor": "(11) 1234-5678", "preferencial": True}],
-                "estado": "ativo",
-                "atualizado_em": datetime.now().isoformat(),
-            }),
+            "resultado": json.dumps(
+                {
+                    "devedor_id": str(DEVEDOR_ID),
+                    "carteira_id": str(CARTEIRA_ID),
+                    "documento": DOCUMENTO,
+                    "nome": "João da Silva Atualizado",
+                    "contatos": [
+                        {"tipo": "telefone", "valor": "(11) 1234-5678", "preferencial": True}
+                    ],
+                    "estado": "ativo",
+                    "atualizado_em": datetime.now().isoformat(),
+                }
+            ),
             "criado_em": datetime.now().isoformat(),
             "concluido_em": datetime.now().isoformat(),
         }
@@ -226,7 +239,11 @@ class TestDevedorAtualizacaoService:
         uow.devedor.save.assert_not_called()
         uow.commit.assert_called_once()
         auditoria.registrar.assert_any_call(
-            "devedor", None, "atualizar.replay", "ok", detalhes=json.dumps({"idempotency_key": "idem-key-replay"})
+            "devedor",
+            None,
+            "atualizar.replay",
+            "ok",
+            detalhes=json.dumps({"idempotency_key": "idem-key-replay"}),
         )
 
     def test_conflito_idempotencia_payload_divergente(self) -> None:

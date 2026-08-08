@@ -144,7 +144,9 @@ class TenantProvisioningService:
                     estado=TenantState.ATIVO,
                     criado_em=tenant.criado_em,
                 )
-                uow.idempotencia.concluir(idempotency_key, _serializar_resultado(resultado))
+                uow.idempotencia.concluir(
+                    idempotency_key, ESCOPO_IDEMPOTENCIA, _serializar_resultado(resultado)
+                )
                 uow.commit()
 
             self._auditoria.registrar(
@@ -172,7 +174,7 @@ class TenantProvisioningService:
         self, uow: UnitOfWork, idempotency_key: str, hash_solicitacao: str
     ) -> TenantProvisionado | None:
         """Replay seguro (AD-002): mesma chave → mesmo resultado; divergente → conflito."""
-        existente = uow.idempotencia.find_by_chave(idempotency_key)
+        existente = uow.idempotencia.find_by_chave(idempotency_key, ESCOPO_IDEMPOTENCIA)
         if existente is None:
             uow.idempotencia.registrar(idempotency_key, ESCOPO_IDEMPOTENCIA, hash_solicitacao)
             return None

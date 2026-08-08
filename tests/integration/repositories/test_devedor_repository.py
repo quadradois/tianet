@@ -195,9 +195,7 @@ def test_listar_paginado_filtro_nome(session: Session) -> None:
     repo.save(_devedor(carteira_id, CPF_B, nome="Bruno Lima"))
     session.commit()
 
-    resultado = repo.listar_paginado(
-        carteira_id, DevedorFiltros(nome="Ana"), Paginacao(1, 20)
-    )
+    resultado = repo.listar_paginado(carteira_id, DevedorFiltros(nome="Ana"), Paginacao(1, 20))
 
     assert resultado.total == 1
     assert list(resultado.items)[0].nome == "Ana Souza"

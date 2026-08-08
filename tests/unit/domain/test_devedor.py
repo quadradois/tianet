@@ -394,6 +394,34 @@ def test_rejeita_nome_muito_longo() -> None:
         devedor.atualizar_nome("X" * 201)
 
 
+# As invariantes de nome também valem na CRIAÇÃO, não só em atualizar_nome():
+# são validadas no __post_init__ do Aggregate (IMP-063).
+
+
+def test_rejeita_criacao_com_nome_vazio() -> None:
+    with pytest.raises(ViolacaoInvarianteError) as exc:
+        Devedor.criar(
+            carteira_id=CARTEIRA_ID,
+            documento=DOCUMENTO,
+            nome="   ",
+            contatos=(_contato_telefone(preferencial=True),),
+        )
+
+    assert exc.value.codigo == "DOMAIN-020"
+
+
+def test_rejeita_criacao_com_nome_muito_longo() -> None:
+    with pytest.raises(ViolacaoInvarianteError) as exc:
+        Devedor.criar(
+            carteira_id=CARTEIRA_ID,
+            documento=DOCUMENTO,
+            nome="X" * 201,
+            contatos=(_contato_telefone(preferencial=True),),
+        )
+
+    assert exc.value.codigo == "DOMAIN-020"
+
+
 # --------------------------------------------------------------------------- #
 # Transições de estado (INV-005)
 # --------------------------------------------------------------------------- #

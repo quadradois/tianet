@@ -211,7 +211,10 @@ class TestDevedorEstadoService:
         uow.devedor.save.assert_not_called()
         uow.commit.assert_called_once()
         auditoria.registrar.assert_any_call(
-            "devedor", None, "inativar.replay", "ok",
+            "devedor",
+            None,
+            "inativar.replay",
+            "ok",
             detalhes=json.dumps({"idempotency_key": "idem-key-replay"}),
         )
 

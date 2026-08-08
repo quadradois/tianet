@@ -332,9 +332,7 @@ class SqlAlchemyDevedorRepository(DevedorRepository, DevedorUniquenessChecker):
             return None
         return _to_devedor(row, self._contatos_de([row.id]).get(row.id, []))
 
-    def exists_by_documento_carteira(
-        self, documento: Documento, carteira_id: uuid.UUID
-    ) -> bool:
+    def exists_by_documento_carteira(self, documento: Documento, carteira_id: uuid.UUID) -> bool:
         """Verificação de unicidade do documento na Carteira (IMP-046, INV-002)."""
         return (
             self._session.scalar(
@@ -353,9 +351,7 @@ class SqlAlchemyDevedorRepository(DevedorRepository, DevedorUniquenessChecker):
         paginacao: Paginacao,
     ) -> DevedorResultadoPaginado:
         query = select(DevedorORM).where(DevedorORM.carteira_id == carteira_id)
-        count_query = select(func.count(DevedorORM.id)).where(
-            DevedorORM.carteira_id == carteira_id
-        )
+        count_query = select(func.count(DevedorORM.id)).where(DevedorORM.carteira_id == carteira_id)
 
         if filtros.nome:
             query = query.where(DevedorORM.nome.ilike(f"%{filtros.nome}%"))
@@ -411,6 +407,26 @@ class SqlAlchemyContatoRepository(ContatoRepository):
     def find_by_id(self, contato_id: uuid.UUID) -> Contato | None:
         row = self._session.get(ContatoORM, contato_id)
         return _to_contato(row) if row is not None else None
+
+    def find_by_devedor(self, devedor_id: uuid.UUID) -> list[Contato]:
+        rows = self._session.scalars(
+            select(ContatoORM)
+            .where(ContatoORM.devedor_id == devedor_id)
+            .order_by(ContatoORM.criado_em, ContatoORM.id)
+        ).all()
+        return [_to_contato(r) for r in rows]
+
+    def remove(self, contato_id: uuid.UUID) -> None:
+        """Remove a linha do Contato (TASK-099).
+
+        O flush é necessário aqui: a remoção precisa preceder a gravação dos
+        novos contatos, senão a constraint UNIQUE(devedor_id, tipo, valor)
+        rejeita um contato reinserido com o mesmo par tipo+valor.
+        """
+        row = self._session.get(ContatoORM, contato_id)
+        if row is not None:
+            self._session.delete(row)
+            self._session.flush()
 
 
 def _to_devedor(row: DevedorORM, contatos: list[Contato] | None = None) -> Devedor:

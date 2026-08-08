@@ -43,26 +43,38 @@ class SqlAlchemyIdempotenciaRegistro(IdempotenciaRegistro):
             self._session.flush()
         except IntegrityError as exc:
             if "uq_idempotency_key_chave" in str(exc.orig):
-                raise IdempotenciaConflitoError(chave, "chave já em uso") from exc
+                raise IdempotenciaConflitoError(
+                    chave, f"chave já em uso no escopo {escopo!r}"
+                ) from exc
             raise
 
-    def find_by_chave(self, chave: str) -> dict[str, Any] | None:
-        row = self._session.scalar(
-            select(IdempotencyKeyORM).where(IdempotencyKeyORM.chave == chave)
+    def _buscar(self, chave: str, escopo: str) -> IdempotencyKeyORM | None:
+        """Localiza o registro por ``(chave, escopo)`` — a identidade real (AD-002).
+
+        Filtrar apenas por ``chave`` fazia casos de uso distintos disputarem o
+        mesmo registro: o escopo era gravado e nunca lido (TASK-100).
+        """
+        return self._session.scalar(
+            select(IdempotencyKeyORM).where(
+                IdempotencyKeyORM.chave == chave,
+                IdempotencyKeyORM.escopo == escopo,
+            )
         )
+
+    def find_by_chave(self, chave: str, escopo: str) -> dict[str, Any] | None:
+        row = self._buscar(chave, escopo)
         if row is None:
             return None
         return {
             "chave": row.chave,
+            "escopo": row.escopo,
             "solicitacao_hash": row.solicitacao_hash,
             "estado": row.estado,
             "resultado": row.resultado,
         }
 
-    def concluir(self, chave: str, resultado: str) -> None:
-        row = self._session.scalar(
-            select(IdempotencyKeyORM).where(IdempotencyKeyORM.chave == chave)
-        )
+    def concluir(self, chave: str, escopo: str, resultado: str) -> None:
+        row = self._buscar(chave, escopo)
         if row is None:
             raise IdempotenciaConflitoError(chave, "registro inexistente")
         row.estado = ESTADO_FINISHED

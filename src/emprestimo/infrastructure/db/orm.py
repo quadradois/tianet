@@ -104,7 +104,7 @@ class IdempotencyKeyORM(Base):
     """
 
     __tablename__ = "idempotency_key"
-    __table_args__ = (UniqueConstraint("chave", name="uq_idempotency_key_chave"),)
+    __table_args__ = (UniqueConstraint("chave", "escopo", name="uq_idempotency_key_chave_escopo"),)
 
     id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True)
     chave: Mapped[str] = mapped_column(String(255), nullable=False)
@@ -143,9 +143,7 @@ class DevedorORM(Base):
 
     __tablename__ = "devedor"
     __table_args__ = (
-        UniqueConstraint(
-            "carteira_id", "documento", name="uq_devedor_carteira_documento"
-        ),
+        UniqueConstraint("carteira_id", "documento", name="uq_devedor_carteira_documento"),
     )
 
     id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True)
@@ -158,9 +156,7 @@ class DevedorORM(Base):
     criado_em: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )
-    atualizado_em: Mapped[datetime | None] = mapped_column(
-        DateTime(timezone=True), nullable=True
-    )
+    atualizado_em: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
 
 class ContatoORM(Base):
@@ -168,9 +164,7 @@ class ContatoORM(Base):
 
     __tablename__ = "contato"
     __table_args__ = (
-        UniqueConstraint(
-            "devedor_id", "tipo", "valor", name="uq_contato_devedor_tipo_valor"
-        ),
+        UniqueConstraint("devedor_id", "tipo", "valor", name="uq_contato_devedor_tipo_valor"),
     )
 
     id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True)
@@ -183,6 +177,4 @@ class ContatoORM(Base):
     criado_em: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )
-    atualizado_em: Mapped[datetime | None] = mapped_column(
-        DateTime(timezone=True), nullable=True
-    )
+    atualizado_em: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
