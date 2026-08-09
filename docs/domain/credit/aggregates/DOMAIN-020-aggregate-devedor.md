@@ -120,25 +120,27 @@ O documento (CPF) é único dentro da Carteira.
 
 ## RN-003
 
-Somente pessoa física pode ser Devedor na versão 1.
+Devedor com histórico financeiro nunca é excluído fisicamente — apenas inativado.
 
 ---
 
 ## RN-004
 
-Devedor com histórico financeiro nunca é excluído fisicamente — apenas inativado.
+Devedor inativo não pode originar novas operações.
 
 ---
 
 ## RN-005
 
-Devedor inativo não pode originar novas operações.
+A inativação não altera o histórico cadastral nem financeiro.
 
 ---
 
 ## RN-006
 
-A inativação não altera o histórico cadastral nem financeiro.
+Somente pessoa física pode ser Devedor na versão 1.
+
+> **Nota:** Os identificadores RN-003, RN-004, RN-005, RN-006 são escopo do contexto **Cadastro** (DOMAIN-020). No contexto Contato (DOMAIN-021) existem RNs com os mesmos números (RN-003, RN-005, RN-006), mas referem-se a regras distintas de Contato. As referências cruzadas no código usam o prefixo do domínio (ex.: `DOMAIN-021 §2/RN-005`) para evitar ambiguidade.
 
 ---
 
