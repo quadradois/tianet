@@ -4,7 +4,7 @@
 
 **Versão:** 1.0.0
 
-**Status:** Proposto
+**Status:** Concluido
 
 ---
 
@@ -36,7 +36,7 @@ A User Story será considerada concluída quando:
 
 Esta User Story está relacionada às seguintes regras e documentos:
 
-- ADR-004 — Autenticação e Autorização (IAM): a renovação é o momento em que a revogação faz efeito, o que define a janela de até 15 minutos;
+- ADR-004 — Autenticação e Autorização (IAM): o refresh é persistido e revogável; Tenant e Usuário inativos também impedem imediatamente a resolução do Principal;
 - ADR-001 — Stack Tecnológica Oficial do MVP: JWT (Bearer) + Refresh Token;
 - ADR-002 — Auditoria Independente da Transação;
 - DOMAIN-017 — Aggregate Tenant;

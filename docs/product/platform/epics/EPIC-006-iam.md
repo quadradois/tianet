@@ -2,9 +2,9 @@
 
 **ID:** EPIC-006
 
-**Versão:** 1.0.0
+**Versão:** 1.1.0
 
-**Status:** Proposto
+**Status:** Concluido
 
 ---
 
@@ -100,4 +100,5 @@ Este Épico será considerado concluído quando:
 
 | Versão | Data | Descrição |
 |---------|------|-----------|
+| 1.1.0 | 09/08/2026 | EPIC recertificado como concluído após implementação de domínio, persistência, aplicação, API, RBAC, auditoria, bootstrap operacional, contratos OpenAPI e gates globais verdes no PLAN-005/IMP-102. |
 | 1.0.0 | 08/08/2026 | Primeira versão oficial do EPIC-006 — IAM, materializada a partir do Discovery e das decisões da ADR-004. |

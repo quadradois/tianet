@@ -6,15 +6,30 @@ e expõe os serviços. A sessão de leitura é criada por requisição e fechada
 
 from __future__ import annotations
 
+import os
 import uuid
-from collections.abc import Iterator
+from collections.abc import Callable, Generator
 
-from fastapi import Depends, HTTPException
+from fastapi import Depends, HTTPException, Security
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy.orm import Session
 
 from emprestimo.application.atualizacao import TenantAtualizacaoService
 from emprestimo.application.atualizacao_devedor import DevedorAtualizacaoService
+from emprestimo.application.autenticacao import AutenticacaoService, HmacAccessTokenService
+from emprestimo.application.autorizacao import (
+    AutorizacaoService,
+    Principal,
+    RecursoDeOutroTenantError,
+)
 from emprestimo.application.cadastro_devedor import DevedorCadastroService
+from emprestimo.application.comercial import (
+    ConsultaComercialService,
+    DecisaoComercialService,
+    IntegracaoPropostaAprovadaService,
+    PropostaComercialService,
+    SimulacaoComercialService,
+)
 from emprestimo.application.consulta import (
     TenantConsultaPorIdService,
     TenantConsultaService,
@@ -25,11 +40,15 @@ from emprestimo.application.consulta_devedor import (
     DevedorConsultaService,
     DevedorListagemService,
 )
+from emprestimo.application.credenciais import CredenciaisService
 from emprestimo.application.estado import TenantEstadoService
 from emprestimo.application.estado_devedor import DevedorEstadoService
 from emprestimo.application.historico_devedor import DevedorHistoricoService
+from emprestimo.application.perfis_acesso import PerfisAcessoService
 from emprestimo.application.provisioning import TenantProvisioningService
+from emprestimo.domain.credit.carteira import Carteira
 from emprestimo.domain.credit.devedor import Devedor
+from emprestimo.domain.credit.ports import CarteiraRepository
 from emprestimo.domain.credit.unicidade_devedor import UnicidadeDevedorService
 from emprestimo.domain.platform.ports import TenantRepository
 from emprestimo.domain.platform.unicidade import UnicidadeTenantService
@@ -39,13 +58,21 @@ from emprestimo.infrastructure.auditoria import (
 )
 from emprestimo.infrastructure.db.session import create_session, get_session_factory
 from emprestimo.infrastructure.repositories import (
+    SqlAlchemyCarteiraRepository,
     SqlAlchemyDevedorRepository,
     SqlAlchemyTenantRepository,
 )
 from emprestimo.infrastructure.unit_of_work import SqlAlchemyUnitOfWork
 
+JWT_SECRET_ENV = "JWT_SECRET_KEY"
+BEARER_SECURITY = HTTPBearer(
+    auto_error=False,
+    scheme_name="BearerAuth",
+    description="Access token IAM no esquema Bearer.",
+)
 
-def _get_session() -> Iterator[Session]:
+
+def _get_session() -> Generator[Session, None, None]:
     """Sessão de leitura por requisição (fechada ao final)."""
     session = create_session()
     try:
@@ -66,9 +93,81 @@ def get_tenant_provisioning_service(
     )
 
 
+def get_autenticacao_service() -> AutenticacaoService:
+    """Monta o servico de autenticacao IAM (IMP-090)."""
+    session_factory = get_session_factory()
+    return AutenticacaoService(
+        uow_factory=lambda: SqlAlchemyUnitOfWork(session_factory),
+        auditoria=SqlAlchemyAuditoriaRegistro(session_factory),
+        access_tokens=HmacAccessTokenService(_jwt_secret()),
+    )
+
+
+def get_autorizacao_service() -> AutorizacaoService:
+    """Monta o servico de autorizacao IAM (IMP-091)."""
+    session_factory = get_session_factory()
+    return AutorizacaoService(
+        uow_factory=lambda: SqlAlchemyUnitOfWork(session_factory),
+        auditoria=SqlAlchemyAuditoriaRegistro(session_factory),
+        access_tokens=HmacAccessTokenService(_jwt_secret()),
+    )
+
+
+def get_credenciais_service() -> CredenciaisService:
+    session_factory = get_session_factory()
+    return CredenciaisService(
+        uow_factory=lambda: SqlAlchemyUnitOfWork(session_factory),
+        auditoria=SqlAlchemyAuditoriaRegistro(session_factory),
+    )
+
+
+def get_perfis_acesso_service() -> PerfisAcessoService:
+    session_factory = get_session_factory()
+    return PerfisAcessoService(
+        uow_factory=lambda: SqlAlchemyUnitOfWork(session_factory),
+        auditoria=SqlAlchemyAuditoriaRegistro(session_factory),
+    )
+
+
+def get_principal_atual(
+    credentials: HTTPAuthorizationCredentials | None = Security(BEARER_SECURITY),
+    autorizacao: AutorizacaoService = Depends(get_autorizacao_service),
+) -> Principal:
+    """Resolve o Principal autenticado a partir do bearer token da requisicao."""
+    if credentials is None or credentials.scheme.lower() != "bearer":
+        autorizacao.recusar_principal_ausente()
+        raise AssertionError("recusa do Principal deveria interromper a requisicao") from None
+    return autorizacao.resolver_principal(credentials.credentials)
+
+
+def exigir_permissao(operacao: str) -> Callable[[Principal, AutorizacaoService], Principal]:
+    """Cria uma dependencia que exige permissao RBAC para a operacao."""
+
+    def _dependencia(
+        principal: Principal = Depends(get_principal_atual),
+        autorizacao: AutorizacaoService = Depends(get_autorizacao_service),
+    ) -> Principal:
+        autorizacao.exigir_permissao(principal, operacao)
+        return principal
+
+    return _dependencia
+
+
+def _jwt_secret() -> str:
+    segredo = os.environ.get(JWT_SECRET_ENV, "").strip()
+    if not segredo:
+        raise RuntimeError(f"{JWT_SECRET_ENV} nao configurado")
+    return segredo
+
+
 def get_tenant_repository(session: Session = Depends(_get_session)) -> TenantRepository:
     """Repositório de consulta de Tenant (IMP-018/024/025/026)."""
     return SqlAlchemyTenantRepository(session)
+
+
+def get_carteira_repository(session: Session = Depends(_get_session)) -> CarteiraRepository:
+    """Repositorio de consulta de Carteira para isolamento cross-tenant."""
+    return SqlAlchemyCarteiraRepository(session)
 
 
 def get_tenant_consulta_service(
@@ -191,9 +290,74 @@ def get_devedor_estado_service(
     )
 
 
-def get_devedor_da_carteira(
+def get_simulacao_comercial_service(
+    session: Session = Depends(_get_session),
+) -> SimulacaoComercialService:
+    session_factory = get_session_factory()
+    return SimulacaoComercialService(uow_factory=lambda: SqlAlchemyUnitOfWork(session_factory))
+
+
+def get_proposta_comercial_service(
+    session: Session = Depends(_get_session),
+) -> PropostaComercialService:
+    session_factory = get_session_factory()
+    return PropostaComercialService(uow_factory=lambda: SqlAlchemyUnitOfWork(session_factory))
+
+
+def get_consulta_comercial_service(
+    session: Session = Depends(_get_session),
+) -> ConsultaComercialService:
+    session_factory = get_session_factory()
+    return ConsultaComercialService(uow_factory=lambda: SqlAlchemyUnitOfWork(session_factory))
+
+
+def get_decisao_comercial_service(
+    session: Session = Depends(_get_session),
+) -> DecisaoComercialService:
+    session_factory = get_session_factory()
+    return DecisaoComercialService(uow_factory=lambda: SqlAlchemyUnitOfWork(session_factory))
+
+
+def get_integracao_proposta_aprovada_service(
+    session: Session = Depends(_get_session),
+) -> IntegracaoPropostaAprovadaService:
+    session_factory = get_session_factory()
+    return IntegracaoPropostaAprovadaService(
+        uow_factory=lambda: SqlAlchemyUnitOfWork(session_factory)
+    )
+
+
+def get_carteira_do_principal(
     carteira_id: uuid.UUID,
+    principal: Principal = Depends(get_principal_atual),
+    repo: CarteiraRepository = Depends(get_carteira_repository),
+    autorizacao: AutorizacaoService = Depends(get_autorizacao_service),
+) -> Carteira:
+    """Resolve a Carteira da rota dentro do Tenant do Principal autenticado."""
+    carteira = repo.find_by_id(carteira_id)
+    if carteira is None or carteira.tenant_id != principal.tenant_id:
+        try:
+            autorizacao.exigir_tenant_do_recurso(
+                principal,
+                recurso_id=carteira_id,
+                recurso_tenant_id=carteira.tenant_id if carteira else None,
+                recurso_tipo="carteira",
+            )
+        except RecursoDeOutroTenantError:
+            raise HTTPException(
+                status_code=404,
+                detail={
+                    "codigo": "carteira_nao_encontrada",
+                    "mensagem": "Carteira inexistente",
+                },
+            ) from None
+    assert carteira is not None
+    return carteira
+
+
+def get_devedor_da_carteira(
     devedor_id: uuid.UUID,
+    carteira: Carteira = Depends(get_carteira_do_principal),
     service: DevedorConsultaService = Depends(get_devedor_consulta_service),
 ) -> Devedor:
     """Resolve o Devedor validando a pertinência à Carteira da rota (ADR-018).
@@ -207,7 +371,7 @@ def get_devedor_da_carteira(
     Carteira, vazando informação através da fronteira de isolamento.
     """
     devedor = service.consultar_por_id(devedor_id)
-    if devedor is None or devedor.carteira_id != carteira_id:
+    if devedor is None or devedor.carteira_id != carteira.id:
         raise HTTPException(
             status_code=404,
             detail={

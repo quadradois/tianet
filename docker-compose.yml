@@ -20,6 +20,7 @@ services:
     command: uvicorn emprestimo.presentation.api.main:app --host 0.0.0.0 --port 8000
     environment:
       DATABASE_URL: postgresql+psycopg://emprestimo:emprestimo@postgres:5432/emprestimo
+      JWT_SECRET_KEY: ${JWT_SECRET_KEY:-}
     ports:
       - "8000:8000"
     depends_on:

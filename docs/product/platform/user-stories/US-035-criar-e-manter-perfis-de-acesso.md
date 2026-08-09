@@ -4,7 +4,7 @@
 
 **Versão:** 1.0.0
 
-**Status:** Proposto
+**Status:** Concluido
 
 ---
 
@@ -37,7 +37,7 @@ A User Story será considerada concluída quando:
 
 Esta User Story está relacionada às seguintes regras e documentos:
 
-- ADR-004 — Autenticação e Autorização (IAM): RBAC por Perfil, IAM no Platform Context, janela de revogação de até 15 minutos;
+- ADR-004 — Autenticação e Autorização (IAM): RBAC por Perfil corrente e IAM no Platform Context;
 - DOMAIN-017 — Aggregate Tenant (todo Perfil pertence a exatamente um Tenant);
 - DOMAIN-018 — Entity Usuario (INV-001: Usuário pertence a exatamente um Tenant; o Perfil é atribuído dentro do Tenant);
 - FOUNDATION-006 — Arquitetura Multi-Tenant (Princípios 01-03: isolamento absoluto entre Tenants);
@@ -60,7 +60,7 @@ Esta User Story depende de:
 
 # 5. Observações Técnicas
 
-O Perfil de Acesso é um artefato do Platform Context, ao lado de Tenant e Usuário (ADR-004). A unicidade do nome é garantida dentro de cada Tenant. A desativação é lógica: o estado Inativo preserva o histórico de atribuições e conversa a analogia ao ciclo de vida do Usuário (DOMAIN-018). Um Perfil desativado deixa de autorizar novas operações dentro da janela de revogação de até 15 minutos do token de acesso, conforme fixado na ADR-004. Operações de escrita usam Idempotency-Key e os eventos são registrados na trilha de auditoria append-only (ADR-002), na mesma transação do caso de uso. Requisições autenticadas resolvem o Tenant do Principal; acesso a Perfil de outro Tenant é negado respondendo 404, sem revelar a existência.
+O Perfil de Acesso é um artefato do Platform Context, ao lado de Tenant e Usuário (ADR-004). A unicidade do nome é garantida dentro de cada Tenant. A desativação é lógica: o estado Inativo preserva o histórico de atribuições e deixa de autorizar imediatamente. Operações de escrita usam Idempotency-Key na transação do caso de uso; os eventos são registrados em sessão independente na trilha append-only, para sobreviver inclusive ao rollback, conforme ADR-002. Requisições autenticadas resolvem o Tenant do Principal; acesso a Perfil de outro Tenant é negado respondendo 404, sem revelar a existência.
 
 ---
 

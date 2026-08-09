@@ -4,7 +4,7 @@
 
 **Versão:** 1.0.0
 
-**Status:** Proposto
+**Status:** Concluido
 
 ---
 
@@ -37,7 +37,7 @@ A User Story será considerada concluída quando:
 
 Esta User Story está relacionada às seguintes regras e documentos:
 
-- ADR-004 — Autenticação e Autorização (IAM): token de acesso curto, autocontido e verificável sem consulta ao banco, com validade de 15 minutos (a janela de revogação); IAM no Platform Context;
+- ADR-004 — Autenticação e Autorização (IAM): token curto e autocontido, com Principal e RBAC correntes resolvidos no Platform Context;
 - DOMAIN-018 — Entity Usuario (INV-001: todo Usuário pertence a exatamente um Tenant; apenas o estado Ativo valida o acesso);
 - DOMAIN-017 — Aggregate Tenant (o Principal carrega o Tenant resolvido do usuário);
 - FOUNDATION-006 — Arquitetura Multi-Tenant (Princípios 01-03: isolamento absoluto entre Tenants — o acesso não cruza fronteira);
@@ -62,7 +62,7 @@ Esta User Story depende de:
 
 # 5. Observações Técnicas
 
-A validação do token é um passo de segurança da fronteira (Presentation) que segue o desenho da ADR-004: o token de acesso é curto (15 minutos), autocontido e verificável por assinatura e expiração, sem consulta ao banco; o refresh persistido e revogável fica fora desta validação (pertence à FEATURE-009). O Principal resolvido (Usuário e Tenant) é propagado pela requisição e passa a ser fonte única do Tenant — o código nunca o presume da URL ou de corpos. A validação é independente da autorização: o 401 (sem token válido) é decidido aqui; o 403 (sem permissão) e o 404 (recurso de outro Tenant) são das camadas de autorização e pertinência preferidas. Qualquer malformação, assinatura inválida, expiração ou estado não-Ativo responde 401 sem distinguir o motivo — para não revelar informação. A trilha de auditoria (ADR-002) registra as tentativas que resultam em 401.
+A validação criptográfica do access token verifica assinatura e expiração sem depender de Sessão persistida. Em seguida, a resolução do Principal consulta Tenant, Usuário e vínculo `usuario_perfil` correntes; qualquer ausência, divergência de Tenant ou estado não Ativo responde 401 uniforme. O Principal propagado é a fonte única do Tenant. O 403 pertence à autorização por permissão e o 404 à pertinência do recurso. A trilha append-only registra as tentativas que resultam em 401.
 
 ---
 

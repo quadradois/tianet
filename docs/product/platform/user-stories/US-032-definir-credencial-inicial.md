@@ -2,9 +2,9 @@
 
 **ID:** US-032
 
-**Versão:** 1.0.0
+**Versão:** 1.1.0
 
-**Status:** Proposto
+**Status:** Concluido
 
 ---
 
@@ -26,9 +26,9 @@ A User Story será considerada concluída quando:
 - a definição da credencial inicial transicionar o Usuário de Convidado para Ativo, sendo esse o único evento de ativação;
 - a credencial for armazenada de forma que nunca possa ser reproduzida, permanecendo irreversível e nunca legível;
 - a operação de definição de credencial não devolver a credencial nem seu valor derivado em nenhuma resposta;
-- Usuário inexistente responder 404, sem distinguir entre inexistência e não localização;
-- Credencial inicial para Usuário em estado Ativo, Inativo ou Removido responder 409 (estado divergente);
-- não houver qualquer ação de definição de credencial sobre Usuário de outro Tenant — recurso de outro Tenant responder 404, jamais revelando a existência;
+- a ativação exigir token aleatório de uso único, expirável e persistido somente por hash;
+- token desconhecido, expirado, já utilizado, pertencente a Usuário inexistente ou em estado divergente responder 401 uniforme, sem revelar qual condição ocorreu;
+- não houver qualquer ação de definição de credencial sobre Usuário de outro Tenant;
 - a definição da credencial inicial for registrada para auditoria na trilha append-only.
 
 # 3. Regras de Negócio Relacionadas
@@ -54,10 +54,11 @@ Esta User Story está relacionada às seguintes regras e documentos:
 
 # 5. Observações Técnicas
 
-O Usuário Convidado não pode se autenticar — apenas o estado Ativo autentica, conforme o ciclo de vida de DOMAIN-018 —, portanto a definição da credencial inicial ocorre por fluxo que não depende da autenticação do próprio Usuário; o formato desse fluxo é decisão da Fase de Domínio, dentro do Platform Context (ADR-004). A credencial é tratada como dado de segurança de ponta a ponta: capturada uma única vez na definição e apenas no sentido de escrita — nunca lida, reproduzida ou devolvida em resposta. A operação executa em transação única, com auditoria append-only (ADR-002), e respeita a fronteira de Tenant (FOUNDATION-006, RN-003 de DOMAIN-018).
+O Usuário Convidado não pode se autenticar — apenas o estado Ativo autentica, conforme o ciclo de vida de DOMAIN-018 —, portanto a definição da credencial inicial usa um token descartável entregue somente no provisionamento inicial. Apenas o hash SHA-256 do segredo aleatório é persistido; o consumo é serializado na transação e a resposta nunca devolve a credencial nem material derivado dela. Falhas do token usam resposta 401 uniforme para impedir enumeração. A auditoria append-only usa sessão independente conforme ADR-002.
 
 # 6. Histórico de Versões
 
 | Versão | Data | Descrição |
 |---------|------|-----------|
+| 1.1.0 | 09/08/2026 | Formaliza token de ativação descartável, consumo atômico e falha 401 uniforme. |
 | 1.0.0 | 08/08/2026 | Primeira versão oficial da User Story Definir Credencial Inicial, criada no ciclo SDD do EPIC-006. |

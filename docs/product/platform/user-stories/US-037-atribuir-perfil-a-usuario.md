@@ -4,7 +4,7 @@
 
 **Versão:** 1.0.0
 
-**Status:** Proposto
+**Status:** Concluido
 
 ---
 
@@ -28,7 +28,7 @@ A User Story será considerada concluída quando:
 - a atribuição de um Perfil desativado responder 409, sem alterar o vínculo em vigor;
 - a alteração da atribuição substituir o Perfil atual, e a remoção desvincular o Perfil do Usuário, preservando em auditoria o histórico de atribuições anterior;
 - requisição sem token válido responder 401; Usuário autenticado sem permissão de gerir Perfis responder 403;
-- toda operação de escrita exigir Idempotency-Key e o evento de atribuição, alteração ou remoção de Perfil ser registrado na trilha de auditoria append-only na mesma transação;
+- toda operação de escrita exigir Idempotency-Key e o evento de atribuição, alteração ou remoção de Perfil ser registrado por sessão independente na trilha de auditoria append-only;
 - o campo de texto livre `perfil_acesso` deixar de ser fonte da autorização, com o vínculo passando a referenciar um Perfil real.
 
 ---
@@ -37,7 +37,7 @@ A User Story será considerada concluída quando:
 
 Esta User Story está relacionada às seguintes regras e documentos:
 
-- ADR-004 — Autenticação e Autorização (IAM): RBAC por Perfil, IAM no Platform Context, janela de revogação de até 15 minutos;
+- ADR-004 — Autenticação e Autorização (IAM): RBAC por Perfil corrente e IAM no Platform Context;
 - DOMAIN-017 — Aggregate Tenant (todo Perfil e todo Usuário pertencem a exatamente um Tenant);
 - DOMAIN-018 — Entity Usuario (INV-001: Usuário pertence a exatamente um Tenant; a atribuição de Perfil ocorre dentro do Tenant);
 - FOUNDATION-006 — Arquitetura Multi-Tenant (Princípios 01-03: isolamento absoluto entre Tenants);
@@ -61,7 +61,7 @@ Esta User Story depende de:
 
 # 5. Observações Técnicas
 
-O `perfil_acesso` é hoje um `String(50)` livre, com um único valor em uso ("administrador"), adicionado na migration 0002 — não é estrutura RBAC. A atribuição passa a referenciar um Perfil real do domínio (Platform Context), o que exige migration nova, aditiva e reversível, ligando Usuário a Perfil dentro do Tenant. O vínculo é resolvido no caso de uso a partir do Tenant do Principal autenticado, não presumindo o Tenant informado na requisição. A atribuição, alteração e remoção são restritas a Usuário e Perfil do mesmo Tenant; Perfil desativado não pode ser atribuído. Toda escrita usa Idempotency-Key e o evento é registrado na trilha de auditoria append-only (ADR-002) na mesma transação do caso de uso. Uma alteração de Perfil não revoga tokens em vigor — o impacto efetivo na autorização ocorre dentro da janela de até 15 minutos do token de acesso, conforme fixado na ADR-004.
+O campo legado `perfil_acesso` deixa de ser fonte de autorização. A atribuição referencia um Perfil real em `usuario_perfil`, resolvido a partir do Tenant do Principal autenticado. Atribuição, alteração e remoção são restritas a Usuário e Perfil do mesmo Tenant; Perfil inativo não pode ser atribuído. Toda escrita usa Idempotency-Key e o evento é registrado por sessão independente na trilha append-only, sobrevivendo ao rollback conforme ADR-002. A alteração do vínculo passa a valer na requisição seguinte porque o RBAC corrente é resolvido durante a autorização.
 
 ---
 

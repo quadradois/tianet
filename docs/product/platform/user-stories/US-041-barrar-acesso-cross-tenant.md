@@ -4,7 +4,7 @@
 
 **Versão:** 1.0.0
 
-**Status:** Proposto
+**Status:** Concluido
 
 ---
 
@@ -63,7 +63,7 @@ Esta User Story depende de:
 
 # 5. Observações Técnicas
 
-A verificação de pertinência é centralizada, não repetida em cada handler: o Tenant do Principal autenticado é a referência, e o recurso acessado é sempre resolvido a partir da base antes de qualquer operação — nunca presumido do caminho da URL. A ADR-018 já concentrou as rotas por `devedor_id` em uma única dependência de rota, o que dá à verificação cross-tenant um único ponto de entrada para cobrir todas de uma vez. A ordem das checagens é decisão de segurança: a existência e a pertinência do recurso são verificadas antes da permissão de Perfil, garantindo que o 404 cross-tenant prevaleça sobre o 403 e não haja oráculo de existência. Como o token de acesso é autocontido e verificado sem consulta ao banco (ADR-004), a fronteira de Tenant deixa de depender de disciplina e passa a ser aplicada a cada requisição, dentro da janela de até 15 minutos.
+A verificação de pertinência usa o Tenant do Principal como referência e resolve o recurso na base antes da operação. A ADR-018 concentra as rotas por `devedor_id` em uma dependência comum. Existência e pertinência são verificadas antes da permissão, garantindo que o 404 cross-tenant prevaleça sobre o 403 e não crie oráculo de existência. O Tenant corrente do Principal e o Tenant do recurso são comparados em cada requisição.
 
 ---
 
