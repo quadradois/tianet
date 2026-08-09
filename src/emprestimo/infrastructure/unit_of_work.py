@@ -18,8 +18,15 @@ from emprestimo.infrastructure.repositories import (
     SqlAlchemyCarteiraRepository,
     SqlAlchemyConfiguracaoRepository,
     SqlAlchemyContatoRepository,
+    SqlAlchemyCredencialRepository,
     SqlAlchemyDevedorRepository,
+    SqlAlchemyPerfilAcessoRepository,
+    SqlAlchemyPermissaoRepository,
+    SqlAlchemyPropostaComercialRepository,
+    SqlAlchemySessaoRepository,
+    SqlAlchemySimulacaoComercialRepository,
     SqlAlchemyTenantRepository,
+    SqlAlchemyTokenAtivacaoRepository,
     SqlAlchemyUsuarioRepository,
 )
 
@@ -32,9 +39,16 @@ class SqlAlchemyUnitOfWork(UnitOfWork):
         self.tenant = SqlAlchemyTenantRepository(self._session)
         self.usuario = SqlAlchemyUsuarioRepository(self._session)
         self.configuracao = SqlAlchemyConfiguracaoRepository(self._session)
+        self.credencial = SqlAlchemyCredencialRepository(self._session)
+        self.sessao = SqlAlchemySessaoRepository(self._session)
+        self.token_ativacao = SqlAlchemyTokenAtivacaoRepository(self._session)
+        self.permissao = SqlAlchemyPermissaoRepository(self._session)
+        self.perfil_acesso = SqlAlchemyPerfilAcessoRepository(self._session)
         self.carteira = SqlAlchemyCarteiraRepository(self._session)
         self.devedor = SqlAlchemyDevedorRepository(self._session)
         self.contato = SqlAlchemyContatoRepository(self._session)
+        self.simulacao_comercial = SqlAlchemySimulacaoComercialRepository(self._session)
+        self.proposta_comercial = SqlAlchemyPropostaComercialRepository(self._session)
         self.idempotencia = SqlAlchemyIdempotenciaRegistro(self._session)
 
     def commit(self) -> None:

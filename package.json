@@ -6,6 +6,7 @@
   "scripts": {
     "docs:validate": "node scripts/validate-docs.js",
     "docs:test": "node scripts/tests/test-validator.js && node scripts/tests/test-identifiers.js",
+    "quality:migrations": "uv run python scripts/validate_migrations.py",
     "docs:hooks": "git config core.hooksPath hooks"
   }
 }

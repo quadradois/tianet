@@ -9,12 +9,15 @@ from typing import TYPE_CHECKING
 
 from emprestimo.domain.credit.carteira import Carteira
 from emprestimo.domain.credit.documento import Documento
+from emprestimo.domain.credit.proposta_comercial_state import PropostaComercialState
 
 if TYPE_CHECKING:
     from collections.abc import Sequence
 
     from emprestimo.domain.credit.contato import Contato
     from emprestimo.domain.credit.devedor import Devedor
+    from emprestimo.domain.credit.proposta_comercial import PropostaComercial
+    from emprestimo.domain.credit.simulacao_comercial import SimulacaoComercial
 
 
 class CarteiraRepository(ABC):
@@ -90,6 +93,62 @@ class DevedorResultadoPaginado:
         return (self.total + self.tamanho - 1) // self.tamanho
 
 
+@dataclass(frozen=True)
+class PropostaComercialFiltros:
+    """Filtros para consulta de propostas comerciais (EPIC-003/P3)."""
+
+    tenant_id: uuid.UUID
+    carteira_id: uuid.UUID | None = None
+    devedor_id: uuid.UUID | None = None
+    estado: PropostaComercialState | None = None
+
+
+@dataclass(frozen=True)
+class PropostaComercialResultadoPaginado:
+    """Resultado paginado de propostas comerciais."""
+
+    items: Sequence[PropostaComercial]
+    total: int
+    pagina: int
+    tamanho: int
+
+    @property
+    def paginas(self) -> int:
+        if self.total == 0:
+            return 0
+        return (self.total + self.tamanho - 1) // self.tamanho
+
+
+class SimulacaoComercialRepository(ABC):
+    """Contrato de persistencia de SimulacaoComercial."""
+
+    @abstractmethod
+    def save(self, simulacao: SimulacaoComercial) -> None: ...
+
+    @abstractmethod
+    def find_by_id(self, simulacao_id: uuid.UUID) -> SimulacaoComercial | None: ...
+
+    @abstractmethod
+    def find_by_devedor(self, devedor_id: uuid.UUID) -> list[SimulacaoComercial]: ...
+
+
+class PropostaComercialRepository(ABC):
+    """Contrato de persistencia do Aggregate PropostaComercial."""
+
+    @abstractmethod
+    def save(self, proposta: PropostaComercial) -> None: ...
+
+    @abstractmethod
+    def find_by_id(self, proposta_id: uuid.UUID) -> PropostaComercial | None: ...
+
+    @abstractmethod
+    def listar_paginado(
+        self,
+        filtros: PropostaComercialFiltros,
+        paginacao: Paginacao,
+    ) -> PropostaComercialResultadoPaginado: ...
+
+
 class DevedorRepository(ABC):
     """Contrato de persistência do Aggregate Devedor (IMP-048).
 
@@ -132,12 +191,7 @@ class ContatoRepository(ABC):
     @abstractmethod
     def find_by_devedor(self, devedor_id: uuid.UUID) -> list[Contato]: ...
 
-    @abstractmethod
-    def remove(self, contato_id: uuid.UUID) -> None:
-        """Remove um Contato da persistência (TASK-099).
-
-        Necessário porque não há ``relationship`` entre DevedorORM e ContatoORM:
-        um Contato retirado da coleção do Aggregate não desaparece do banco por
-        cascata, e sem esta operação a linha permaneceria órfã — o estado
-        persistido deixaria de representar o estado do Aggregate.
-        """
+    # remove() foi retirado do port. A remoção de Contato é soft-delete
+    # (DOMAIN-021 §141): o Aggregate marca o Contato via Contato.remover() e a
+    # persistência é feita por save(). O DELETE físico violava a regra de
+    # preservação do histórico de auditoria (RN-006/INV-003).

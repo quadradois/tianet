@@ -14,7 +14,7 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session, sessionmaker
 
 from emprestimo.application.errors import IdempotenciaConflitoError
-from emprestimo.application.provisioning import TenantProvisioningService
+from emprestimo.application.provisioning import TenantProvisionado, TenantProvisioningService
 from emprestimo.domain.common.errors import TenantJaExisteError
 from emprestimo.domain.platform.tenant import TenantState
 from emprestimo.domain.platform.unicidade import UnicidadeTenantService
@@ -27,7 +27,10 @@ from emprestimo.infrastructure.db.orm import (
     TenantORM,
     UsuarioORM,
 )
-from emprestimo.infrastructure.repositories import SqlAlchemyTenantRepository
+from emprestimo.infrastructure.repositories import (
+    SqlAlchemyPerfilAcessoRepository,
+    SqlAlchemyTenantRepository,
+)
 from emprestimo.infrastructure.unit_of_work import SqlAlchemyUnitOfWork
 
 
@@ -49,7 +52,7 @@ def ambiente(session_factory: sessionmaker[Session], session: Session) -> _Ambie
     return _Ambiente(service, session_factory)
 
 
-def _provisionar(service: TenantProvisioningService, chave: str = "chave-1"):
+def _provisionar(service: TenantProvisioningService, chave: str = "chave-1") -> TenantProvisionado:
     return service.provisionar(
         identificador_institucional="IDENT-INTEG",
         nome="Financeira ABC",
@@ -60,7 +63,7 @@ def _provisionar(service: TenantProvisioningService, chave: str = "chave-1"):
 
 
 def _contar(session: Session, model: type) -> int:
-    return session.scalar(select(func.count()).select_from(model))
+    return session.scalar(select(func.count()).select_from(model)) or 0
 
 
 def test_provisionamento_completo_persiste_tudo(ambiente: _Ambiente) -> None:
@@ -79,6 +82,7 @@ def test_provisionamento_completo_persiste_tudo(ambiente: _Ambiente) -> None:
         )
         assert chave is not None
         assert chave.estado == "finished"
+        assert chave.resultado is not None
         assert str(resultado.tenant_id) in chave.resultado
 
 
@@ -174,6 +178,10 @@ def test_usuario_administrador_com_perfil_persistido(ambiente: _Ambiente) -> Non
         assert usuario.perfil_acesso == "administrador"
         assert usuario.email == "maria@exemplo.com"
         assert str(usuario.id) is not None
+        perfil = SqlAlchemyPerfilAcessoRepository(session).find_by_usuario_id(usuario.id)
+        assert perfil is not None
+        assert not perfil.permite("tenant.criar")
+        assert perfil.permite("perfil.gerir")
 
 
 def test_tenant_e_recuperavel_pelo_repositorio(ambiente: _Ambiente) -> None:

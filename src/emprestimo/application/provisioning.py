@@ -22,14 +22,18 @@ from __future__ import annotations
 
 import hashlib
 import json
+import secrets
 import uuid
 from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import datetime
 
 from emprestimo.application.errors import IdempotenciaConflitoError
+from emprestimo.application.iam_catalogo import PERMISSOES_ADMIN_TENANT
 from emprestimo.application.ports import AuditoriaRegistro, UnitOfWork
+from emprestimo.domain.platform.perfil import PerfilAcesso
 from emprestimo.domain.platform.tenant import Tenant, TenantState
+from emprestimo.domain.platform.token_ativacao import TokenAtivacao
 from emprestimo.domain.platform.unicidade import UnicidadeTenantService
 
 ESCOPO_IDEMPOTENCIA = "tenant-provisioning"
@@ -58,6 +62,8 @@ class TenantProvisionado:
     nome: str
     estado: TenantState
     criado_em: datetime
+    usuario_administrador_id: uuid.UUID | None = None
+    token_ativacao: str | None = None
 
 
 def _solicitacao_hash(identificador_institucional: str, nome: str, email_administrador: str) -> str:
@@ -113,6 +119,15 @@ class TenantProvisioningService:
                     nome_administrador.strip(), email_administrador.strip()
                 )
                 configuracoes = tenant.inicializar_configuracoes()
+                perfil_admin = PerfilAcesso(tenant_id=tenant.id, nome="administrador")
+                for permissao in PERMISSOES_ADMIN_TENANT:
+                    perfil_admin.adicionar_permissao(permissao)
+                segredo_ativacao = secrets.token_urlsafe(32)
+                token_ativacao = TokenAtivacao.emitir(
+                    usuario_id=admin.id,
+                    tenant_id=tenant.id,
+                    segredo=segredo_ativacao,
+                )
 
                 for passo in TRILHA_UC006:
                     self._auditoria.registrar(
@@ -131,6 +146,9 @@ class TenantProvisioningService:
                 uow.tenant.save(tenant)
                 uow.carteira.save(carteira)
                 uow.usuario.save(admin)
+                uow.perfil_acesso.save(perfil_admin)
+                uow.perfil_acesso.atribuir_usuario(admin.id, perfil_admin.id)
+                uow.token_ativacao.save(token_ativacao)
                 for configuracao in configuracoes:
                     uow.configuracao.save(configuracao)
 
@@ -143,6 +161,8 @@ class TenantProvisioningService:
                     nome=tenant.nome,
                     estado=TenantState.ATIVO,
                     criado_em=tenant.criado_em,
+                    usuario_administrador_id=admin.id,
+                    token_ativacao=f"{token_ativacao.id}.{segredo_ativacao}",
                 )
                 uow.idempotencia.concluir(
                     idempotency_key, ESCOPO_IDEMPOTENCIA, _serializar_resultado(resultado)
@@ -203,6 +223,11 @@ def _serializar_resultado(resultado: TenantProvisionado) -> str:
             "nome": resultado.nome,
             "estado": resultado.estado.value,
             "criado_em": resultado.criado_em.isoformat(),
+            "usuario_administrador_id": (
+                str(resultado.usuario_administrador_id)
+                if resultado.usuario_administrador_id
+                else None
+            ),
         }
     )
 
@@ -217,4 +242,10 @@ def _desserializar_resultado(conteudo: str | None) -> TenantProvisionado:
         nome=dados["nome"],
         estado=TenantState(dados["estado"]),
         criado_em=datetime.fromisoformat(dados["criado_em"]),
+        usuario_administrador_id=(
+            uuid.UUID(dados["usuario_administrador_id"])
+            if dados.get("usuario_administrador_id")
+            else None
+        ),
+        token_ativacao=None,
     )

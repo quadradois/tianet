@@ -179,6 +179,17 @@ class Tenant:
         self._usuarios.append(usuario)
         return usuario
 
+    def criar_usuario_administrador_plataforma(self, nome: str, email: str) -> Usuario:
+        """Cria a identidade operacional que administra Tenants globalmente."""
+        usuario = Usuario(
+            tenant_id=self.id,
+            nome=nome,
+            email=email,
+            perfil_acesso="administrador_plataforma",
+        )
+        self._usuarios.append(usuario)
+        return usuario
+
     def inicializar_configuracoes(self) -> tuple[Configuracao, ...]:
         """Provisiona as configurações padrão do Tenant (UC-005, IMP-012).
 

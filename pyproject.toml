@@ -12,6 +12,9 @@ dependencies = [
     "psycopg[binary]>=3.2",
 ]
 
+[project.scripts]
+emprestimo-bootstrap-plataforma = "emprestimo.presentation.cli.bootstrap_plataforma:main"
+
 [dependency-groups]
 dev = [
     "pytest>=8.3",

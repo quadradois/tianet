@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import uuid
 from dataclasses import dataclass
+from typing import cast
 
 import pytest
 from sqlalchemy import func, select
@@ -20,7 +21,7 @@ from sqlalchemy.orm import Session, sessionmaker
 from tests.factories import CarteiraFactory, TenantFactory
 
 from emprestimo.application.atualizacao_devedor import DevedorAtualizacaoService
-from emprestimo.application.cadastro_devedor import DevedorCadastroService
+from emprestimo.application.cadastro_devedor import DevedorCadastroService, DevedorCriado
 from emprestimo.application.consulta_devedor import (
     DevedorConsultaPorDocumentoService,
     DevedorConsultaService,
@@ -99,18 +100,23 @@ def ambiente(session_factory: sessionmaker[Session], session: Session) -> _Ambie
     )
 
 
-def _criar(amb: _Ambiente, chave: str = "chave-1", documento: str = CPF_A, **extras):
+def _criar(
+    amb: _Ambiente,
+    chave: str = "chave-1",
+    documento: str = CPF_A,
+    **extras: object,
+) -> DevedorCriado:
     return amb.cadastro.criar(
         carteira_id=amb.carteira_id,
         documento=documento,
-        nome=extras.get("nome", "João da Silva"),
-        contatos=extras.get("contatos", CONTATOS),
+        nome=cast(str, extras.get("nome", "Joao da Silva")),
+        contatos=cast(list[dict[str, object]], extras.get("contatos", CONTATOS)),
         idempotency_key=chave,
     )
 
 
 def _contar(session: Session, model: type) -> int:
-    return session.scalar(select(func.count()).select_from(model))
+    return session.scalar(select(func.count()).select_from(model)) or 0
 
 
 def _acoes(session: Session) -> set[str]:
@@ -133,6 +139,7 @@ def test_cadastro_persiste_devedor_contatos_e_chave(ambiente: _Ambiente) -> None
         chave = s.scalar(select(IdempotencyKeyORM).where(IdempotencyKeyORM.chave == "chave-1"))
         assert chave is not None
         assert chave.estado == "finished"
+        assert chave.resultado is not None
         assert str(resultado.devedor_id) in chave.resultado
 
 
@@ -193,7 +200,9 @@ def test_idempotencia_isolada_por_caso_de_uso(ambiente: _Ambiente) -> None:
     ambiente.estado.inativar(criado.devedor_id, "chave-compartilhada")
 
     with ambiente.session_factory() as s:
-        assert s.get(DevedorORM, criado.devedor_id).estado == "inativo"
+        devedor = s.get(DevedorORM, criado.devedor_id)
+        assert devedor is not None
+        assert devedor.estado == "inativo"
         escopos = set(s.scalars(select(IdempotencyKeyORM.escopo)).all())
         assert {"devedor-cadastro", "devedor-estado"} <= escopos
 
@@ -306,6 +315,23 @@ def test_atualizacao_substitui_contatos_no_banco(ambiente: _Ambiente) -> None:
     assert len(devedor.contatos) == 1
     assert devedor.contatos[0].valor == "joao@exemplo.com"
 
+    with ambiente.session_factory() as s:
+        contatos = list(
+            s.scalars(
+                select(ContatoORM)
+                .where(ContatoORM.devedor_id == criado.devedor_id)
+                .order_by(ContatoORM.criado_em, ContatoORM.id)
+            )
+        )
+
+    ativos = [contato for contato in contatos if contato.removido_em is None]
+    removidos = [contato for contato in contatos if contato.removido_em is not None]
+    assert len(contatos) == 2
+    assert len(ativos) == 1
+    assert ativos[0].valor == "joao@exemplo.com"
+    assert len(removidos) == 1
+    assert removidos[0].valor == "(11) 1234-5678"
+
 
 def test_atualizacao_de_devedor_inexistente(ambiente: _Ambiente) -> None:
     with pytest.raises(DevedorNaoEncontradoError):
@@ -319,7 +345,9 @@ def test_documento_permanece_imutavel_apos_atualizacao(ambiente: _Ambiente) -> N
     ambiente.atualizacao.atualizar(criado.devedor_id, "k-update", nome="Outro Nome")
 
     with ambiente.session_factory() as s:
-        assert s.get(DevedorORM, criado.devedor_id).documento == CPF_A
+        devedor = s.get(DevedorORM, criado.devedor_id)
+        assert devedor is not None
+        assert devedor.documento == CPF_A
 
 
 # --- Transições de estado (FEATURE-008) --------------------------------------
@@ -330,11 +358,15 @@ def test_transicoes_persistem_no_banco(ambiente: _Ambiente) -> None:
 
     ambiente.estado.inativar(criado.devedor_id, "k-inativar")
     with ambiente.session_factory() as s:
-        assert s.get(DevedorORM, criado.devedor_id).estado == "inativo"
+        devedor = s.get(DevedorORM, criado.devedor_id)
+        assert devedor is not None
+        assert devedor.estado == "inativo"
 
     ambiente.estado.reativar(criado.devedor_id, "k-reativar")
     with ambiente.session_factory() as s:
-        assert s.get(DevedorORM, criado.devedor_id).estado == "ativo"
+        devedor = s.get(DevedorORM, criado.devedor_id)
+        assert devedor is not None
+        assert devedor.estado == "ativo"
 
 
 def test_transicao_invalida_nao_altera_o_estado(ambiente: _Ambiente) -> None:
@@ -347,7 +379,9 @@ def test_transicao_invalida_nao_altera_o_estado(ambiente: _Ambiente) -> None:
 
     assert exc.value.codigo == "INV-005"
     with ambiente.session_factory() as s:
-        assert s.get(DevedorORM, criado.devedor_id).estado == "inativo"
+        devedor = s.get(DevedorORM, criado.devedor_id)
+        assert devedor is not None
+        assert devedor.estado == "inativo"
 
 
 def test_reativacao_nao_reabre_documento_para_outro_devedor(ambiente: _Ambiente) -> None:

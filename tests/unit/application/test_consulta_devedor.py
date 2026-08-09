@@ -71,7 +71,9 @@ class TestDevedorConsultaService:
         """Deve retornar Devedor quando encontrado por ID."""
         devedor = _mock_devedor()
         uow = _mock_uow_factory(devedor)
-        uow_factory = lambda: uow
+
+        def uow_factory() -> Mock:
+            return uow
 
         service = DevedorConsultaService(uow_factory)
         resultado = service.consultar_por_id(DEVEDOR_ID)
@@ -89,7 +91,9 @@ class TestDevedorConsultaService:
     def test_consultar_por_id_nao_encontrado(self) -> None:
         """Deve retornar None quando Devedor não encontrado por ID."""
         uow = _mock_uow_factory(None)
-        uow_factory = lambda: uow
+
+        def uow_factory() -> Mock:
+            return uow
 
         service = DevedorConsultaService(uow_factory)
         resultado = service.consultar_por_id(DEVEDOR_ID)
@@ -105,7 +109,9 @@ class TestDevedorConsultaPorDocumentoService:
         """Deve retornar Devedor quando encontrado por documento na Carteira."""
         devedor = _mock_devedor()
         uow = _mock_uow_factory(devedor)
-        uow_factory = lambda: uow
+
+        def uow_factory() -> Mock:
+            return uow
 
         service = DevedorConsultaPorDocumentoService(uow_factory)
         resultado = service.consultar_por_documento(CARTEIRA_ID, DOCUMENTO)
@@ -126,7 +132,9 @@ class TestDevedorConsultaPorDocumentoService:
     def test_consultar_por_documento_nao_encontrado(self) -> None:
         """Deve retornar None quando Devedor não encontrado por documento."""
         uow = _mock_uow_factory(None)
-        uow_factory = lambda: uow
+
+        def uow_factory() -> Mock:
+            return uow
 
         service = DevedorConsultaPorDocumentoService(uow_factory)
         resultado = service.consultar_por_documento(CARTEIRA_ID, DOCUMENTO)
@@ -138,7 +146,9 @@ class TestDevedorConsultaPorDocumentoService:
         """Deve normalizar documento de entrada (CPF com formatação)."""
         devedor = _mock_devedor()
         uow = _mock_uow_factory(devedor)
-        uow_factory = lambda: uow
+
+        def uow_factory() -> Mock:
+            return uow
 
         service = DevedorConsultaPorDocumentoService(uow_factory)
         # Documento com formatação: 529.982.247-25
@@ -164,7 +174,9 @@ class TestDevedorListagemService:
         )
         uow = _mock_uow_factory()
         uow.devedor.listar_paginado.return_value = resultado_paginado
-        uow_factory = lambda: uow
+
+        def uow_factory() -> Mock:
+            return uow
 
         service = DevedorListagemService(uow_factory)
         resultado = service.listar(CARTEIRA_ID)
@@ -180,7 +192,8 @@ class TestDevedorListagemService:
         uow.devedor.listar_paginado.assert_called_once()
         call_args = uow.devedor.listar_paginado.call_args
         assert call_args[0][0] == CARTEIRA_ID
-        assert call_args[0][1] is None  # filtros None
+        assert isinstance(call_args[0][1], DevedorFiltros)
+        assert call_args[0][1] == DevedorFiltros()
         assert call_args[0][2].pagina == 1
         assert call_args[0][2].tamanho == 20
 
@@ -194,7 +207,9 @@ class TestDevedorListagemService:
         )
         uow = _mock_uow_factory()
         uow.devedor.listar_paginado.return_value = resultado_paginado
-        uow_factory = lambda: uow
+
+        def uow_factory() -> Mock:
+            return uow
 
         service = DevedorListagemService(uow_factory)
         resultado = service.listar(CARTEIRA_ID, pagina=2, tamanho=50)
@@ -216,11 +231,13 @@ class TestDevedorListagemService:
         )
         uow = _mock_uow_factory()
         uow.devedor.listar_paginado.return_value = resultado_paginado
-        uow_factory = lambda: uow
+
+        def uow_factory() -> Mock:
+            return uow
 
         service = DevedorListagemService(uow_factory)
         filtros = DevedorFiltros(nome="João", estado=DevedorState.ATIVO, documento="529")
-        resultado = service.listar(CARTEIRA_ID, filtros=filtros)
+        service.listar(CARTEIRA_ID, filtros=filtros)
 
         call_args = uow.devedor.listar_paginado.call_args
         assert call_args[0][1] == filtros

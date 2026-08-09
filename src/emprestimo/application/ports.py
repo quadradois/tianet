@@ -18,10 +18,17 @@ from emprestimo.domain.credit.ports import (
     CarteiraRepository,
     ContatoRepository,
     DevedorRepository,
+    PropostaComercialRepository,
+    SimulacaoComercialRepository,
 )
 from emprestimo.domain.platform.ports import (
     ConfiguracaoRepository,
+    CredencialRepository,
+    PerfilAcessoRepository,
+    PermissaoRepository,
+    SessaoRepository,
     TenantRepository,
+    TokenAtivacaoRepository,
     UsuarioRepository,
 )
 
@@ -108,9 +115,16 @@ class UnitOfWork(ABC):
     tenant: TenantRepository
     usuario: UsuarioRepository
     configuracao: ConfiguracaoRepository
+    credencial: CredencialRepository
+    sessao: SessaoRepository
+    token_ativacao: TokenAtivacaoRepository
+    permissao: PermissaoRepository
+    perfil_acesso: PerfilAcessoRepository
     carteira: CarteiraRepository
     devedor: DevedorRepository
     contato: ContatoRepository
+    simulacao_comercial: SimulacaoComercialRepository
+    proposta_comercial: PropostaComercialRepository
     idempotencia: IdempotenciaRegistro
 
     @abstractmethod

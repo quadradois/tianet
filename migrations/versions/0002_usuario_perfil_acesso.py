@@ -7,6 +7,7 @@ Create Date: 2026-08-02
 Fase 2 (IMP-011): coluna de perfil de acesso do Usuário (DOMAIN-018 RN-002),
 preenchida no provisionamento do primeiro Usuário Administrador.
 """
+
 from __future__ import annotations
 
 from collections.abc import Sequence

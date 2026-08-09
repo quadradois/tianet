@@ -1,0 +1,85 @@
+name: Quality
+
+on:
+  pull_request:
+  push:
+    branches:
+      - master
+
+jobs:
+  backend:
+    name: Backend gates
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: emprestimo
+          POSTGRES_PASSWORD: emprestimo
+          POSTGRES_DB: emprestimo
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U emprestimo -d emprestimo"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    env:
+      DATABASE_URL: postgresql+psycopg://emprestimo:emprestimo@localhost:5432/emprestimo
+      JWT_SECRET_KEY: ci-secret-for-tests-only
+      MIGRATION_VALIDATION_ALLOW_DESTRUCTIVE: "1"
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
+
+      - name: Set up Python
+        run: uv python install 3.12
+
+      - name: Install Python dependencies
+        run: uv sync --locked --all-extras --dev
+
+      - name: Run Python tests
+        run: uv run pytest -q
+
+      - name: Run Ruff
+        run: uv run ruff check .
+
+      - name: Check formatting
+        run: uv run black --check .
+
+      - name: Run Mypy
+        run: uv run mypy src tests
+
+      - name: Validate migrations
+        run: uv run python scripts/validate_migrations.py
+
+  docs:
+    name: Documentation gates
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Validate docs
+        run: npm run docs:validate
+
+      - name: Test docs tooling
+        run: npm run docs:test

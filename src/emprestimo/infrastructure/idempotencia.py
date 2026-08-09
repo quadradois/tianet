@@ -42,7 +42,7 @@ class SqlAlchemyIdempotenciaRegistro(IdempotenciaRegistro):
             )
             self._session.flush()
         except IntegrityError as exc:
-            if "uq_idempotency_key_chave" in str(exc.orig):
+            if "uq_idempotency_key_chave_escopo" in str(exc.orig):
                 raise IdempotenciaConflitoError(
                     chave, f"chave já em uso no escopo {escopo!r}"
                 ) from exc

@@ -101,11 +101,21 @@ class Devedor:
 
     @property
     def contatos(self) -> tuple[Contato, ...]:
-        """Contatos vinculados ao Devedor (DOMAIN-021).
+        """Contatos ativos vinculados ao Devedor (DOMAIN-021).
 
-        Retorna copias defensivas das entidades para impedir que mutacoes
-        externas quebrem as invariantes do Aggregate (RN-005 e unicidade
-        tipo+valor).
+        Retorna copias defensivas das entidades NÃO removidas para impedir que
+        mutacoes externas quebrem as invariantes do Aggregate (RN-005 e unicidade
+        tipo+valor). Contatos com ``removido_em`` preenchido ficam de fora — o
+        acesso ao histórico completo é feito por ``contatos_historico``.
+        """
+        return tuple(replace(c) for c in self._contatos_ativos())
+
+    @property
+    def contatos_historico(self) -> tuple[Contato, ...]:
+        """TODOS os contatos, inclusive os removidos (DOMAIN-021 §141).
+
+        Usado pela trilha de auditoria e por consultas históricas. Retorna
+        copias defensivas.
         """
         return tuple(replace(c) for c in self._contatos)
 
@@ -150,12 +160,13 @@ class Devedor:
     # ------------------------------------------------------------------ #
 
     def adicionar_contato(self, contato: Contato) -> None:
-        """Adiciona um Contato ao Devedor, protegendo RN-001 e RN-005.
+        """Adiciona um Contato ao Devedor, protegendo RN-001, RN-005 e RN-005(020).
 
         Rejeita Contatos de outro Devedor (RN-001), combinações tipo+valor
-        duplicadas (DOMAIN-021 §2) e um segundo preferencial do mesmo tipo
-        (DOMAIN-021 RN-005).
+        duplicadas (DOMAIN-021 §2), um segundo preferencial do mesmo tipo
+        (DOMAIN-021 RN-005) e operações em Devedor inativo (RN-005).
         """
+        self._verificar_ativo()
         if contato.devedor_id != self.id:
             raise ViolacaoInvarianteError(
                 "RN-001",
@@ -164,7 +175,7 @@ class Devedor:
             )
         if any(
             existente.tipo == contato.tipo and existente.valor == contato.valor
-            for existente in self._contatos
+            for existente in self._contatos_ativos()
         ):
             raise ViolacaoInvarianteError(
                 "DOMAIN-021",
@@ -173,7 +184,7 @@ class Devedor:
             )
         if contato.preferencial and any(
             existente.preferencial and existente.tipo == contato.tipo
-            for existente in self._contatos
+            for existente in self._contatos_ativos()
         ):
             raise ViolacaoInvarianteError(
                 "RN-005",
@@ -192,18 +203,19 @@ class Devedor:
         valor: str | None = None,
         preferencial: bool | None = None,
     ) -> None:
-        """Atualiza valor e/ou preferencial de um Contato existente.
+        """Atualiza valor e/ou preferencial de um Contato existente (RN-005).
 
         O novo valor é validado pelo próprio Contato (RN-004) ao ser
         reconstruído. A troca de ``preferencial`` respeita RN-005 (apenas
         um preferencial por tipo).
         """
+        self._verificar_ativo()
         contato = self._buscar_contato(contato_id)
 
         if valor is not None:
             valor_normalizado = valor.strip()
             if valor_normalizado != contato.valor:
-                for existente in self._contatos:
+                for existente in self._contatos_ativos():
                     if (
                         existente.id != contato_id
                         and existente.tipo == contato.tipo
@@ -223,7 +235,7 @@ class Devedor:
         if preferencial is True and not contato.preferencial:
             if any(
                 existente.preferencial and existente.tipo == contato.tipo
-                for existente in self._contatos
+                for existente in self._contatos_ativos()
             ):
                 raise ViolacaoInvarianteError(
                     "RN-005",
@@ -237,18 +249,22 @@ class Devedor:
         self._marcar_atualizado()
 
     def remover_contato(self, contato_id: uuid.UUID) -> None:
-        """Remove um Contato do cadastro (DOMAIN-021 §4).
+        """Remove um Contato do cadastro (DOMAIN-021 §4, RN-006/INV-003, RN-005).
 
-        A remoção é conceitual: o histórico de auditoria permanece
-        registrado pela camada de infraestrutura (RN-006/INV-003 — sem
-        exclusão física de histórico, DOMAIN-025).
+        A remoção é SEMPRE um soft-delete: a linha permanece na base e o
+        histórico de auditoria é preservado (DOMAIN-021 §141). O método é
+        idempotente — remover duas vezes tem o mesmo efeito de remover uma.
         """
+        self._verificar_ativo()
         contato = self._buscar_contato(contato_id)
-        self._contatos.remove(contato)
+        contato.remover()
         self._marcar_atualizado()
 
+    def _contatos_ativos(self) -> list[Contato]:
+        return [contato for contato in self._contatos if contato.removido_em is None]
+
     def _buscar_contato(self, contato_id: uuid.UUID) -> Contato:
-        for contato in self._contatos:
+        for contato in self._contatos_ativos():
             if contato.id == contato_id:
                 return contato
         raise ViolacaoInvarianteError(
@@ -256,12 +272,26 @@ class Devedor:
             f"Contato {contato_id} não encontrado neste Devedor",
         )
 
+    def _verificar_ativo(self) -> None:
+        """Impede operações em Devedor inativo (regra RN-005).
+
+        Levantada nas operações de escrita para impedir que um Devedor
+        Inativo seja modificado ou usado como origem de ações de crédito.
+        """
+        if self.estado is DevedorState.INATIVO:
+            raise ViolacaoInvarianteError(
+                "RN-005",
+                "Devedor inativo nao pode originar operacoes "
+                f"(estado atual: {self.estado.value})",
+            )
+
     # ------------------------------------------------------------------ #
     # Atualização cadastral (US-024)
     # ------------------------------------------------------------------ #
 
     def atualizar_nome(self, novo_nome: str) -> None:
-        """Atualiza o nome do Devedor, preservando os demais campos."""
+        """Atualiza o nome do Devedor, preservando os demais campos (RN-005)."""
+        self._verificar_ativo()
         nome = novo_nome.strip()
         if not nome:
             raise ViolacaoInvarianteError(

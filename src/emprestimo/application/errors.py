@@ -38,6 +38,72 @@ class DevedorNaoEncontradoError(DomainError):
         self.devedor_id = devedor_id
 
 
+class CarteiraNaoEncontradaError(DomainError):
+    """Carteira nao encontrada ou fora do Tenant visivel."""
+
+    def __init__(self, carteira_id: uuid.UUID) -> None:
+        super().__init__(f"Carteira nao encontrada: {carteira_id}")
+        self.carteira_id = carteira_id
+
+
+class UsuarioNaoEncontradoError(DomainError):
+    """Usuario nao encontrado ou fora do Tenant visivel (IMP-087)."""
+
+    def __init__(self, usuario_id: uuid.UUID) -> None:
+        super().__init__(f"Usuario nao encontrado: {usuario_id}")
+        self.usuario_id = usuario_id
+
+
+class CredencialInvalidaError(DomainError):
+    """Credencial recusada sem revelar se usuario/credencial existem (IMP-087)."""
+
+    def __init__(self) -> None:
+        super().__init__("Credencial invalida")
+
+
+class SimulacaoComercialNaoEncontradaError(DomainError):
+    """Simulacao Comercial nao encontrada ou fora da fronteira informada."""
+
+    def __init__(self, simulacao_id: uuid.UUID) -> None:
+        super().__init__(f"Simulacao Comercial nao encontrada: {simulacao_id}")
+        self.simulacao_id = simulacao_id
+
+
+class PropostaComercialNaoEncontradaError(DomainError):
+    """Proposta Comercial nao encontrada ou fora da fronteira informada."""
+
+    def __init__(self, proposta_id: uuid.UUID) -> None:
+        super().__init__(f"Proposta Comercial nao encontrada: {proposta_id}")
+        self.proposta_id = proposta_id
+
+
+class AutenticacaoRecusadaError(DomainError):
+    """Autenticacao recusada com mensagem uniforme (IMP-088)."""
+
+    def __init__(self) -> None:
+        super().__init__("Autenticacao recusada")
+
+
+class AcessoNegadoError(DomainError):
+    """Principal autenticado nao possui permissao para a operacao (IMP-087)."""
+
+    def __init__(self, operacao: str) -> None:
+        super().__init__(f"Acesso negado para operacao: {operacao}")
+        self.operacao = operacao
+
+
+class PerfilNaoEncontradoError(DomainError):
+    def __init__(self, perfil_id: uuid.UUID) -> None:
+        super().__init__(f"Perfil de Acesso nao encontrado: {perfil_id}")
+        self.perfil_id = perfil_id
+
+
+class PerfilConflitoError(DomainError):
+    def __init__(self, motivo: str) -> None:
+        super().__init__(motivo)
+        self.motivo = motivo
+
+
 class TransicaoEstadoInvalidaError(DomainError):
     """Transição de estado operacional rejeitada pelo Aggregate (FEATURE-004).
 

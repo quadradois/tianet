@@ -8,15 +8,17 @@ from logging.config import fileConfig
 from alembic import context
 from sqlalchemy import engine_from_config, pool
 
-from emprestimo.infrastructure.db.base import Base
 from emprestimo.infrastructure.db import orm  # noqa: F401 — registra as tabelas no metadata
+from emprestimo.infrastructure.db.base import Base
 
 config = context.config
 
 if config.config_file_name is not None:
     fileConfig(config.config_file_name)
 
-config.set_main_option("sqlalchemy.url", os.environ.get("DATABASE_URL", config.get_main_option("sqlalchemy.url", "")))
+config.set_main_option(
+    "sqlalchemy.url", os.environ.get("DATABASE_URL", config.get_main_option("sqlalchemy.url", ""))
+)
 
 target_metadata = Base.metadata
 

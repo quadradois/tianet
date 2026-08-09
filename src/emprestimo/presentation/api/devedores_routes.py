@@ -13,6 +13,7 @@ import uuid
 from fastapi import APIRouter, Depends, Header, HTTPException, Query
 
 from emprestimo.application.atualizacao_devedor import DevedorAtualizacaoService
+from emprestimo.application.autorizacao import Principal
 from emprestimo.application.cadastro_devedor import DevedorCadastroService
 from emprestimo.application.consulta_devedor import (
     DevedorConsultaPorDocumentoService,
@@ -21,9 +22,12 @@ from emprestimo.application.consulta_devedor import (
 )
 from emprestimo.application.estado_devedor import DevedorEstadoService
 from emprestimo.application.historico_devedor import DevedorHistoricoService
+from emprestimo.domain.credit.carteira import Carteira
 from emprestimo.domain.credit.devedor import Devedor
 from emprestimo.domain.credit.ports import DevedorFiltros
 from emprestimo.presentation.api.dependencies import (
+    exigir_permissao,
+    get_carteira_do_principal,
     get_devedor_atualizacao_service,
     get_devedor_cadastro_service,
     get_devedor_consulta_por_documento_service,
@@ -32,6 +36,7 @@ from emprestimo.presentation.api.dependencies import (
     get_devedor_estado_service,
     get_devedor_historico_service,
     get_devedor_listagem_service,
+    get_principal_atual,
 )
 from emprestimo.presentation.api.devedores_schemas import (
     ContatoResponse,
@@ -43,8 +48,20 @@ from emprestimo.presentation.api.devedores_schemas import (
     DevedorUpdateRequest,
     EventoHistoricoResponse,
 )
+from emprestimo.presentation.api.openapi import RESPOSTAS_PROTEGIDAS_COM_RECURSO
 
-router = APIRouter(prefix="/credit", tags=["credit"])
+PERMISSAO_DEVEDOR_ATUALIZAR = "devedor.atualizar"
+PERMISSAO_DEVEDOR_CRIAR = "devedor.criar"
+PERMISSAO_DEVEDOR_INATIVAR = "devedor.inativar"
+PERMISSAO_DEVEDOR_LER = "devedor.ler"
+PERMISSAO_DEVEDOR_REATIVAR = "devedor.reativar"
+
+router = APIRouter(
+    prefix="/credit",
+    tags=["credit"],
+    dependencies=[Depends(get_principal_atual)],
+    responses=RESPOSTAS_PROTEGIDAS_COM_RECURSO,
+)
 
 
 def _exigir_idempotency_key(idempotency_key: str | None) -> str:
@@ -91,8 +108,9 @@ def _de_aggregate(devedor: Devedor) -> DevedorResponse:
     summary="Cadastrar um Devedor na Carteira (IMP-057, US-015..US-020)",
 )
 def criar_devedor(
-    carteira_id: uuid.UUID,
     payload: DevedorCreateRequest,
+    carteira: Carteira = Depends(get_carteira_do_principal),
+    _: Principal = Depends(exigir_permissao(PERMISSAO_DEVEDOR_CRIAR)),
     idempotency_key: str | None = Header(default=None, alias="Idempotency-Key"),
     service: DevedorCadastroService = Depends(get_devedor_cadastro_service),
 ) -> DevedorResponse:
@@ -103,7 +121,7 @@ def criar_devedor(
     """
     chave = _exigir_idempotency_key(idempotency_key)
     resultado = service.criar(
-        carteira_id=carteira_id,
+        carteira_id=carteira.id,
         documento=payload.documento,
         nome=payload.nome,
         contatos=[c.model_dump() for c in payload.contatos],
@@ -126,7 +144,8 @@ def criar_devedor(
     summary="Consultar por documento (IMP-058, US-022) ou listar (US-023)",
 )
 def consultar_ou_listar_devedores(
-    carteira_id: uuid.UUID,
+    carteira: Carteira = Depends(get_carteira_do_principal),
+    _: Principal = Depends(exigir_permissao(PERMISSAO_DEVEDOR_LER)),
     documento: str | None = Query(
         default=None,
         min_length=1,
@@ -141,7 +160,7 @@ def consultar_ou_listar_devedores(
 ) -> DevedorListagemResponse | DevedorResponse:
     """Consulta exata por documento (200/404) ou listagem paginada da Carteira."""
     if documento is not None:
-        devedor = service_documento.consultar_por_documento(carteira_id, documento.strip())
+        devedor = service_documento.consultar_por_documento(carteira.id, documento.strip())
         if devedor is None:
             raise _nao_encontrado()
         return _de_aggregate(devedor)
@@ -151,7 +170,7 @@ def consultar_ou_listar_devedores(
         estado=params.estado.value if params.estado else None,
     )
     resultado = service_listagem.listar(
-        carteira_id=carteira_id,
+        carteira_id=carteira.id,
         pagina=params.page,
         tamanho=params.size,
         filtros=filtros,
@@ -172,6 +191,7 @@ def consultar_ou_listar_devedores(
 )
 def obter_devedor_por_id(
     devedor: Devedor = Depends(get_devedor_da_carteira),
+    _: Principal = Depends(exigir_permissao(PERMISSAO_DEVEDOR_LER)),
 ) -> DevedorResponse:
     """Retorna o Devedor com seus contatos e estado (leitura, sem auditoria).
 
@@ -188,6 +208,7 @@ def obter_devedor_por_id(
 )
 def obter_historico_devedor(
     devedor: Devedor = Depends(get_devedor_da_carteira),
+    _: Principal = Depends(exigir_permissao(PERMISSAO_DEVEDOR_LER)),
     service: DevedorHistoricoService = Depends(get_devedor_historico_service),
 ) -> DevedorHistoricoResponse:
     """Trilha de auditoria do Devedor em ordem cronológica (FEATURE-006).
@@ -220,6 +241,7 @@ def atualizar_devedor(
     payload: DevedorUpdateRequest,
     idempotency_key: str | None = Header(default=None, alias="Idempotency-Key"),
     devedor: Devedor = Depends(get_devedor_da_carteira),
+    _: Principal = Depends(exigir_permissao(PERMISSAO_DEVEDOR_ATUALIZAR)),
     service: DevedorAtualizacaoService = Depends(get_devedor_atualizacao_service),
     consulta: DevedorConsultaService = Depends(get_devedor_consulta_service),
 ) -> DevedorResponse:
@@ -248,6 +270,7 @@ def atualizar_devedor(
 def inativar_devedor(
     idempotency_key: str | None = Header(default=None, alias="Idempotency-Key"),
     devedor: Devedor = Depends(get_devedor_da_carteira),
+    _: Principal = Depends(exigir_permissao(PERMISSAO_DEVEDOR_INATIVAR)),
     service: DevedorEstadoService = Depends(get_devedor_estado_service),
     consulta: DevedorConsultaService = Depends(get_devedor_consulta_service),
 ) -> DevedorResponse:
@@ -269,6 +292,7 @@ def inativar_devedor(
 def reativar_devedor(
     idempotency_key: str | None = Header(default=None, alias="Idempotency-Key"),
     devedor: Devedor = Depends(get_devedor_da_carteira),
+    _: Principal = Depends(exigir_permissao(PERMISSAO_DEVEDOR_REATIVAR)),
     service: DevedorEstadoService = Depends(get_devedor_estado_service),
     consulta: DevedorConsultaService = Depends(get_devedor_consulta_service),
 ) -> DevedorResponse:

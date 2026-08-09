@@ -6,6 +6,7 @@ Create Date: 2026-08-01
 
 Tabelas da Fase 1 (IMP-001..IMP-007): tenant, usuario, configuracao, carteira.
 """
+
 from __future__ import annotations
 
 from collections.abc import Sequence
@@ -26,9 +27,13 @@ def upgrade() -> None:
         sa.Column("identificador_institucional", sa.String(length=120), nullable=False),
         sa.Column("nome", sa.String(length=200), nullable=False),
         sa.Column("estado", sa.String(length=20), nullable=False),
-        sa.Column("criado_em", sa.DateTime(timezone=True), server_default=sa.text("now()"), nullable=False),
+        sa.Column(
+            "criado_em", sa.DateTime(timezone=True), server_default=sa.text("now()"), nullable=False
+        ),
         sa.PrimaryKeyConstraint("id"),
-        sa.UniqueConstraint("identificador_institucional", name="uq_tenant_identificador_institucional"),
+        sa.UniqueConstraint(
+            "identificador_institucional", name="uq_tenant_identificador_institucional"
+        ),
     )
     op.create_table(
         "usuario",
@@ -37,7 +42,9 @@ def upgrade() -> None:
         sa.Column("nome", sa.String(length=200), nullable=False),
         sa.Column("email", sa.String(length=254), nullable=False),
         sa.Column("estado", sa.String(length=20), nullable=False),
-        sa.Column("criado_em", sa.DateTime(timezone=True), server_default=sa.text("now()"), nullable=False),
+        sa.Column(
+            "criado_em", sa.DateTime(timezone=True), server_default=sa.text("now()"), nullable=False
+        ),
         sa.PrimaryKeyConstraint("id"),
         sa.UniqueConstraint("tenant_id", "email", name="uq_usuario_tenant_email"),
         sa.ForeignKeyConstraint(["tenant_id"], ["tenant.id"], name="fk_usuario_tenant"),
@@ -49,7 +56,9 @@ def upgrade() -> None:
         sa.Column("tenant_id", sa.Uuid(), nullable=False),
         sa.Column("chave", sa.String(length=120), nullable=False),
         sa.Column("valor", sa.String(length=500), nullable=False),
-        sa.Column("criado_em", sa.DateTime(timezone=True), server_default=sa.text("now()"), nullable=False),
+        sa.Column(
+            "criado_em", sa.DateTime(timezone=True), server_default=sa.text("now()"), nullable=False
+        ),
         sa.PrimaryKeyConstraint("id"),
         sa.UniqueConstraint("tenant_id", "chave", name="uq_configuracao_tenant_chave"),
         sa.ForeignKeyConstraint(["tenant_id"], ["tenant.id"], name="fk_configuracao_tenant"),
@@ -60,7 +69,9 @@ def upgrade() -> None:
         sa.Column("id", sa.Uuid(), nullable=False),
         sa.Column("tenant_id", sa.Uuid(), nullable=False),
         sa.Column("nome", sa.String(length=200), nullable=False),
-        sa.Column("criado_em", sa.DateTime(timezone=True), server_default=sa.text("now()"), nullable=False),
+        sa.Column(
+            "criado_em", sa.DateTime(timezone=True), server_default=sa.text("now()"), nullable=False
+        ),
         sa.PrimaryKeyConstraint("id"),
         sa.ForeignKeyConstraint(["tenant_id"], ["tenant.id"], name="fk_carteira_tenant"),
     )

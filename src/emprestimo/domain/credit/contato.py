@@ -108,6 +108,8 @@ class Contato:
         preferencial: se este contato é o preferencial do tipo (RN-005).
         id: identidade única do Contato dentro do Devedor (INV-001).
         criado_em/atualizado_em: rastreabilidade cadastral.
+        removido_em: marca de soft-delete (RN-006/INV-003 — a remoção nunca
+            elimina o histórico de auditoria, DOMAIN-021 §141).
     """
 
     devedor_id: uuid.UUID
@@ -117,6 +119,7 @@ class Contato:
     id: uuid.UUID = field(default_factory=uuid.uuid4)
     criado_em: datetime = field(default_factory=lambda: datetime.now(UTC))
     atualizado_em: datetime | None = None
+    removido_em: datetime | None = None
 
     def __post_init__(self) -> None:
         # Valida tipo
@@ -132,3 +135,19 @@ class Contato:
 
         # Valida valor por tipo
         _validar_valor_por_tipo(self.tipo, self.valor)
+
+    def remover(self) -> None:
+        """Soft-delete do Contato (DOMAIN-021 §4, RN-006/INV-003).
+
+        A remoção nunca é física: o registro permanece na base e na trilha de
+        auditoria (DOMAIN-021 §141). Uma vez removido, o Contato não pode ser
+        reativado — a operação é idempotente.
+        """
+        if self.removido_em is not None:
+            return
+        self.removido_em = datetime.now(UTC)
+
+    @property
+    def removido(self) -> bool:
+        """Indica se o Contato foi removido (RN-006)."""
+        return self.removido_em is not None

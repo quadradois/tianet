@@ -18,7 +18,7 @@ from __future__ import annotations
 import uuid
 from datetime import datetime
 
-from sqlalchemy import DateTime, ForeignKey, String, UniqueConstraint, Uuid, func
+from sqlalchemy import JSON, DateTime, ForeignKey, String, UniqueConstraint, Uuid, func
 from sqlalchemy.orm import Mapped, mapped_column
 
 from emprestimo.infrastructure.db.base import Base
@@ -60,6 +60,117 @@ class UsuarioORM(Base):
     criado_em: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )
+
+
+class CredencialORM(Base):
+    """Tabela `credencial` - hash de acesso do Usuario (IMP-085)."""
+
+    __tablename__ = "credencial"
+    __table_args__ = (UniqueConstraint("usuario_id", name="uq_credencial_usuario"),)
+
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True)
+    usuario_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid, ForeignKey("usuario.id"), nullable=False, index=True
+    )
+    hash_credencial: Mapped[str] = mapped_column(String(255), nullable=False)
+    algoritmo: Mapped[str] = mapped_column(String(50), nullable=False)
+    criado_em: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+    atualizado_em: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+
+class SessaoORM(Base):
+    """Tabela `sessao` - refresh token persistido e revogavel (IMP-085)."""
+
+    __tablename__ = "sessao"
+    __table_args__ = (UniqueConstraint("refresh_token_hash", name="uq_sessao_refresh_hash"),)
+
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True)
+    usuario_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid, ForeignKey("usuario.id"), nullable=False, index=True
+    )
+    tenant_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid, ForeignKey("tenant.id"), nullable=False, index=True
+    )
+    refresh_token_hash: Mapped[str] = mapped_column(String(255), nullable=False)
+    expira_em: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    criado_em: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+    revogado_em: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+
+class PermissaoORM(Base):
+    """Tabela `permissao` - catalogo de operacoes autorizaveis (IMP-085)."""
+
+    __tablename__ = "permissao"
+
+    codigo: Mapped[str] = mapped_column(String(120), primary_key=True)
+    descricao: Mapped[str] = mapped_column(String(255), nullable=False)
+
+
+class PerfilAcessoORM(Base):
+    """Tabela `perfil_acesso` - Perfil RBAC por Tenant (IMP-085)."""
+
+    __tablename__ = "perfil_acesso"
+    __table_args__ = (UniqueConstraint("tenant_id", "nome", name="uq_perfil_tenant_nome"),)
+
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True)
+    tenant_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid, ForeignKey("tenant.id"), nullable=False, index=True
+    )
+    nome: Mapped[str] = mapped_column(String(120), nullable=False)
+    estado: Mapped[str] = mapped_column(String(20), nullable=False)
+    criado_em: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+    atualizado_em: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+
+class PerfilPermissaoORM(Base):
+    """Tabela `perfil_permissao` - associacao N:N entre Perfil e Permissao."""
+
+    __tablename__ = "perfil_permissao"
+
+    perfil_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid, ForeignKey("perfil_acesso.id"), primary_key=True
+    )
+    permissao_codigo: Mapped[str] = mapped_column(
+        String(120), ForeignKey("permissao.codigo"), primary_key=True
+    )
+
+
+class UsuarioPerfilORM(Base):
+    """Tabela `usuario_perfil` - Perfil operacional atribuido ao Usuario."""
+
+    __tablename__ = "usuario_perfil"
+
+    usuario_id: Mapped[uuid.UUID] = mapped_column(Uuid, ForeignKey("usuario.id"), primary_key=True)
+    perfil_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid, ForeignKey("perfil_acesso.id"), nullable=False, index=True
+    )
+    criado_em: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+
+
+class TokenAtivacaoORM(Base):
+    """Token de ativacao armazenado somente por hash."""
+
+    __tablename__ = "token_ativacao"
+
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True)
+    usuario_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid, ForeignKey("usuario.id"), nullable=False, index=True
+    )
+    tenant_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid, ForeignKey("tenant.id"), nullable=False, index=True
+    )
+    token_hash: Mapped[str] = mapped_column(String(64), nullable=False)
+    expira_em: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    criado_em: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    utilizado_em: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
 
 class ConfiguracaoORM(Base):
@@ -178,3 +289,82 @@ class ContatoORM(Base):
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )
     atualizado_em: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    removido_em: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+
+class SimulacaoComercialORM(Base):
+    """Tabela `simulacao_comercial` - registro nao vinculante Comercial."""
+
+    __tablename__ = "simulacao_comercial"
+
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True)
+    tenant_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid, ForeignKey("tenant.id"), nullable=False, index=True
+    )
+    carteira_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid, ForeignKey("carteira.id"), nullable=False, index=True
+    )
+    devedor_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid, ForeignKey("devedor.id"), nullable=False, index=True
+    )
+    criada_por_usuario_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid, ForeignKey("usuario.id"), nullable=False, index=True
+    )
+    parametros: Mapped[dict[str, object]] = mapped_column(JSON, nullable=False)
+    criado_em: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+
+
+class PropostaComercialORM(Base):
+    """Tabela `proposta_comercial` - aggregate Comercial sem contrato real."""
+
+    __tablename__ = "proposta_comercial"
+
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True)
+    tenant_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid, ForeignKey("tenant.id"), nullable=False, index=True
+    )
+    carteira_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid, ForeignKey("carteira.id"), nullable=False, index=True
+    )
+    devedor_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid, ForeignKey("devedor.id"), nullable=False, index=True
+    )
+    criada_por_usuario_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid, ForeignKey("usuario.id"), nullable=False, index=True
+    )
+    simulacao_id: Mapped[uuid.UUID | None] = mapped_column(
+        Uuid, ForeignKey("simulacao_comercial.id"), nullable=True, index=True
+    )
+    estado: Mapped[str] = mapped_column(String(30), nullable=False, index=True)
+    parametros: Mapped[dict[str, object]] = mapped_column(JSON, nullable=False)
+    criado_em: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+    atualizado_em: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    aprovada_por_usuario_id: Mapped[uuid.UUID | None] = mapped_column(
+        Uuid, ForeignKey("usuario.id"), nullable=True, index=True
+    )
+    aprovada_em: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+
+class DecisaoComercialORM(Base):
+    """Tabela `decisao_comercial` - trilha append-only de decisoes."""
+
+    __tablename__ = "decisao_comercial"
+
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True)
+    proposta_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid, ForeignKey("proposta_comercial.id"), nullable=False, index=True
+    )
+    usuario_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid, ForeignKey("usuario.id"), nullable=False, index=True
+    )
+    estado_anterior: Mapped[str] = mapped_column(String(30), nullable=False)
+    estado_posterior: Mapped[str] = mapped_column(String(30), nullable=False)
+    ordem: Mapped[int] = mapped_column(nullable=False)
+    motivo: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    criado_em: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )

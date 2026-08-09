@@ -21,6 +21,7 @@ from emprestimo.domain.credit.documento import Documento
 from emprestimo.domain.credit.ports import DevedorFiltros, Paginacao
 from emprestimo.infrastructure.repositories import (
     SqlAlchemyCarteiraRepository,
+    SqlAlchemyContatoRepository,
     SqlAlchemyDevedorRepository,
     SqlAlchemyTenantRepository,
 )
@@ -71,6 +72,32 @@ def test_round_trip_preserva_documento_e_estado(session: Session) -> None:
     assert carregado.documento.valor == CPF_A
     assert carregado.nome == "João da Silva"
     assert carregado.estado is DevedorState.ATIVO
+
+
+def test_round_trip_preserva_soft_delete_de_contato(session: Session) -> None:
+    carteira_id = _carteira_persistida(session)
+    devedor_repo = SqlAlchemyDevedorRepository(session)
+    contato_repo = SqlAlchemyContatoRepository(session)
+    devedor = _devedor(carteira_id, CPF_A)
+    contato_id = devedor.contatos[0].id
+
+    devedor_repo.save(devedor)
+    for contato in devedor.contatos:
+        contato_repo.save(contato)
+    session.commit()
+
+    devedor.remover_contato(contato_id)
+    for contato in devedor.contatos_historico:
+        contato_repo.save(contato)
+    session.commit()
+
+    carregado = devedor_repo.find_by_id(devedor.id)
+    contatos_persistidos = contato_repo.find_by_devedor(devedor.id)
+
+    assert carregado is not None
+    assert carregado.contatos == ()
+    assert len(carregado.contatos_historico) == 1
+    assert contatos_persistidos[0].removido_em is not None
 
 
 def test_find_by_id_inexistente_retorna_none(session: Session) -> None:

@@ -20,19 +20,33 @@ from fastapi import FastAPI, HTTPException, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 
+from emprestimo.application.autorizacao import RecursoDeOutroTenantError
 from emprestimo.application.errors import (
+    AcessoNegadoError,
+    AutenticacaoRecusadaError,
+    CarteiraNaoEncontradaError,
+    CredencialInvalidaError,
     DevedorNaoEncontradoError,
     IdempotenciaConflitoError,
+    PerfilConflitoError,
+    PerfilNaoEncontradoError,
+    PropostaComercialNaoEncontradaError,
+    SimulacaoComercialNaoEncontradaError,
     TransicaoEstadoInvalidaError,
+    UsuarioNaoEncontradoError,
 )
 from emprestimo.domain.common.errors import (
     DevedorJaExisteError,
     DocumentoInvalidoError,
+    PerfilJaExisteError,
     TenantJaExisteError,
     ViolacaoInvarianteError,
 )
 from emprestimo.domain.credit.contato import ContatoInvalidoError
+from emprestimo.presentation.api.auth_routes import router as auth_router
+from emprestimo.presentation.api.comercial_routes import router as comercial_router
 from emprestimo.presentation.api.devedores_routes import router as devedores_router
+from emprestimo.presentation.api.iam_routes import router as iam_router
 from emprestimo.presentation.api.routes import router
 
 logger = logging.getLogger(__name__)
@@ -44,9 +58,23 @@ VERSION = "0.1.0"
 def create_app() -> FastAPI:
     """Factory do app — permite instâncias isoladas em testes."""
     app = FastAPI(title=TITLE, version=VERSION)
+    app.include_router(auth_router)
+    app.include_router(iam_router)
     app.include_router(router)
     app.include_router(devedores_router)
+    app.include_router(comercial_router)
     app.add_exception_handler(RequestValidationError, _payload_invalido)
+    app.add_exception_handler(AutenticacaoRecusadaError, _autenticacao_recusada)
+    app.add_exception_handler(AcessoNegadoError, _acesso_negado)
+    app.add_exception_handler(CredencialInvalidaError, _autenticacao_recusada)
+    app.add_exception_handler(CarteiraNaoEncontradaError, _recurso_nao_encontrado)
+    app.add_exception_handler(UsuarioNaoEncontradoError, _recurso_nao_encontrado)
+    app.add_exception_handler(PerfilNaoEncontradoError, _recurso_nao_encontrado)
+    app.add_exception_handler(SimulacaoComercialNaoEncontradaError, _recurso_nao_encontrado)
+    app.add_exception_handler(PropostaComercialNaoEncontradaError, _recurso_nao_encontrado)
+    app.add_exception_handler(RecursoDeOutroTenantError, _recurso_nao_encontrado)
+    app.add_exception_handler(PerfilConflitoError, _perfil_conflito)
+    app.add_exception_handler(PerfilJaExisteError, _perfil_conflito)
     app.add_exception_handler(TenantJaExisteError, _tenant_ja_existe)
     app.add_exception_handler(DevedorJaExisteError, _devedor_ja_existe)
     app.add_exception_handler(DevedorNaoEncontradoError, _devedor_nao_encontrado)
@@ -70,11 +98,45 @@ def _corpo(codigo: str, mensagem: str) -> dict[str, str]:
     return {"codigo": codigo, "mensagem": mensagem}
 
 
-async def _payload_invalido(_: Request, exc: Exception) -> JSONResponse:
+async def _payload_invalido(request: Request, exc: Exception) -> JSONResponse:
+    if request.url.path.startswith("/auth/"):
+        return _corpo_autenticacao_recusada()
     erros = cast(RequestValidationError, exc)
     return JSONResponse(
         status_code=400,
         content=_corpo("payload_invalido", str(erros.errors()[:3])),
+    )
+
+
+async def _autenticacao_recusada(_: Request, exc: Exception) -> JSONResponse:
+    del exc
+    return _corpo_autenticacao_recusada()
+
+
+async def _acesso_negado(_: Request, exc: Exception) -> JSONResponse:
+    del exc
+    return JSONResponse(
+        status_code=403,
+        content=_corpo("acesso_negado", "Acesso negado"),
+    )
+
+
+async def _recurso_nao_encontrado(_: Request, exc: Exception) -> JSONResponse:
+    del exc
+    return JSONResponse(
+        status_code=404,
+        content=_corpo("recurso_nao_encontrado", "Recurso nao encontrado"),
+    )
+
+
+async def _perfil_conflito(_: Request, exc: Exception) -> JSONResponse:
+    return JSONResponse(status_code=409, content=_corpo("perfil_conflito", str(exc)))
+
+
+def _corpo_autenticacao_recusada() -> JSONResponse:
+    return JSONResponse(
+        status_code=401,
+        content=_corpo("autenticacao_recusada", "Autenticacao recusada"),
     )
 
 

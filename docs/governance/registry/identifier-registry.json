@@ -1,7 +1,7 @@
 {
   "$schema": "./identifier-registry.schema.md",
   "versao": "1.0.0",
-  "atualizadoEm": "2026-08-07",
+  "atualizadoEm": "2026-08-09",
   "normativo": true,
   "especificacao": "docs/governance/SPEC-002-governance-identifier-system.md",
   "gramatica": "<NAMESPACE>-<NUMERO:3digitos>[-<QUALIFICADOR>]",
@@ -32,7 +32,7 @@
       "classe": "DOCUMENT",
       "governadoPor": "sequencial",
       "regraNumeracao": "ultimo + 1",
-      "ultimo": 4,
+      "ultimo": 3,
       "status": "ACTIVE",
       "validador": "docs:validate/identifiers",
       "local": "docs/product/**/capabilities/"
@@ -54,7 +54,7 @@
       "classe": "DOCUMENT",
       "governadoPor": "sequencial",
       "regraNumeracao": "ultimo + 1",
-      "ultimo": 8,
+      "ultimo": 17,
       "status": "ACTIVE",
       "validador": "docs:validate/identifiers",
       "local": "docs/product/**/features/"
@@ -65,7 +65,7 @@
       "classe": "DOCUMENT",
       "governadoPor": "sequencial",
       "regraNumeracao": "ultimo + 1",
-      "ultimo": 27,
+      "ultimo": 52,
       "status": "ACTIVE",
       "validador": "docs:validate/identifiers",
       "local": "docs/product/**/user-stories/"
@@ -109,7 +109,7 @@
       "classe": "DOCUMENT",
       "governadoPor": "sequencial",
       "regraNumeracao": "ultimo + 1",
-      "ultimo": 4,
+      "ultimo": 9,
       "status": "ACTIVE",
       "validador": "docs:validate/identifiers",
       "local": "docs/implementation/{plans,backlogs}/"

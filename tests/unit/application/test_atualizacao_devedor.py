@@ -12,14 +12,13 @@ from emprestimo.application.atualizacao_devedor import (
     DevedorAtualizacaoService,
     DevedorAtualizadoResultado,
 )
-from emprestimo.application.errors import IdempotenciaConflitoError
+from emprestimo.application.errors import DevedorNaoEncontradoError, IdempotenciaConflitoError
 from emprestimo.application.ports import UnitOfWork
+from emprestimo.domain.common.errors import ViolacaoInvarianteError
 from emprestimo.domain.credit.contato import Contato, TipoContato
 from emprestimo.domain.credit.devedor import Devedor, DevedorState
 from emprestimo.domain.credit.documento import Documento
-from emprestimo.domain.credit.eventos_devedor import DevedorAtualizado as DevedorAtualizadoEvento
 from emprestimo.domain.credit.unicidade_devedor import UnicidadeDevedorService
-from emprestimo.domain.common.errors import ViolacaoInvarianteError
 
 CARTEIRA_ID = uuid.UUID("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa")
 DEVEDOR_ID = uuid.UUID("bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb")
@@ -105,7 +104,10 @@ class TestDevedorAtualizacaoService:
         """Deve atualizar apenas o nome do Devedor."""
         devedor = _mock_devedor()
         uow = _mock_uow_factory(devedor)
-        uow_factory = lambda: uow
+
+        def uow_factory() -> Mock:
+            return uow
+
         unicidade = _mock_unicidade()
         auditoria = _mock_auditoria()
 
@@ -134,7 +136,10 @@ class TestDevedorAtualizacaoService:
         """Deve substituir todos os contatos do Devedor."""
         devedor = _mock_devedor()
         uow = _mock_uow_factory(devedor)
-        uow_factory = lambda: uow
+
+        def uow_factory() -> Mock:
+            return uow
+
         unicidade = _mock_unicidade()
         auditoria = _mock_auditoria()
 
@@ -164,7 +169,10 @@ class TestDevedorAtualizacaoService:
         """Deve atualizar nome e contatos em uma única operação."""
         devedor = _mock_devedor()
         uow = _mock_uow_factory(devedor)
-        uow_factory = lambda: uow
+
+        def uow_factory() -> Mock:
+            return uow
+
         unicidade = _mock_unicidade()
         auditoria = _mock_auditoria()
 
@@ -222,7 +230,10 @@ class TestDevedorAtualizacaoService:
             "criado_em": datetime.now().isoformat(),
             "concluido_em": datetime.now().isoformat(),
         }
-        uow_factory = lambda: uow
+
+        def uow_factory() -> Mock:
+            return uow
+
         unicidade = _mock_unicidade()
         auditoria = _mock_auditoria()
 
@@ -260,7 +271,10 @@ class TestDevedorAtualizacaoService:
             "criado_em": datetime.now().isoformat(),
             "concluido_em": datetime.now().isoformat(),
         }
-        uow_factory = lambda: uow
+
+        def uow_factory() -> Mock:
+            return uow
+
         unicidade = _mock_unicidade()
         auditoria = _mock_auditoria()
 
@@ -277,7 +291,7 @@ class TestDevedorAtualizacaoService:
         assert "divergente" in exc_info.value.motivo
 
     def test_conflito_idempotencia_em_andamento(self) -> None:
-        """Reutilizar chave enquanto atualização anterior ainda em andamento deve lançar IdempotenciaConflitoError."""
+        """Reutilizar chave em andamento deve lançar IdempotenciaConflitoError."""
         devedor = _mock_devedor()
         uow = _mock_uow_factory(devedor)
         uow.idempotencia.find_by_chave.return_value = {
@@ -289,7 +303,10 @@ class TestDevedorAtualizacaoService:
             "criado_em": datetime.now().isoformat(),
             "concluido_em": None,
         }
-        uow_factory = lambda: uow
+
+        def uow_factory() -> Mock:
+            return uow
+
         unicidade = _mock_unicidade()
         auditoria = _mock_auditoria()
 
@@ -307,13 +324,16 @@ class TestDevedorAtualizacaoService:
     def test_devedor_nao_encontrado(self) -> None:
         """Deve lançar DevedorNaoEncontradoError quando Devedor não existe."""
         uow = _mock_uow_factory(None)  # devedor = None
-        uow_factory = lambda: uow
+
+        def uow_factory() -> Mock:
+            return uow
+
         unicidade = _mock_unicidade()
         auditoria = _mock_auditoria()
 
         service = DevedorAtualizacaoService(uow_factory, unicidade, auditoria)
 
-        with pytest.raises(Exception) as exc_info:
+        with pytest.raises(DevedorNaoEncontradoError) as exc_info:
             service.atualizar(
                 DEVEDOR_ID,
                 "idem-key-404",
@@ -327,7 +347,10 @@ class TestDevedorAtualizacaoService:
         """Deve lançar ViolacaoInvarianteError RN-003 quando lista de contatos vazia."""
         devedor = _mock_devedor()
         uow = _mock_uow_factory(devedor)
-        uow_factory = lambda: uow
+
+        def uow_factory() -> Mock:
+            return uow
+
         unicidade = _mock_unicidade()
         auditoria = _mock_auditoria()
 
@@ -347,7 +370,10 @@ class TestDevedorAtualizacaoService:
         """Deve lançar ViolacaoInvarianteError RN-005 ao tentar dois preferenciais do mesmo tipo."""
         devedor = _mock_devedor()
         uow = _mock_uow_factory(devedor)
-        uow_factory = lambda: uow
+
+        def uow_factory() -> Mock:
+            return uow
+
         unicidade = _mock_unicidade()
         auditoria = _mock_auditoria()
 
@@ -372,7 +398,10 @@ class TestDevedorAtualizacaoService:
         """Deve lançar ViolacaoInvarianteError DOMAIN-021 ao tentar contatos duplicados."""
         devedor = _mock_devedor()
         uow = _mock_uow_factory(devedor)
-        uow_factory = lambda: uow
+
+        def uow_factory() -> Mock:
+            return uow
+
         unicidade = _mock_unicidade()
         auditoria = _mock_auditoria()
 
@@ -394,10 +423,13 @@ class TestDevedorAtualizacaoService:
         assert "já existente" in str(exc_info.value).lower()
 
     def test_auditoria_registra_eventos_corretos(self) -> None:
-        """Deve registrar trilha completa de auditoria (inicio, aggregate_atualizado, evento_atualizado, sucesso)."""
+        """Deve registrar a trilha completa de auditoria."""
         devedor = _mock_devedor()
         uow = _mock_uow_factory(devedor)
-        uow_factory = lambda: uow
+
+        def uow_factory() -> Mock:
+            return uow
+
         unicidade = _mock_unicidade()
         auditoria = _mock_auditoria()
 
@@ -428,14 +460,17 @@ class TestDevedorAtualizacaoService:
         devedor = _mock_devedor()
         uow = _mock_uow_factory(devedor)
         # Força erro no save
-        uow.devedor.save.side_effect = Exception("DB error")
-        uow_factory = lambda: uow
+        uow.devedor.save.side_effect = RuntimeError("DB error")
+
+        def uow_factory() -> Mock:
+            return uow
+
         unicidade = _mock_unicidade()
         auditoria = _mock_auditoria()
 
         service = DevedorAtualizacaoService(uow_factory, unicidade, auditoria)
 
-        with pytest.raises(Exception):
+        with pytest.raises(RuntimeError):
             service.atualizar(
                 DEVEDOR_ID,
                 "idem-key-falha",
@@ -455,7 +490,10 @@ class TestDevedorAtualizacaoService:
         """Deve normalizar nome aplicando strip()."""
         devedor = _mock_devedor()
         uow = _mock_uow_factory(devedor)
-        uow_factory = lambda: uow
+
+        def uow_factory() -> Mock:
+            return uow
+
         unicidade = _mock_unicidade()
         auditoria = _mock_auditoria()
 
@@ -472,7 +510,10 @@ class TestDevedorAtualizacaoService:
         """Deve aplicar strip no valor dos contatos e converter tipo para Enum."""
         devedor = _mock_devedor()
         uow = _mock_uow_factory(devedor)
-        uow_factory = lambda: uow
+
+        def uow_factory() -> Mock:
+            return uow
+
         unicidade = _mock_unicidade()
         auditoria = _mock_auditoria()
 

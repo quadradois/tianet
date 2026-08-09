@@ -10,9 +10,7 @@ import pytest
 from emprestimo.application.cadastro_devedor import DevedorCadastroService, DevedorCriado
 from emprestimo.application.errors import IdempotenciaConflitoError
 from emprestimo.application.ports import AuditoriaRegistro, UnitOfWork
-from emprestimo.domain.credit.contato import Contato, TipoContato
-from emprestimo.domain.credit.devedor import Devedor, DevedorState
-from emprestimo.domain.credit.documento import Documento
+from emprestimo.domain.credit.devedor import DevedorState
 from emprestimo.domain.credit.unicidade_devedor import UnicidadeDevedorService
 
 CARTEIRA_ID = uuid.UUID("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa")
@@ -63,7 +61,10 @@ class TestDevedorCadastroService:
     def test_criar_devedor_sucesso(self) -> None:
         """Deve criar Devedor com sucesso e retornar DevedorCriado."""
         uow = _mock_uow_factory()
-        uow_factory = lambda: uow
+
+        def uow_factory() -> Mock:
+            return uow
+
         unicidade = _mock_unicidade()
         auditoria = _mock_auditoria()
 
@@ -103,7 +104,10 @@ class TestDevedorCadastroService:
         """Replay com mesma Idempotency-Key deve retornar resultado original."""
         # Primeiro cria um service com factory que retorna None na idempotência
         uow_first = _mock_uow_factory()
-        uow_factory_first = lambda: uow_first
+
+        def uow_factory_first() -> Mock:
+            return uow_first
+
         unicidade = _mock_unicidade()
         auditoria = _mock_auditoria()
 
@@ -141,7 +145,7 @@ class TestDevedorCadastroService:
             ),
         }
 
-        def uow_factory_replay():
+        def uow_factory_replay() -> Mock:
             return uow_replay
 
         service2 = DevedorCadastroService(uow_factory_replay, unicidade, auditoria)
@@ -170,7 +174,10 @@ class TestDevedorCadastroService:
             "estado": "finished",
             "resultado": "{}",
         }
-        uow_factory = lambda: uow
+
+        def uow_factory() -> Mock:
+            return uow
+
         unicidade = _mock_unicidade()
         auditoria = _mock_auditoria()
 
@@ -189,7 +196,10 @@ class TestDevedorCadastroService:
         from emprestimo.domain.common.errors import DevedorJaExisteError
 
         uow = _mock_uow_factory()
-        uow_factory = lambda: uow
+
+        def uow_factory() -> Mock:
+            return uow
+
         unicidade = _mock_unicidade()
         unicidade.verificar_documento_disponivel.side_effect = DevedorJaExisteError(
             DOCUMENTO, CARTEIRA_ID
@@ -206,12 +216,16 @@ class TestDevedorCadastroService:
         assert exc_info.value.documento == DOCUMENTO
         assert exc_info.value.carteira_id == CARTEIRA_ID
         # Auditoria de falha registrada
+        detalhe_erro = (
+            f"DevedorJaExisteError: Devedor com documento {DOCUMENTO!r} "
+            f"já existente na Carteira {CARTEIRA_ID}"
+        )
         auditoria.registrar.assert_any_call(
             "devedor",
             None,
             "criar.falha",
             "falhou",
-            detalhes=f"DevedorJaExisteError: Devedor com documento {DOCUMENTO!r} já existente na Carteira {CARTEIRA_ID}",
+            detalhes=detalhe_erro,
         )
         auditoria.registrar.assert_any_call("devedor", None, "criar.rollback", "rollback_aplicado")
 
@@ -219,7 +233,9 @@ class TestDevedorCadastroService:
         """Criação sem contatos deve falhar (RN-003)."""
         from emprestimo.domain.common.errors import ViolacaoInvarianteError
 
-        uow_factory = lambda: _mock_uow_factory()
+        def uow_factory() -> Mock:
+            return _mock_uow_factory()
+
         unicidade = _mock_unicidade()
         auditoria = _mock_auditoria()
 
@@ -234,7 +250,9 @@ class TestDevedorCadastroService:
         """Contato tipo+valor duplicado deve falhar (DOMAIN-021)."""
         from emprestimo.domain.common.errors import ViolacaoInvarianteError
 
-        uow_factory = lambda: _mock_uow_factory()
+        def uow_factory() -> Mock:
+            return _mock_uow_factory()
+
         unicidade = _mock_unicidade()
         auditoria = _mock_auditoria()
 
@@ -254,7 +272,9 @@ class TestDevedorCadastroService:
         """Dois preferenciais do mesmo tipo deve falhar (RN-005)."""
         from emprestimo.domain.common.errors import ViolacaoInvarianteError
 
-        uow_factory = lambda: _mock_uow_factory()
+        def uow_factory() -> Mock:
+            return _mock_uow_factory()
+
         unicidade = _mock_unicidade()
         auditoria = _mock_auditoria()
 

@@ -49,7 +49,7 @@ duas decisões que aqui se formalizam.
 
 ### 1. Autenticação por JWT com refresh persistido
 
-Token de **acesso** curto, autocontido e verificável sem consulta ao banco.
+Token de **acesso** curto, autocontido e verificável criptograficamente sem consulta ao banco. A resolução do Principal e do RBAC consulta o estado corrente de Tenant, Usuário e Perfil para aplicar revogação imediata.
 Token de **refresh** persistido e revogável, usado para renovar o acesso.
 
 Formaliza a ADR-001 §35, que fixou "JWT + Refresh Token" sem dizer se o token
@@ -59,10 +59,11 @@ seria verificável offline ou consultado a cada requisição.
 
 O token de acesso expira em **15 minutos**; o refresh token, em **7 dias**.
 
-Este número não é arbitrário: ele **é** a janela de revogação. Como o token de
-acesso não é consultado no banco, revogar o refresh só interrompe o acesso na
-próxima renovação — no pior caso, 15 minutos depois. Reduzir o valor encurta a
-janela e aumenta a frequência de renovação; aumentá-lo faz o oposto.
+O token não depende de uma Sessão persistida, mas Tenant, Usuário e Perfil são
+resolvidos a cada operação. Assim, revogar o refresh bloqueia renovações e a
+inativação de Tenant ou Usuário interrompe imediatamente novas requisições.
+Os 15 minutos limitam a vida criptográfica do token e a exposição em caso de
+furto da chave, sem substituir a validação do estado operacional corrente.
 
 ### 3. Autorização por RBAC
 
@@ -70,6 +71,14 @@ A autorização é decidida pelo **Perfil** do Usuário autenticado, conforme
 FOUNDATION-009 §117, que já fixa *"autorização RBAC, perfis, permissões"* como o
 modelo do contexto IAM. **ABAC está fora de escopo** — foi listado na reserva
 desta ADR, mas o modelo aprovado é RBAC.
+
+Há dois planos administrativos distintos. O **Administrador da Plataforma**
+possui permissões globais `tenant.*`, opera a partir de um Tenant de controle
+ativo e pode provisionar, listar, inativar e reativar outros Tenants. O
+**Administrador do Tenant**, criado no provisionamento, recebe apenas permissões
+operacionais do próprio Tenant e nunca `tenant.*`. A identidade inicial do
+Administrador da Plataforma é responsabilidade de bootstrap operacional, não do
+endpoint que provisiona clientes.
 
 ### 4. O IAM vive no Platform Context
 
@@ -85,13 +94,11 @@ dá ao EPIC-006.
 ### Justificativa
 
 O ponto que decide as quatro escolhas em conjunto é a **revogação**. O AMP-001
-§3.1 promete que a inativação de Tenant revoga tokens. Um JWT puramente
-stateless não pode ser revogado antes de expirar — a promessa seria impossível
-de cumprir. Verificar toda sessão no banco cumpriria, mas anularia a razão de
-existir do JWT que a ADR-001 fixou.
-
-O par "acesso curto sem estado + refresh com estado" é o desenho que satisfaz as
-duas restrições, ao custo de uma janela de revogação explícita e mensurável.
+§3.1 promete que a inativação de Tenant revoga o acesso. Um JWT puramente
+stateless não pode cumprir essa promessa antes de expirar. A solução escolhida
+mantém a verificação criptográfica autocontida, mas resolve o estado corrente do
+Principal e seu RBAC em cada requisição; a Sessão persistida continua reservada
+ao refresh. Isso preserva tokens curtos e permite corte operacional imediato.
 
 Quanto ao contexto: o `Usuario` já pertence ao Platform. Separar a credencial do
 seu titular criaria uma fronteira e uma camada anticorrupção sem ganho no MVP.
@@ -104,11 +111,11 @@ definir contexto primário e registrar dependências.
 
 | Opção | Descrição | Prós | Contras | Por que não escolhida |
 |-------|-----------|------|---------|----------------------|
-| Sessão inteira no banco | Todo token verificado contra o banco a cada requisição | Revogação imediata e total | Uma consulta por requisição em todo endpoint | Anula a razão de ser do JWT fixado na ADR-001 §35 |
+| Sessão inteira no banco | Toda requisição exige uma Sessão ativa persistida | Revogação imediata e total | Acopla access token ao estado da Sessão | O desenho escolhido consulta o Principal/RBAC, mas não exige Sessão para validar o access token |
 | JWT puro, sem estado | Nada persistido; o token carrega tudo | Máxima simplicidade e desempenho | **Revogação impossível** antes da expiração | Contraria a promessa do AMP-001 §3.1 de revogar tokens na inativação de Tenant |
 | Bounded Context de IAM próprio | `domain/iam/` com ACL para o Platform | Isola a capacidade transversal | O AMP-001 §4.3 o classifica como pós-MVP; exigiria ACL sem ganho no MVP | Incompatível com a urgência do EPIC-006; o `Usuario` já vive no Platform |
 | ABAC (autorização por atributo) | Decisão por atributos do recurso e do sujeito | Granularidade fina | Complexidade desproporcional ao MVP | FOUNDATION-009 §117 já fixa RBAC como o modelo |
-| **Escolhida** | JWT curto + refresh revogável, RBAC, dentro do Platform | Cumpre a revogação prometida; sem contexto novo | Janela de revogação de até 15 min; tabela de refresh tokens | — |
+| **Escolhida** | JWT curto + Principal/RBAC corrente + refresh revogável, dentro do Platform | Cumpre a revogação imediata; sem contexto novo | Consultas de autorização por requisição; tabela de refresh tokens | — |
 
 ---
 
@@ -116,8 +123,7 @@ definir contexto primário e registrar dependências.
 
 ### Positivas
 
-- A revogação prometida no AMP-001 §3.1 passa a ser implementável, com janela
-  conhecida e documentada;
+- A inativação de Tenant ou Usuário passa a bloquear novas requisições imediatamente;
 - O isolamento multi-tenant deixa de depender de disciplina: o Tenant vem do
   token e é verificado, não presumido;
 - Nenhum Bounded Context novo — o modelo de domínio cresce onde já havia base;
@@ -126,10 +132,9 @@ definir contexto primário e registrar dependências.
 
 ### Negativas / Riscos
 
-- **Janela de revogação de até 15 minutos.** Um Tenant inativado ou um Usuário
-  removido continua acessando até o token de acesso expirar.
-  *Mitigação: a janela é curta e explícita; casos que exijam corte imediato
-  precisam de verificação no banco, o que seria outra decisão.*
+- **Consulta do Principal e RBAC por requisição.** O corte imediato adiciona
+  leituras no caminho de autorização.
+  *Mitigação: consultas indexadas e possibilidade de cache curto em evolução futura.*
 - **Retrofit em 14 endpoints.** Todos passam a exigir proteção.
   *Mitigação: as cinco rotas por `devedor_id` já convergem para uma única
   dependência (ADR-018), o que concentra boa parte do trabalho.*
@@ -153,10 +158,10 @@ definir contexto primário e registrar dependências.
 
 | Etapa | Descrição | Responsável | Status |
 |-------|-----------|-------------|--------|
-| 1 | Fase de Product do EPIC-006 (Features e User Stories) | Produto | Pendente |
-| 2 | Fase de Domínio (Credencial, Perfil, Permissão, Sessão) | Arquitetura | Pendente |
-| 3 | PLAN-004 e execution backlog | Engenharia | Pendente |
-| 4 | Implementação e retrofit dos 14 endpoints | Engenharia | Pendente |
+| 1 | Fase de Product do EPIC-006 (Features e User Stories) | Produto | Concluído |
+| 2 | Fase de Domínio (Credencial, Perfil, Permissão, Sessão) | Arquitetura | Concluído |
+| 3 | PLAN-004 e execution backlog | Engenharia | Concluído |
+| 4 | Implementação e retrofit dos endpoints | Engenharia | Concluído |
 
 O detalhamento pertence ao PLAN-004; esta ADR fixa apenas as decisões.
 
@@ -184,8 +189,8 @@ O contrato desta ADR permanece válido em qualquer dos cenários: o que mudaria 
 onde o código mora, não como a autenticação e a autorização se comportam.
 
 Igualmente, a validade de 15 minutos é um parâmetro operacional. Alterá-la não
-requer nova ADR, desde que a mudança seja registrada e a janela de revogação
-resultante permaneça aceitável.
+requer nova ADR, desde que a mudança seja registrada e preserve os requisitos
+de exposição criptográfica e renovação.
 
 ---
 

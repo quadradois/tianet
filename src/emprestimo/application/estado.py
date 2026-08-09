@@ -12,7 +12,7 @@ import json
 import uuid
 from collections.abc import Callable
 
-from emprestimo.application.errors import TransicaoEstadoInvalidaError
+from emprestimo.application.errors import AcessoNegadoError, TransicaoEstadoInvalidaError
 from emprestimo.application.ports import AuditoriaRegistro, UnitOfWork
 from emprestimo.domain.common.errors import ViolacaoInvarianteError
 from emprestimo.domain.platform.tenant import Tenant
@@ -81,7 +81,15 @@ class TenantEstadoService:
                 detalhes=json.dumps({"tenant_id": str(tenant.id)}),
             )
             try:
+                if acao == "inativar" and uow.perfil_acesso.tenant_has_permission(
+                    tenant.id, "tenant.criar"
+                ):
+                    raise AcessoNegadoError("tenant.inativar")
                 transicao(tenant)
+                if acao == "inativar":
+                    for sessao in uow.sessao.find_by_tenant_id(tenant.id):
+                        sessao.revogar()
+                        uow.sessao.save(sessao)
                 uow.tenant.save(tenant)
                 uow.commit()
             except ViolacaoInvarianteError as exc:

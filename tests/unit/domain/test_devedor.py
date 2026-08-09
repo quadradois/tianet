@@ -36,13 +36,19 @@ def _contato_email(preferencial: bool = False) -> Contato:
     )
 
 
-def _devedor(contatos: list[Contato] | None = None) -> Devedor:
-    return Devedor.criar(
+def _devedor(
+    contatos: list[Contato] | None = None,
+    estado: DevedorState = DevedorState.ATIVO,
+) -> Devedor:
+    devedor = Devedor.criar(
         carteira_id=CARTEIRA_ID,
         documento=DOCUMENTO,
         nome="João da Silva",
         contatos=contatos or [_contato_telefone()],
     )
+    if estado is DevedorState.INATIVO:
+        devedor.inativar()
+    return devedor
 
 
 # --------------------------------------------------------------------------- #
@@ -349,6 +355,43 @@ def test_remover_contato() -> None:
 
     assert len(devedor.contatos) == 1
     assert all(c.id != contato_id for c in devedor.contatos)
+    assert len(devedor.contatos_historico) == 2
+    assert any(c.id == contato_id and c.removido_em is not None for c in devedor.contatos_historico)
+
+
+def test_contato_removido_nao_bloqueia_nova_inclusao_com_mesmo_tipo_valor() -> None:
+    devedor = _devedor()
+    contato_id = devedor.contatos[0].id
+
+    devedor.remover_contato(contato_id)
+    devedor.adicionar_contato(
+        Contato(
+            devedor_id=devedor.id,
+            tipo=TipoContato.TELEFONE,
+            valor="(11) 1234-5678",
+        )
+    )
+
+    assert len(devedor.contatos) == 1
+    assert len(devedor.contatos_historico) == 2
+
+
+def test_contato_preferencial_removido_nao_bloqueia_novo_preferencial() -> None:
+    devedor = _devedor([_contato_telefone(preferencial=True)])
+    contato_id = devedor.contatos[0].id
+
+    devedor.remover_contato(contato_id)
+    devedor.adicionar_contato(
+        Contato(
+            devedor_id=devedor.id,
+            tipo=TipoContato.TELEFONE,
+            valor="(21) 98765-4321",
+            preferencial=True,
+        )
+    )
+
+    assert len(devedor.contatos) == 1
+    assert devedor.contatos[0].preferencial is True
 
 
 def test_remover_contato_inexistente() -> None:
@@ -486,7 +529,7 @@ def test_mutacao_externa_de_contato_nao_afeta_aggregate() -> None:
     contato_exposto = devedor.contatos[0]
 
     # Tentativa de quebrar RN-005 por mutação externa
-    contato_exposto.preferencial = False  # type: ignore[misc]
+    contato_exposto.preferencial = False
 
     assert devedor.contatos[0].preferencial is True
 
@@ -495,7 +538,7 @@ def test_mutacao_externa_da_lista_de_contatos_nao_afeta_aggregate() -> None:
     devedor = _devedor([_contato_telefone(preferencial=True)])
     contatos = devedor.contatos
 
-    contatos[0].preferencial = False  # type: ignore[misc]
+    contatos[0].preferencial = False
 
     assert devedor.contatos[0].preferencial is True
 
@@ -514,8 +557,8 @@ def test_criar_nao_armazena_instancia_externa_de_contato() -> None:
         contatos=[contato_externo],
     )
 
-    contato_externo.preferencial = False  # type: ignore[misc]
-    contato_externo.valor = "(21) 99999-9999"  # type: ignore[misc]
+    contato_externo.preferencial = False
+    contato_externo.valor = "(21) 99999-9999"
 
     assert devedor.contatos[0].preferencial is True
     assert devedor.contatos[0].valor == "(11) 1234-5678"
@@ -531,7 +574,7 @@ def test_adicionar_contato_nao_armazena_instancia_recebida() -> None:
     )
 
     devedor.adicionar_contato(contato_externo)
-    contato_externo.valor = "(21) 99999-9999"  # type: ignore[misc]
+    contato_externo.valor = "(21) 99999-9999"
 
     assert len(devedor.contatos) == 2
     assert any(
@@ -553,3 +596,46 @@ def test_atualizado_em_marcado_nas_mutacoes() -> None:
 
     assert devedor.atualizado_em is not None
     assert devedor.atualizado_em >= marcado_na_criacao
+
+
+# --------------------------------------------------------------------------- #
+# RN-005 (DOMAIN-020): Devedor inativo não pode originar operações
+# --------------------------------------------------------------------------- #
+
+
+def test_atualizar_nome_de_devedor_inativo_viola_rn005() -> None:
+    devedor = _devedor(estado=DevedorState.INATIVO)
+
+    with pytest.raises(ViolacaoInvarianteError) as exc:
+        devedor.atualizar_nome("Novo Nome")
+
+    assert exc.value.codigo == "RN-005"
+
+
+def test_adicionar_contato_em_devedor_inativo_viola_rn005() -> None:
+    devedor = _devedor(estado=DevedorState.INATIVO)
+
+    with pytest.raises(ViolacaoInvarianteError) as exc:
+        devedor.adicionar_contato(
+            Contato(devedor_id=devedor.id, tipo=TipoContato.EMAIL, valor="a@b.com")
+        )
+
+    assert exc.value.codigo == "RN-005"
+
+
+def test_atualizar_contato_em_devedor_inativo_viola_rn005() -> None:
+    devedor = _devedor(estado=DevedorState.INATIVO)
+
+    with pytest.raises(ViolacaoInvarianteError) as exc:
+        devedor.atualizar_contato(DEVEDOR_ID, valor="(11) 9999-9999")
+
+    assert exc.value.codigo == "RN-005"
+
+
+def test_remover_contato_em_devedor_inativo_viola_rn005() -> None:
+    devedor = _devedor(estado=DevedorState.INATIVO)
+
+    with pytest.raises(ViolacaoInvarianteError) as exc:
+        devedor.remover_contato(DEVEDOR_ID)
+
+    assert exc.value.codigo == "RN-005"
