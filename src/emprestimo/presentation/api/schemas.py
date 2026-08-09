@@ -13,7 +13,9 @@ from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
+from emprestimo.domain.platform.perfil import PerfilState
 from emprestimo.domain.platform.tenant import TenantState
+from emprestimo.domain.platform.usuario import UsuarioState
 
 
 class TenantCreateRequest(BaseModel):
@@ -60,6 +62,11 @@ class TenantResponse(BaseModel):
     nome: str
     estado: TenantState
     criado_em: datetime
+
+
+class TenantProvisioningResponse(TenantResponse):
+    usuario_administrador_id: uuid.UUID | None = None
+    token_ativacao: str | None = None
 
 
 class TenantListagemParams(BaseModel):
@@ -111,3 +118,110 @@ class ErroResponse(BaseModel):
 
     codigo: str
     mensagem: str
+
+
+class AuthLoginRequest(BaseModel):
+    """Payload de login por Tenant, e-mail e credencial (IMP-090)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    identificador_institucional: str = Field(min_length=1, max_length=100)
+    email: str = Field(min_length=3, max_length=254)
+    segredo: str = Field(min_length=1)
+
+    @field_validator("identificador_institucional", "email", "segredo", mode="before")
+    @classmethod
+    def _normalizar_texto(cls, valor: Any) -> Any:
+        if isinstance(valor, str):
+            return valor.strip()
+        return valor
+
+
+class AuthRefreshRequest(BaseModel):
+    """Payload para renovar access token ou encerrar sessao via refresh token."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    refresh_token: str = Field(min_length=1)
+
+    @field_validator("refresh_token", mode="before")
+    @classmethod
+    def _normalizar_refresh(cls, valor: Any) -> Any:
+        if isinstance(valor, str):
+            return valor.strip()
+        return valor
+
+
+class AuthLoginResponse(BaseModel):
+    """Resposta de login com access token curto e refresh token persistido."""
+
+    usuario_id: uuid.UUID
+    tenant_id: uuid.UUID
+    token_type: str = "bearer"
+    access_token: str
+    access_token_expira_em: datetime
+    refresh_token: str
+    refresh_token_expira_em: datetime
+
+
+class AuthRefreshResponse(BaseModel):
+    """Resposta da renovacao contendo apenas novo access token."""
+
+    usuario_id: uuid.UUID
+    tenant_id: uuid.UUID
+    token_type: str = "bearer"
+    access_token: str
+    access_token_expira_em: datetime
+
+
+class AuthLogoutResponse(BaseModel):
+    """Resposta simples do encerramento de sessao."""
+
+    status: str
+
+
+class AtivacaoRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    token_ativacao: str = Field(min_length=1)
+    segredo: str = Field(min_length=1)
+
+
+class AlterarCredencialRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    segredo_atual: str = Field(min_length=1)
+    novo_segredo: str = Field(min_length=1)
+
+
+class RedefinirCredencialRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    novo_segredo: str = Field(min_length=1)
+
+
+class CredencialResponse(BaseModel):
+    usuario_id: uuid.UUID
+    tenant_id: uuid.UUID
+    estado: UsuarioState
+
+
+class PerfilCreateRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    nome: str = Field(min_length=1, max_length=120)
+
+
+class PerfilUpdateRequest(PerfilCreateRequest):
+    pass
+
+
+class PerfilResponse(BaseModel):
+    id: uuid.UUID
+    tenant_id: uuid.UUID
+    nome: str
+    estado: PerfilState
+    permissoes: list[str]
+
+
+class PermissoesEfetivasResponse(BaseModel):
+    usuario_id: uuid.UUID
+    perfil_id: uuid.UUID | None
+    perfil_nome: str | None
+    permissoes: list[str]

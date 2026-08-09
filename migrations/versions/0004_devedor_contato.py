@@ -11,6 +11,7 @@ Regras: UNIQUE (carteira_id, documento) para unicidade do documento na Carteira;
 UNIQUE (devedor_id, tipo, valor) para unicidade do contato por tipo/valor.
 Downgrade reversível (drop aditivo).
 """
+
 from __future__ import annotations
 
 from collections.abc import Sequence
@@ -32,7 +33,9 @@ def upgrade() -> None:
         sa.Column("documento", sa.String(length=11), nullable=False),
         sa.Column("nome", sa.String(length=200), nullable=False),
         sa.Column("estado", sa.String(length=20), nullable=False),
-        sa.Column("criado_em", sa.DateTime(timezone=True), server_default=sa.text("now()"), nullable=False),
+        sa.Column(
+            "criado_em", sa.DateTime(timezone=True), server_default=sa.text("now()"), nullable=False
+        ),
         sa.Column("atualizado_em", sa.DateTime(timezone=True), nullable=True),
         sa.PrimaryKeyConstraint("id"),
         sa.UniqueConstraint("carteira_id", "documento", name="uq_devedor_carteira_documento"),
@@ -47,7 +50,9 @@ def upgrade() -> None:
         sa.Column("tipo", sa.String(length=20), nullable=False),
         sa.Column("valor", sa.String(length=254), nullable=False),
         sa.Column("preferencial", sa.Boolean(), nullable=False, server_default=sa.text("false")),
-        sa.Column("criado_em", sa.DateTime(timezone=True), server_default=sa.text("now()"), nullable=False),
+        sa.Column(
+            "criado_em", sa.DateTime(timezone=True), server_default=sa.text("now()"), nullable=False
+        ),
         sa.Column("atualizado_em", sa.DateTime(timezone=True), nullable=True),
         sa.PrimaryKeyConstraint("id"),
         sa.UniqueConstraint("devedor_id", "tipo", "valor", name="uq_contato_devedor_tipo_valor"),

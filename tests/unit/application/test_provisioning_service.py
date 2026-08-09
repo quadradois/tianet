@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import uuid
 from dataclasses import dataclass, field
+from typing import Any, cast
 
 import pytest
 
@@ -26,11 +27,12 @@ from emprestimo.application.provisioning import (
 )
 from emprestimo.domain.common.errors import TenantJaExisteError
 from emprestimo.domain.platform.tenant import TenantState
+from emprestimo.domain.platform.unicidade import UnicidadeTenantService
 
 
 @dataclass
 class _FakeIdempotencia(IdempotenciaRegistro):
-    registros: dict[str, dict] = field(default_factory=dict)
+    registros: dict[tuple[str, str], dict[str, object]] = field(default_factory=dict)
 
     # A identidade do registro é o par (chave, escopo) — AD-002, TASK-100.
     def registrar(self, chave: str, escopo: str, solicitacao_hash: str) -> None:
@@ -41,7 +43,7 @@ class _FakeIdempotencia(IdempotenciaRegistro):
             "resultado": None,
         }
 
-    def find_by_chave(self, chave: str, escopo: str) -> dict | None:
+    def find_by_chave(self, chave: str, escopo: str) -> dict[str, object] | None:
         return self.registros.get((chave, escopo))
 
     def concluir(self, chave: str, escopo: str, resultado: str) -> None:
@@ -67,19 +69,25 @@ class _FakeAuditoria(AuditoriaRegistro):
 
 @dataclass
 class _FakeRepo:
-    salvos: list = field(default_factory=list)
+    salvos: list[Any] = field(default_factory=list)
+    atribuicoes: list[tuple[uuid.UUID, uuid.UUID]] = field(default_factory=list)
 
     def save(self, entidade: object) -> None:
         self.salvos.append(entidade)
+
+    def atribuir_usuario(self, usuario_id: uuid.UUID, perfil_id: uuid.UUID) -> None:
+        self.atribuicoes.append((usuario_id, perfil_id))
 
 
 @dataclass
 class _FakeUoW(UnitOfWork):
     idempotencia: _FakeIdempotencia
-    tenant: _FakeRepo = field(default_factory=_FakeRepo)
-    usuario: _FakeRepo = field(default_factory=_FakeRepo)
-    configuracao: _FakeRepo = field(default_factory=_FakeRepo)
-    carteira: _FakeRepo = field(default_factory=_FakeRepo)
+    tenant: _FakeRepo = field(default_factory=_FakeRepo)  # type: ignore[assignment]
+    usuario: _FakeRepo = field(default_factory=_FakeRepo)  # type: ignore[assignment]
+    configuracao: _FakeRepo = field(default_factory=_FakeRepo)  # type: ignore[assignment]
+    carteira: _FakeRepo = field(default_factory=_FakeRepo)  # type: ignore[assignment]
+    perfil_acesso: _FakeRepo = field(default_factory=_FakeRepo)  # type: ignore[assignment]
+    token_ativacao: _FakeRepo = field(default_factory=_FakeRepo)  # type: ignore[assignment]
     commit_count: int = 0
     rollback_count: int = 0
     fail_on_commit: bool = False
@@ -123,7 +131,7 @@ def _contexto() -> _Contexto:
     auditoria = _FakeAuditoria()
     service = TenantProvisioningService(
         uow_factory=lambda: uow,
-        unicidade=unicidade,
+        unicidade=cast(UnicidadeTenantService, unicidade),
         auditoria=auditoria,
     )
     return _Contexto(uow, unicidade, auditoria, service)
@@ -150,6 +158,11 @@ def test_provisionamento_completo() -> None:
     assert ctx.uow.tenant.salvos[-1].estado == TenantState.ATIVO
     assert len(ctx.uow.carteira.salvos) == 1
     assert len(ctx.uow.usuario.salvos) == 1
+    assert len(ctx.uow.perfil_acesso.salvos) == 1
+    assert len(ctx.uow.perfil_acesso.atribuicoes) == 1
+    assert len(ctx.uow.token_ativacao.salvos) == 1
+    assert resultado.usuario_administrador_id is not None
+    assert resultado.token_ativacao is not None
     assert len(ctx.uow.configuracao.salvos) == len(("moeda",))  # CONFIGURACOES_PADRAO
     assert ctx.uow.commit_count == 1
     assert ctx.uow.rollback_count == 0
@@ -182,6 +195,8 @@ def test_replay_com_mesma_chave_retorna_mesmo_resultado() -> None:
 
     assert segundo.tenant_id == primeiro.tenant_id
     assert segundo.identificador_institucional == primeiro.identificador_institucional
+    assert primeiro.token_ativacao is not None
+    assert segundo.token_ativacao is None
     assert ctx.unicidade.chamadas == 1  # não reprovisiona
     assert len(ctx.uow.tenant.salvos) == 2  # nenhuma duplicação
     assert ctx.uow.commit_count == 2

@@ -68,3 +68,10 @@ class DevedorJaExisteError(DomainError):
         )
         self.documento = documento
         self.carteira_id = carteira_id
+
+
+class PerfilJaExisteError(DomainError):
+    """Nome de Perfil de Acesso ja utilizado no mesmo Tenant."""
+
+    def __init__(self) -> None:
+        super().__init__("Perfil de Acesso ja existente no Tenant")

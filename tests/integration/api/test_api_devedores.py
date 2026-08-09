@@ -9,12 +9,17 @@ from __future__ import annotations
 
 import uuid
 from collections.abc import Iterator
+from datetime import UTC, datetime, timedelta
+from typing import Any, cast
+from unittest.mock import Mock
 
 import pytest
 from fastapi.testclient import TestClient
+from httpx import Response
 from sqlalchemy.orm import Session, sessionmaker
 from tests.factories import CarteiraFactory, TenantFactory
 
+from emprestimo.application.autorizacao import Principal
 from emprestimo.application.cadastro_devedor import DevedorCadastroService
 from emprestimo.application.consulta_devedor import (
     DevedorConsultaPorDocumentoService,
@@ -39,6 +44,12 @@ from emprestimo.presentation.api.main import create_app
 
 CPF_A = "52998224725"
 CPF_B = "11144477735"
+PRINCIPAL_TESTE = Principal(
+    usuario_id=uuid.UUID("00000000-0000-0000-0000-000000000001"),
+    tenant_id=uuid.UUID("00000000-0000-0000-0000-000000000002"),
+    perfil_acesso="Teste",
+    access_token_expira_em=datetime.now(UTC) + timedelta(minutes=15),
+)
 
 PAYLOAD = {
     "documento": CPF_A,
@@ -48,7 +59,7 @@ PAYLOAD = {
 
 
 def _carteira_persistida(session: Session) -> str:
-    tenant = TenantFactory.build()
+    tenant = TenantFactory.build(id=PRINCIPAL_TESTE.tenant_id)
     SqlAlchemyTenantRepository(session).save(tenant)
     carteira = CarteiraFactory.build(tenant_id=tenant.id)
     SqlAlchemyCarteiraRepository(session).save(carteira)
@@ -102,15 +113,22 @@ def client(session_factory: sessionmaker[Session], session: Session) -> Iterator
             auditoria_consulta=SqlAlchemyAuditoriaConsulta(session),
         )
     )
+    app.dependency_overrides[dependencies.get_principal_atual] = lambda: PRINCIPAL_TESTE
+    autorizacao = Mock()
+    autorizacao.exigir_permissao.return_value = None
+    app.dependency_overrides[dependencies.get_autorizacao_service] = lambda: autorizacao
     with TestClient(app) as c:
         yield c
 
 
-def _criar(client: TestClient, carteira_id: str, chave: str, **campos: object) -> object:
-    return client.post(
-        f"/credit/carteiras/{carteira_id}/devedores",
-        json={**PAYLOAD, **campos},
-        headers={"Idempotency-Key": chave},
+def _criar(client: TestClient, carteira_id: str, chave: str, **campos: object) -> Response:
+    return cast(
+        Response,
+        client.post(
+            f"/credit/carteiras/{carteira_id}/devedores",
+            json={**PAYLOAD, **campos},
+            headers={"Idempotency-Key": chave},
+        ),
     )
 
 
@@ -295,11 +313,11 @@ def test_devedor_de_outra_carteira_404(
     devedor_id = _criar(client, carteira_id, "chave-1").json()["id"]
 
     url = f"/credit/carteiras/{outra_carteira_id}/devedores/{devedor_id}{sufixo}"
-    kwargs: dict[str, object] = {"headers": {"Idempotency-Key": "chave-x"}}
+    kwargs: dict[str, Any] = {"headers": {"Idempotency-Key": "chave-x"}}
     if corpo is not None:
         kwargs["json"] = corpo
 
-    resp = getattr(client, metodo)(url, **kwargs)
+    resp = cast(Response, getattr(client, metodo)(url, **kwargs))
 
     assert resp.status_code == 404
     assert resp.json()["codigo"] == "devedor_nao_encontrado"

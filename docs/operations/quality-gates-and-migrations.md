@@ -1,0 +1,86 @@
+# Quality Gates e Validacao de Migrations
+
+**Versao:** 1.0.0
+
+**Status:** Aprovado
+
+---
+
+# 1. Objetivo
+
+Este runbook define como reproduzir localmente os gates do backend e a rotina
+destrutiva de validacao de migrations criada no P4/IMP-079 e IMP-080.
+
+---
+
+# 2. Pre-condicoes
+
+- PostgreSQL local saudavel em `localhost:5432`, conforme `docker-compose.yml`.
+- `DATABASE_URL` apontando para um banco descartavel.
+- `JWT_SECRET_KEY` definido para os testes de autenticacao.
+
+Para iniciar o banco local:
+
+```bash
+docker compose up -d postgres
+```
+
+---
+
+# 3. Gates de Qualidade
+
+Execute os mesmos comandos usados pelo CI:
+
+```bash
+uv run pytest -q
+uv run ruff check .
+uv run black --check .
+uv run mypy src tests
+npm run docs:validate
+npm run docs:test
+```
+
+---
+
+# 4. Validacao de Migrations
+
+A rotina de migrations executa:
+
+```text
+upgrade head -> downgrade base -> upgrade head
+```
+
+Ela apaga o schema durante o downgrade e deve rodar apenas em banco descartavel.
+Para executar:
+
+```bash
+MIGRATION_VALIDATION_ALLOW_DESTRUCTIVE=1 uv run python scripts/validate_migrations.py
+```
+
+No PowerShell:
+
+```powershell
+$env:MIGRATION_VALIDATION_ALLOW_DESTRUCTIVE = "1"
+uv run python scripts/validate_migrations.py
+```
+
+---
+
+# 5. CI
+
+O workflow `.github/workflows/quality.yml` executa:
+
+- suite Python completa;
+- Ruff;
+- Black em modo check;
+- Mypy;
+- ciclo destrutivo de migrations em PostgreSQL descartavel;
+- validacao e testes documentais.
+
+---
+
+# 6. Historico de Versoes
+
+| Versao | Data | Descricao |
+|--------|------|-----------|
+| 1.0.0 | 2026-08-09 | Runbook inicial dos gates de qualidade e validacao destrutiva de migrations. |

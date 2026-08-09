@@ -61,7 +61,7 @@ class _FakeAuditoria(AuditoriaRegistro):
 class _FakeUoW(UnitOfWork):
     """Fake do UnitOfWork."""
 
-    tenant: _FakeTenantRepo = field(default_factory=_FakeTenantRepo)
+    tenant: _FakeTenantRepo = field(default_factory=_FakeTenantRepo)  # type: ignore[assignment]
     commit_count: int = 0
     rollback_count: int = 0
 
@@ -165,6 +165,7 @@ def test_atualizacao_persiste_via_repository() -> None:
 
     assert uow.tenant.chamadas_save == 2  # 1 setup + 1 service
     assert uow.tenant.ultimo_tenant_salvo is resultado
+    assert uow.tenant.ultimo_tenant_salvo is not None
     assert uow.tenant.ultimo_tenant_salvo.nome == "Nome Atualizado"
 
 
@@ -205,6 +206,7 @@ def test_atualizacao_nao_altera_estado_nem_identificador() -> None:
 
     resultado = service.atualizar_nome(tenant.id, "Novo Nome")
 
+    assert resultado is not None
     assert resultado.identificador_institucional == "IDENT-ORIGINAL"
     assert resultado.estado == TenantState.ATIVO
     assert resultado.id == tenant.id
@@ -280,6 +282,7 @@ def test_atualizacao_sem_logica_adicional_alem_delegacao() -> None:
 
     # O Aggregate Tenant.atualizar_nome faz strip e validação
     # O serviço apenas delega
+    assert resultado is not None
     assert resultado.nome == "Nome com Espaços"  # Aggregate fez strip
 
 

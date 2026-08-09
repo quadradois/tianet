@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import uuid
+from typing import Any, cast
 
 from emprestimo.domain.credit.contato import Contato, TipoContato
 from emprestimo.domain.credit.devedor import Devedor, DevedorState
@@ -77,10 +78,11 @@ class TestDevedorCadastrado:
         assert audit["tenant_id"] == str(TENANT_ID)
         assert audit["documento"] == "52998224725"
         assert audit["nome"] == "João da Silva"
-        assert len(audit["contatos"]) == 1
-        assert audit["contatos"][0]["tipo"] == "telefone"
-        assert audit["contatos"][0]["valor"] == "(11) 1234-5678"
-        assert audit["contatos"][0]["preferencial"] is True
+        contatos = cast(list[dict[str, object]], audit["contatos"])
+        assert len(contatos) == 1
+        assert contatos[0]["tipo"] == "telefone"
+        assert contatos[0]["valor"] == "(11) 1234-5678"
+        assert contatos[0]["preferencial"] is True
 
 
 class TestDevedorAtualizado:
@@ -161,8 +163,9 @@ class TestDevedorAtualizado:
 
         assert audit["evento"] == "DevedorAtualizado"
         assert audit["devedor_id"] == str(devedor.id)
-        assert audit["alteracoes"]["nome"]["antes"] == "João da Silva"
-        assert audit["alteracoes"]["nome"]["depois"] == "Maria Souza"
+        alteracoes = cast(dict[str, dict[str, Any]], audit["alteracoes"])
+        assert alteracoes["nome"]["antes"] == nome_anterior
+        assert alteracoes["nome"]["depois"] == "Maria Souza"
 
 
 class TestDevedorInativado:

@@ -15,7 +15,6 @@ from emprestimo.application.ports import UnitOfWork
 from emprestimo.domain.credit.devedor import Devedor
 from emprestimo.domain.credit.ports import (
     DevedorFiltros,
-    DevedorRepository,
     DevedorResultadoPaginado,
     Paginacao,
 )
@@ -88,5 +87,6 @@ class DevedorListagemService:
             DevedorResultadoPaginado com items, total, pagina, tamanho, paginas.
         """
         paginacao = Paginacao(pagina=pagina, tamanho=tamanho)
+        filtros_normalizados = filtros or DevedorFiltros()
         with self._uow_factory() as uow:
-            return uow.devedor.listar_paginado(carteira_id, filtros, paginacao)
+            return uow.devedor.listar_paginado(carteira_id, filtros_normalizados, paginacao)

@@ -8,6 +8,7 @@ Fase 3 (TASK-043): tabelas da camada de Aplicação — Idempotency-Key (AD-002,
 IMP-015) com constraint único em `chave`, e trilha de auditoria append-only
 (IMP-016).
 """
+
 from __future__ import annotations
 
 from collections.abc import Sequence
@@ -30,7 +31,9 @@ def upgrade() -> None:
         sa.Column("solicitacao_hash", sa.String(length=64), nullable=False),
         sa.Column("estado", sa.String(length=20), nullable=False),
         sa.Column("resultado", sa.String(length=2000), nullable=True),
-        sa.Column("criado_em", sa.DateTime(timezone=True), server_default=sa.text("now()"), nullable=False),
+        sa.Column(
+            "criado_em", sa.DateTime(timezone=True), server_default=sa.text("now()"), nullable=False
+        ),
         sa.Column("concluido_em", sa.DateTime(timezone=True), nullable=True),
         sa.PrimaryKeyConstraint("id"),
         sa.UniqueConstraint("chave", name="uq_idempotency_key_chave"),
@@ -43,7 +46,9 @@ def upgrade() -> None:
         sa.Column("acao", sa.String(length=120), nullable=False),
         sa.Column("status", sa.String(length=20), nullable=False),
         sa.Column("detalhes", sa.String(length=2000), nullable=True),
-        sa.Column("criado_em", sa.DateTime(timezone=True), server_default=sa.text("now()"), nullable=False),
+        sa.Column(
+            "criado_em", sa.DateTime(timezone=True), server_default=sa.text("now()"), nullable=False
+        ),
         sa.PrimaryKeyConstraint("id"),
     )
 

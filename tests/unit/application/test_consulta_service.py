@@ -9,6 +9,7 @@ from __future__ import annotations
 import uuid
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
+from typing import Any
 
 from emprestimo.application.consulta import (
     TenantConsultaPorIdService,
@@ -30,7 +31,7 @@ class _FakeTenantRepo:
     chamadas_find_all_paginated: int = 0
     ultimo_identificador_recebido: str | None = None
     ultimo_id_recebido: uuid.UUID | None = None
-    ultimos_parametros_paginacao: dict | None = None
+    ultimos_parametros_paginacao: dict[str, Any] | None = None
 
     def find_by_identificador_institucional(self, identificador: str) -> Tenant | None:
         self.chamadas_find_by_identificador += 1
@@ -95,7 +96,7 @@ class _FakeTenantRepo:
 class _FakeUoW(UnitOfWork):
     """Fake do UnitOfWork."""
 
-    tenant: _FakeTenantRepo = field(default_factory=_FakeTenantRepo)
+    tenant: _FakeTenantRepo = field(default_factory=_FakeTenantRepo)  # type: ignore[assignment]
     commit_count: int = 0
     rollback_count: int = 0
 
@@ -341,6 +342,7 @@ def test_listagem_delega_ao_repository_sem_transformacao() -> None:
     service.listar(page=2, size=5, ordenacao=ordenacao, filtro=filtro)
 
     params = uow.tenant.ultimos_parametros_paginacao
+    assert params is not None
     assert params["page"] == 2
     assert params["size"] == 5
     assert params["ordenacao"] == ordenacao
@@ -373,4 +375,5 @@ def test_listagem_page_minimo_1() -> None:
     _ = service.listar(page=0, size=10)
 
     # Verifica que o page=0 foi passado para o repo (sem transformação no serviço)
+    assert uow.tenant.ultimos_parametros_paginacao is not None
     assert uow.tenant.ultimos_parametros_paginacao["page"] == 0

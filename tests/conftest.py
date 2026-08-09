@@ -7,6 +7,8 @@ nos testes de aplicação (AD-001).
 
 from __future__ import annotations
 
+from collections.abc import Iterator
+
 import pytest
 import sqlalchemy as sa
 from sqlalchemy import create_engine, inspect
@@ -18,6 +20,16 @@ from emprestimo.infrastructure.db.base import Base
 from emprestimo.infrastructure.db.session import database_url
 
 TABELAS_TRUNCATE = (
+    "decisao_comercial",
+    "proposta_comercial",
+    "simulacao_comercial",
+    "token_ativacao",
+    "usuario_perfil",
+    "perfil_permissao",
+    "sessao",
+    "credencial",
+    "perfil_acesso",
+    "permissao",
     "contato",
     "devedor",
     "idempotency_key",
@@ -29,6 +41,16 @@ TABELAS_TRUNCATE = (
 )
 
 TABELAS_DROP = (
+    "decisao_comercial",
+    "proposta_comercial",
+    "simulacao_comercial",
+    "token_ativacao",
+    "usuario_perfil",
+    "perfil_permissao",
+    "sessao",
+    "credencial",
+    "perfil_acesso",
+    "permissao",
     "contato",
     "devedor",
     "idempotency_key",
@@ -47,7 +69,7 @@ def _get_existing_tables(engine: Engine) -> set[str]:
 
 
 @pytest.fixture(scope="session")
-def engine() -> Engine:
+def engine() -> Iterator[Engine]:
     e = create_engine(database_url())
     Base.metadata.create_all(e)
     yield e
@@ -65,9 +87,10 @@ def session_factory(engine: Engine) -> sessionmaker[Session]:
 
 
 @pytest.fixture
-def session(session_factory: sessionmaker[Session]) -> Session:
+def session(session_factory: sessionmaker[Session]) -> Iterator[Session]:
     s = session_factory()
     # Truncate only tables that exist in the database
+    assert isinstance(s.bind, Engine)
     existing = _get_existing_tables(s.bind)
     truncate_list = [t for t in TABELAS_TRUNCATE if t in existing]
     if truncate_list:

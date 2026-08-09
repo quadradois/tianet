@@ -23,8 +23,8 @@ from emprestimo.application.ports import AuditoriaRegistro, UnitOfWork
 from emprestimo.domain.credit.contato import Contato, TipoContato
 from emprestimo.domain.credit.devedor import Devedor, DevedorState
 from emprestimo.domain.credit.documento import Documento
-from emprestimo.domain.credit.unicidade_devedor import UnicidadeDevedorService
 from emprestimo.domain.credit.eventos_devedor import DevedorCadastrado
+from emprestimo.domain.credit.unicidade_devedor import UnicidadeDevedorService
 
 ESCOPO_IDEMPOTENCIA = "devedor-cadastro"
 """Escopo da Idempotency-Key: isola chaves por caso de uso (AD-002)."""
@@ -104,9 +104,9 @@ class DevedorCadastroService:
 
                 # 2. Construir contatos (entidades filhas)
                 contatos_entidades = []
-                for i, c in enumerate(contatos):
-                    tipo = TipoContato(c["tipo"])
-                    valor = c["valor"].strip()
+                for c in contatos:
+                    tipo = TipoContato(str(c["tipo"]).strip().lower())
+                    valor = str(c["valor"]).strip()
                     preferencial = bool(c.get("preferencial", False))
                     # Contatos recebidos não têm devedor_id ainda; o Aggregate preenche
                     contatos_entidades.append(

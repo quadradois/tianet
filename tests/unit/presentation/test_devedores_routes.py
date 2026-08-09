@@ -13,12 +13,13 @@ from __future__ import annotations
 
 import uuid
 from collections.abc import Callable, Iterator
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from unittest.mock import Mock
 
 import pytest
 from fastapi.testclient import TestClient
 
+from emprestimo.application.autorizacao import Principal
 from emprestimo.application.cadastro_devedor import DevedorCriado
 from emprestimo.application.errors import (
     DevedorNaoEncontradoError,
@@ -26,6 +27,7 @@ from emprestimo.application.errors import (
 )
 from emprestimo.application.ports import EventoAuditoria
 from emprestimo.domain.common.errors import DevedorJaExisteError, ViolacaoInvarianteError
+from emprestimo.domain.credit.carteira import Carteira
 from emprestimo.domain.credit.contato import Contato, TipoContato
 from emprestimo.domain.credit.devedor import Devedor, DevedorState
 from emprestimo.domain.credit.documento import Documento
@@ -37,6 +39,12 @@ CARTEIRA_ID = uuid.UUID("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa")
 DEVEDOR_ID = uuid.UUID("bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb")
 DOCUMENTO = "52998224725"
 CHAVE = "chave-devedor-1"
+PRINCIPAL_TESTE = Principal(
+    usuario_id=uuid.UUID("00000000-0000-0000-0000-000000000001"),
+    tenant_id=uuid.UUID("00000000-0000-0000-0000-000000000002"),
+    perfil_acesso="Teste",
+    access_token_expira_em=datetime.now(UTC) + timedelta(minutes=15),
+)
 
 CAMPOS_RESPONSE = {
     "id",
@@ -136,6 +144,15 @@ def client(servicos: dict[str, Mock]) -> Iterator[TestClient]:
         # Closure sem parâmetros: um default (lambda d=dublê) faria o FastAPI
         # tratar `d` como parâmetro de query e copiar o dublê.
         app.dependency_overrides[dependencia] = _provedor(dublê)
+    app.dependency_overrides[dependencies.get_principal_atual] = lambda: PRINCIPAL_TESTE
+    autorizacao = Mock()
+    autorizacao.exigir_permissao.return_value = None
+    app.dependency_overrides[dependencies.get_autorizacao_service] = lambda: autorizacao
+
+    def _carteira_autorizada(carteira_id: uuid.UUID) -> Carteira:
+        return Carteira(id=carteira_id, tenant_id=PRINCIPAL_TESTE.tenant_id, nome="Carteira")
+
+    app.dependency_overrides[dependencies.get_carteira_do_principal] = _carteira_autorizada
     with TestClient(app) as c:
         yield c
 

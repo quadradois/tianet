@@ -142,3 +142,43 @@ def test_normaliza_valor_com_espacos_ao_redor() -> None:
     contato = Contato(devedor_id=DEVEDOR_ID, tipo=TipoContato.EMAIL, valor="  joao@exemplo.com  ")
 
     assert contato.valor == "joao@exemplo.com"
+
+
+# --------------------------------------------------------------------------- #
+# Soft-delete (RN-006/INV-003, DOMAIN-021 §141) — TASK-099
+# --------------------------------------------------------------------------- #
+
+
+def test_contato_criado_nao_esta_removido() -> None:
+    contato = Contato(devedor_id=DEVEDOR_ID, tipo=TipoContato.TELEFONE, valor="(11) 1234-5678")
+    assert contato.removido_em is None
+    assert contato.removido is False
+
+
+def test_remover_marca_removido_em() -> None:
+    contato = Contato(devedor_id=DEVEDOR_ID, tipo=TipoContato.TELEFONE, valor="(11) 1234-5678")
+
+    contato.remover()
+
+    assert contato.removido_em is not None
+    assert contato.removido is True
+
+
+def test_remover_e_idempotente() -> None:
+    contato = Contato(devedor_id=DEVEDOR_ID, tipo=TipoContato.TELEFONE, valor="(11) 1234-5678")
+
+    contato.remover()
+    primeira_marca = contato.removido_em
+    contato.remover()
+
+    assert contato.removido_em == primeira_marca  # não muda na segunda chamada
+
+
+def test_contato_removido_pode_ser_lido() -> None:
+    """A remoção é soft-delete: o registro permanece e pode ser lido (§141)."""
+    contato = Contato(devedor_id=DEVEDOR_ID, tipo=TipoContato.TELEFONE, valor="(11) 1234-5678")
+    contato.remover()
+
+    # a linha continua com seus dados
+    assert contato.valor == "(11) 1234-5678"
+    assert contato.tipo == TipoContato.TELEFONE

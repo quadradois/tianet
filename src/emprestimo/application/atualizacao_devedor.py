@@ -23,10 +23,9 @@ from datetime import datetime
 from emprestimo.application.errors import IdempotenciaConflitoError
 from emprestimo.application.ports import AuditoriaRegistro, UnitOfWork
 from emprestimo.domain.credit.contato import Contato, TipoContato
-from emprestimo.domain.credit.devedor import Devedor, DevedorState
-from emprestimo.domain.credit.documento import Documento
-from emprestimo.domain.credit.unicidade_devedor import UnicidadeDevedorService
+from emprestimo.domain.credit.devedor import DevedorState
 from emprestimo.domain.credit.eventos_devedor import DevedorAtualizado
+from emprestimo.domain.credit.unicidade_devedor import UnicidadeDevedorService
 
 ESCOPO_IDEMPOTENCIA = "devedor-atualizacao"
 """Escopo da Idempotency-Key: isola chaves por caso de uso (AD-002)."""
@@ -101,8 +100,9 @@ class DevedorAtualizacaoService:
             devedor_id: UUID do Devedor a ser atualizado.
             idempotency_key: Chave de idempotência obrigatória (AD-002).
             nome: Novo nome do Devedor (opcional).
-            contatos: Lista completa de contatos para substituir os atuais (opcional).
-                      Cada item: {"tipo": "telefone|email|whatsapp", "valor": "...", "preferencial": bool}.
+            contatos: Lista completa de contatos para substituir os atuais (opcional). Cada
+                      item: {"tipo": "telefone|email|whatsapp", "valor": "...",
+                      "preferencial": bool}.
                       Se fornecido, substitui TODOS os contatos existentes.
 
         Returns:
@@ -157,9 +157,9 @@ class DevedorAtualizacaoService:
                     # Para isso, criamos novos contatos com o devedor_id correto
                     novos_contatos = []
                     for c in contatos:
-                        tipo_str = c["tipo"].strip().lower()
+                        tipo_str = str(c["tipo"]).strip().lower()
                         tipo = TipoContato(tipo_str)
-                        valor = c["valor"].strip()
+                        valor = str(c["valor"]).strip()
                         preferencial = bool(c.get("preferencial", False))
                         novos_contatos.append(
                             Contato(
@@ -196,12 +196,13 @@ class DevedorAtualizacaoService:
 
                 # Não há relationship entre DevedorORM e ContatoORM: a coleção do
                 # Aggregate precisa ser reconciliada explicitamente com o banco.
-                # Sem apagar os que saíram, a linha antiga sobrevive e reaparece
-                # na leitura — o estado persistido divergiria do Aggregate.
+                # A remoção é soft-delete (DOMAIN-021 §141): a linha permanece e o
+                # histórico de auditoria é preservado, nunca fisicamente excluído.
                 ids_atuais = {c.id for c in devedor.contatos}
                 for persistido in uow.contato.find_by_devedor(devedor.id):
                     if persistido.id not in ids_atuais:
-                        uow.contato.remove(persistido.id)
+                        persistido.remover()
+                        uow.contato.save(persistido)
                 for contato in devedor.contatos:
                     uow.contato.save(contato)
 

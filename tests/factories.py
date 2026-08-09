@@ -1,10 +1,10 @@
-"""Factories (Factory Boy) para entidades da Fase 1 — fixtures dos testes."""
+"""Factories tipadas para entidades usadas nos testes."""
 
 from __future__ import annotations
 
 import uuid
-
-import factory
+from itertools import count
+from typing import Any
 
 from emprestimo.domain.credit.carteira import Carteira
 from emprestimo.domain.platform.configuracao import Configuracao
@@ -12,35 +12,59 @@ from emprestimo.domain.platform.tenant import Tenant
 from emprestimo.domain.platform.usuario import Usuario
 
 
-class TenantFactory(factory.Factory):
-    class Meta:
-        model = Tenant
+class TenantFactory:
+    _seq = count()
 
-    identificador_institucional = factory.Sequence(lambda n: f"IDENT-{n:06d}")
-    nome = factory.Sequence(lambda n: f"Organização {n}")
-
-
-class UsuarioFactory(factory.Factory):
-    class Meta:
-        model = Usuario
-
-    tenant_id = factory.LazyFunction(uuid.uuid4)
-    nome = factory.Sequence(lambda n: f"Usuário {n}")
-    email = factory.Sequence(lambda n: f"usuario{n}@exemplo.com")
+    @classmethod
+    def build(cls, **overrides: Any) -> Tenant:
+        n = next(cls._seq)
+        valores = {
+            "identificador_institucional": f"IDENT-{n:06d}",
+            "nome": f"Organizacao {n}",
+            **overrides,
+        }
+        return Tenant(**valores)
 
 
-class ConfiguracaoFactory(factory.Factory):
-    class Meta:
-        model = Configuracao
+class UsuarioFactory:
+    _seq = count()
 
-    tenant_id = factory.LazyFunction(uuid.uuid4)
-    chave = factory.Sequence(lambda n: f"chave_{n}")
-    valor = factory.Sequence(lambda n: f"valor_{n}")
+    @classmethod
+    def build(cls, **overrides: Any) -> Usuario:
+        n = next(cls._seq)
+        valores = {
+            "tenant_id": uuid.uuid4(),
+            "nome": f"Usuario {n}",
+            "email": f"usuario{n}@exemplo.com",
+            **overrides,
+        }
+        return Usuario(**valores)
 
 
-class CarteiraFactory(factory.Factory):
-    class Meta:
-        model = Carteira
+class ConfiguracaoFactory:
+    _seq = count()
 
-    tenant_id = factory.LazyFunction(uuid.uuid4)
-    nome = factory.Sequence(lambda n: f"Carteira {n}")
+    @classmethod
+    def build(cls, **overrides: Any) -> Configuracao:
+        n = next(cls._seq)
+        valores = {
+            "tenant_id": uuid.uuid4(),
+            "chave": f"chave_{n}",
+            "valor": f"valor_{n}",
+            **overrides,
+        }
+        return Configuracao(**valores)
+
+
+class CarteiraFactory:
+    _seq = count()
+
+    @classmethod
+    def build(cls, **overrides: Any) -> Carteira:
+        n = next(cls._seq)
+        valores = {
+            "tenant_id": uuid.uuid4(),
+            "nome": f"Carteira {n}",
+            **overrides,
+        }
+        return Carteira(**valores)

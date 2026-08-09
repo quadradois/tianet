@@ -7,13 +7,22 @@ Idempotency-Key e concorrência da API (IMP-021).
 
 from __future__ import annotations
 
+import uuid
+from collections.abc import Iterator
 from concurrent.futures import ThreadPoolExecutor
+from dataclasses import replace
+from datetime import UTC, datetime, timedelta
+from typing import cast
+from unittest.mock import Mock
 
 import pytest
+from fastapi import FastAPI
 from fastapi.testclient import TestClient
+from httpx import Response
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session, sessionmaker
 
+from emprestimo.application.autorizacao import Principal, RecursoDeOutroTenantError
 from emprestimo.application.provisioning import TenantProvisioningService
 from emprestimo.domain.platform.unicidade import UnicidadeTenantService
 from emprestimo.infrastructure.auditoria import SqlAlchemyAuditoriaRegistro
@@ -30,7 +39,25 @@ PAYLOAD = {
     "email_administrador": "maria@exemplo.com",
 }
 CHAVE = "chave-api-1"
-CAMPO_RESPONSE = {"id", "identificador_institucional", "nome", "estado", "criado_em"}
+CAMPO_RESPONSE = {
+    "id",
+    "identificador_institucional",
+    "nome",
+    "estado",
+    "criado_em",
+}
+CAMPO_PROVISIONAMENTO_RESPONSE = {
+    *CAMPO_RESPONSE,
+    "usuario_administrador_id",
+    "token_ativacao",
+}
+PRINCIPAL_TESTE = Principal(
+    usuario_id=uuid.UUID("00000000-0000-0000-0000-000000000001"),
+    tenant_id=uuid.UUID("00000000-0000-0000-0000-000000000002"),
+    perfil_acesso="Teste",
+    access_token_expira_em=datetime.now(UTC) + timedelta(minutes=15),
+    administrador_plataforma=True,
+)
 
 
 def _montar_servico(
@@ -44,7 +71,7 @@ def _montar_servico(
 
 
 @pytest.fixture
-def client(session_factory: sessionmaker[Session], session: Session) -> TestClient:
+def client(session_factory: sessionmaker[Session], session: Session) -> Iterator[TestClient]:
     app_instance = create_app()
     app_instance.dependency_overrides[dependencies.get_tenant_provisioning_service] = lambda: (
         _montar_servico(session_factory, session)
@@ -52,21 +79,41 @@ def client(session_factory: sessionmaker[Session], session: Session) -> TestClie
     app_instance.dependency_overrides[dependencies.get_tenant_repository] = lambda: (
         SqlAlchemyTenantRepository(session)
     )
+    app_instance.dependency_overrides[dependencies.get_principal_atual] = lambda: PRINCIPAL_TESTE
+    autorizacao = Mock()
+    autorizacao.exigir_permissao.return_value = None
+    autorizacao.exigir_tenant_do_recurso.side_effect = RecursoDeOutroTenantError()
+    app_instance.dependency_overrides[dependencies.get_autorizacao_service] = lambda: autorizacao
     with TestClient(app_instance) as c:
         yield c
 
 
-def _post(client: TestClient, payload: dict | None = None, chave: str = CHAVE) -> TestClient:
-    return client.post(
-        "/platform/tenants",
-        json=payload if payload is not None else PAYLOAD,
-        headers={"Idempotency-Key": chave},
+def _post(
+    client: TestClient,
+    payload: dict[str, object] | None = None,
+    chave: str = CHAVE,
+) -> Response:
+    response = cast(
+        Response,
+        client.post(
+            "/platform/tenants",
+            json=payload if payload is not None else PAYLOAD,
+            headers={"Idempotency-Key": chave},
+        ),
     )
+    if response.status_code == 201:
+        tenant_id = uuid.UUID(response.json()["id"])
+        app_instance = cast(FastAPI, client.app)
+        app_instance.dependency_overrides[dependencies.get_principal_atual] = lambda: replace(
+            PRINCIPAL_TESTE,
+            tenant_id=tenant_id,
+        )
+    return response
 
 
 def _contar_tenants(session_factory: sessionmaker[Session]) -> int:
     with session_factory() as session:
-        return session.scalar(select(func.count()).select_from(TenantORM))
+        return session.scalar(select(func.count()).select_from(TenantORM)) or 0
 
 
 def test_health(client: TestClient) -> None:
@@ -81,11 +128,13 @@ def test_post_cria_tenant_201(client: TestClient) -> None:
 
     assert resp.status_code == 201
     corpo = resp.json()
-    assert set(corpo) == CAMPO_RESPONSE  # serialização mínima (RA-012)
+    assert set(corpo) == CAMPO_PROVISIONAMENTO_RESPONSE
     assert corpo["identificador_institucional"] == "IDENT-API"
     assert corpo["nome"] == "Financeira API"
     assert corpo["estado"] == "ativo"
     assert corpo["criado_em"]
+    assert corpo["usuario_administrador_id"]
+    assert corpo["token_ativacao"]
 
 
 def test_get_retorna_tenant(client: TestClient) -> None:
@@ -176,20 +225,30 @@ def test_concorrencia_mesma_chave_mesmo_payload(
     from emprestimo.presentation.api.main import create_app as cria_app
 
     app_instance = cria_app()
+    client_app = cast(FastAPI, client.app)
     app_instance.dependency_overrides[dependencies.get_tenant_provisioning_service] = (
-        client.app.dependency_overrides[dependencies.get_tenant_provisioning_service]
+        client_app.dependency_overrides[dependencies.get_tenant_provisioning_service]
     )
     app_instance.dependency_overrides[dependencies.get_tenant_repository] = (
-        client.app.dependency_overrides[dependencies.get_tenant_repository]
+        client_app.dependency_overrides[dependencies.get_tenant_repository]
+    )
+    app_instance.dependency_overrides[dependencies.get_principal_atual] = (
+        client_app.dependency_overrides[dependencies.get_principal_atual]
+    )
+    app_instance.dependency_overrides[dependencies.get_autorizacao_service] = (
+        client_app.dependency_overrides[dependencies.get_autorizacao_service]
     )
 
     def chamada(_: int) -> int:
         with TestClient(app_instance) as c:
-            return c.post(
-                "/platform/tenants",
-                json=PAYLOAD,
-                headers={"Idempotency-Key": "chave-corrida"},
-            ).status_code
+            return cast(
+                int,
+                c.post(
+                    "/platform/tenants",
+                    json=PAYLOAD,
+                    headers={"Idempotency-Key": "chave-corrida"},
+                ).status_code,
+            )
 
     with ThreadPoolExecutor(max_workers=2) as executor:
         codigos = sorted(executor.map(chamada, [0, 1]))
@@ -206,20 +265,30 @@ def test_concorrencia_mesma_chave_payload_divergente(
     from emprestimo.presentation.api.main import create_app as cria_app
 
     app_instance = cria_app()
+    client_app = cast(FastAPI, client.app)
     app_instance.dependency_overrides[dependencies.get_tenant_provisioning_service] = (
-        client.app.dependency_overrides[dependencies.get_tenant_provisioning_service]
+        client_app.dependency_overrides[dependencies.get_tenant_provisioning_service]
     )
     app_instance.dependency_overrides[dependencies.get_tenant_repository] = (
-        client.app.dependency_overrides[dependencies.get_tenant_repository]
+        client_app.dependency_overrides[dependencies.get_tenant_repository]
+    )
+    app_instance.dependency_overrides[dependencies.get_principal_atual] = (
+        client_app.dependency_overrides[dependencies.get_principal_atual]
+    )
+    app_instance.dependency_overrides[dependencies.get_autorizacao_service] = (
+        client_app.dependency_overrides[dependencies.get_autorizacao_service]
     )
 
-    def chamada(payload: dict) -> int:
+    def chamada(payload: dict[str, object]) -> int:
         with TestClient(app_instance) as c:
-            return c.post(
-                "/platform/tenants",
-                json=payload,
-                headers={"Idempotency-Key": "chave-corrida-divergente"},
-            ).status_code
+            return cast(
+                int,
+                c.post(
+                    "/platform/tenants",
+                    json=payload,
+                    headers={"Idempotency-Key": "chave-corrida-divergente"},
+                ).status_code,
+            )
 
     payloads = [PAYLOAD, {**PAYLOAD, "identificador_institucional": "OUTRO-IDENT"}]
     with ThreadPoolExecutor(max_workers=2) as executor:
@@ -293,19 +362,9 @@ def test_get_por_identificador_vazio_400(client: TestClient) -> None:
 
 def test_listar_tenants_200(client: TestClient) -> None:
     """IMP-027, US-011: GET /platform/tenants - listagem paginada."""
-    _post(
+    criado = _post(
         client, chave="chave-list-1", payload={**PAYLOAD, "identificador_institucional": "IDENT-L1"}
-    )
-    _post(
-        client,
-        chave="chave-list-2",
-        payload={**PAYLOAD, "identificador_institucional": "IDENT-L2", "nome": "Outra"},
-    )
-    _post(
-        client,
-        chave="chave-list-3",
-        payload={**PAYLOAD, "identificador_institucional": "IDENT-L3", "nome": "Terceira"},
-    )
+    ).json()
 
     resp = client.get("/platform/tenants", params={"page": 1, "size": 10})
 
@@ -316,8 +375,8 @@ def test_listar_tenants_200(client: TestClient) -> None:
     assert "page" in corpo
     assert "size" in corpo
     assert "pages" in corpo
-    assert corpo["total"] >= 3
-    assert len(corpo["items"]) >= 3
+    assert corpo["total"] == 1
+    assert [item["id"] for item in corpo["items"]] == [criado["id"]]
     assert corpo["page"] == 1
     assert corpo["size"] == 10
     # Verificar envelope e serialização
@@ -327,95 +386,54 @@ def test_listar_tenants_200(client: TestClient) -> None:
 
 def test_listar_tenants_paginacao(client: TestClient) -> None:
     """Deve respeitar paginação (page, size)."""
-    for i in range(5):
-        _post(
-            client,
-            chave=f"chave-pag-{i}",
-            payload={
-                **PAYLOAD,
-                "identificador_institucional": f"IDENT-PAG-{i}",
-                "nome": f"Tenant {i}",
-            },
-        )
+    _post(client, chave="chave-pag")
 
     page1 = client.get("/platform/tenants", params={"page": 1, "size": 2}).json()
     page2 = client.get("/platform/tenants", params={"page": 2, "size": 2}).json()
-    page3 = client.get("/platform/tenants", params={"page": 3, "size": 2}).json()
 
-    assert page1["total"] >= 5
-    assert len(page1["items"]) == 2
-    assert len(page2["items"]) == 2
-    assert len(page3["items"]) >= 1
+    assert page1["total"] == 1
+    assert len(page1["items"]) == 1
+    assert page2["total"] == 1
+    assert page2["items"] == []
     assert page1["page"] == 1
     assert page2["page"] == 2
-    assert page3["page"] == 3
-    assert page1["pages"] >= 3
+    assert page1["pages"] == 1
 
 
 def test_listar_tenants_ordenacao(client: TestClient) -> None:
     """Deve ordenar conforme sort (campo:direcao)."""
-    _post(
+    criado = _post(
         client,
-        chave="chave-ord-1",
-        payload={**PAYLOAD, "identificador_institucional": "IDENT-Z", "nome": "Zebra"},
-    )
-    _post(
-        client,
-        chave="chave-ord-2",
+        chave="chave-ord",
         payload={**PAYLOAD, "identificador_institucional": "IDENT-A", "nome": "Alpha"},
-    )
+    ).json()
 
     # Ordenação por identificador_institucional asc
     resp = client.get(
         "/platform/tenants", params={"sort": "identificador_institucional:asc", "size": 10}
     ).json()
 
-    # Encontrar nossos tenants na lista
-    nossos = [
-        item
-        for item in resp["items"]
-        if item["identificador_institucional"] in ("IDENT-A", "IDENT-Z")
-    ]
-    assert len(nossos) == 2
-    # Deve vir A antes de Z
-    assert nossos[0]["identificador_institucional"] == "IDENT-A"
-    assert nossos[1]["identificador_institucional"] == "IDENT-Z"
+    assert [item["id"] for item in resp["items"]] == [criado["id"]]
 
 
 def test_listar_tenants_filtro_estado(client: TestClient) -> None:
     """Deve filtrar por estado operacional."""
     # Criar tenants (todos ficam ativo após provisionamento)
-    _post(
+    criado = _post(
         client,
         chave="chave-est-1",
         payload={**PAYLOAD, "identificador_institucional": "IDENT-EST-1"},
-    )
-    _post(
-        client,
-        chave="chave-est-2",
-        payload={**PAYLOAD, "identificador_institucional": "IDENT-EST-2"},
-    )
+    ).json()
 
     # Filtrar por ativo
     resp = client.get("/platform/tenants", params={"estado": "ativo", "size": 10}).json()
 
-    nossos = [
-        item
-        for item in resp["items"]
-        if item["identificador_institucional"].startswith("IDENT-EST-")
-    ]
-    assert len(nossos) == 2
-    for item in nossos:
-        assert item["estado"] == "ativo"
+    assert [item["id"] for item in resp["items"]] == [criado["id"]]
 
     # Filtrar por inativo (não deve encontrar os recém-criados)
     resp = client.get("/platform/tenants", params={"estado": "inativo", "size": 10}).json()
-    nossos = [
-        item
-        for item in resp["items"]
-        if item["identificador_institucional"].startswith("IDENT-EST-")
-    ]
-    assert len(nossos) == 0
+    assert resp["items"] == []
+    assert resp["total"] == 0
 
 
 def test_listar_tenants_sort_invalido_400(client: TestClient) -> None:
@@ -432,6 +450,69 @@ def test_listar_tenants_size_maximo_100(client: TestClient) -> None:
 
     assert resp.status_code == 400
     assert resp.json()["codigo"] == "payload_invalido"
+
+
+def test_rotas_de_tenant_isolam_principal_com_dois_tenants(
+    client: TestClient,
+    session_factory: sessionmaker[Session],
+) -> None:
+    primeiro = _post(
+        client,
+        chave="chave-isolamento-1",
+        payload={
+            **PAYLOAD,
+            "identificador_institucional": "IDENT-ISOLADO-1",
+            "nome": "Tenant Oculto",
+        },
+    ).json()
+    segundo = _post(
+        client,
+        chave="chave-isolamento-2",
+        payload={
+            **PAYLOAD,
+            "identificador_institucional": "IDENT-ISOLADO-2",
+            "nome": "Tenant do Principal",
+        },
+    ).json()
+
+    principal_local = replace(
+        PRINCIPAL_TESTE,
+        tenant_id=uuid.UUID(segundo["id"]),
+        administrador_plataforma=False,
+    )
+    cast(FastAPI, client.app).dependency_overrides[
+        dependencies.get_principal_atual
+    ] = lambda: principal_local
+
+    assert client.get(f"/platform/tenants/{primeiro['id']}").status_code == 404
+    assert (
+        client.get(
+            "/platform/tenants",
+            params={"identificador_institucional": primeiro["identificador_institucional"]},
+        ).status_code
+        == 404
+    )
+
+    listagem = client.get("/platform/tenants", params={"size": 100})
+    assert listagem.status_code == 200
+    assert listagem.json()["total"] == 1
+    assert [item["id"] for item in listagem.json()["items"]] == [segundo["id"]]
+
+    assert (
+        client.patch(
+            f"/platform/tenants/{primeiro['id']}",
+            json={"nome": "Nome Indevido"},
+        ).status_code
+        == 404
+    )
+    assert client.post(f"/platform/tenants/{primeiro['id']}/inativar").status_code == 404
+    assert client.post(f"/platform/tenants/{primeiro['id']}/reativar").status_code == 404
+
+    with session_factory() as session:
+        tenant_oculto = session.get(TenantORM, uuid.UUID(primeiro["id"]))
+        assert tenant_oculto is not None
+        assert tenant_oculto.nome == "Tenant Oculto"
+        assert tenant_oculto.estado == "ativo"
 
 
 # --- Testes do endpoint PATCH /platform/tenants/{id} (IMP-032, FEATURE-003) ---
@@ -575,7 +656,6 @@ def test_patch_persistencia_real(client: TestClient) -> None:
 def test_post_inativar_200(client: TestClient) -> None:
     """IMP-036, US-013: POST /tenants/{id}/inativar responde TenantResponse."""
     criado = _post(client, chave="chave-inat-ok").json()
-
     resp = client.post(f"/platform/tenants/{criado['id']}/inativar")
 
     assert resp.status_code == 200

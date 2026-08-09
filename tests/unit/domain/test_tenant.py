@@ -295,4 +295,4 @@ def test_ciclo_inativar_reativar_retorna_ao_estado_ativo() -> None:
     assert tenant.estado == TenantState.INATIVO
 
     tenant.reativar()
-    assert tenant.estado == TenantState.ATIVO
+    assert tenant.estado.value == TenantState.ATIVO.value

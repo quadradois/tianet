@@ -12,12 +12,14 @@ ponta sem override algum.
 from __future__ import annotations
 
 import uuid
+from datetime import UTC, datetime, timedelta
 
 import pytest
 from sqlalchemy.orm import Session
 from tests.factories import CarteiraFactory, TenantFactory
 
 from emprestimo.application.atualizacao_devedor import DevedorAtualizacaoService
+from emprestimo.application.autorizacao import Principal
 from emprestimo.application.cadastro_devedor import DevedorCadastroService
 from emprestimo.application.consulta_devedor import (
     DevedorConsultaPorDocumentoService,
@@ -37,6 +39,7 @@ from emprestimo.presentation.api import dependencies
 
 CPF = "52998224725"
 CONTATOS = [{"tipo": "telefone", "valor": "(11) 1234-5678", "preferencial": True}]
+PRINCIPAL_ID = uuid.UUID("00000000-0000-0000-0000-000000000001")
 
 
 @pytest.fixture
@@ -59,6 +62,14 @@ def test_providers_de_tenant_montam_os_servicos(sessao: Session) -> None:
         dependencies.get_tenant_provisioning_service(sessao), TenantProvisioningService
     )
     assert isinstance(dependencies.get_tenant_repository(sessao), TenantRepository)
+    assert isinstance(dependencies.get_carteira_repository(sessao), SqlAlchemyCarteiraRepository)
+
+
+def test_provider_autenticacao_exige_jwt_secret_key(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.delenv(dependencies.JWT_SECRET_ENV, raising=False)
+
+    with pytest.raises(RuntimeError, match=dependencies.JWT_SECRET_ENV):
+        dependencies.get_autenticacao_service()
 
 
 def test_providers_de_devedor_montam_os_servicos(sessao: Session) -> None:
@@ -110,7 +121,9 @@ def test_servicos_montados_pelos_providers_operam_de_ponta_a_ponta(sessao: Sessi
     )
 
     dependencies.get_devedor_estado_service(sessao).inativar(criado.devedor_id, "wiring-3")
-    assert consulta.consultar_por_id(criado.devedor_id).estado.value == "inativo"
+    devedor_atualizado = consulta.consultar_por_id(criado.devedor_id)
+    assert devedor_atualizado is not None
+    assert devedor_atualizado.estado.value == "inativo"
 
     eventos = dependencies.get_devedor_historico_service(sessao).consultar(criado.devedor_id)
     assert eventos and any(e.acao == "criar.sucesso" for e in eventos)
@@ -132,8 +145,19 @@ def test_pertinencia_resolve_o_devedor_da_carteira(sessao: Session) -> None:
         idempotency_key="wiring-pert",
     )
     servico = dependencies.get_devedor_consulta_service(sessao)
+    principal = Principal(
+        usuario_id=PRINCIPAL_ID,
+        tenant_id=tenant.id,
+        perfil_acesso="Teste",
+        access_token_expira_em=datetime.now(UTC) + timedelta(minutes=15),
+    )
+    carteira_autorizada = dependencies.get_carteira_do_principal(
+        carteira.id,
+        principal,
+        dependencies.get_carteira_repository(sessao),
+    )
 
-    devedor = dependencies.get_devedor_da_carteira(carteira.id, criado.devedor_id, servico)
+    devedor = dependencies.get_devedor_da_carteira(criado.devedor_id, carteira_autorizada, servico)
 
     assert devedor.id == criado.devedor_id
 
@@ -143,9 +167,11 @@ def test_pertinencia_recusa_devedor_de_outra_carteira(sessao: Session) -> None:
     from fastapi import HTTPException
 
     servico = dependencies.get_devedor_consulta_service(sessao)
+    carteira = CarteiraFactory.build()
 
     with pytest.raises(HTTPException) as exc:
-        dependencies.get_devedor_da_carteira(uuid.uuid4(), uuid.uuid4(), servico)
+        dependencies.get_devedor_da_carteira(uuid.uuid4(), carteira, servico)
 
     assert exc.value.status_code == 404
+    assert isinstance(exc.value.detail, dict)
     assert exc.value.detail["codigo"] == "devedor_nao_encontrado"

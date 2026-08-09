@@ -18,6 +18,7 @@ a mesma chave em escopos diferentes (situação que esta migration passa a
 permitir), o downgrade falhará por violação de unicidade; nesse caso é preciso
 resolver os duplicados antes de reverter.
 """
+
 from __future__ import annotations
 
 from collections.abc import Sequence
@@ -40,9 +41,5 @@ def upgrade() -> None:
 
 
 def downgrade() -> None:
-    op.drop_constraint(
-        "uq_idempotency_key_chave_escopo", "idempotency_key", type_="unique"
-    )
-    op.create_unique_constraint(
-        "uq_idempotency_key_chave", "idempotency_key", ["chave"]
-    )
+    op.drop_constraint("uq_idempotency_key_chave_escopo", "idempotency_key", type_="unique")
+    op.create_unique_constraint("uq_idempotency_key_chave", "idempotency_key", ["chave"])

@@ -15,9 +15,10 @@ from datetime import UTC, datetime
 
 import pytest
 
-from emprestimo.application.errors import TransicaoEstadoInvalidaError
+from emprestimo.application.errors import AcessoNegadoError, TransicaoEstadoInvalidaError
 from emprestimo.application.estado import TenantEstadoService
 from emprestimo.application.ports import AuditoriaRegistro, UnitOfWork
+from emprestimo.domain.platform.sessao import Sessao
 from emprestimo.domain.platform.tenant import Tenant, TenantState
 
 
@@ -43,6 +44,27 @@ class _FakeTenantRepo:
 
 
 @dataclass
+class _FakeSessaoRepo:
+    sessoes: list[Sessao] = field(default_factory=list)
+    salvas: list[Sessao] = field(default_factory=list)
+
+    def find_by_tenant_id(self, tenant_id: uuid.UUID) -> list[Sessao]:
+        return [sessao for sessao in self.sessoes if sessao.tenant_id == tenant_id]
+
+    def save(self, sessao: Sessao) -> None:
+        self.salvas.append(sessao)
+
+
+@dataclass
+class _FakePerfilRepo:
+    tenant_controle_id: uuid.UUID | None = None
+
+    def tenant_has_permission(self, tenant_id: uuid.UUID, codigo: str) -> bool:
+        assert codigo == "tenant.criar"
+        return tenant_id == self.tenant_controle_id
+
+
+@dataclass
 class _FakeAuditoria(AuditoriaRegistro):
     """Fake da AuditoriaRegistro — captura os eventos registrados."""
 
@@ -64,7 +86,9 @@ class _FakeAuditoria(AuditoriaRegistro):
 class _FakeUoW(UnitOfWork):
     """Fake do UnitOfWork."""
 
-    tenant: _FakeTenantRepo = field(default_factory=_FakeTenantRepo)
+    tenant: _FakeTenantRepo = field(default_factory=_FakeTenantRepo)  # type: ignore[assignment]
+    sessao: _FakeSessaoRepo = field(default_factory=_FakeSessaoRepo)  # type: ignore[assignment]
+    perfil_acesso: _FakePerfilRepo = field(default_factory=_FakePerfilRepo)  # type: ignore[assignment]
     commit_count: int = 0
     rollback_count: int = 0
 
@@ -104,6 +128,21 @@ def _fazer_servico(uow: _FakeUoW) -> tuple[TenantEstadoService, _FakeAuditoria]:
     return service, auditoria
 
 
+def test_inativacao_do_tenant_de_controle_falha_na_aplicacao() -> None:
+    uow = _FakeUoW()
+    tenant = _make_tenant()
+    uow.tenant.tenants[tenant.id] = tenant
+    uow.perfil_acesso.tenant_controle_id = tenant.id
+    service, auditoria = _fazer_servico(uow)
+
+    with pytest.raises(AcessoNegadoError):
+        service.inativar(tenant.id)
+
+    assert tenant.estado is TenantState.ATIVO
+    assert uow.commit_count == 0
+    assert "inativar.falha" in {evento[2] for evento in auditoria.eventos}
+
+
 # --- Testes de inativação (US-013, IMP-034) ---
 
 
@@ -126,6 +165,24 @@ def test_inativacao_com_sucesso() -> None:
     assert uow.tenant.chamadas_find_by_id == 1
     assert uow.tenant.chamadas_save == 2  # 1 setup + 1 service
     assert uow.commit_count == 1
+
+
+def test_inativacao_revoga_sessoes_do_tenant() -> None:
+    tenant = _make_tenant(estado=TenantState.ATIVO)
+    sessao = Sessao.iniciar(
+        usuario_id=uuid.uuid4(),
+        tenant_id=tenant.id,
+        refresh_token="refresh-tenant",
+    )
+    uow = _FakeUoW()
+    uow.tenant.save(tenant)
+    uow.sessao.sessoes.append(sessao)
+    service, _ = _fazer_servico(uow)
+
+    service.inativar(tenant.id)
+
+    assert sessao.revogado_em is not None
+    assert uow.sessao.salvas == [sessao]
 
 
 def test_inativacao_tenant_inexistente_retorna_none() -> None:
@@ -166,6 +223,7 @@ def test_inativacao_persiste_via_repository() -> None:
 
     assert uow.tenant.chamadas_save == 2  # 1 setup + 1 service
     assert uow.tenant.ultimo_tenant_salvo is resultado
+    assert uow.tenant.ultimo_tenant_salvo is not None
     assert uow.tenant.ultimo_tenant_salvo.estado == TenantState.INATIVO
 
 
@@ -225,6 +283,7 @@ def test_inativacao_nao_altera_dados_cadastrais() -> None:
 
     resultado = service.inativar(tenant.id)
 
+    assert resultado is not None
     assert resultado.identificador_institucional == "IDENT-ORIGINAL"
     assert resultado.nome == "Financeira ABC"
     assert resultado.id == id_original
@@ -297,6 +356,7 @@ def test_reativacao_nao_recria_dados() -> None:
 
     resultado = service.reativar(tenant.id)
 
+    assert resultado is not None
     assert resultado.identificador_institucional == "IDENT-ORIGINAL"
     assert resultado.nome == "Financeira ABC"
     assert resultado.id == id_original

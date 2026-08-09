@@ -102,6 +102,7 @@ def test_atualizacao_parcial_preserva_identificador_e_estado(ambiente: _Ambiente
 
     resultado = ambiente.service.atualizar_nome(tenant.id, "Novo Nome")
 
+    assert resultado is not None
     assert resultado.id == id_original
     assert resultado.identificador_institucional == "IDENT-PARCIAL"
     assert resultado.estado == TenantState.ATIVO
