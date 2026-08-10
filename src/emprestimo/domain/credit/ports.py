@@ -8,14 +8,22 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
 from emprestimo.domain.credit.carteira import Carteira
+from emprestimo.domain.credit.contrato_credito_state import ContratoCreditoState
 from emprestimo.domain.credit.documento import Documento
+from emprestimo.domain.credit.emprestimo import EmprestimoState
 from emprestimo.domain.credit.proposta_comercial_state import PropostaComercialState
 
 if TYPE_CHECKING:
     from collections.abc import Sequence
 
     from emprestimo.domain.credit.contato import Contato
+    from emprestimo.domain.credit.contrato_credito import ContratoCredito
     from emprestimo.domain.credit.devedor import Devedor
+    from emprestimo.domain.credit.emprestimo import Emprestimo
+    from emprestimo.domain.credit.eventos_financeiros import EventoFinanceiro
+    from emprestimo.domain.credit.memoria_calculo import MemoriaCalculo
+    from emprestimo.domain.credit.pagamento import Pagamento
+    from emprestimo.domain.credit.parcela import Parcela
     from emprestimo.domain.credit.proposta_comercial import PropostaComercial
     from emprestimo.domain.credit.simulacao_comercial import SimulacaoComercial
 
@@ -119,6 +127,58 @@ class PropostaComercialResultadoPaginado:
         return (self.total + self.tamanho - 1) // self.tamanho
 
 
+@dataclass(frozen=True)
+class ContratoCreditoFiltros:
+    """Filtros para consulta de contratos de credito (EPIC-004/P3)."""
+
+    tenant_id: uuid.UUID
+    carteira_id: uuid.UUID | None = None
+    devedor_id: uuid.UUID | None = None
+    estado: ContratoCreditoState | None = None
+
+
+@dataclass(frozen=True)
+class ContratoCreditoResultadoPaginado:
+    """Resultado paginado de contratos de credito."""
+
+    items: Sequence[ContratoCredito]
+    total: int
+    pagina: int
+    tamanho: int
+
+    @property
+    def paginas(self) -> int:
+        if self.total == 0:
+            return 0
+        return (self.total + self.tamanho - 1) // self.tamanho
+
+
+@dataclass(frozen=True)
+class EmprestimoFiltros:
+    """Filtros para consulta de emprestimos financeiros (EPIC-005/P3)."""
+
+    tenant_id: uuid.UUID
+    carteira_id: uuid.UUID | None = None
+    devedor_id: uuid.UUID | None = None
+    estado: EmprestimoState | None = None
+
+
+@dataclass(frozen=True)
+class EmprestimoResultadoPaginado:
+    """Resultado paginado de emprestimos financeiros."""
+
+    items: Sequence[Emprestimo]
+    total: int
+    pagina: int
+    tamanho: int
+
+    @property
+    def paginas(self) -> int:
+        if self.total == 0:
+            return 0
+        return (self.total + self.tamanho - 1) // self.tamanho
+
+
 class SimulacaoComercialRepository(ABC):
     """Contrato de persistencia de SimulacaoComercial."""
 
@@ -147,6 +207,101 @@ class PropostaComercialRepository(ABC):
         filtros: PropostaComercialFiltros,
         paginacao: Paginacao,
     ) -> PropostaComercialResultadoPaginado: ...
+
+
+class ContratoCreditoRepository(ABC):
+    """Contrato de persistencia do Aggregate ContratoCredito."""
+
+    @abstractmethod
+    def save(self, contrato: ContratoCredito) -> None: ...
+
+    @abstractmethod
+    def find_by_id(self, contrato_id: uuid.UUID) -> ContratoCredito | None: ...
+
+    @abstractmethod
+    def find_by_proposta_id(self, proposta_id: uuid.UUID) -> ContratoCredito | None: ...
+
+    @abstractmethod
+    def listar_paginado(
+        self,
+        filtros: ContratoCreditoFiltros,
+        paginacao: Paginacao,
+    ) -> ContratoCreditoResultadoPaginado: ...
+
+
+class EmprestimoRepository(ABC):
+    """Contrato de persistencia do Aggregate Emprestimo."""
+
+    @abstractmethod
+    def save(self, emprestimo: Emprestimo) -> None: ...
+
+    @abstractmethod
+    def find_by_id(self, emprestimo_id: uuid.UUID) -> Emprestimo | None: ...
+
+    @abstractmethod
+    def find_by_contrato_id(self, contrato_id: uuid.UUID) -> Emprestimo | None: ...
+
+    @abstractmethod
+    def listar_paginado(
+        self,
+        filtros: EmprestimoFiltros,
+        paginacao: Paginacao,
+    ) -> EmprestimoResultadoPaginado: ...
+
+
+class ParcelaRepository(ABC):
+    """Contrato de persistencia das Parcelas do Emprestimo."""
+
+    @abstractmethod
+    def save_many(self, parcelas: Sequence[Parcela]) -> None: ...
+
+    @abstractmethod
+    def find_by_emprestimo_id(self, emprestimo_id: uuid.UUID) -> list[Parcela]: ...
+
+
+class PagamentoRepository(ABC):
+    """Contrato de persistencia dos Pagamentos processados."""
+
+    @abstractmethod
+    def save(self, pagamento: Pagamento) -> None: ...
+
+    @abstractmethod
+    def find_by_id(self, pagamento_id: uuid.UUID) -> Pagamento | None: ...
+
+    @abstractmethod
+    def find_by_emprestimo_id(self, emprestimo_id: uuid.UUID) -> list[Pagamento]: ...
+
+    @abstractmethod
+    def find_by_idempotency_key(
+        self,
+        emprestimo_id: uuid.UUID,
+        chave_idempotencia: str,
+    ) -> Pagamento | None: ...
+
+
+class MemoriaCalculoRepository(ABC):
+    """Contrato de persistencia das memorias de calculo."""
+
+    @abstractmethod
+    def save(
+        self,
+        memoria: MemoriaCalculo,
+        emprestimo_id: uuid.UUID,
+        pagamento_id: uuid.UUID | None = None,
+    ) -> None: ...
+
+    @abstractmethod
+    def find_by_emprestimo_id(self, emprestimo_id: uuid.UUID) -> list[MemoriaCalculo]: ...
+
+
+class EventoFinanceiroRepository(ABC):
+    """Contrato de persistencia dos eventos financeiros."""
+
+    @abstractmethod
+    def save(self, evento: EventoFinanceiro) -> None: ...
+
+    @abstractmethod
+    def find_by_emprestimo_id(self, emprestimo_id: uuid.UUID) -> list[EventoFinanceiro]: ...
 
 
 class DevedorRepository(ABC):

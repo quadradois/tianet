@@ -7,6 +7,8 @@ transacional pertencem ao Unit of Work da fase de Aplicação (IMP-014).
 from __future__ import annotations
 
 import uuid
+from collections.abc import Sequence
+from datetime import date
 from math import ceil
 
 from sqlalchemy import delete, func, select
@@ -21,17 +23,41 @@ from emprestimo.domain.common.errors import (
 )
 from emprestimo.domain.credit.carteira import Carteira
 from emprestimo.domain.credit.contato import Contato, TipoContato
+from emprestimo.domain.credit.contrato_credito import ContratoCredito
+from emprestimo.domain.credit.contrato_credito_state import ContratoCreditoState
 from emprestimo.domain.credit.decisao_comercial import DecisaoComercial
+from emprestimo.domain.credit.decisao_contrato import DecisaoContrato
 from emprestimo.domain.credit.devedor import Devedor, DevedorState
 from emprestimo.domain.credit.documento import Documento
+from emprestimo.domain.credit.emprestimo import Emprestimo, EmprestimoState
+from emprestimo.domain.credit.eventos_financeiros import (
+    EmprestimoQuitado,
+    EmprestimoRenegociado,
+    EventoFinanceiro,
+    PagamentoRegistrado,
+)
+from emprestimo.domain.credit.financeiro import PeriodoFinanceiro
+from emprestimo.domain.credit.memoria_calculo import MemoriaCalculo, PassoCalculo
+from emprestimo.domain.credit.pagamento import Pagamento, PagamentoState
+from emprestimo.domain.credit.parcela import Parcela, ParcelaState
 from emprestimo.domain.credit.ports import (
     CarteiraRepository,
     ContatoRepository,
+    ContratoCreditoFiltros,
+    ContratoCreditoRepository,
+    ContratoCreditoResultadoPaginado,
     DevedorFiltros,
     DevedorRepository,
     DevedorResultadoPaginado,
     DevedorUniquenessChecker,
+    EmprestimoFiltros,
+    EmprestimoRepository,
+    EmprestimoResultadoPaginado,
+    EventoFinanceiroRepository,
+    MemoriaCalculoRepository,
+    PagamentoRepository,
     Paginacao,
+    ParcelaRepository,
     PropostaComercialFiltros,
     PropostaComercialRepository,
     PropostaComercialResultadoPaginado,
@@ -65,9 +91,16 @@ from emprestimo.infrastructure.db.orm import (
     CarteiraORM,
     ConfiguracaoORM,
     ContatoORM,
+    ContratoCreditoORM,
     CredencialORM,
     DecisaoComercialORM,
     DevedorORM,
+    EmprestimoORM,
+    EventoContratoORM,
+    EventoFinanceiroORM,
+    MemoriaCalculoORM,
+    PagamentoORM,
+    ParcelaORM,
     PerfilAcessoORM,
     PerfilPermissaoORM,
     PermissaoORM,
@@ -678,6 +711,323 @@ class SqlAlchemyPropostaComercialRepository(PropostaComercialRepository):
         return por_proposta
 
 
+class SqlAlchemyContratoCreditoRepository(ContratoCreditoRepository):
+    """Implementacao SQLAlchemy do ContratoCreditoRepository (IMP-131)."""
+
+    def __init__(self, session: Session) -> None:
+        self._session = session
+
+    def save(self, contrato: ContratoCredito) -> None:
+        self._session.merge(
+            ContratoCreditoORM(
+                id=contrato.id,
+                tenant_id=contrato.tenant_id,
+                carteira_id=contrato.carteira_id,
+                devedor_id=contrato.devedor_id,
+                proposta_comercial_id=contrato.proposta_comercial_id,
+                criado_por_usuario_id=contrato.criado_por_usuario_id,
+                estado=contrato.estado.value,
+                parametros=contrato.parametros,
+                criado_em=contrato.criado_em,
+                atualizado_em=contrato.atualizado_em,
+                formalizado_por_usuario_id=contrato.formalizado_por_usuario_id,
+                formalizado_em=contrato.formalizado_em,
+                assinado_por_usuario_id=contrato.assinado_por_usuario_id,
+                assinado_em=contrato.assinado_em,
+                liberado_por_usuario_id=contrato.liberado_por_usuario_id,
+                liberado_em=contrato.liberado_em,
+                motivo_encerramento=contrato.motivo_encerramento,
+            )
+        )
+        for ordem, decisao in enumerate(contrato.decisoes, start=1):
+            self._session.merge(
+                EventoContratoORM(
+                    id=decisao.id,
+                    contrato_id=decisao.contrato_id,
+                    usuario_id=decisao.usuario_id,
+                    tipo=decisao.tipo,
+                    estado_anterior=decisao.estado_anterior.value,
+                    estado_posterior=decisao.estado_posterior.value,
+                    ordem=ordem,
+                    motivo=decisao.motivo,
+                    criado_em=decisao.criado_em,
+                )
+            )
+        self._session.flush()
+
+    def find_by_id(self, contrato_id: uuid.UUID) -> ContratoCredito | None:
+        row = self._session.get(ContratoCreditoORM, contrato_id)
+        if row is None:
+            return None
+        return _to_contrato_credito(row, self._eventos_contrato_de([row.id]).get(row.id, []))
+
+    def find_by_proposta_id(self, proposta_id: uuid.UUID) -> ContratoCredito | None:
+        row = self._session.scalar(
+            select(ContratoCreditoORM).where(
+                ContratoCreditoORM.proposta_comercial_id == proposta_id
+            )
+        )
+        if row is None:
+            return None
+        return _to_contrato_credito(row, self._eventos_contrato_de([row.id]).get(row.id, []))
+
+    def listar_paginado(
+        self,
+        filtros: ContratoCreditoFiltros,
+        paginacao: Paginacao,
+    ) -> ContratoCreditoResultadoPaginado:
+        query = select(ContratoCreditoORM).where(ContratoCreditoORM.tenant_id == filtros.tenant_id)
+        count_query = select(func.count(ContratoCreditoORM.id)).where(
+            ContratoCreditoORM.tenant_id == filtros.tenant_id
+        )
+
+        if filtros.carteira_id is not None:
+            query = query.where(ContratoCreditoORM.carteira_id == filtros.carteira_id)
+            count_query = count_query.where(ContratoCreditoORM.carteira_id == filtros.carteira_id)
+        if filtros.devedor_id is not None:
+            query = query.where(ContratoCreditoORM.devedor_id == filtros.devedor_id)
+            count_query = count_query.where(ContratoCreditoORM.devedor_id == filtros.devedor_id)
+        if filtros.estado is not None:
+            query = query.where(ContratoCreditoORM.estado == filtros.estado.value)
+            count_query = count_query.where(ContratoCreditoORM.estado == filtros.estado.value)
+
+        total = self._session.scalar(count_query) or 0
+        rows = self._session.scalars(
+            query.order_by(ContratoCreditoORM.criado_em, ContratoCreditoORM.id)
+            .offset(paginacao.offset)
+            .limit(paginacao.limit)
+        ).all()
+        eventos = self._eventos_contrato_de([row.id for row in rows])
+        items = [_to_contrato_credito(row, eventos.get(row.id, [])) for row in rows]
+        return ContratoCreditoResultadoPaginado(
+            items=items,
+            total=total,
+            pagina=paginacao.pagina,
+            tamanho=paginacao.tamanho,
+        )
+
+    def _eventos_contrato_de(
+        self, contrato_ids: list[uuid.UUID]
+    ) -> dict[uuid.UUID, list[DecisaoContrato]]:
+        if not contrato_ids:
+            return {}
+        rows = self._session.scalars(
+            select(EventoContratoORM)
+            .where(EventoContratoORM.contrato_id.in_(contrato_ids))
+            .order_by(EventoContratoORM.contrato_id, EventoContratoORM.ordem)
+        ).all()
+        por_contrato: dict[uuid.UUID, list[DecisaoContrato]] = {}
+        for row in rows:
+            por_contrato.setdefault(row.contrato_id, []).append(_to_decisao_contrato(row))
+        return por_contrato
+
+
+class SqlAlchemyEmprestimoRepository(EmprestimoRepository):
+    """Implementacao SQLAlchemy do EmprestimoRepository (IMP-156)."""
+
+    def __init__(self, session: Session) -> None:
+        self._session = session
+
+    def save(self, emprestimo: Emprestimo) -> None:
+        self._session.merge(
+            EmprestimoORM(
+                id=emprestimo.id,
+                tenant_id=emprestimo.tenant_id,
+                carteira_id=emprestimo.carteira_id,
+                devedor_id=emprestimo.devedor_id,
+                contrato_id=emprestimo.contrato_id,
+                estado=emprestimo.estado.value,
+                principal_original=emprestimo.principal_original,
+                moeda=emprestimo.moeda,
+                parametros_financeiros=emprestimo.parametros_financeiros,
+                criado_em=emprestimo.criado_em,
+                atualizado_em=emprestimo.atualizado_em,
+                ultimo_processamento_em=emprestimo.ultimo_processamento_em,
+                ultimo_pagamento_em=emprestimo.ultimo_pagamento_em,
+                proximo_vencimento_em=emprestimo.proximo_vencimento_em,
+                quitado_em=emprestimo.quitado_em,
+            )
+        )
+        self._session.flush()
+
+    def find_by_id(self, emprestimo_id: uuid.UUID) -> Emprestimo | None:
+        row = self._session.get(EmprestimoORM, emprestimo_id)
+        if row is None:
+            return None
+        return _to_emprestimo(row, self._eventos_de([row.id]).get(row.id, []))
+
+    def find_by_contrato_id(self, contrato_id: uuid.UUID) -> Emprestimo | None:
+        row = self._session.scalar(
+            select(EmprestimoORM).where(EmprestimoORM.contrato_id == contrato_id)
+        )
+        if row is None:
+            return None
+        return _to_emprestimo(row, self._eventos_de([row.id]).get(row.id, []))
+
+    def listar_paginado(
+        self,
+        filtros: EmprestimoFiltros,
+        paginacao: Paginacao,
+    ) -> EmprestimoResultadoPaginado:
+        query = select(EmprestimoORM).where(EmprestimoORM.tenant_id == filtros.tenant_id)
+        count_query = select(func.count(EmprestimoORM.id)).where(
+            EmprestimoORM.tenant_id == filtros.tenant_id
+        )
+        if filtros.carteira_id is not None:
+            query = query.where(EmprestimoORM.carteira_id == filtros.carteira_id)
+            count_query = count_query.where(EmprestimoORM.carteira_id == filtros.carteira_id)
+        if filtros.devedor_id is not None:
+            query = query.where(EmprestimoORM.devedor_id == filtros.devedor_id)
+            count_query = count_query.where(EmprestimoORM.devedor_id == filtros.devedor_id)
+        if filtros.estado is not None:
+            query = query.where(EmprestimoORM.estado == filtros.estado.value)
+            count_query = count_query.where(EmprestimoORM.estado == filtros.estado.value)
+
+        total = self._session.scalar(count_query) or 0
+        rows = self._session.scalars(
+            query.order_by(EmprestimoORM.criado_em, EmprestimoORM.id)
+            .offset(paginacao.offset)
+            .limit(paginacao.limit)
+        ).all()
+        eventos = self._eventos_de([row.id for row in rows])
+        return EmprestimoResultadoPaginado(
+            items=[_to_emprestimo(row, eventos.get(row.id, [])) for row in rows],
+            total=total,
+            pagina=paginacao.pagina,
+            tamanho=paginacao.tamanho,
+        )
+
+    def _eventos_de(
+        self,
+        emprestimo_ids: list[uuid.UUID],
+    ) -> dict[uuid.UUID, list[EventoFinanceiro]]:
+        if not emprestimo_ids:
+            return {}
+        rows = self._session.scalars(
+            select(EventoFinanceiroORM)
+            .where(EventoFinanceiroORM.emprestimo_id.in_(emprestimo_ids))
+            .order_by(EventoFinanceiroORM.ocorrido_em, EventoFinanceiroORM.id)
+        ).all()
+        por_emprestimo: dict[uuid.UUID, list[EventoFinanceiro]] = {}
+        for row in rows:
+            por_emprestimo.setdefault(row.emprestimo_id, []).append(_to_evento_financeiro(row))
+        return por_emprestimo
+
+
+class SqlAlchemyParcelaRepository(ParcelaRepository):
+    """Implementacao SQLAlchemy do ParcelaRepository (IMP-156)."""
+
+    def __init__(self, session: Session) -> None:
+        self._session = session
+
+    def save_many(self, parcelas: Sequence[Parcela]) -> None:
+        for parcela in parcelas:
+            self._session.merge(_to_parcela_orm(parcela))
+        self._session.flush()
+
+    def find_by_emprestimo_id(self, emprestimo_id: uuid.UUID) -> list[Parcela]:
+        rows = self._session.scalars(
+            select(ParcelaORM)
+            .where(ParcelaORM.emprestimo_id == emprestimo_id)
+            .order_by(ParcelaORM.numero, ParcelaORM.id)
+        ).all()
+        return [_to_parcela(row) for row in rows]
+
+
+class SqlAlchemyPagamentoRepository(PagamentoRepository):
+    """Implementacao SQLAlchemy do PagamentoRepository (IMP-156)."""
+
+    def __init__(self, session: Session) -> None:
+        self._session = session
+
+    def save(self, pagamento: Pagamento) -> None:
+        self._session.merge(_to_pagamento_orm(pagamento))
+        self._session.flush()
+
+    def find_by_id(self, pagamento_id: uuid.UUID) -> Pagamento | None:
+        row = self._session.get(PagamentoORM, pagamento_id)
+        return _to_pagamento(row) if row is not None else None
+
+    def find_by_emprestimo_id(self, emprestimo_id: uuid.UUID) -> list[Pagamento]:
+        rows = self._session.scalars(
+            select(PagamentoORM)
+            .where(PagamentoORM.emprestimo_id == emprestimo_id)
+            .order_by(PagamentoORM.recebido_em, PagamentoORM.id)
+        ).all()
+        return [_to_pagamento(row) for row in rows]
+
+    def find_by_idempotency_key(
+        self,
+        emprestimo_id: uuid.UUID,
+        chave_idempotencia: str,
+    ) -> Pagamento | None:
+        row = self._session.scalar(
+            select(PagamentoORM).where(
+                PagamentoORM.emprestimo_id == emprestimo_id,
+                PagamentoORM.chave_idempotencia == chave_idempotencia,
+            )
+        )
+        return _to_pagamento(row) if row is not None else None
+
+
+class SqlAlchemyMemoriaCalculoRepository(MemoriaCalculoRepository):
+    """Implementacao SQLAlchemy do MemoriaCalculoRepository (IMP-156)."""
+
+    def __init__(self, session: Session) -> None:
+        self._session = session
+
+    def save(
+        self,
+        memoria: MemoriaCalculo,
+        emprestimo_id: uuid.UUID,
+        pagamento_id: uuid.UUID | None = None,
+    ) -> None:
+        self._session.merge(
+            MemoriaCalculoORM(
+                id=memoria.id,
+                emprestimo_id=emprestimo_id,
+                pagamento_id=pagamento_id,
+                tipo=memoria.tipo,
+                data_referencia=_data_referencia_from_memoria(memoria),
+                entradas=dict(memoria.entradas),
+                regra=dict(memoria.regra),
+                periodos=[dict(periodo) for periodo in memoria.periodos],
+                passos=[_passo_to_json(passo) for passo in memoria.passos],
+                arredondamentos=list(memoria.arredondamentos),
+                resultados=dict(memoria.resultados),
+                criado_em=memoria.criado_em,
+            )
+        )
+        self._session.flush()
+
+    def find_by_emprestimo_id(self, emprestimo_id: uuid.UUID) -> list[MemoriaCalculo]:
+        rows = self._session.scalars(
+            select(MemoriaCalculoORM)
+            .where(MemoriaCalculoORM.emprestimo_id == emprestimo_id)
+            .order_by(MemoriaCalculoORM.criado_em, MemoriaCalculoORM.id)
+        ).all()
+        return [_to_memoria_calculo(row) for row in rows]
+
+
+class SqlAlchemyEventoFinanceiroRepository(EventoFinanceiroRepository):
+    """Implementacao SQLAlchemy do EventoFinanceiroRepository (IMP-156)."""
+
+    def __init__(self, session: Session) -> None:
+        self._session = session
+
+    def save(self, evento: EventoFinanceiro) -> None:
+        self._session.merge(_to_evento_financeiro_orm(evento))
+        self._session.flush()
+
+    def find_by_emprestimo_id(self, emprestimo_id: uuid.UUID) -> list[EventoFinanceiro]:
+        rows = self._session.scalars(
+            select(EventoFinanceiroORM)
+            .where(EventoFinanceiroORM.emprestimo_id == emprestimo_id)
+            .order_by(EventoFinanceiroORM.ocorrido_em, EventoFinanceiroORM.id)
+        ).all()
+        return [_to_evento_financeiro(row) for row in rows]
+
+
 def _to_tenant(row: TenantORM) -> Tenant:
     return Tenant(
         id=row.id,
@@ -804,6 +1154,248 @@ def _to_proposta_comercial(
         aprovada_em=row.aprovada_em,
         decisoes=decisoes,
     )
+
+
+def _to_decisao_contrato(row: EventoContratoORM) -> DecisaoContrato:
+    return DecisaoContrato(
+        id=row.id,
+        contrato_id=row.contrato_id,
+        usuario_id=row.usuario_id,
+        tipo=row.tipo,
+        estado_anterior=ContratoCreditoState(row.estado_anterior),
+        estado_posterior=ContratoCreditoState(row.estado_posterior),
+        motivo=row.motivo,
+        criado_em=row.criado_em,
+    )
+
+
+def _to_contrato_credito(
+    row: ContratoCreditoORM,
+    decisoes: list[DecisaoContrato] | None = None,
+) -> ContratoCredito:
+    return ContratoCredito.restaurar(
+        id=row.id,
+        tenant_id=row.tenant_id,
+        carteira_id=row.carteira_id,
+        devedor_id=row.devedor_id,
+        proposta_comercial_id=row.proposta_comercial_id,
+        criado_por_usuario_id=row.criado_por_usuario_id,
+        parametros=row.parametros,
+        estado=ContratoCreditoState(row.estado),
+        criado_em=row.criado_em,
+        atualizado_em=row.atualizado_em,
+        formalizado_por_usuario_id=row.formalizado_por_usuario_id,
+        formalizado_em=row.formalizado_em,
+        assinado_por_usuario_id=row.assinado_por_usuario_id,
+        assinado_em=row.assinado_em,
+        liberado_por_usuario_id=row.liberado_por_usuario_id,
+        liberado_em=row.liberado_em,
+        motivo_encerramento=row.motivo_encerramento,
+        decisoes=decisoes,
+    )
+
+
+def _to_emprestimo(
+    row: EmprestimoORM,
+    eventos: list[EventoFinanceiro] | None = None,
+) -> Emprestimo:
+    emprestimo = Emprestimo.restaurar(
+        id=row.id,
+        tenant_id=row.tenant_id,
+        carteira_id=row.carteira_id,
+        devedor_id=row.devedor_id,
+        contrato_id=row.contrato_id,
+        principal_original=row.principal_original,
+        moeda=row.moeda,
+        parametros_financeiros=row.parametros_financeiros,
+        estado=EmprestimoState(row.estado),
+        criado_em=row.criado_em,
+        atualizado_em=row.atualizado_em,
+        ultimo_processamento_em=row.ultimo_processamento_em,
+        ultimo_pagamento_em=row.ultimo_pagamento_em,
+        proximo_vencimento_em=row.proximo_vencimento_em,
+        quitado_em=row.quitado_em,
+    )
+    emprestimo._eventos = eventos if eventos is not None else []  # type: ignore[assignment]
+    return emprestimo
+
+
+def _to_parcela_orm(parcela: Parcela) -> ParcelaORM:
+    return ParcelaORM(
+        id=parcela.id,
+        emprestimo_id=parcela.emprestimo_id,
+        numero=parcela.numero,
+        vencimento=parcela.vencimento,
+        valor_previsto=parcela.valor_previsto,
+        principal=parcela.principal,
+        juros=parcela.juros,
+        encargos=parcela.encargos,
+        valor_liquidado=parcela.valor_liquidado,
+        periodo=_periodo_to_json(parcela.periodo),
+        estado=parcela.estado.value,
+        criada_em=parcela.criada_em,
+        atualizada_em=parcela.atualizada_em,
+    )
+
+
+def _to_parcela(row: ParcelaORM) -> Parcela:
+    return Parcela(
+        id=row.id,
+        emprestimo_id=row.emprestimo_id,
+        numero=row.numero,
+        vencimento=row.vencimento,
+        valor_previsto=row.valor_previsto,
+        principal=row.principal,
+        juros=row.juros,
+        encargos=row.encargos,
+        valor_liquidado=row.valor_liquidado,
+        periodo=_periodo_from_json(row.periodo),
+        estado=ParcelaState(row.estado),
+        criada_em=row.criada_em,
+        atualizada_em=row.atualizada_em,
+    )
+
+
+def _to_pagamento_orm(pagamento: Pagamento) -> PagamentoORM:
+    return PagamentoORM(
+        id=pagamento.id,
+        emprestimo_id=pagamento.emprestimo_id,
+        valor_recebido=pagamento.valor_recebido,
+        recebido_em=pagamento.recebido_em,
+        valor_juros=pagamento.valor_juros,
+        valor_amortizacao=pagamento.valor_amortizacao,
+        valor_encargos=pagamento.valor_encargos,
+        chave_idempotencia=pagamento.chave_idempotencia or "",
+        parcelas_liquidadas=[str(parcela_id) for parcela_id in pagamento.parcelas_liquidadas],
+        distribuicao=pagamento.distribuicao,
+        usuario_id=pagamento.usuario_id,
+        estado=pagamento.estado.value,
+        criado_em=pagamento.criado_em,
+    )
+
+
+def _to_pagamento(row: PagamentoORM) -> Pagamento:
+    return Pagamento(
+        id=row.id,
+        emprestimo_id=row.emprestimo_id,
+        valor_recebido=row.valor_recebido,
+        recebido_em=row.recebido_em,
+        valor_juros=row.valor_juros,
+        valor_amortizacao=row.valor_amortizacao,
+        valor_encargos=row.valor_encargos,
+        chave_idempotencia=row.chave_idempotencia,
+        parcelas_liquidadas=tuple(uuid.UUID(valor) for valor in row.parcelas_liquidadas),
+        distribuicao=row.distribuicao,
+        usuario_id=row.usuario_id,
+        estado=PagamentoState(row.estado),
+        criado_em=row.criado_em,
+    )
+
+
+def _to_memoria_calculo(row: MemoriaCalculoORM) -> MemoriaCalculo:
+    return MemoriaCalculo(
+        id=row.id,
+        tipo=row.tipo,
+        entradas=row.entradas,
+        regra=row.regra,
+        periodos=tuple(row.periodos),
+        passos=tuple(_passo_from_json(passo) for passo in row.passos),
+        arredondamentos=tuple(row.arredondamentos),
+        resultados=row.resultados,
+        criado_em=row.criado_em,
+    )
+
+
+def _to_evento_financeiro_orm(evento: EventoFinanceiro) -> EventoFinanceiroORM:
+    return EventoFinanceiroORM(
+        id=evento.id,
+        emprestimo_id=evento.emprestimo_id,
+        tenant_id=evento.tenant_id,
+        carteira_id=evento.carteira_id,
+        devedor_id=evento.devedor_id,
+        usuario_id=evento.usuario_id,
+        memoria_calculo_id=evento.memoria_calculo_id,
+        pagamento_id=evento.pagamento_id,
+        tipo=evento.tipo,
+        estado_anterior=evento.estado_anterior.value if evento.estado_anterior else None,
+        estado_posterior=evento.estado_posterior.value if evento.estado_posterior else None,
+        valor=evento.valor,
+        detalhes=dict(evento.detalhes) if evento.detalhes is not None else None,
+        ocorrido_em=evento.ocorrido_em,
+    )
+
+
+def _to_evento_financeiro(row: EventoFinanceiroORM) -> EventoFinanceiro:
+    evento_cls = {
+        "pagamento_registrado": PagamentoRegistrado,
+        "emprestimo_quitado": EmprestimoQuitado,
+        "emprestimo_renegociado": EmprestimoRenegociado,
+    }.get(row.tipo, EventoFinanceiro)
+    return evento_cls(
+        id=row.id,
+        emprestimo_id=row.emprestimo_id,
+        tenant_id=row.tenant_id,
+        carteira_id=row.carteira_id,
+        devedor_id=row.devedor_id,
+        usuario_id=row.usuario_id,
+        memoria_calculo_id=row.memoria_calculo_id,
+        pagamento_id=row.pagamento_id,
+        tipo=row.tipo,
+        estado_anterior=EmprestimoState(row.estado_anterior) if row.estado_anterior else None,
+        estado_posterior=EmprestimoState(row.estado_posterior) if row.estado_posterior else None,
+        valor=row.valor,
+        detalhes=row.detalhes,
+        ocorrido_em=row.ocorrido_em,
+    )
+
+
+def _periodo_to_json(periodo: PeriodoFinanceiro | None) -> dict[str, object] | None:
+    if periodo is None:
+        return None
+    return {
+        "data_inicio": periodo.data_inicio.isoformat(),
+        "data_fim": periodo.data_fim.isoformat(),
+        "dias": periodo.dias,
+    }
+
+
+def _periodo_from_json(valor: dict[str, object] | None) -> PeriodoFinanceiro | None:
+    if valor is None:
+        return None
+    return PeriodoFinanceiro(
+        data_inicio=date.fromisoformat(str(valor["data_inicio"])),
+        data_fim=date.fromisoformat(str(valor["data_fim"])),
+    )
+
+
+def _passo_to_json(passo: PassoCalculo) -> dict[str, object]:
+    return {
+        "nome": passo.nome,
+        "entradas": dict(passo.entradas),
+        "saidas": dict(passo.saidas),
+        "arredondamento": passo.arredondamento,
+    }
+
+
+def _passo_from_json(valor: dict[str, object]) -> PassoCalculo:
+    entradas = valor.get("entradas", {})
+    saidas = valor.get("saidas", {})
+    arredondamento = valor.get("arredondamento")
+    return PassoCalculo(
+        nome=str(valor["nome"]),
+        entradas=entradas if isinstance(entradas, dict) else {},
+        saidas=saidas if isinstance(saidas, dict) else {},
+        arredondamento=str(arredondamento) if arredondamento is not None else None,
+    )
+
+
+def _data_referencia_from_memoria(memoria: MemoriaCalculo) -> date | None:
+    valor = memoria.entradas.get("data_referencia")
+    if isinstance(valor, date):
+        return valor
+    if isinstance(valor, str):
+        return date.fromisoformat(valor)
+    return None
 
 
 class SqlAlchemyDevedorRepository(DevedorRepository, DevedorUniquenessChecker):

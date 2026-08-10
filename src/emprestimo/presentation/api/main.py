@@ -25,8 +25,10 @@ from emprestimo.application.errors import (
     AcessoNegadoError,
     AutenticacaoRecusadaError,
     CarteiraNaoEncontradaError,
+    ContratoCreditoNaoEncontradoError,
     CredencialInvalidaError,
     DevedorNaoEncontradoError,
+    EmprestimoNaoEncontradoError,
     IdempotenciaConflitoError,
     PerfilConflitoError,
     PerfilNaoEncontradoError,
@@ -45,8 +47,10 @@ from emprestimo.domain.common.errors import (
 from emprestimo.domain.credit.contato import ContatoInvalidoError
 from emprestimo.presentation.api.auth_routes import router as auth_router
 from emprestimo.presentation.api.comercial_routes import router as comercial_router
+from emprestimo.presentation.api.contratos_routes import router as contratos_router
 from emprestimo.presentation.api.devedores_routes import router as devedores_router
 from emprestimo.presentation.api.iam_routes import router as iam_router
+from emprestimo.presentation.api.motor_routes import router as motor_router
 from emprestimo.presentation.api.routes import router
 
 logger = logging.getLogger(__name__)
@@ -63,6 +67,8 @@ def create_app() -> FastAPI:
     app.include_router(router)
     app.include_router(devedores_router)
     app.include_router(comercial_router)
+    app.include_router(contratos_router)
+    app.include_router(motor_router)
     app.add_exception_handler(RequestValidationError, _payload_invalido)
     app.add_exception_handler(AutenticacaoRecusadaError, _autenticacao_recusada)
     app.add_exception_handler(AcessoNegadoError, _acesso_negado)
@@ -72,6 +78,8 @@ def create_app() -> FastAPI:
     app.add_exception_handler(PerfilNaoEncontradoError, _recurso_nao_encontrado)
     app.add_exception_handler(SimulacaoComercialNaoEncontradaError, _recurso_nao_encontrado)
     app.add_exception_handler(PropostaComercialNaoEncontradaError, _recurso_nao_encontrado)
+    app.add_exception_handler(ContratoCreditoNaoEncontradoError, _recurso_nao_encontrado)
+    app.add_exception_handler(EmprestimoNaoEncontradoError, _recurso_nao_encontrado)
     app.add_exception_handler(RecursoDeOutroTenantError, _recurso_nao_encontrado)
     app.add_exception_handler(PerfilConflitoError, _perfil_conflito)
     app.add_exception_handler(PerfilJaExisteError, _perfil_conflito)

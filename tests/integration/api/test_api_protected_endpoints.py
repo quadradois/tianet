@@ -76,6 +76,25 @@ ROTAS_COM_404_DOCUMENTADO = {
     ("post", "/credit/propostas-comerciais/{proposta_id}/cancelar"),
     ("post", "/credit/propostas-comerciais/{proposta_id}/expirar"),
     ("get", "/credit/propostas-comerciais/{proposta_id}/contrato-logico"),
+    ("post", "/credit/carteiras/{carteira_id}/contratos"),
+    ("get", "/credit/carteiras/{carteira_id}/contratos"),
+    ("get", "/credit/contratos/{contrato_id}"),
+    ("get", "/credit/contratos/{contrato_id}/historico"),
+    ("post", "/credit/contratos/{contrato_id}/assinar"),
+    ("post", "/credit/contratos/{contrato_id}/liberar-para-motor"),
+    ("post", "/credit/contratos/{contrato_id}/cancelar"),
+    ("post", "/credit/contratos/{contrato_id}/encerrar"),
+    ("post", "/credit/contratos/{contrato_id}/emprestimos"),
+    ("get", "/credit/emprestimos/{emprestimo_id}"),
+    ("get", "/credit/carteiras/{carteira_id}/emprestimos"),
+    ("post", "/credit/emprestimos/{emprestimo_id}/parcelas"),
+    ("get", "/credit/emprestimos/{emprestimo_id}/parcelas"),
+    ("post", "/credit/emprestimos/{emprestimo_id}/pagamentos"),
+    ("get", "/credit/emprestimos/{emprestimo_id}/saldo"),
+    ("get", "/credit/emprestimos/{emprestimo_id}/memoria-calculo"),
+    ("get", "/credit/emprestimos/{emprestimo_id}/quitacao"),
+    ("post", "/credit/emprestimos/{emprestimo_id}/quitacao"),
+    ("post", "/credit/emprestimos/{emprestimo_id}/renegociacoes"),
     ("patch", "/iam/credencial"),
     ("post", "/iam/usuarios/{usuario_id}/credencial/redefinir"),
     ("get", "/iam/perfis/{perfil_id}"),
@@ -165,6 +184,9 @@ def endpoints_protegidos() -> list[EndpointProtegido]:
     tenant_id = uuid.uuid4()
     carteira_id = uuid.uuid4()
     devedor_id = uuid.uuid4()
+    proposta_id = uuid.uuid4()
+    contrato_id = uuid.uuid4()
+    emprestimo_id = uuid.uuid4()
     return [
         EndpointProtegido(
             "post",
@@ -203,6 +225,77 @@ def endpoints_protegidos() -> list[EndpointProtegido]:
             f"/credit/carteiras/{carteira_id}/devedores/{devedor_id}/reativar",
             {"headers": {"Idempotency-Key": "imp-091-reativar"}},
         ),
+        EndpointProtegido(
+            "post",
+            f"/credit/carteiras/{carteira_id}/contratos",
+            {"json": {"proposta_comercial_id": str(proposta_id)}},
+        ),
+        EndpointProtegido("get", f"/credit/carteiras/{carteira_id}/contratos", {}),
+        EndpointProtegido("get", f"/credit/contratos/{contrato_id}", {}),
+        EndpointProtegido("get", f"/credit/contratos/{contrato_id}/historico", {}),
+        EndpointProtegido("post", f"/credit/contratos/{contrato_id}/assinar", {}),
+        EndpointProtegido("post", f"/credit/contratos/{contrato_id}/liberar-para-motor", {}),
+        EndpointProtegido(
+            "post",
+            f"/credit/contratos/{contrato_id}/cancelar",
+            {"json": {"motivo": "teste"}},
+        ),
+        EndpointProtegido(
+            "post",
+            f"/credit/contratos/{contrato_id}/encerrar",
+            {"json": {"motivo": "teste"}},
+        ),
+        EndpointProtegido(
+            "post",
+            f"/credit/contratos/{contrato_id}/emprestimos",
+            {"headers": {"Idempotency-Key": "imp-168-emprestimo"}},
+        ),
+        EndpointProtegido("get", f"/credit/emprestimos/{emprestimo_id}", {}),
+        EndpointProtegido("get", f"/credit/carteiras/{carteira_id}/emprestimos", {}),
+        EndpointProtegido(
+            "post",
+            f"/credit/emprestimos/{emprestimo_id}/parcelas",
+            {"json": {"data_referencia": "2026-08-10"}},
+        ),
+        EndpointProtegido("get", f"/credit/emprestimos/{emprestimo_id}/parcelas", {}),
+        EndpointProtegido(
+            "post",
+            f"/credit/emprestimos/{emprestimo_id}/pagamentos",
+            {
+                "json": {"valor": "100.00", "recebido_em": "2026-09-10T12:00:00Z"},
+                "headers": {"Idempotency-Key": "imp-168-pagamento"},
+            },
+        ),
+        EndpointProtegido(
+            "get",
+            f"/credit/emprestimos/{emprestimo_id}/saldo?data_referencia=2026-10-10",
+            {},
+        ),
+        EndpointProtegido("get", f"/credit/emprestimos/{emprestimo_id}/memoria-calculo", {}),
+        EndpointProtegido(
+            "get",
+            f"/credit/emprestimos/{emprestimo_id}/quitacao?data_referencia=2026-10-10",
+            {},
+        ),
+        EndpointProtegido(
+            "post",
+            f"/credit/emprestimos/{emprestimo_id}/quitacao",
+            {
+                "json": {"recebido_em": "2026-10-10T12:00:00Z"},
+                "headers": {"Idempotency-Key": "imp-168-quitacao"},
+            },
+        ),
+        EndpointProtegido(
+            "post",
+            f"/credit/emprestimos/{emprestimo_id}/renegociacoes",
+            {
+                "json": {
+                    "novos_parametros": {"taxa_juros_mensal": "0.0150"},
+                    "renegociado_em": "2026-10-10T12:00:00Z",
+                },
+                "headers": {"Idempotency-Key": "imp-168-renegociacao"},
+            },
+        ),
     ]
 
 
@@ -219,7 +312,7 @@ def test_todos_endpoints_platform_e_credit_recusam_sem_token(
     client: TestClient,
     endpoints_protegidos: list[EndpointProtegido],
 ) -> None:
-    assert len(endpoints_protegidos) == 13
+    assert len(endpoints_protegidos) == 32
 
     for endpoint in endpoints_protegidos:
         resp = _chamar(client, endpoint)

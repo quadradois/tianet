@@ -28,6 +28,13 @@ from emprestimo.application.consulta_devedor import (
 )
 from emprestimo.application.estado_devedor import DevedorEstadoService
 from emprestimo.application.historico_devedor import DevedorHistoricoService
+from emprestimo.application.motor_financeiro import (
+    ConsultaSaldoService,
+    CriacaoEmprestimoService,
+    PagamentoService,
+    PlanoParcelasService,
+    QuitacaoRenegociacaoService,
+)
 from emprestimo.application.provisioning import TenantProvisioningService
 from emprestimo.domain.credit.ports import DevedorFiltros
 from emprestimo.domain.platform.ports import TenantRepository
@@ -85,6 +92,20 @@ def test_providers_de_devedor_montam_os_servicos(sessao: Session) -> None:
     )
     assert isinstance(dependencies.get_devedor_estado_service(sessao), DevedorEstadoService)
     assert isinstance(dependencies.get_devedor_historico_service(sessao), DevedorHistoricoService)
+
+
+def test_providers_do_motor_financeiro_montam_os_servicos(sessao: Session) -> None:
+    assert isinstance(
+        dependencies.get_criacao_emprestimo_service(sessao),
+        CriacaoEmprestimoService,
+    )
+    assert isinstance(dependencies.get_plano_parcelas_service(sessao), PlanoParcelasService)
+    assert isinstance(dependencies.get_pagamento_service(sessao), PagamentoService)
+    assert isinstance(dependencies.get_consulta_saldo_service(sessao), ConsultaSaldoService)
+    assert isinstance(
+        dependencies.get_quitacao_renegociacao_service(sessao),
+        QuitacaoRenegociacaoService,
+    )
 
 
 def test_servicos_montados_pelos_providers_operam_de_ponta_a_ponta(sessao: Session) -> None:

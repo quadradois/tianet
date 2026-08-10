@@ -17,7 +17,13 @@ from typing import Any
 from emprestimo.domain.credit.ports import (
     CarteiraRepository,
     ContatoRepository,
+    ContratoCreditoRepository,
     DevedorRepository,
+    EmprestimoRepository,
+    EventoFinanceiroRepository,
+    MemoriaCalculoRepository,
+    PagamentoRepository,
+    ParcelaRepository,
     PropostaComercialRepository,
     SimulacaoComercialRepository,
 )
@@ -125,6 +131,12 @@ class UnitOfWork(ABC):
     contato: ContatoRepository
     simulacao_comercial: SimulacaoComercialRepository
     proposta_comercial: PropostaComercialRepository
+    contrato_credito: ContratoCreditoRepository
+    emprestimo: EmprestimoRepository
+    parcela: ParcelaRepository
+    pagamento: PagamentoRepository
+    memoria_calculo: MemoriaCalculoRepository
+    evento_financeiro: EventoFinanceiroRepository
     idempotencia: IdempotenciaRegistro
 
     @abstractmethod

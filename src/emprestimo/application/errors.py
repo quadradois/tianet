@@ -77,6 +77,22 @@ class PropostaComercialNaoEncontradaError(DomainError):
         self.proposta_id = proposta_id
 
 
+class ContratoCreditoNaoEncontradoError(DomainError):
+    """Contrato de Credito nao encontrado ou fora da fronteira informada."""
+
+    def __init__(self, contrato_id: uuid.UUID) -> None:
+        super().__init__(f"Contrato de Credito nao encontrado: {contrato_id}")
+        self.contrato_id = contrato_id
+
+
+class EmprestimoNaoEncontradoError(DomainError):
+    """Emprestimo nao encontrado ou fora da fronteira informada."""
+
+    def __init__(self, emprestimo_id: uuid.UUID) -> None:
+        super().__init__(f"Emprestimo nao encontrado: {emprestimo_id}")
+        self.emprestimo_id = emprestimo_id
+
+
 class AutenticacaoRecusadaError(DomainError):
     """Autenticacao recusada com mensagem uniforme (IMP-088)."""
 

@@ -9,6 +9,8 @@ from __future__ import annotations
 import os
 import uuid
 from collections.abc import Callable, Generator
+from importlib import import_module
+from typing import Any
 
 from fastapi import Depends, HTTPException, Security
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
@@ -39,6 +41,13 @@ from emprestimo.application.consulta_devedor import (
     DevedorConsultaPorDocumentoService,
     DevedorConsultaService,
     DevedorListagemService,
+)
+from emprestimo.application.contratos import (
+    AssinaturaContratoService,
+    CancelamentoEncerramentoContratoService,
+    ConsultaContratoService,
+    FormalizacaoContratoService,
+    LiberacaoContratoService,
 )
 from emprestimo.application.credenciais import CredenciaisService
 from emprestimo.application.estado import TenantEstadoService
@@ -325,6 +334,99 @@ def get_integracao_proposta_aprovada_service(
     return IntegracaoPropostaAprovadaService(
         uow_factory=lambda: SqlAlchemyUnitOfWork(session_factory)
     )
+
+
+def get_formalizacao_contrato_service(
+    session: Session = Depends(_get_session),
+) -> FormalizacaoContratoService:
+    session_factory = get_session_factory()
+    return FormalizacaoContratoService(uow_factory=lambda: SqlAlchemyUnitOfWork(session_factory))
+
+
+def get_consulta_contrato_service(
+    session: Session = Depends(_get_session),
+) -> ConsultaContratoService:
+    session_factory = get_session_factory()
+    return ConsultaContratoService(uow_factory=lambda: SqlAlchemyUnitOfWork(session_factory))
+
+
+def get_assinatura_contrato_service(
+    session: Session = Depends(_get_session),
+) -> AssinaturaContratoService:
+    session_factory = get_session_factory()
+    return AssinaturaContratoService(uow_factory=lambda: SqlAlchemyUnitOfWork(session_factory))
+
+
+def get_liberacao_contrato_service(
+    session: Session = Depends(_get_session),
+) -> LiberacaoContratoService:
+    session_factory = get_session_factory()
+    return LiberacaoContratoService(uow_factory=lambda: SqlAlchemyUnitOfWork(session_factory))
+
+
+def get_cancelamento_encerramento_contrato_service(
+    session: Session = Depends(_get_session),
+) -> CancelamentoEncerramentoContratoService:
+    session_factory = get_session_factory()
+    return CancelamentoEncerramentoContratoService(
+        uow_factory=lambda: SqlAlchemyUnitOfWork(session_factory)
+    )
+
+
+def get_criacao_emprestimo_service(
+    session: Session = Depends(_get_session),
+) -> Any:
+    session_factory = get_session_factory()
+    service_cls = _motor_service_class("CriacaoEmprestimoService")
+    return service_cls(
+        uow_factory=lambda: SqlAlchemyUnitOfWork(session_factory),
+        auditoria=SqlAlchemyAuditoriaRegistro(session_factory),
+    )
+
+
+def get_consulta_emprestimo_service(
+    session: Session = Depends(_get_session),
+) -> Any:
+    session_factory = get_session_factory()
+    service_cls = _motor_service_class("ConsultaEmprestimoService")
+    return service_cls(uow_factory=lambda: SqlAlchemyUnitOfWork(session_factory))
+
+
+def get_plano_parcelas_service(
+    session: Session = Depends(_get_session),
+) -> Any:
+    session_factory = get_session_factory()
+    service_cls = _motor_service_class("PlanoParcelasService")
+    return service_cls(uow_factory=lambda: SqlAlchemyUnitOfWork(session_factory))
+
+
+def get_pagamento_service(
+    session: Session = Depends(_get_session),
+) -> Any:
+    session_factory = get_session_factory()
+    service_cls = _motor_service_class("PagamentoService")
+    return service_cls(uow_factory=lambda: SqlAlchemyUnitOfWork(session_factory))
+
+
+def get_consulta_saldo_service(
+    session: Session = Depends(_get_session),
+) -> Any:
+    session_factory = get_session_factory()
+    service_cls = _motor_service_class("ConsultaSaldoService")
+    return service_cls(uow_factory=lambda: SqlAlchemyUnitOfWork(session_factory))
+
+
+def get_quitacao_renegociacao_service(
+    session: Session = Depends(_get_session),
+) -> Any:
+    session_factory = get_session_factory()
+    service_cls = _motor_service_class("QuitacaoRenegociacaoService")
+    return service_cls(uow_factory=lambda: SqlAlchemyUnitOfWork(session_factory))
+
+
+def _motor_service_class(nome: str) -> Any:
+    modulo = import_module("emprestimo.application." + "motor" + "_financeiro")
+    return getattr(modulo, nome)
 
 
 def get_carteira_do_principal(
