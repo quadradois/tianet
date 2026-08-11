@@ -15,6 +15,11 @@ from emprestimo.application.autorizacao import (
     RecursoDeOutroTenantError,
 )
 from emprestimo.application.errors import AcessoNegadoError, AutenticacaoRecusadaError
+from emprestimo.application.iam_catalogo import (
+    CATALOGO_POR_CODIGO,
+    PERMISSOES_ADMIN_TENANT,
+    PERMISSOES_PLATAFORMA,
+)
 from emprestimo.application.ports import AuditoriaRegistro, UnitOfWork
 from emprestimo.domain.platform.perfil import PerfilAcesso
 from emprestimo.domain.platform.permissao import Permissao
@@ -28,6 +33,17 @@ RECURSO_ID = uuid.UUID("dddddddd-dddd-dddd-dddd-dddddddddddd")
 AGORA = datetime(2026, 8, 8, 12, 0, tzinfo=UTC)
 JWT_SECRET = "segredo-local-de-teste"
 OPERACAO = "devedor.criar"
+PERMISSOES_MOTOR_ESPERADAS = {
+    "motor.emprestimo.criar",
+    "motor.emprestimo.ler",
+    "motor.parcela.gerar",
+    "motor.parcela.ler",
+    "motor.pagamento.registrar",
+    "motor.saldo.ler",
+    "motor.memoria.ler",
+    "motor.quitacao.executar",
+    "motor.renegociacao.criar",
+}
 
 
 def _usuario(
@@ -237,6 +253,39 @@ def test_exigir_permissao_autoriza_quando_perfil_possui_operacao() -> None:
 
     uow.perfil_acesso.find_by_usuario_id.assert_called_once_with(USUARIO_ID)
     uow.commit.assert_called_once()
+
+
+def test_catalogo_iam_registra_permissoes_financeiras_como_permissoes_de_tenant() -> None:
+    catalogo = set(CATALOGO_POR_CODIGO)
+    permissoes_admin = {permissao.codigo for permissao in PERMISSOES_ADMIN_TENANT}
+    permissoes_plataforma = {permissao.codigo for permissao in PERMISSOES_PLATAFORMA}
+
+    assert catalogo >= PERMISSOES_MOTOR_ESPERADAS
+    assert permissoes_admin >= PERMISSOES_MOTOR_ESPERADAS
+    assert PERMISSOES_MOTOR_ESPERADAS.isdisjoint(permissoes_plataforma)
+
+
+@pytest.mark.parametrize("operacao", sorted(PERMISSOES_MOTOR_ESPERADAS))
+def test_exigir_permissao_financeira_segue_rbac_por_perfil_normalizado(operacao: str) -> None:
+    principal = Principal(
+        USUARIO_ID, TENANT_ID, "Operador Financeiro", AGORA + timedelta(minutes=15)
+    )
+    service = _service(_uow(perfil=_perfil(nome="Operador Financeiro", permissoes=(operacao,))))
+
+    service.exigir_permissao(principal, operacao)
+
+
+@pytest.mark.parametrize("operacao", sorted(PERMISSOES_MOTOR_ESPERADAS))
+def test_exigir_permissao_financeira_recusa_perfil_sem_operacao(operacao: str) -> None:
+    principal = Principal(
+        USUARIO_ID, TENANT_ID, "Operador Financeiro", AGORA + timedelta(minutes=15)
+    )
+    service = _service(
+        _uow(perfil=_perfil(nome="Operador Financeiro", permissoes=("devedor.ler",)))
+    )
+
+    with pytest.raises(AcessoNegadoError):
+        service.exigir_permissao(principal, operacao)
 
 
 @pytest.mark.parametrize(

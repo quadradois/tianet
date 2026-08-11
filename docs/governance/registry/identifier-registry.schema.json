@@ -1,0 +1,54 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "identifier-registry.schema.json",
+  "title": "Governance Identifier Registry",
+  "type": "object",
+  "required": ["$schema", "versao", "atualizadoEm", "normativo", "namespaces"],
+  "properties": {
+    "$schema": { "const": "./identifier-registry.schema.json" },
+    "versao": { "type": "string" },
+    "atualizadoEm": { "type": "string", "format": "date" },
+    "normativo": { "const": true },
+    "namespaces": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "object",
+        "required": [
+          "prefixo",
+          "nome",
+          "classe",
+          "governadoPor",
+          "regraNumeracao",
+          "status",
+          "validador"
+        ],
+        "properties": {
+          "prefixo": { "type": "string", "pattern": "^[A-Z]{2,12}$" },
+          "nome": { "type": "string", "minLength": 1 },
+          "classe": { "enum": ["DOCUMENT", "OPERATIONAL", "INLINE", "PRINCIPLE"] },
+          "governadoPor": { "type": "string", "minLength": 1 },
+          "regraNumeracao": { "type": "string", "minLength": 1 },
+          "ultimo": { "type": "integer", "minimum": 0 },
+          "status": { "enum": ["ACTIVE", "LEGACY"] },
+          "validador": { "type": "string", "minLength": 1 }
+        },
+        "allOf": [
+          {
+            "if": {
+              "type": "object",
+              "properties": { "governadoPor": { "const": "sequencial" } },
+              "required": ["governadoPor"]
+            },
+            "then": {
+              "type": "object",
+              "properties": { "ultimo": { "type": "integer", "minimum": 0 } },
+              "required": ["ultimo"]
+            }
+          }
+        ],
+        "additionalProperties": true
+      }
+    }
+  },
+  "additionalProperties": true
+}

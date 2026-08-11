@@ -27,6 +27,12 @@ RESPOSTA_RECURSO_NAO_ENCONTRADO: ResponseSpec = {
         "description": "Recurso inexistente ou indisponivel para o Tenant autenticado.",
     }
 }
+RESPOSTA_PAYLOAD_INVALIDO: ResponseSpec = {
+    400: {
+        "model": ErroResponse,
+        "description": "Payload, parametros ou headers invalidos para a operacao.",
+    }
+}
 RESPOSTA_CONFLITO_ESTADO: ResponseSpec = {
     409: {
         "model": ErroResponse,

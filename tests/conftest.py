@@ -20,9 +20,24 @@ from emprestimo.infrastructure.db.base import Base
 from emprestimo.infrastructure.db.session import database_url
 
 TABELAS_TRUNCATE = (
+    "evento_financeiro",
+    "memoria_calculo",
+    "pagamento",
+    "parcela",
+    "emprestimo",
+    "evento_contrato",
+    "contrato_credito",
     "decisao_comercial",
     "proposta_comercial",
     "simulacao_comercial",
+    "comunicacao_registro",
+    "lembrete",
+    "agenda_item",
+    "promessa_apropriacao",
+    "promessa_pagamento",
+    "cobranca_acao",
+    "cobranca_caso",
+    "relatorio_operacional_cache",
     "token_ativacao",
     "usuario_perfil",
     "perfil_permissao",
@@ -41,9 +56,24 @@ TABELAS_TRUNCATE = (
 )
 
 TABELAS_DROP = (
+    "evento_financeiro",
+    "memoria_calculo",
+    "pagamento",
+    "parcela",
+    "emprestimo",
+    "evento_contrato",
+    "contrato_credito",
     "decisao_comercial",
     "proposta_comercial",
     "simulacao_comercial",
+    "comunicacao_registro",
+    "lembrete",
+    "agenda_item",
+    "promessa_apropriacao",
+    "promessa_pagamento",
+    "cobranca_acao",
+    "cobranca_caso",
+    "relatorio_operacional_cache",
     "token_ativacao",
     "usuario_perfil",
     "perfil_permissao",
@@ -71,6 +101,14 @@ def _get_existing_tables(engine: Engine) -> set[str]:
 @pytest.fixture(scope="session")
 def engine() -> Iterator[Engine]:
     e = create_engine(database_url())
+    with e.begin() as conn:
+        conn.execute(sa.text("DROP TABLE IF EXISTS evento_financeiro CASCADE"))
+        conn.execute(sa.text("DROP TABLE IF EXISTS memoria_calculo CASCADE"))
+        conn.execute(sa.text("DROP TABLE IF EXISTS pagamento CASCADE"))
+        conn.execute(sa.text("DROP TABLE IF EXISTS parcela CASCADE"))
+        conn.execute(sa.text("DROP TABLE IF EXISTS emprestimo CASCADE"))
+        conn.execute(sa.text("DROP TABLE IF EXISTS evento_contrato CASCADE"))
+        conn.execute(sa.text("DROP TABLE IF EXISTS contrato_credito CASCADE"))
     Base.metadata.create_all(e)
     yield e
     # Drop tables in FK-respecting order to avoid FK constraint errors
