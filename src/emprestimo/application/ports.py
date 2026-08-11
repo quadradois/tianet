@@ -14,6 +14,7 @@ from dataclasses import dataclass
 from datetime import datetime
 from typing import Any
 
+from emprestimo.domain.common.events import DomainEventEnvelope
 from emprestimo.domain.credit.ports import (
     AcaoCobrancaRepository,
     AgendaItemRepository,
@@ -115,6 +116,13 @@ class AuditoriaConsulta(ABC):
     def listar_por_entidade(
         self, entidade: str, entidade_id: uuid.UUID
     ) -> list[EventoAuditoria]: ...
+
+
+class EventPublisher(ABC):
+    """Porta interna para publicacao futura de eventos sem broker externo."""
+
+    @abstractmethod
+    def publish(self, envelope: DomainEventEnvelope) -> None: ...
 
 
 class UnitOfWork(ABC):

@@ -52,6 +52,7 @@ from emprestimo.application.contratos import (
 from emprestimo.application.credenciais import CredenciaisService
 from emprestimo.application.estado import TenantEstadoService
 from emprestimo.application.estado_devedor import DevedorEstadoService
+from emprestimo.application.health import HealthService
 from emprestimo.application.historico_devedor import DevedorHistoricoService
 from emprestimo.application.operacao_diaria import (
     ApropriarPagamentoPromessa,
@@ -102,6 +103,11 @@ def _get_session() -> Generator[Session, None, None]:
         yield session
     finally:
         session.close()
+
+
+def get_health_service() -> HealthService:
+    """Monta o health service tecnico sem depender de IAM/RBAC."""
+    return HealthService(create_session)
 
 
 def get_tenant_provisioning_service(
