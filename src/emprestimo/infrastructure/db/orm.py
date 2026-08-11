@@ -887,3 +887,163 @@ class RelatorioOperacionalCacheORM(Base):
     __table_args__ = (
         CheckConstraint("familia_relatorio <> ''", name="ck_relatorio_familia_relatorio"),
     )
+
+
+class ModalidadeFinanceiraORM(Base):
+    """Tabela `modalidade_financeira` - modalidade governada do EPIC-009."""
+
+    __tablename__ = "modalidade_financeira"
+    __table_args__ = (
+        UniqueConstraint(
+            "tenant_id",
+            "carteira_id",
+            "codigo",
+            name="uq_modalidade_financeira_tenant_carteira_codigo",
+        ),
+        CheckConstraint("codigo <> ''", name="ck_modalidade_financeira_codigo"),
+        CheckConstraint("nome <> ''", name="ck_modalidade_financeira_nome"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True)
+    tenant_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid, ForeignKey("tenant.id"), nullable=False, index=True
+    )
+    carteira_id: Mapped[uuid.UUID | None] = mapped_column(
+        Uuid, ForeignKey("carteira.id"), nullable=True, index=True
+    )
+    codigo: Mapped[str] = mapped_column(String(80), nullable=False, index=True)
+    nome: Mapped[str] = mapped_column(String(200), nullable=False)
+    ativa: Mapped[bool] = mapped_column(nullable=False, default=True)
+    criado_em: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+
+
+class CalendarioFinanceiroORM(Base):
+    """Tabela `calendario_financeiro` - calendario operacional governado."""
+
+    __tablename__ = "calendario_financeiro"
+    __table_args__ = (
+        UniqueConstraint(
+            "tenant_id",
+            "carteira_id",
+            "codigo",
+            name="uq_calendario_financeiro_tenant_carteira_codigo",
+        ),
+        CheckConstraint("codigo <> ''", name="ck_calendario_financeiro_codigo"),
+        CheckConstraint("nome <> ''", name="ck_calendario_financeiro_nome"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True)
+    tenant_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid, ForeignKey("tenant.id"), nullable=False, index=True
+    )
+    carteira_id: Mapped[uuid.UUID | None] = mapped_column(
+        Uuid, ForeignKey("carteira.id"), nullable=True, index=True
+    )
+    codigo: Mapped[str] = mapped_column(String(80), nullable=False, index=True)
+    nome: Mapped[str] = mapped_column(String(200), nullable=False)
+    feriados: Mapped[list[str]] = mapped_column(JSON, nullable=False)
+    criado_em: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+
+
+class ConfiguracaoFinanceiraORM(Base):
+    """Tabela `configuracao_financeira` - aggregate versionado do EPIC-009."""
+
+    __tablename__ = "configuracao_financeira"
+    __table_args__ = (
+        UniqueConstraint(
+            "tenant_id",
+            "carteira_id",
+            "modalidade_codigo",
+            "versao",
+            name="uq_configuracao_financeira_escopo_versao",
+        ),
+        CheckConstraint("versao > 0", name="ck_configuracao_financeira_versao"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True)
+    tenant_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid, ForeignKey("tenant.id"), nullable=False, index=True
+    )
+    carteira_id: Mapped[uuid.UUID | None] = mapped_column(
+        Uuid, ForeignKey("carteira.id"), nullable=True, index=True
+    )
+    modalidade_codigo: Mapped[str] = mapped_column(String(80), nullable=False, index=True)
+    calendario_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid, ForeignKey("calendario_financeiro.id"), nullable=False
+    )
+    estado: Mapped[str] = mapped_column(String(30), nullable=False, index=True)
+    versao: Mapped[int] = mapped_column(Integer, nullable=False)
+    vigencia_inicio: Mapped[date] = mapped_column(Date, nullable=False, index=True)
+    vigencia_fim: Mapped[date | None] = mapped_column(Date, nullable=True, index=True)
+    taxas: Mapped[list[dict[str, object]]] = mapped_column(JSON, nullable=False)
+    parametros: Mapped[list[dict[str, object]]] = mapped_column(JSON, nullable=False)
+    politica_arredondamento: Mapped[dict[str, object]] = mapped_column(JSON, nullable=False)
+    criada_por_usuario_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid, ForeignKey("usuario.id"), nullable=False
+    )
+    criada_em: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+    atualizada_em: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    aprovada_por_usuario_id: Mapped[uuid.UUID | None] = mapped_column(
+        Uuid, ForeignKey("usuario.id"), nullable=True
+    )
+    aprovada_em: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    programada_para: Mapped[date | None] = mapped_column(Date, nullable=True)
+    ativada_em: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    substituida_em: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    inativada_em: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+
+class EventoConfiguracaoFinanceiraORM(Base):
+    """Tabela `configuracao_financeira_evento` - trilha append-only."""
+
+    __tablename__ = "configuracao_financeira_evento"
+
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True)
+    configuracao_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid, ForeignKey("configuracao_financeira.id"), nullable=False, index=True
+    )
+    tenant_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid, ForeignKey("tenant.id"), nullable=False, index=True
+    )
+    carteira_id: Mapped[uuid.UUID | None] = mapped_column(
+        Uuid, ForeignKey("carteira.id"), nullable=True, index=True
+    )
+    usuario_id: Mapped[uuid.UUID] = mapped_column(Uuid, ForeignKey("usuario.id"), nullable=False)
+    tipo: Mapped[str] = mapped_column(String(80), nullable=False)
+    motivo: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    versao_anterior: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    versao_nova: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    correlation_id: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    ocorrido_em: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+
+
+class SnapshotConfiguracaoContratualORM(Base):
+    """Tabela `snapshot_configuracao_contratual` - snapshot imutavel."""
+
+    __tablename__ = "snapshot_configuracao_contratual"
+
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True)
+    configuracao_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid, ForeignKey("configuracao_financeira.id"), nullable=False, index=True
+    )
+    tenant_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid, ForeignKey("tenant.id"), nullable=False, index=True
+    )
+    carteira_id: Mapped[uuid.UUID | None] = mapped_column(
+        Uuid, ForeignKey("carteira.id"), nullable=True, index=True
+    )
+    modalidade: Mapped[str] = mapped_column(String(80), nullable=False)
+    versao: Mapped[int] = mapped_column(Integer, nullable=False)
+    parametros: Mapped[dict[str, object]] = mapped_column(JSON, nullable=False)
+    hash_parametros: Mapped[str] = mapped_column(String(64), nullable=False)
+    capturado_em: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    capturado_por_usuario_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid, ForeignKey("usuario.id"), nullable=False
+    )
+    motivo: Mapped[str | None] = mapped_column(String(500), nullable=True)

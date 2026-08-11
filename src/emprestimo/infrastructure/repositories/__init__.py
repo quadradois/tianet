@@ -112,6 +112,15 @@ from emprestimo.infrastructure.db.orm import (
     UsuarioORM,
     UsuarioPerfilORM,
 )
+from emprestimo.infrastructure.repositories.configuracoes_financeiras import (
+    SqlAlchemyCalendarioFinanceiroRepository as SqlAlchemyCalendarioFinanceiroRepository,
+)
+from emprestimo.infrastructure.repositories.configuracoes_financeiras import (
+    SqlAlchemyConfiguracaoFinanceiraRepository as SqlAlchemyConfiguracaoFinanceiraRepository,
+)
+from emprestimo.infrastructure.repositories.configuracoes_financeiras import (
+    SqlAlchemyModalidadeFinanceiraRepository as SqlAlchemyModalidadeFinanceiraRepository,
+)
 from emprestimo.infrastructure.repositories.operacao_diaria import (
     SqlAlchemyAcaoCobrancaRepository as SqlAlchemyAcaoCobrancaRepository,
 )

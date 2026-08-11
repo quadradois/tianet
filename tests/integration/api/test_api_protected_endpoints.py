@@ -115,6 +115,19 @@ ROTAS_COM_404_DOCUMENTADO = {
     ("get", "/credit/carteiras/{carteira_id}/relatorios/vencimentos"),
     ("get", "/credit/carteiras/{carteira_id}/relatorios/pagamentos"),
     ("get", "/credit/carteiras/{carteira_id}/relatorios/fluxo"),
+    ("post", "/credit/configuracoes-financeiras/modalidades"),
+    ("get", "/credit/configuracoes-financeiras/modalidades"),
+    ("post", "/credit/configuracoes-financeiras/calendarios"),
+    ("get", "/credit/configuracoes-financeiras/calendarios"),
+    ("post", "/credit/configuracoes-financeiras"),
+    ("get", "/credit/configuracoes-financeiras"),
+    ("get", "/credit/configuracoes-financeiras/vigente"),
+    ("post", "/credit/configuracoes-financeiras/snapshots"),
+    ("get", "/credit/configuracoes-financeiras/{configuracao_id}"),
+    ("post", "/credit/configuracoes-financeiras/{configuracao_id}/aprovar"),
+    ("post", "/credit/configuracoes-financeiras/{configuracao_id}/programar"),
+    ("post", "/credit/configuracoes-financeiras/{configuracao_id}/ativar"),
+    ("post", "/credit/configuracoes-financeiras/{configuracao_id}/inativar"),
     ("patch", "/iam/credencial"),
     ("post", "/iam/usuarios/{usuario_id}/credencial/redefinir"),
     ("get", "/iam/perfis/{perfil_id}"),
@@ -212,6 +225,7 @@ def endpoints_protegidos() -> list[EndpointProtegido]:
     pagamento_id = uuid.uuid4()
     agenda_item_id = uuid.uuid4()
     lembrete_id = uuid.uuid4()
+    configuracao_id = uuid.uuid4()
     return [
         EndpointProtegido(
             "post",
@@ -438,6 +452,100 @@ def endpoints_protegidos() -> list[EndpointProtegido]:
             f"/credit/carteiras/{carteira_id}/relatorios/fluxo?inicio=2026-09-01&fim=2026-09-30",
             {},
         ),
+        EndpointProtegido(
+            "post",
+            "/credit/configuracoes-financeiras/modalidades",
+            {
+                "json": {
+                    "codigo": "prazo_fixo",
+                    "nome": "Prazo fixo",
+                    "carteira_id": str(carteira_id),
+                }
+            },
+        ),
+        EndpointProtegido(
+            "get",
+            "/credit/configuracoes-financeiras/modalidades",
+            {},
+        ),
+        EndpointProtegido(
+            "post",
+            "/credit/configuracoes-financeiras/calendarios",
+            {
+                "json": {
+                    "codigo": "br_padrao",
+                    "nome": "Brasil padrao",
+                    "feriados": [],
+                    "carteira_id": str(carteira_id),
+                }
+            },
+        ),
+        EndpointProtegido(
+            "get",
+            "/credit/configuracoes-financeiras/calendarios",
+            {},
+        ),
+        EndpointProtegido(
+            "post",
+            "/credit/configuracoes-financeiras",
+            {
+                "json": {
+                    "modalidade": "prazo_fixo",
+                    "calendario_id": str(uuid.uuid4()),
+                    "carteira_id": str(carteira_id),
+                    "vigencia_inicio": "2026-09-01",
+                    "taxas": [
+                        {
+                            "nome": "taxa_juros_mensal",
+                            "valor": "0.0200",
+                            "periodicidade": "mensal",
+                        }
+                    ],
+                    "parametros": [{"nome": "moeda", "valor": "BRL"}],
+                    "politica_arredondamento": {"modo": "half_up", "escala": 2},
+                }
+            },
+        ),
+        EndpointProtegido(
+            "get",
+            "/credit/configuracoes-financeiras?modalidade=prazo_fixo&data_referencia=2026-09-10",
+            {},
+        ),
+        EndpointProtegido(
+            "get",
+            f"/credit/configuracoes-financeiras/{configuracao_id}",
+            {},
+        ),
+        EndpointProtegido(
+            "post",
+            f"/credit/configuracoes-financeiras/{configuracao_id}/aprovar",
+            {"json": {"motivo": "teste"}},
+        ),
+        EndpointProtegido(
+            "post",
+            f"/credit/configuracoes-financeiras/{configuracao_id}/programar",
+            {"json": {"data_ativacao": "2026-09-01", "motivo": "teste"}},
+        ),
+        EndpointProtegido(
+            "post",
+            f"/credit/configuracoes-financeiras/{configuracao_id}/ativar",
+            {"json": {"motivo": "teste"}},
+        ),
+        EndpointProtegido(
+            "post",
+            f"/credit/configuracoes-financeiras/{configuracao_id}/inativar",
+            {"json": {"motivo": "teste"}},
+        ),
+        EndpointProtegido(
+            "get",
+            "/credit/configuracoes-financeiras/vigente?modalidade=prazo_fixo&data_referencia=2026-09-10",
+            {},
+        ),
+        EndpointProtegido(
+            "post",
+            "/credit/configuracoes-financeiras/snapshots",
+            {"json": {"configuracao_id": str(configuracao_id), "motivo": "teste"}},
+        ),
     ]
 
 
@@ -454,7 +562,7 @@ def test_todos_endpoints_platform_e_credit_recusam_sem_token(
     client: TestClient,
     endpoints_protegidos: list[EndpointProtegido],
 ) -> None:
-    assert len(endpoints_protegidos) == 52
+    assert len(endpoints_protegidos) == 65
 
     for endpoint in endpoints_protegidos:
         resp = _chamar(client, endpoint)

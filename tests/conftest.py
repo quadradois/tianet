@@ -20,6 +20,11 @@ from emprestimo.infrastructure.db.base import Base
 from emprestimo.infrastructure.db.session import database_url
 
 TABELAS_TRUNCATE = (
+    "snapshot_configuracao_contratual",
+    "configuracao_financeira_evento",
+    "configuracao_financeira",
+    "calendario_financeiro",
+    "modalidade_financeira",
     "evento_financeiro",
     "memoria_calculo",
     "pagamento",
@@ -56,6 +61,11 @@ TABELAS_TRUNCATE = (
 )
 
 TABELAS_DROP = (
+    "snapshot_configuracao_contratual",
+    "configuracao_financeira_evento",
+    "configuracao_financeira",
+    "calendario_financeiro",
+    "modalidade_financeira",
     "evento_financeiro",
     "memoria_calculo",
     "pagamento",
@@ -102,13 +112,9 @@ def _get_existing_tables(engine: Engine) -> set[str]:
 def engine() -> Iterator[Engine]:
     e = create_engine(database_url())
     with e.begin() as conn:
-        conn.execute(sa.text("DROP TABLE IF EXISTS evento_financeiro CASCADE"))
-        conn.execute(sa.text("DROP TABLE IF EXISTS memoria_calculo CASCADE"))
-        conn.execute(sa.text("DROP TABLE IF EXISTS pagamento CASCADE"))
-        conn.execute(sa.text("DROP TABLE IF EXISTS parcela CASCADE"))
-        conn.execute(sa.text("DROP TABLE IF EXISTS emprestimo CASCADE"))
-        conn.execute(sa.text("DROP TABLE IF EXISTS evento_contrato CASCADE"))
-        conn.execute(sa.text("DROP TABLE IF EXISTS contrato_credito CASCADE"))
+        for tabela in TABELAS_DROP:
+            conn.execute(sa.text(f"DROP TABLE IF EXISTS {tabela} CASCADE"))
+            conn.execute(sa.text(f"DROP TYPE IF EXISTS {tabela} CASCADE"))
     Base.metadata.create_all(e)
     yield e
     # Drop tables in FK-respecting order to avoid FK constraint errors

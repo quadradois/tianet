@@ -4,16 +4,32 @@ from __future__ import annotations
 
 import uuid
 from datetime import datetime
+from typing import Self
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from emprestimo.domain.credit.proposta_comercial_state import PropostaComercialState
+from emprestimo.presentation.api.financial_guardrails import chaves_financeiras_livres
+
+
+def _recusar_regra_financeira_livre(parametros: dict[str, object]) -> None:
+    proibidas = chaves_financeiras_livres(parametros)
+    if proibidas:
+        raise ValueError(
+            "parametros comerciais nao podem definir regra, memoria ou resultado "
+            "financeiro: " + ", ".join(proibidas)
+        )
 
 
 class SimulacaoComercialCreateRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     parametros: dict[str, object] = Field(min_length=1)
+
+    @model_validator(mode="after")
+    def recusar_regra_financeira_arbitraria(self) -> Self:
+        _recusar_regra_financeira_livre(self.parametros)
+        return self
 
 
 class PropostaComercialCreateRequest(BaseModel):
@@ -22,11 +38,21 @@ class PropostaComercialCreateRequest(BaseModel):
     parametros: dict[str, object] = Field(default_factory=dict)
     simulacao_id: uuid.UUID | None = None
 
+    @model_validator(mode="after")
+    def recusar_regra_financeira_arbitraria(self) -> Self:
+        _recusar_regra_financeira_livre(self.parametros)
+        return self
+
 
 class PropostaComercialUpdateRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     parametros: dict[str, object] = Field(min_length=1)
+
+    @model_validator(mode="after")
+    def recusar_regra_financeira_arbitraria(self) -> Self:
+        _recusar_regra_financeira_livre(self.parametros)
+        return self
 
 
 class DecisaoComercialRequest(BaseModel):

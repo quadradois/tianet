@@ -2,7 +2,7 @@
 
 **ID:** FOUNDATION-009
 
-**Versão:** 1.0.0
+**Versão:** 1.1.0
 
 **Status:** Aprovado
 
@@ -10,7 +10,7 @@
 
 **Data de Criação:** 2026-08-05
 
-**Última Atualização:** 2026-08-05
+**Última Atualização:** 2026-08-11
 
 **Revisor(es):** Arquitetura
 
@@ -123,7 +123,7 @@ Os Bounded Contexts abaixo são as fronteiras do domínio. Cada contexto é aten
 | Agenda | Vencimentos, compromissos, lembretes, retornos | Não | Emergente |
 | Comunicação | WhatsApp, SMS, e-mail, histórico de comunicações | Não | Emergente |
 | Relatórios | Indicadores, fluxo de caixa, carteira ativa, inadimplência | Não | Emergente |
-| Configurações | Taxas, modalidades, regras de cálculo, calendário financeiro | Não | Emergente |
+| Configuracoes Financeiras | Taxas, modalidades, parametros autorizados, vigencia e calendario financeiro | Não | Emergente (EPIC-009) |
 | Carteira (Credit) | Aggregate raiz do contexto financeiro; vínculo com Tenant | Não | Existente (estrutura) |
 | Billing | Cobrança de uso, assinaturas, faturamento entre tenants | Não | Futuro (pós-MVP) |
 | Notification | Canais de comunicação, templates, preferências, filas | Não | Futuro (pós-MVP) |
@@ -135,6 +135,11 @@ Os Bounded Contexts abaixo são as fronteiras do domínio. Cada contexto é aten
 | Integration | Adaptadores para bancos, PIX, registros de dívida, APIs de terceiros | Não | Futuro (pós-MVP) |
 | Observability | Métricas, logs, traces, correlation ID, alerting | Não | Futuro (pós-MVP) |
 | API Gateway | API pública, rate limiting, documentação, parceiros | Não | Futuro (pós-MVP) |
+
+Nota: `Configuracoes Financeiras` e o nome canonico do contexto para taxas,
+modalidades, parametros, vigencia e calendario financeiro. Referencias
+historicas a `Configuracoes` nesse sentido devem ser lidas como alias legado,
+distintas de `Configuracoes da Plataforma`.
 
 ---
 
@@ -215,6 +220,7 @@ Os Bounded Contexts abaixo são as fronteiras do domínio. Cada contexto é aten
 | BR-006 | Criação tardia de PRODUCT-N | PRODUCT-N de novas capacidades é criado quando houver necessidade real (Discovery), não antecipadamente. | Alta | Decisão ROADMAP-ALIGNMENT-001 §10.3 |
 | BR-007 | Core Domain exclusivo | Cálculos financeiros pertencem exclusivamente ao Motor Financeiro. | Alta | AMP-001 §6.3 |
 | BR-008 | Ordem de nascimento | Nenhum elemento pula etapas no ciclo de vida (§4): contexto antes do EPIC, Discovery antes do Product. | Alta | Este documento |
+| BR-009 | Configuracoes parametriza | Configuracoes Financeiras define parametros, vigencias e calendario; calculo definitivo permanece exclusivo do Motor Financeiro. | Alta | EPIC-009 Discovery/SDD |
 
 ---
 
@@ -300,3 +306,4 @@ flowchart TD
 |--------|------|-------|---------------------|
 | 0.1.0 | 2026-08-05 | SDD + Agent Loop Arquitetural | Criação inicial — hierarquia oficial, mapa de contextos e regras de evolução da camada Product. |
 | 1.0.0 | 2026-08-05 | SDD + Agent Loop Arquitetural | Ajustes aprovados pela Arquitetura: tabela de conceitos fundamentais (§3), ciclo de vida conectado ao SDD (§4), critérios objetivos de criação de novas Capabilities (§9) e promoção para Aprovado. |
+| 1.1.0 | 2026-08-11 | SDD + Agent Loop Arquitetural | Contexto Configuracoes Financeiras canonizado para EPIC-009, alias legado de Configuracoes declarado e BR-009 adicionada. |

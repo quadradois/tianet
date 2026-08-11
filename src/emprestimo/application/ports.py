@@ -19,8 +19,10 @@ from emprestimo.domain.credit.ports import (
     AcaoCobrancaRepository,
     AgendaItemRepository,
     ApropriacaoPagamentoRepository,
+    CalendarioFinanceiroRepository,
     CarteiraRepository,
     CobrancaCasoRepository,
+    ConfiguracaoFinanceiraRepository,
     ContatoRepository,
     ContratoCreditoRepository,
     DevedorRepository,
@@ -28,6 +30,7 @@ from emprestimo.domain.credit.ports import (
     EventoFinanceiroRepository,
     LembreteRepository,
     MemoriaCalculoRepository,
+    ModalidadeFinanceiraRepository,
     PagamentoRepository,
     ParcelaRepository,
     PromessaPagamentoRepository,
@@ -153,6 +156,9 @@ class UnitOfWork(ABC):
     lembrete: LembreteRepository
     registro_comunicacao: RegistroComunicacaoRepository
     relatorio_operacional_cache: RelatorioOperacionalCacheRepository
+    modalidade_financeira: ModalidadeFinanceiraRepository
+    calendario_financeiro: CalendarioFinanceiroRepository
+    configuracao_financeira: ConfiguracaoFinanceiraRepository
     simulacao_comercial: SimulacaoComercialRepository
     proposta_comercial: PropostaComercialRepository
     contrato_credito: ContratoCreditoRepository

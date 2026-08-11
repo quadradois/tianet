@@ -25,14 +25,17 @@ from emprestimo.application.errors import (
     AcessoNegadoError,
     AgendaItemNaoEncontradoError,
     AutenticacaoRecusadaError,
+    CalendarioFinanceiroNaoEncontradoError,
     CarteiraNaoEncontradaError,
     CobrancaCasoNaoEncontradoError,
+    ConfiguracaoFinanceiraNaoEncontradaError,
     ContratoCreditoNaoEncontradoError,
     CredencialInvalidaError,
     DevedorNaoEncontradoError,
     EmprestimoNaoEncontradoError,
     IdempotenciaConflitoError,
     LembreteNaoEncontradoError,
+    ModalidadeFinanceiraNaoEncontradaError,
     PagamentoNaoEncontradoError,
     PerfilConflitoError,
     PerfilNaoEncontradoError,
@@ -53,6 +56,9 @@ from emprestimo.domain.common.errors import (
 from emprestimo.domain.credit.contato import ContatoInvalidoError
 from emprestimo.presentation.api.auth_routes import router as auth_router
 from emprestimo.presentation.api.comercial_routes import router as comercial_router
+from emprestimo.presentation.api.configuracoes_financeiras_routes import (
+    router as configuracoes_financeiras_router,
+)
 from emprestimo.presentation.api.contratos_routes import router as contratos_router
 from emprestimo.presentation.api.devedores_routes import router as devedores_router
 from emprestimo.presentation.api.iam_routes import router as iam_router
@@ -85,6 +91,7 @@ def create_app() -> FastAPI:
     app.include_router(contratos_router)
     app.include_router(motor_router)
     app.include_router(operacao_diaria_router)
+    app.include_router(configuracoes_financeiras_router)
     app.add_exception_handler(RequestValidationError, _payload_invalido)
     app.add_exception_handler(AutenticacaoRecusadaError, _autenticacao_recusada)
     app.add_exception_handler(AcessoNegadoError, _acesso_negado)
@@ -102,6 +109,9 @@ def create_app() -> FastAPI:
     app.add_exception_handler(AgendaItemNaoEncontradoError, _recurso_nao_encontrado)
     app.add_exception_handler(LembreteNaoEncontradoError, _recurso_nao_encontrado)
     app.add_exception_handler(RegistroComunicacaoNaoEncontradoError, _recurso_nao_encontrado)
+    app.add_exception_handler(ModalidadeFinanceiraNaoEncontradaError, _recurso_nao_encontrado)
+    app.add_exception_handler(CalendarioFinanceiroNaoEncontradoError, _recurso_nao_encontrado)
+    app.add_exception_handler(ConfiguracaoFinanceiraNaoEncontradaError, _recurso_nao_encontrado)
     app.add_exception_handler(RecursoDeOutroTenantError, _recurso_nao_encontrado)
     app.add_exception_handler(PerfilConflitoError, _perfil_conflito)
     app.add_exception_handler(PerfilJaExisteError, _perfil_conflito)

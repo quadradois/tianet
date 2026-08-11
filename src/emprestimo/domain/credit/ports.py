@@ -17,6 +17,13 @@ from emprestimo.domain.credit.proposta_comercial_state import PropostaComercialS
 if TYPE_CHECKING:
     from collections.abc import Sequence
 
+    from emprestimo.domain.credit.configuracoes_financeiras import (
+        CalendarioFinanceiro,
+        ConfiguracaoFinanceira,
+        ConfiguracaoFinanceiraState,
+        ModalidadeFinanceira,
+        SnapshotConfiguracaoContratualV1,
+    )
     from emprestimo.domain.credit.contato import Contato
     from emprestimo.domain.credit.contrato_credito import ContratoCredito
     from emprestimo.domain.credit.devedor import Devedor
@@ -384,6 +391,59 @@ class RelatorioOperacionalCacheRepository(ABC):
         self,
         filtros: RelatorioOperacionalCacheFiltros,
     ) -> list[RelatorioOperacionalCache]: ...
+
+
+@dataclass(frozen=True)
+class ConfiguracaoFinanceiraFiltros:
+    """Filtros de consulta das configuracoes financeiras (EPIC-009)."""
+
+    tenant_id: uuid.UUID
+    carteira_id: uuid.UUID | None = None
+    modalidade: str | None = None
+    estado: ConfiguracaoFinanceiraState | None = None
+    data_referencia: date | None = None
+
+
+class ModalidadeFinanceiraRepository(ABC):
+    """Persistencia de ModalidadeFinanceira (EPIC-009)."""
+
+    @abstractmethod
+    def save(self, modalidade: ModalidadeFinanceira) -> None: ...
+
+    @abstractmethod
+    def find_by_id(self, modalidade_id: uuid.UUID) -> ModalidadeFinanceira | None: ...
+
+    @abstractmethod
+    def listar(self, tenant_id: uuid.UUID) -> list[ModalidadeFinanceira]: ...
+
+
+class CalendarioFinanceiroRepository(ABC):
+    """Persistencia de CalendarioFinanceiro (EPIC-009)."""
+
+    @abstractmethod
+    def save(self, calendario: CalendarioFinanceiro) -> None: ...
+
+    @abstractmethod
+    def find_by_id(self, calendario_id: uuid.UUID) -> CalendarioFinanceiro | None: ...
+
+    @abstractmethod
+    def listar(self, tenant_id: uuid.UUID) -> list[CalendarioFinanceiro]: ...
+
+
+class ConfiguracaoFinanceiraRepository(ABC):
+    """Persistencia de ConfiguracaoFinanceira e snapshots (EPIC-009)."""
+
+    @abstractmethod
+    def save(self, configuracao: ConfiguracaoFinanceira) -> None: ...
+
+    @abstractmethod
+    def save_snapshot(self, snapshot: SnapshotConfiguracaoContratualV1) -> None: ...
+
+    @abstractmethod
+    def find_by_id(self, configuracao_id: uuid.UUID) -> ConfiguracaoFinanceira | None: ...
+
+    @abstractmethod
+    def listar(self, filtros: ConfiguracaoFinanceiraFiltros) -> list[ConfiguracaoFinanceira]: ...
 
 
 class SimulacaoComercialRepository(ABC):
