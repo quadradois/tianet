@@ -11,6 +11,9 @@ build/
 .coverage
 htmlcov/
 
+# Node.js
+/node_modules/
+
 # Env
 .env
 

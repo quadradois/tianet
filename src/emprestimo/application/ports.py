@@ -15,16 +15,24 @@ from datetime import datetime
 from typing import Any
 
 from emprestimo.domain.credit.ports import (
+    AcaoCobrancaRepository,
+    AgendaItemRepository,
+    ApropriacaoPagamentoRepository,
     CarteiraRepository,
+    CobrancaCasoRepository,
     ContatoRepository,
     ContratoCreditoRepository,
     DevedorRepository,
     EmprestimoRepository,
     EventoFinanceiroRepository,
+    LembreteRepository,
     MemoriaCalculoRepository,
     PagamentoRepository,
     ParcelaRepository,
+    PromessaPagamentoRepository,
     PropostaComercialRepository,
+    RegistroComunicacaoRepository,
+    RelatorioOperacionalCacheRepository,
     SimulacaoComercialRepository,
 )
 from emprestimo.domain.platform.ports import (
@@ -129,6 +137,14 @@ class UnitOfWork(ABC):
     carteira: CarteiraRepository
     devedor: DevedorRepository
     contato: ContatoRepository
+    cobranca_caso: CobrancaCasoRepository
+    acao_cobranca: AcaoCobrancaRepository
+    promessa_pagamento: PromessaPagamentoRepository
+    apropriacao_pagamento: ApropriacaoPagamentoRepository
+    agenda_item: AgendaItemRepository
+    lembrete: LembreteRepository
+    registro_comunicacao: RegistroComunicacaoRepository
+    relatorio_operacional_cache: RelatorioOperacionalCacheRepository
     simulacao_comercial: SimulacaoComercialRepository
     proposta_comercial: PropostaComercialRepository
     contrato_credito: ContratoCreditoRepository

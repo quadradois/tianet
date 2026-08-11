@@ -1,7 +1,7 @@
 {
-  "$schema": "./identifier-registry.schema.md",
-  "versao": "1.0.0",
-  "atualizadoEm": "2026-08-09",
+  "$schema": "./identifier-registry.schema.json",
+  "versao": "1.1.0",
+  "atualizadoEm": "2026-08-10",
   "normativo": true,
   "especificacao": "docs/governance/SPEC-002-governance-identifier-system.md",
   "gramatica": "<NAMESPACE>-<NUMERO:3digitos>[-<QUALIFICADOR>]",
@@ -11,6 +11,8 @@
     "este arquivo, depois os demais documentos.",
     "O qualificador faz parte do identificador (AC-003): TASK-092 e TASK-092-A sao",
     "identificadores distintos, nao colisao.",
+    "Em namespace sequencial, ultimo e o maior ID historicamente emitido, nunca diminui",
+    "apos exclusao de artefato, e a proxima emissao usa sempre ultimo + 1.",
     "Classes: DOCUMENT (um arquivo por ID) | OPERATIONAL (sem arquivo, vive no Git)",
     "| INLINE (ancora dentro de um documento) | PRINCIPLE (principio de governanca)."
   ],
@@ -32,7 +34,7 @@
       "classe": "DOCUMENT",
       "governadoPor": "sequencial",
       "regraNumeracao": "ultimo + 1",
-      "ultimo": 4,
+      "ultimo": 8,
       "status": "ACTIVE",
       "validador": "docs:validate/identifiers",
       "local": "docs/product/**/capabilities/"
@@ -54,7 +56,7 @@
       "classe": "DOCUMENT",
       "governadoPor": "sequencial",
       "regraNumeracao": "ultimo + 1",
-      "ultimo": 27,
+      "ultimo": 31,
       "status": "ACTIVE",
       "validador": "docs:validate/identifiers",
       "local": "docs/product/**/features/"
@@ -65,7 +67,7 @@
       "classe": "DOCUMENT",
       "governadoPor": "sequencial",
       "regraNumeracao": "ultimo + 1",
-      "ultimo": 74,
+      "ultimo": 88,
       "status": "ACTIVE",
       "validador": "docs:validate/identifiers",
       "local": "docs/product/**/user-stories/"
@@ -109,7 +111,7 @@
       "classe": "DOCUMENT",
       "governadoPor": "sequencial",
       "regraNumeracao": "ultimo + 1",
-      "ultimo": 13,
+      "ultimo": 14,
       "status": "ACTIVE",
       "validador": "docs:validate/identifiers",
       "local": "docs/implementation/{plans,backlogs}/"

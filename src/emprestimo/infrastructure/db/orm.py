@@ -28,6 +28,7 @@ from sqlalchemy import (
     Integer,
     Numeric,
     String,
+    Text,
     UniqueConstraint,
     Uuid,
     func,
@@ -628,3 +629,261 @@ class EventoFinanceiroORM(Base):
     valor: Mapped[Decimal | None] = mapped_column(Numeric(18, 2), nullable=True)
     detalhes: Mapped[dict[str, object] | None] = mapped_column(JSON, nullable=True)
     ocorrido_em: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+
+
+class CobrancaCasoORM(Base):
+    """Tabela `cobranca_caso` - aggregate de acompanhamento de cobranÃ§a."""
+
+    __tablename__ = "cobranca_caso"
+
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True)
+    tenant_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid, ForeignKey("tenant.id"), nullable=False, index=True
+    )
+    carteira_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid, ForeignKey("carteira.id"), nullable=False, index=True
+    )
+    devedor_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid, ForeignKey("devedor.id"), nullable=False, index=True
+    )
+    emprestimo_id: Mapped[uuid.UUID | None] = mapped_column(
+        Uuid, ForeignKey("emprestimo.id"), nullable=True, index=True
+    )
+    titulo: Mapped[str] = mapped_column(String(255), nullable=False)
+    estado: Mapped[str] = mapped_column(String(30), nullable=False)
+    total_pendente: Mapped[Decimal] = mapped_column(
+        Numeric(18, 2), nullable=False, default=Decimal("0.00")
+    )
+    origem: Mapped[str] = mapped_column(String(50), nullable=False)
+    criado_em: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+    atualizado_em: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+    __table_args__ = (
+        UniqueConstraint("tenant_id", "carteira_id", "devedor_id", name="uq_cobranca_caso_devedor"),
+        CheckConstraint("total_pendente >= 0", name="ck_cobranca_caso_total_pendente_n"),
+    )
+
+
+class AcaoCobrancaORM(Base):
+    """Tabela `cobranca_acao` - log de aÃ§Ãµes manuais em cobranÃ§a."""
+
+    __tablename__ = "cobranca_acao"
+
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True)
+    cobranca_caso_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid, ForeignKey("cobranca_caso.id"), nullable=False, index=True
+    )
+    tenant_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid, ForeignKey("tenant.id"), nullable=False, index=True
+    )
+    carteira_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid, ForeignKey("carteira.id"), nullable=False, index=True
+    )
+    devedor_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid, ForeignKey("devedor.id"), nullable=False, index=True
+    )
+    emprestimo_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid, ForeignKey("emprestimo.id"), nullable=False, index=True
+    )
+    criado_por_usuario_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid, ForeignKey("usuario.id"), nullable=False, index=True
+    )
+    tipo: Mapped[str] = mapped_column(String(50), nullable=False)
+    resultado: Mapped[str] = mapped_column(Text, nullable=False)
+    parcela_id: Mapped[uuid.UUID | None] = mapped_column(
+        Uuid, ForeignKey("parcela.id"), nullable=True, index=True
+    )
+    estado: Mapped[str] = mapped_column(String(30), nullable=False, index=True)
+    registrada_em: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+
+    __table_args__ = (CheckConstraint("resultado <> ''", name="ck_cobranca_acao_resultado"),)
+
+
+class PromessaPagamentoORM(Base):
+    """Tabela `promessa_pagamento` - compromisso de pagamento operacional."""
+
+    __tablename__ = "promessa_pagamento"
+
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True)
+    tenant_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid, ForeignKey("tenant.id"), nullable=False, index=True
+    )
+    carteira_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid, ForeignKey("carteira.id"), nullable=False, index=True
+    )
+    devedor_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid, ForeignKey("devedor.id"), nullable=False, index=True
+    )
+    emprestimo_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid, ForeignKey("emprestimo.id"), nullable=False, index=True
+    )
+    valor_declarado: Mapped[Decimal] = mapped_column(Numeric(18, 2), nullable=False)
+    data_promessa: Mapped[date] = mapped_column(Date, nullable=False)
+    estado: Mapped[str] = mapped_column(String(30), nullable=False)
+    observacao: Mapped[str | None] = mapped_column(Text, nullable=True)
+    parcela_id: Mapped[uuid.UUID | None] = mapped_column(
+        Uuid, ForeignKey("parcela.id"), nullable=True, index=True
+    )
+    criado_por_usuario_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid, ForeignKey("usuario.id"), nullable=False
+    )
+    criada_em: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+    atualizado_em: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+    __table_args__ = (
+        CheckConstraint("valor_declarado > 0", name="ck_promessa_valor_declarado_positivo"),
+    )
+
+
+class ApropriacaoPagamentoORM(Base):
+    """Tabela `promessa_apropriacao` - alocaÃ§Ã£o de pagamento em promessa."""
+
+    __tablename__ = "promessa_apropriacao"
+
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True)
+    promessa_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid, ForeignKey("promessa_pagamento.id"), nullable=False, index=True
+    )
+    pagamento_id: Mapped[uuid.UUID | None] = mapped_column(
+        Uuid, ForeignKey("pagamento.id"), nullable=True, index=True
+    )
+    valor: Mapped[Decimal] = mapped_column(Numeric(18, 2), nullable=False)
+    realizado_em: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    parcela_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid, ForeignKey("parcela.id"), nullable=False, index=True
+    )
+    criada_em: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+    idempotencia: Mapped[str] = mapped_column(String(255), nullable=False)
+
+    __table_args__ = (
+        UniqueConstraint("promessa_id", "pagamento_id", name="uq_promessa_pagamento_pagamento"),
+        CheckConstraint("valor > 0", name="ck_promessa_apropriacao_valor_positivo"),
+    )
+
+
+class AgendaItemORM(Base):
+    """Tabela `agenda_item` - compromissos operacionais da carteira."""
+
+    __tablename__ = "agenda_item"
+
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True)
+    tenant_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid, ForeignKey("tenant.id"), nullable=False, index=True
+    )
+    carteira_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid, ForeignKey("carteira.id"), nullable=False, index=True
+    )
+    devedor_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid, ForeignKey("devedor.id"), nullable=False, index=True
+    )
+    emprestimo_id: Mapped[uuid.UUID | None] = mapped_column(
+        Uuid, ForeignKey("emprestimo.id"), nullable=True, index=True
+    )
+    titulo: Mapped[str] = mapped_column(String(255), nullable=False)
+    previsto_para: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    estado: Mapped[str] = mapped_column(String(30), nullable=False, index=True)
+    criado_em: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+    atualizado_em: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    usuario_solicitante_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid, ForeignKey("usuario.id"), nullable=False, index=True
+    )
+
+    __table_args__ = (CheckConstraint("titulo <> ''", name="ck_agenda_item_titulo"),)
+
+
+class LembreteORM(Base):
+    """Tabela `lembrete` - lembrete para compromissos."""
+
+    __tablename__ = "lembrete"
+
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True)
+    tenant_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid, ForeignKey("tenant.id"), nullable=False, index=True
+    )
+    carteira_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid, ForeignKey("carteira.id"), nullable=False, index=True
+    )
+    agenda_item_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid, ForeignKey("agenda_item.id"), nullable=False, index=True
+    )
+    horario: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    enviado_por_usuario_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid, ForeignKey("usuario.id"), nullable=False, index=True
+    )
+    mensagem: Mapped[str] = mapped_column(Text, nullable=False)
+    estado: Mapped[str] = mapped_column(String(30), nullable=False)
+    criado_em: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+
+
+class RegistroComunicacaoORM(Base):
+    """Tabela `comunicacao_registro` - comunicação manual registrada."""
+
+    __tablename__ = "comunicacao_registro"
+
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True)
+    tenant_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid, ForeignKey("tenant.id"), nullable=False, index=True
+    )
+    carteira_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid, ForeignKey("carteira.id"), nullable=False, index=True
+    )
+    devedor_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid, ForeignKey("devedor.id"), nullable=False, index=True
+    )
+    emprestimo_id: Mapped[uuid.UUID | None] = mapped_column(
+        Uuid, ForeignKey("emprestimo.id"), nullable=True, index=True
+    )
+    responsavel_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid, ForeignKey("usuario.id"), nullable=False
+    )
+    canal: Mapped[str] = mapped_column(String(50), nullable=False)
+    resumo: Mapped[str] = mapped_column(String(500), nullable=False)
+    resultado: Mapped[str] = mapped_column(Text, nullable=False)
+    ocorrido_em: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    parcela_id: Mapped[uuid.UUID | None] = mapped_column(
+        Uuid, ForeignKey("parcela.id"), nullable=True, index=True
+    )
+    cobranca_acao_id: Mapped[uuid.UUID | None] = mapped_column(
+        Uuid, ForeignKey("cobranca_acao.id"), nullable=True, index=True
+    )
+    agenda_item_id: Mapped[uuid.UUID | None] = mapped_column(
+        Uuid, ForeignKey("agenda_item.id"), nullable=True, index=True
+    )
+
+    __table_args__ = (CheckConstraint("resumo <> ''", name="ck_comunicacao_resumo"),)
+
+
+class RelatorioOperacionalCacheORM(Base):
+    """Tabela `relatorio_operacional_cache` - cache de consultas."""
+
+    __tablename__ = "relatorio_operacional_cache"
+
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True)
+    tenant_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid, ForeignKey("tenant.id"), nullable=False, index=True
+    )
+    carteira_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid, ForeignKey("carteira.id"), nullable=False, index=True
+    )
+    janela_referencia: Mapped[date] = mapped_column(Date, nullable=False, index=True)
+    familia_relatorio: Mapped[str] = mapped_column(String(80), nullable=False, index=True)
+    payload_json: Mapped[dict[str, object]] = mapped_column(JSON, nullable=False)
+    gerado_em: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+
+    __table_args__ = (
+        CheckConstraint("familia_relatorio <> ''", name="ck_relatorio_familia_relatorio"),
+    )

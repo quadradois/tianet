@@ -1,10 +1,10 @@
 # SPEC-002 — Governance Identifier System
 
-**Versão:** 1.1.0
+**Versão:** 1.7.0
 **Status:** Aprovado
 **Data:** 2026-08-07
 **Autor:** Engenharia (TASK-098)
-**Aprovação:** Arquitetura / 2026-08-07 (DA-098-001..007)
+**Aprovação:** Arquitetura / 2026-08-10 (DA-098-001..009)
 **Consolida:** AC-001, AC-002, AC-003, GA-001, GP-001
 
 ---
@@ -213,22 +213,40 @@ O validador passa a ter cinco famílias: `Structural`, `References`, `Contracts`
 | 5.5 | Namespace `LEGACY` ainda referenciado por documento vivo | AVISO |
 | 5.6 | Registry declara namespace que nenhum documento usa | AVISO |
 | 5.7 | Buraco na sequência de namespace `sequencial` | AVISO |
+| 5.8 | `ultimo` ausente, nao inteiro, negativo ou menor que algum ID vivo em namespace `sequencial` | **ERRO** |
+| 5.9 | `ultimo` reduzido, ID novo dentro da faixa historica ou nova faixa sem emissao contra a baseline Git | **ERRO** |
 
 **A regra 5.2 é a que teria impedido o incidente do `DA-001`**: o prefixo já
 existia como *Design Assumption*, e usá-lo para *Architectural Command* teria
 falhado na validação.
 
-**Regras deliberadamente ausentes.** A v1.0 previa "ID acima do `ultimo` do
-Registry" e "ID em número reservado". Ambas caíram por DA-098-001 e DA-098-002:
-`TASK` é governado pelo Git e `ADR` pelo AMP-001, então o Registry não guarda o
-contador desses dois e não pode julgá-los. Reintroduzi-las exigiria duplicar as
-fontes de verdade que as decisões acabaram de unificar.
+**Regras deliberadamente ausentes para namespaces externos.** `TASK` é
+governado pelo Git e `ADR` pelo AMP-001, então o Registry não guarda o contador
+desses dois e não pode julgá-los. A regra 5.8 aplica-se somente a namespaces com
+`governadoPor: sequencial`; nesse caso, o campo `ultimo` e obrigatorio, deve ser
+inteiro nao negativo e maior ou igual ao maior ID vivo. O campo e o marcador
+persistente da maior emissao historica: ele nunca diminui quando um artefato e
+excluido, e a proxima emissao usa sempre `ultimo + 1`. Assim a regra protege
+PRODUCT, FEATURE, US e demais contadores internos sem reciclar IDs nem duplicar
+as fontes de verdade de TASK/ADR.
+
+**Validacao historica.** A regra 5.8 valida o snapshot. A regra 5.9 compara a
+mudanca com a baseline Git: `HEAD` durante validacao local ou a referencia
+informada por `IDENTIFIER_BASE_REF` em CI. Todo numero ja emitido e menor ou
+igual ao `ultimo` da baseline esta permanentemente indisponivel para reemissao.
+Numero apenas reservado pode ser materializado uma vez sem alterar o contador.
+Uma nova faixa deve comecar em `ultimo + 1`, ser continua e atualizar o Registry
+no mesmo change set. Renomear arquivo sem mudar o ID do H1 nao e nova emissao.
+Baseline ausente, ilegivel ou inexistente e erro de validacao: a regra 5.9 nunca
+opera em modo degradado silencioso. Repositorio raso tambem falha. Namespace
+sequencial da baseline nao pode ser removido nem trocar de governanca sem uma
+migracao historica explicita que preserve o contador.
 
 ---
 
-# 8. Decisões da Arquitetura (DA-098-001..007)
+# 8. Decisões da Arquitetura (DA-098-001..009)
 
-As quatro questões abertas na v1.0 foram decididas, e três determinações
+As quatro questões abertas na v1.0 foram decididas, e cinco determinações
 adicionais ampliaram o escopo. Duas contrariam a recomendação da Engenharia —
 registradas aqui com o motivo.
 
@@ -263,6 +281,21 @@ altera **primeiro** o Registry, depois os demais documentos.
 **DA-098-007 — nova família de validação.** O `docs:validate` passa a ter cinco
 famílias: `Structural`, `References`, `Contracts`, `Governance`, `Identifiers`.
 
+**DA-098-008 — contador sequencial é contrato executável e histórico.** Para
+namespace com `governadoPor: sequencial`, `ultimo` e obrigatorio, deve ser um
+inteiro nao negativo e nunca pode ser menor que um numero vivo. Ele registra a
+maior emissao historica, nao apenas o maior artefato presente: exclusao ou
+depreciacao nao reduz o contador, e a proxima emissao e sempre `ultimo + 1`.
+Durante uma nova emissao, Registry e artefato sao atualizados no mesmo change
+set. TASK e ADR permanecem excluidos por DA-098-001 e DA-098-002.
+
+**DA-098-009 — Git fornece a baseline historica.** O Registry corrente, os IDs
+da referencia e os H1 encontrados no historico Git sao comparados para impedir
+reducao do contador, reintroducao de numero removido ou salto sem artefato.
+Numero reservado, mas nunca emitido, pode ser materializado uma vez. Validacao
+local usa `HEAD`; CI deve definir `IDENTIFIER_BASE_REF` para a branch ou
+merge-base de destino.
+
 ---
 
 # 9. Critérios de aceitação
@@ -276,7 +309,9 @@ famílias: `Structural`, `References`, `Contracts`, `Governance`, `Identifiers`.
 | **CB-005** | `DECISION-001` existente gera AVISO, não erro (DA-098-004) |
 | **CB-006** | Cada namespace do Registry declara os seis campos de DA-098-005 |
 | **CB-007** | O repositório atual passa com **0 erros** |
-| **CB-008** | Cada regra 5.1–5.7 tem teste automatizado |
+| **CB-008** | Cada regra 5.1–5.8 tem teste automatizado |
+| **CB-009** | `ultimo` ausente, nao inteiro, negativo ou menor que o maior ID vivo falha somente em namespace governado por sequencia; valor maior preserva emissoes historicas excluidas |
+| **CB-010** | Exclusao preserva `ultimo`; proxima emissao usa `ultimo + 1`; reducao, reciclagem ou baseline indisponivel falha |
 
 ---
 
@@ -284,8 +319,8 @@ famílias: `Structural`, `References`, `Contracts`, `Governance`, `Identifiers`.
 
 1. Esta especificação (SPEC-002);
 2. `docs/governance/registry/identifier-registry.json`;
-3. Regras 5.1–5.7 em `scripts/contract-check.js` ou módulo irmão;
-4. Testes em `scripts/tests/`, cobrindo CB-002 a CB-005.
+3. Regras 5.1–5.9 em `scripts/contract-check.js` ou módulo irmão;
+4. Testes em `scripts/tests/`, cobrindo CB-002 a CB-010.
 
 ---
 
@@ -295,3 +330,9 @@ famílias: `Structural`, `References`, `Contracts`, `Governance`, `Identifiers`.
 |---------|------|-----------|
 | 1.0.0 | 07/08/2026 | Especificação inicial do sistema de identificadores (TASK-098), baseada em inventário de 24 namespaces. |
 | 1.1.0 | 07/08/2026 | Aprovada — DA-098-001..007 registradas; Registry como metadado executável e documento normativo; família Identifiers definida; regras dependentes de contador próprio de TASK/ADR removidas por unificação das fontes de verdade. |
+| 1.2.0 | 10/08/2026 | DA-098-008 e regra 5.8: contador de namespace sequencial passa a ser validado sem afetar TASK ou ADR. |
+| 1.3.0 | 10/08/2026 | Regra 5.8 passa a exigir igualdade entre `ultimo` e o maior ID emitido; contagem e cobertura documental corrigidas. |
+| 1.4.0 | 10/08/2026 | Regra 5.8 passa a rejeitar `ultimo` ausente, nao inteiro ou negativo em todo namespace sequencial. |
+| 1.5.0 | 10/08/2026 | `ultimo` passa a ser marcador historico monotono; exclusao de artefato nao reduz contador nem recicla identificador. |
+| 1.6.0 | 10/08/2026 | Baseline Git e regra 5.9 tornam monotonicidade, sequencia de novas emissoes e anti-reciclagem verificaveis. |
+| 1.7.0 | 10/08/2026 | Baseline Git passa a falhar fechado, CI recebe a referencia de destino e o Registry e validado contra seu JSON Schema executavel. |

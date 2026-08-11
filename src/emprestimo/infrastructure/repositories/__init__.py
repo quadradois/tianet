@@ -112,6 +112,30 @@ from emprestimo.infrastructure.db.orm import (
     UsuarioORM,
     UsuarioPerfilORM,
 )
+from emprestimo.infrastructure.repositories.operacao_diaria import (
+    SqlAlchemyAcaoCobrancaRepository as SqlAlchemyAcaoCobrancaRepository,
+)
+from emprestimo.infrastructure.repositories.operacao_diaria import (
+    SqlAlchemyAgendaItemRepository as SqlAlchemyAgendaItemRepository,
+)
+from emprestimo.infrastructure.repositories.operacao_diaria import (
+    SqlAlchemyApropriacaoPagamentoRepository as SqlAlchemyApropriacaoPagamentoRepository,
+)
+from emprestimo.infrastructure.repositories.operacao_diaria import (
+    SqlAlchemyCobrancaCasoRepository as SqlAlchemyCobrancaCasoRepository,
+)
+from emprestimo.infrastructure.repositories.operacao_diaria import (
+    SqlAlchemyLembreteRepository as SqlAlchemyLembreteRepository,
+)
+from emprestimo.infrastructure.repositories.operacao_diaria import (
+    SqlAlchemyPromessaPagamentoRepository as SqlAlchemyPromessaPagamentoRepository,
+)
+from emprestimo.infrastructure.repositories.operacao_diaria import (
+    SqlAlchemyRegistroComunicacaoRepository as SqlAlchemyRegistroComunicacaoRepository,
+)
+from emprestimo.infrastructure.repositories.operacao_diaria import (
+    SqlAlchemyRelatorioOperacionalCacheRepository as SqlAlchemyRelatorioOperacionalCacheRepository,
+)
 
 
 class SqlAlchemyTenantRepository(TenantRepository):

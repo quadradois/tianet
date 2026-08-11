@@ -93,6 +93,54 @@ class EmprestimoNaoEncontradoError(DomainError):
         self.emprestimo_id = emprestimo_id
 
 
+class CobrancaCasoNaoEncontradoError(DomainError):
+    """Caso de cobranca nao encontrado ou fora da fronteira informada."""
+
+    def __init__(self, caso_id: uuid.UUID) -> None:
+        super().__init__(f"Caso de cobranca nao encontrado: {caso_id}")
+        self.caso_id = caso_id
+
+
+class PromessaPagamentoNaoEncontradaError(DomainError):
+    """Promessa de pagamento nao encontrada ou fora da fronteira informada."""
+
+    def __init__(self, promessa_id: uuid.UUID) -> None:
+        super().__init__(f"Promessa de pagamento nao encontrada: {promessa_id}")
+        self.promessa_id = promessa_id
+
+
+class PagamentoNaoEncontradoError(DomainError):
+    """Pagamento oficial nao encontrado ou fora da fronteira informada."""
+
+    def __init__(self, pagamento_id: uuid.UUID) -> None:
+        super().__init__(f"Pagamento nao encontrado: {pagamento_id}")
+        self.pagamento_id = pagamento_id
+
+
+class AgendaItemNaoEncontradoError(DomainError):
+    """Item de agenda nao encontrado ou fora da fronteira informada."""
+
+    def __init__(self, agenda_item_id: uuid.UUID) -> None:
+        super().__init__(f"Item de agenda nao encontrado: {agenda_item_id}")
+        self.agenda_item_id = agenda_item_id
+
+
+class LembreteNaoEncontradoError(DomainError):
+    """Lembrete nao encontrado ou fora da fronteira informada."""
+
+    def __init__(self, lembrete_id: uuid.UUID) -> None:
+        super().__init__(f"Lembrete nao encontrado: {lembrete_id}")
+        self.lembrete_id = lembrete_id
+
+
+class RegistroComunicacaoNaoEncontradoError(DomainError):
+    """Registro de comunicacao nao encontrado ou fora da fronteira informada."""
+
+    def __init__(self, registro_id: uuid.UUID) -> None:
+        super().__init__(f"Registro de comunicacao nao encontrado: {registro_id}")
+        self.registro_id = registro_id
+
+
 class AutenticacaoRecusadaError(DomainError):
     """Autenticacao recusada com mensagem uniforme (IMP-088)."""
 
