@@ -66,6 +66,8 @@ jobs:
   docs:
     name: Documentation gates
     runs-on: ubuntu-latest
+    env:
+      IDENTIFIER_BASE_REF: ${{ github.event.pull_request.base.sha || github.event.before }}
 
     steps:
       - name: Checkout
@@ -77,6 +79,16 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: "22"
+
+      - name: Verify identifier baseline
+        shell: bash
+        run: |
+          test -n "$IDENTIFIER_BASE_REF"
+          test "$IDENTIFIER_BASE_REF" != "0000000000000000000000000000000000000000"
+          git cat-file -e "${IDENTIFIER_BASE_REF}^{commit}"
+
+      - name: Install documentation dependencies
+        run: npm ci --ignore-scripts
 
       - name: Validate docs
         run: npm run docs:validate

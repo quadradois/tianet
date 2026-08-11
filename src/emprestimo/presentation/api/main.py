@@ -23,16 +23,22 @@ from fastapi.responses import JSONResponse
 from emprestimo.application.autorizacao import RecursoDeOutroTenantError
 from emprestimo.application.errors import (
     AcessoNegadoError,
+    AgendaItemNaoEncontradoError,
     AutenticacaoRecusadaError,
     CarteiraNaoEncontradaError,
+    CobrancaCasoNaoEncontradoError,
     ContratoCreditoNaoEncontradoError,
     CredencialInvalidaError,
     DevedorNaoEncontradoError,
     EmprestimoNaoEncontradoError,
     IdempotenciaConflitoError,
+    LembreteNaoEncontradoError,
+    PagamentoNaoEncontradoError,
     PerfilConflitoError,
     PerfilNaoEncontradoError,
+    PromessaPagamentoNaoEncontradaError,
     PropostaComercialNaoEncontradaError,
+    RegistroComunicacaoNaoEncontradoError,
     SimulacaoComercialNaoEncontradaError,
     TransicaoEstadoInvalidaError,
     UsuarioNaoEncontradoError,
@@ -51,6 +57,7 @@ from emprestimo.presentation.api.contratos_routes import router as contratos_rou
 from emprestimo.presentation.api.devedores_routes import router as devedores_router
 from emprestimo.presentation.api.iam_routes import router as iam_router
 from emprestimo.presentation.api.motor_routes import router as motor_router
+from emprestimo.presentation.api.operacao_diaria_routes import router as operacao_diaria_router
 from emprestimo.presentation.api.routes import router
 
 logger = logging.getLogger(__name__)
@@ -69,6 +76,7 @@ def create_app() -> FastAPI:
     app.include_router(comercial_router)
     app.include_router(contratos_router)
     app.include_router(motor_router)
+    app.include_router(operacao_diaria_router)
     app.add_exception_handler(RequestValidationError, _payload_invalido)
     app.add_exception_handler(AutenticacaoRecusadaError, _autenticacao_recusada)
     app.add_exception_handler(AcessoNegadoError, _acesso_negado)
@@ -80,6 +88,12 @@ def create_app() -> FastAPI:
     app.add_exception_handler(PropostaComercialNaoEncontradaError, _recurso_nao_encontrado)
     app.add_exception_handler(ContratoCreditoNaoEncontradoError, _recurso_nao_encontrado)
     app.add_exception_handler(EmprestimoNaoEncontradoError, _recurso_nao_encontrado)
+    app.add_exception_handler(CobrancaCasoNaoEncontradoError, _recurso_nao_encontrado)
+    app.add_exception_handler(PromessaPagamentoNaoEncontradaError, _recurso_nao_encontrado)
+    app.add_exception_handler(PagamentoNaoEncontradoError, _recurso_nao_encontrado)
+    app.add_exception_handler(AgendaItemNaoEncontradoError, _recurso_nao_encontrado)
+    app.add_exception_handler(LembreteNaoEncontradoError, _recurso_nao_encontrado)
+    app.add_exception_handler(RegistroComunicacaoNaoEncontradoError, _recurso_nao_encontrado)
     app.add_exception_handler(RecursoDeOutroTenantError, _recurso_nao_encontrado)
     app.add_exception_handler(PerfilConflitoError, _perfil_conflito)
     app.add_exception_handler(PerfilJaExisteError, _perfil_conflito)

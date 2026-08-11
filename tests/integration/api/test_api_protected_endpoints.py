@@ -95,6 +95,26 @@ ROTAS_COM_404_DOCUMENTADO = {
     ("get", "/credit/emprestimos/{emprestimo_id}/quitacao"),
     ("post", "/credit/emprestimos/{emprestimo_id}/quitacao"),
     ("post", "/credit/emprestimos/{emprestimo_id}/renegociacoes"),
+    ("get", "/credit/cobrancas/casos"),
+    ("post", "/credit/cobrancas/casos/{cobranca_caso_id}/acoes"),
+    ("post", "/credit/cobrancas/casos/{cobranca_caso_id}/promessas"),
+    ("post", "/credit/cobrancas/promessas/{promessa_id}/apropriacoes"),
+    ("get", "/credit/agenda"),
+    ("post", "/credit/carteiras/{carteira_id}/devedores/{devedor_id}/agenda/compromissos"),
+    ("post", "/credit/agenda/compromissos/{agenda_item_id}/lembretes"),
+    ("post", "/credit/agenda/compromissos/{agenda_item_id}/reagendar"),
+    ("post", "/credit/agenda/compromissos/{agenda_item_id}/concluir"),
+    ("post", "/credit/agenda/compromissos/{agenda_item_id}/cancelar"),
+    ("post", "/credit/agenda/lembretes/{lembrete_id}/reagendar"),
+    ("post", "/credit/agenda/lembretes/{lembrete_id}/enviar"),
+    ("post", "/credit/agenda/lembretes/{lembrete_id}/concluir"),
+    ("post", "/credit/agenda/lembretes/{lembrete_id}/cancelar"),
+    ("post", "/credit/carteiras/{carteira_id}/devedores/{devedor_id}/comunicacoes"),
+    ("get", "/credit/comunicacoes"),
+    ("get", "/credit/carteiras/{carteira_id}/relatorios/resumo"),
+    ("get", "/credit/carteiras/{carteira_id}/relatorios/vencimentos"),
+    ("get", "/credit/carteiras/{carteira_id}/relatorios/pagamentos"),
+    ("get", "/credit/carteiras/{carteira_id}/relatorios/fluxo"),
     ("patch", "/iam/credencial"),
     ("post", "/iam/usuarios/{usuario_id}/credencial/redefinir"),
     ("get", "/iam/perfis/{perfil_id}"),
@@ -187,6 +207,11 @@ def endpoints_protegidos() -> list[EndpointProtegido]:
     proposta_id = uuid.uuid4()
     contrato_id = uuid.uuid4()
     emprestimo_id = uuid.uuid4()
+    cobranca_caso_id = uuid.uuid4()
+    promessa_id = uuid.uuid4()
+    pagamento_id = uuid.uuid4()
+    agenda_item_id = uuid.uuid4()
+    lembrete_id = uuid.uuid4()
     return [
         EndpointProtegido(
             "post",
@@ -296,6 +321,123 @@ def endpoints_protegidos() -> list[EndpointProtegido]:
                 "headers": {"Idempotency-Key": "imp-168-renegociacao"},
             },
         ),
+        EndpointProtegido("get", "/credit/cobrancas/casos", {}),
+        EndpointProtegido(
+            "post",
+            f"/credit/cobrancas/casos/{cobranca_caso_id}/acoes",
+            {
+                "json": {"tipo": "telefone", "resultado": "contato realizado"},
+                "headers": {"Idempotency-Key": "imp-183-acao"},
+            },
+        ),
+        EndpointProtegido(
+            "post",
+            f"/credit/cobrancas/casos/{cobranca_caso_id}/promessas",
+            {
+                "json": {"valor_declarado": "100.00", "data_promessa": "2026-08-20"},
+                "headers": {"Idempotency-Key": "imp-183-promessa"},
+            },
+        ),
+        EndpointProtegido(
+            "post",
+            f"/credit/cobrancas/promessas/{promessa_id}/apropriacoes",
+            {
+                "json": {"pagamento_id": str(pagamento_id)},
+                "headers": {"Idempotency-Key": "imp-183-apropriacao"},
+            },
+        ),
+        EndpointProtegido("get", "/credit/agenda", {}),
+        EndpointProtegido(
+            "post",
+            f"/credit/carteiras/{carteira_id}/devedores/{devedor_id}/agenda/compromissos",
+            {
+                "json": {"titulo": "Contato", "previsto_para": "2026-09-10T12:00:00Z"},
+                "headers": {"Idempotency-Key": "imp-183-compromisso"},
+            },
+        ),
+        EndpointProtegido(
+            "post",
+            f"/credit/agenda/compromissos/{agenda_item_id}/lembretes",
+            {
+                "json": {"horario": "2026-09-10T11:00:00Z", "mensagem": "Ligar"},
+                "headers": {"Idempotency-Key": "imp-183-lembrete"},
+            },
+        ),
+        EndpointProtegido(
+            "post",
+            f"/credit/agenda/compromissos/{agenda_item_id}/reagendar",
+            {
+                "json": {"novo_horario": "2026-09-11T12:00:00Z"},
+                "headers": {"Idempotency-Key": "imp-183-compromisso-reagendar"},
+            },
+        ),
+        EndpointProtegido(
+            "post",
+            f"/credit/agenda/compromissos/{agenda_item_id}/concluir",
+            {"headers": {"Idempotency-Key": "imp-183-compromisso-concluir"}},
+        ),
+        EndpointProtegido(
+            "post",
+            f"/credit/agenda/compromissos/{agenda_item_id}/cancelar",
+            {"headers": {"Idempotency-Key": "imp-183-compromisso-cancelar"}},
+        ),
+        EndpointProtegido(
+            "post",
+            f"/credit/agenda/lembretes/{lembrete_id}/reagendar",
+            {
+                "json": {"novo_horario": "2026-09-11T11:00:00Z"},
+                "headers": {"Idempotency-Key": "imp-183-lembrete-reagendar"},
+            },
+        ),
+        EndpointProtegido(
+            "post",
+            f"/credit/agenda/lembretes/{lembrete_id}/enviar",
+            {"headers": {"Idempotency-Key": "imp-183-lembrete-enviar"}},
+        ),
+        EndpointProtegido(
+            "post",
+            f"/credit/agenda/lembretes/{lembrete_id}/concluir",
+            {"headers": {"Idempotency-Key": "imp-183-lembrete-concluir"}},
+        ),
+        EndpointProtegido(
+            "post",
+            f"/credit/agenda/lembretes/{lembrete_id}/cancelar",
+            {"headers": {"Idempotency-Key": "imp-183-lembrete-cancelar"}},
+        ),
+        EndpointProtegido(
+            "post",
+            f"/credit/carteiras/{carteira_id}/devedores/{devedor_id}/comunicacoes",
+            {
+                "json": {
+                    "canal": "telefone",
+                    "ocorrido_em": "2026-09-10T12:00:00Z",
+                    "resumo": "Contato",
+                    "resultado": "sem resposta",
+                },
+                "headers": {"Idempotency-Key": "imp-183-comunicacao"},
+            },
+        ),
+        EndpointProtegido("get", "/credit/comunicacoes", {}),
+        EndpointProtegido(
+            "get",
+            f"/credit/carteiras/{carteira_id}/relatorios/resumo?data_referencia=2026-09-10",
+            {},
+        ),
+        EndpointProtegido(
+            "get",
+            f"/credit/carteiras/{carteira_id}/relatorios/vencimentos?data_referencia=2026-09-10",
+            {},
+        ),
+        EndpointProtegido(
+            "get",
+            f"/credit/carteiras/{carteira_id}/relatorios/pagamentos?inicio=2026-09-01&fim=2026-09-30",
+            {},
+        ),
+        EndpointProtegido(
+            "get",
+            f"/credit/carteiras/{carteira_id}/relatorios/fluxo?inicio=2026-09-01&fim=2026-09-30",
+            {},
+        ),
     ]
 
 
@@ -312,7 +454,7 @@ def test_todos_endpoints_platform_e_credit_recusam_sem_token(
     client: TestClient,
     endpoints_protegidos: list[EndpointProtegido],
 ) -> None:
-    assert len(endpoints_protegidos) == 32
+    assert len(endpoints_protegidos) == 52
 
     for endpoint in endpoints_protegidos:
         resp = _chamar(client, endpoint)

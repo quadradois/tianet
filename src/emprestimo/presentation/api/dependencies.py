@@ -53,8 +53,22 @@ from emprestimo.application.credenciais import CredenciaisService
 from emprestimo.application.estado import TenantEstadoService
 from emprestimo.application.estado_devedor import DevedorEstadoService
 from emprestimo.application.historico_devedor import DevedorHistoricoService
+from emprestimo.application.operacao_diaria import (
+    ApropriarPagamentoPromessa,
+    ConsultarAgendaOperacional,
+    ConsultarFilaCobranca,
+    ConsultarHistoricoComunicacao,
+    CriarCompromissoAgenda,
+    CriarLembreteAgenda,
+    ManterCompromissoAgenda,
+    ManterLembreteAgenda,
+    RegistrarAcaoCobranca,
+    RegistrarComunicacaoManual,
+    RegistrarPromessa,
+)
 from emprestimo.application.perfis_acesso import PerfisAcessoService
 from emprestimo.application.provisioning import TenantProvisioningService
+from emprestimo.application.relatorios import RelatoriosOperacionaisService
 from emprestimo.domain.credit.carteira import Carteira
 from emprestimo.domain.credit.devedor import Devedor
 from emprestimo.domain.credit.ports import CarteiraRepository
@@ -422,6 +436,102 @@ def get_quitacao_renegociacao_service(
     session_factory = get_session_factory()
     service_cls = _motor_service_class("QuitacaoRenegociacaoService")
     return service_cls(uow_factory=lambda: SqlAlchemyUnitOfWork(session_factory))
+
+
+def get_consultar_fila_cobranca_service(
+    session: Session = Depends(_get_session),
+) -> ConsultarFilaCobranca:
+    del session
+    session_factory = get_session_factory()
+    return ConsultarFilaCobranca(uow_factory=lambda: SqlAlchemyUnitOfWork(session_factory))
+
+
+def get_registrar_acao_cobranca_service(
+    session: Session = Depends(_get_session),
+) -> RegistrarAcaoCobranca:
+    del session
+    session_factory = get_session_factory()
+    return RegistrarAcaoCobranca(uow_factory=lambda: SqlAlchemyUnitOfWork(session_factory))
+
+
+def get_registrar_promessa_service(
+    session: Session = Depends(_get_session),
+) -> RegistrarPromessa:
+    del session
+    session_factory = get_session_factory()
+    return RegistrarPromessa(uow_factory=lambda: SqlAlchemyUnitOfWork(session_factory))
+
+
+def get_apropriar_pagamento_promessa_service(
+    session: Session = Depends(_get_session),
+) -> ApropriarPagamentoPromessa:
+    del session
+    session_factory = get_session_factory()
+    return ApropriarPagamentoPromessa(uow_factory=lambda: SqlAlchemyUnitOfWork(session_factory))
+
+
+def get_consultar_agenda_operacional_service(
+    session: Session = Depends(_get_session),
+) -> ConsultarAgendaOperacional:
+    del session
+    session_factory = get_session_factory()
+    return ConsultarAgendaOperacional(uow_factory=lambda: SqlAlchemyUnitOfWork(session_factory))
+
+
+def get_criar_compromisso_agenda_service(
+    session: Session = Depends(_get_session),
+) -> CriarCompromissoAgenda:
+    del session
+    session_factory = get_session_factory()
+    return CriarCompromissoAgenda(uow_factory=lambda: SqlAlchemyUnitOfWork(session_factory))
+
+
+def get_criar_lembrete_agenda_service(
+    session: Session = Depends(_get_session),
+) -> CriarLembreteAgenda:
+    del session
+    session_factory = get_session_factory()
+    return CriarLembreteAgenda(uow_factory=lambda: SqlAlchemyUnitOfWork(session_factory))
+
+
+def get_manter_compromisso_agenda_service(
+    session: Session = Depends(_get_session),
+) -> ManterCompromissoAgenda:
+    del session
+    session_factory = get_session_factory()
+    return ManterCompromissoAgenda(uow_factory=lambda: SqlAlchemyUnitOfWork(session_factory))
+
+
+def get_manter_lembrete_agenda_service(
+    session: Session = Depends(_get_session),
+) -> ManterLembreteAgenda:
+    del session
+    session_factory = get_session_factory()
+    return ManterLembreteAgenda(uow_factory=lambda: SqlAlchemyUnitOfWork(session_factory))
+
+
+def get_registrar_comunicacao_manual_service(
+    session: Session = Depends(_get_session),
+) -> RegistrarComunicacaoManual:
+    del session
+    session_factory = get_session_factory()
+    return RegistrarComunicacaoManual(uow_factory=lambda: SqlAlchemyUnitOfWork(session_factory))
+
+
+def get_consultar_historico_comunicacao_service(
+    session: Session = Depends(_get_session),
+) -> ConsultarHistoricoComunicacao:
+    del session
+    session_factory = get_session_factory()
+    return ConsultarHistoricoComunicacao(uow_factory=lambda: SqlAlchemyUnitOfWork(session_factory))
+
+
+def get_relatorios_operacionais_service(
+    session: Session = Depends(_get_session),
+) -> RelatoriosOperacionaisService:
+    del session
+    session_factory = get_session_factory()
+    return RelatoriosOperacionaisService(uow_factory=lambda: SqlAlchemyUnitOfWork(session_factory))
 
 
 def _motor_service_class(nome: str) -> Any:

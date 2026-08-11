@@ -15,7 +15,11 @@ from sqlalchemy.orm import Session
 from emprestimo.application.ports import UnitOfWork
 from emprestimo.infrastructure.idempotencia import SqlAlchemyIdempotenciaRegistro
 from emprestimo.infrastructure.repositories import (
+    SqlAlchemyAcaoCobrancaRepository,
+    SqlAlchemyAgendaItemRepository,
+    SqlAlchemyApropriacaoPagamentoRepository,
     SqlAlchemyCarteiraRepository,
+    SqlAlchemyCobrancaCasoRepository,
     SqlAlchemyConfiguracaoRepository,
     SqlAlchemyContatoRepository,
     SqlAlchemyContratoCreditoRepository,
@@ -23,12 +27,16 @@ from emprestimo.infrastructure.repositories import (
     SqlAlchemyDevedorRepository,
     SqlAlchemyEmprestimoRepository,
     SqlAlchemyEventoFinanceiroRepository,
+    SqlAlchemyLembreteRepository,
     SqlAlchemyMemoriaCalculoRepository,
     SqlAlchemyPagamentoRepository,
     SqlAlchemyParcelaRepository,
     SqlAlchemyPerfilAcessoRepository,
     SqlAlchemyPermissaoRepository,
+    SqlAlchemyPromessaPagamentoRepository,
     SqlAlchemyPropostaComercialRepository,
+    SqlAlchemyRegistroComunicacaoRepository,
+    SqlAlchemyRelatorioOperacionalCacheRepository,
     SqlAlchemySessaoRepository,
     SqlAlchemySimulacaoComercialRepository,
     SqlAlchemyTenantRepository,
@@ -53,6 +61,16 @@ class SqlAlchemyUnitOfWork(UnitOfWork):
         self.carteira = SqlAlchemyCarteiraRepository(self._session)
         self.devedor = SqlAlchemyDevedorRepository(self._session)
         self.contato = SqlAlchemyContatoRepository(self._session)
+        self.cobranca_caso = SqlAlchemyCobrancaCasoRepository(self._session)
+        self.acao_cobranca = SqlAlchemyAcaoCobrancaRepository(self._session)
+        self.promessa_pagamento = SqlAlchemyPromessaPagamentoRepository(self._session)
+        self.apropriacao_pagamento = SqlAlchemyApropriacaoPagamentoRepository(self._session)
+        self.agenda_item = SqlAlchemyAgendaItemRepository(self._session)
+        self.lembrete = SqlAlchemyLembreteRepository(self._session)
+        self.registro_comunicacao = SqlAlchemyRegistroComunicacaoRepository(self._session)
+        self.relatorio_operacional_cache = SqlAlchemyRelatorioOperacionalCacheRepository(
+            self._session
+        )
         self.simulacao_comercial = SqlAlchemySimulacaoComercialRepository(self._session)
         self.proposta_comercial = SqlAlchemyPropostaComercialRepository(self._session)
         self.contrato_credito = SqlAlchemyContratoCreditoRepository(self._session)
