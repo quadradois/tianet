@@ -120,7 +120,12 @@ def test_health(client: TestClient) -> None:
     resp = client.get("/health")
 
     assert resp.status_code == 200
-    assert resp.json() == {"status": "ok"}
+    assert resp.json() == {
+        "status": "healthy",
+        "service": "api",
+        "checks": {"database": "healthy"},
+    }
+    assert resp.headers["X-Correlation-ID"]
 
 
 def test_post_cria_tenant_201(client: TestClient) -> None:

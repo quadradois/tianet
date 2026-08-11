@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import uuid
 from datetime import datetime
-from typing import Any
+from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
@@ -118,6 +118,14 @@ class ErroResponse(BaseModel):
 
     codigo: str
     mensagem: str
+
+
+class HealthResponse(BaseModel):
+    """Resposta publica minima do healthcheck operacional."""
+
+    status: Literal["healthy", "degraded", "unhealthy"]
+    service: str
+    checks: dict[str, Literal["healthy", "degraded", "unhealthy"]]
 
 
 class AuthLoginRequest(BaseModel):

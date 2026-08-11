@@ -2,7 +2,7 @@
 
 **ID:** PRODUCT-001
 
-**Versão:** 2.0.0
+**Versão:** 2.1.0
 
 **Status:** Aprovado
 
@@ -38,7 +38,9 @@ Esta Capability é responsável por:
 - administrar Usuários, Perfis de Acesso e Permissões (via IAM — EPIC-006);
 - administrar Configurações da plataforma;
 - garantir isolamento entre Tenants;
-- registrar informações de auditoria relacionadas ao acesso.
+- registrar informações de auditoria relacionadas ao acesso;
+- manter fundacao operacional transversal de qualidade, healthcheck,
+  observabilidade tecnica e rastreabilidade de requisicoes.
 
 ---
 
@@ -82,11 +84,17 @@ Esta Capability depende de:
 Esta Capability é atendida pelos seguintes Épicos (numeração **global** conforme FOUNDATION-009, BR-003 — sem numeração local por capacidade):
 
 - **EPIC-001 — Gerenciar Tenant** (concluído; Bounded Context: Platform);
-- **EPIC-006 — IAM — Autenticação, Usuários, Perfis e Permissões** (emergente; Bounded Context: Platform/IAM).
+- **EPIC-006 — IAM — Autenticação, Usuários, Perfis e Permissões** (concluido; Bounded Context: Platform/IAM);
+- **EPIC-008 — Fundacao Operacional e Observabilidade** (proposto; pacote tecnico transversal de Platform/Engineering).
 
 A gestão de Usuários, Perfis de Acesso e Permissões é entregue via **EPIC-006 (IAM)** — não como Épicos independentes.
 
 **Configurações da Plataforma** permanece responsabilidade desta Capability e será entregue quando houver Discovery real (FOUNDATION-009, BR-006), sem EPIC pré-atribuído.
+
+O **EPIC-008** e registrado como excecao tecnica governada: ele nao cria uma
+Capability funcional nova nem inaugura um Bounded Context autonomo de
+Observability. Seu contexto primario e Platform, com recorte Engineering, para
+tratar pre-condicoes operacionais do MVP.
 
 **EPIC ≠ Bounded Context** (FOUNDATION-009, BR-002): um contexto pode conter múltiplos EPICs.
 
@@ -96,7 +104,8 @@ A gestão de Usuários, Perfis de Acesso e Permissões é entregue via **EPIC-00
 
 Esta Capability será considerada concluída quando:
 
-- os Épicos da Capability (EPIC-001 e EPIC-006) estiverem implementados conforme a numeração global;
+- os Épicos da Capability (EPIC-001, EPIC-006 e EPIC-008) estiverem
+  implementados conforme sua fase e a numeração global;
 - o isolamento entre Tenants estiver garantido;
 - autenticação e autorização estiverem operacionais (EPIC-006 — IAM);
 - usuários puderem administrar a plataforma conforme suas permissões;
@@ -110,3 +119,4 @@ Esta Capability será considerada concluída quando:
 |---------|------|-----------|
 | 1.0.0 | 01/08/2026 | Primeira versão oficial da Capability Administrar Plataforma. |
 | 2.0.0 | 05/08/2026 | Alinhamento ao FOUNDATION-009 (v1.0.0): hierarquia oficial Capability → Bounded Context → EPIC → Feature → User Story; numeração global de Épicos (EPIC-001 concluído e EPIC-006 IAM); gestão de Usuários/Perfis/Permissões integrada ao IAM; remoção da numeração local EPIC-002..005; desambiguação de Configurações (Plataforma × Financeiras); dependência do FOUNDATION-009 adicionada; critérios de aprovação alinhados. Sem alteração de IDs ou semântica fora do relatório aprovado. |
+| 2.1.0 | 2026-08-11 | EPIC-008 registrado como excecao tecnica governada de Platform/Engineering para fundacao operacional e observabilidade. |

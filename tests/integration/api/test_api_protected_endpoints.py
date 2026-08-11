@@ -515,7 +515,12 @@ def test_health_permanece_publico_sem_token(client: TestClient) -> None:
     resp = client.get("/health")
 
     assert resp.status_code == 200
-    assert resp.json() == {"status": "ok"}
+    assert resp.json() == {
+        "status": "healthy",
+        "service": "api",
+        "checks": {"database": "healthy"},
+    }
+    assert resp.headers["X-Correlation-ID"]
 
 
 def test_auth_login_permanece_publico_sem_authorization(

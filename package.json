@@ -5,7 +5,7 @@
   "description": "Sistema de Gestão de Empréstimos — documentação",
   "scripts": {
     "docs:validate": "node scripts/validate-docs.js",
-    "docs:test": "node scripts/tests/test-validator.js && node scripts/tests/test-identifiers.js && node scripts/tests/test-epic-007-contracts.js",
+    "docs:test": "node scripts/tests/test-validator.js && node scripts/tests/test-identifiers.js && node scripts/tests/test-epic-007-contracts.js && node scripts/tests/test-epic-008-contracts.js",
     "quality:migrations": "uv run python scripts/validate_migrations.py",
     "docs:hooks": "git config core.hooksPath hooks"
   },

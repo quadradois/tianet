@@ -38,6 +38,7 @@ uv run black --check .
 uv run mypy src tests
 npm run docs:validate
 npm run docs:test
+npm run quality:migrations
 ```
 
 ---
@@ -54,14 +55,14 @@ Ela apaga o schema durante o downgrade e deve rodar apenas em banco descartavel.
 Para executar:
 
 ```bash
-MIGRATION_VALIDATION_ALLOW_DESTRUCTIVE=1 uv run python scripts/validate_migrations.py
+MIGRATION_VALIDATION_ALLOW_DESTRUCTIVE=1 npm run quality:migrations
 ```
 
 No PowerShell:
 
 ```powershell
 $env:MIGRATION_VALIDATION_ALLOW_DESTRUCTIVE = "1"
-uv run python scripts/validate_migrations.py
+npm run quality:migrations
 ```
 
 ---
@@ -74,7 +75,7 @@ O workflow `.github/workflows/quality.yml` executa:
 - Ruff;
 - Black em modo check;
 - Mypy;
-- ciclo destrutivo de migrations em PostgreSQL descartavel;
+- ciclo destrutivo de migrations em PostgreSQL descartavel via `npm run quality:migrations`;
 - validacao e testes documentais.
 
 ---
@@ -84,3 +85,4 @@ O workflow `.github/workflows/quality.yml` executa:
 | Versao | Data | Descricao |
 |--------|------|-----------|
 | 1.0.0 | 2026-08-09 | Runbook inicial dos gates de qualidade e validacao destrutiva de migrations. |
+| 1.1.0 | 2026-08-11 | EPIC-008 formaliza `npm run quality:migrations` como gate oficial do CI. |

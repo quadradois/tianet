@@ -57,6 +57,12 @@ from emprestimo.presentation.api.contratos_routes import router as contratos_rou
 from emprestimo.presentation.api.devedores_routes import router as devedores_router
 from emprestimo.presentation.api.iam_routes import router as iam_router
 from emprestimo.presentation.api.motor_routes import router as motor_router
+from emprestimo.presentation.api.observability import (
+    install_observability,
+    registrar_erro_tecnico,
+)
+from emprestimo.presentation.api.observability_routes import router as observability_router
+from emprestimo.presentation.api.openapi import instalar_openapi_observabilidade
 from emprestimo.presentation.api.operacao_diaria_routes import router as operacao_diaria_router
 from emprestimo.presentation.api.routes import router
 
@@ -69,6 +75,8 @@ VERSION = "0.1.0"
 def create_app() -> FastAPI:
     """Factory do app — permite instâncias isoladas em testes."""
     app = FastAPI(title=TITLE, version=VERSION)
+    install_observability(app)
+    app.include_router(observability_router)
     app.include_router(auth_router)
     app.include_router(iam_router)
     app.include_router(router)
@@ -108,11 +116,12 @@ def create_app() -> FastAPI:
     app.add_exception_handler(HTTPException, _http_exception)
     app.add_exception_handler(Exception, _erro_inesperado)
 
-    @app.get("/health")
+    # Stub legado preservado sem decorator; o contrato publico vive em observability_routes.py.
     def health() -> dict[str, str]:
         """Healthcheck do serviço."""
         return {"status": "ok"}
 
+    instalar_openapi_observabilidade(app)
     return app
 
 
@@ -193,8 +202,7 @@ async def _http_exception(_: Request, exc: Exception) -> JSONResponse:
 
 
 async def _erro_inesperado(request: Request, exc: Exception) -> JSONResponse:
-    del exc
-    logger.exception("Erro inesperado em %s %s", request.method, request.url.path)
+    registrar_erro_tecnico(logger, request, exc)
     return JSONResponse(
         status_code=500,
         content=_corpo("erro_interno", "erro inesperado no servidor"),
