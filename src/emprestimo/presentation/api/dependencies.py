@@ -32,6 +32,13 @@ from emprestimo.application.comercial import (
     PropostaComercialService,
     SimulacaoComercialService,
 )
+from emprestimo.application.configuracoes_financeiras import (
+    CalendarioFinanceiroService,
+    CapturaSnapshotConfiguracaoService,
+    ConfiguracaoFinanceiraService,
+    ConsultaConfiguracaoVigenteService,
+    ModalidadeFinanceiraService,
+)
 from emprestimo.application.consulta import (
     TenantConsultaPorIdService,
     TenantConsultaService,
@@ -538,6 +545,50 @@ def get_relatorios_operacionais_service(
     del session
     session_factory = get_session_factory()
     return RelatoriosOperacionaisService(uow_factory=lambda: SqlAlchemyUnitOfWork(session_factory))
+
+
+def get_modalidade_financeira_service(
+    session: Session = Depends(_get_session),
+) -> ModalidadeFinanceiraService:
+    del session
+    session_factory = get_session_factory()
+    return ModalidadeFinanceiraService(uow_factory=lambda: SqlAlchemyUnitOfWork(session_factory))
+
+
+def get_calendario_financeiro_service(
+    session: Session = Depends(_get_session),
+) -> CalendarioFinanceiroService:
+    del session
+    session_factory = get_session_factory()
+    return CalendarioFinanceiroService(uow_factory=lambda: SqlAlchemyUnitOfWork(session_factory))
+
+
+def get_configuracao_financeira_service(
+    session: Session = Depends(_get_session),
+) -> ConfiguracaoFinanceiraService:
+    del session
+    session_factory = get_session_factory()
+    return ConfiguracaoFinanceiraService(uow_factory=lambda: SqlAlchemyUnitOfWork(session_factory))
+
+
+def get_consulta_configuracao_vigente_service(
+    session: Session = Depends(_get_session),
+) -> ConsultaConfiguracaoVigenteService:
+    del session
+    session_factory = get_session_factory()
+    return ConsultaConfiguracaoVigenteService(
+        uow_factory=lambda: SqlAlchemyUnitOfWork(session_factory)
+    )
+
+
+def get_captura_snapshot_configuracao_service(
+    session: Session = Depends(_get_session),
+) -> CapturaSnapshotConfiguracaoService:
+    del session
+    session_factory = get_session_factory()
+    return CapturaSnapshotConfiguracaoService(
+        uow_factory=lambda: SqlAlchemyUnitOfWork(session_factory)
+    )
 
 
 def _motor_service_class(nome: str) -> Any:

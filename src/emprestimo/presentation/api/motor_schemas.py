@@ -12,25 +12,7 @@ from pydantic import BaseModel, ConfigDict, Field, model_validator
 from emprestimo.domain.credit.emprestimo import EmprestimoState
 from emprestimo.domain.credit.pagamento import PagamentoState
 from emprestimo.domain.credit.parcela import ParcelaState
-
-CHAVES_FINANCEIRAS_PROIBIDAS = frozenset(
-    {
-        "arredondamento",
-        "arredondamentos",
-        "calculo",
-        "componentes_quitacao",
-        "distribuicao",
-        "encargos",
-        "juros",
-        "memoria",
-        "memoria_calculo",
-        "parcelas",
-        "regra",
-        "regra_calculo",
-        "saldo_devedor",
-        "valor_quitacao",
-    }
-)
+from emprestimo.presentation.api.financial_guardrails import chaves_financeiras_livres
 
 
 class PlanoParcelasRequest(BaseModel):
@@ -66,8 +48,7 @@ class RenegociacaoCreateRequest(BaseModel):
 
     @model_validator(mode="after")
     def recusar_regra_financeira_arbitraria(self) -> Self:
-        chaves = _coletar_chaves(self.novos_parametros)
-        proibidas = sorted(chaves & CHAVES_FINANCEIRAS_PROIBIDAS)
+        proibidas = chaves_financeiras_livres(self.novos_parametros)
         if proibidas:
             raise ValueError(
                 "novos_parametros nao pode definir regra, memoria ou resultado financeiro: "
@@ -189,17 +170,3 @@ class RenegociacaoResponse(BaseModel):
     tenant_id: uuid.UUID
     novos_parametros: dict[str, object]
     memoria: MemoriaCalculoResponse
-
-
-def _coletar_chaves(valor: object) -> set[str]:
-    if isinstance(valor, dict):
-        chaves = {str(chave).strip().lower() for chave in valor}
-        for item in valor.values():
-            chaves |= _coletar_chaves(item)
-        return chaves
-    if isinstance(valor, list | tuple):
-        chaves_coletadas: set[str] = set()
-        for item in valor:
-            chaves_coletadas |= _coletar_chaves(item)
-        return chaves_coletadas
-    return set()

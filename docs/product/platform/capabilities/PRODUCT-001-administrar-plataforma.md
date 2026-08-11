@@ -60,7 +60,7 @@ Esta Capability não é responsável por:
 
 Essas responsabilidades pertencem às respectivas Capabilities do produto.
 
-Adicionalmente, **Configurações Financeiras** (taxas, modalidades, regras de cálculo e calendário financeiro) não pertencem a esta Capability: são responsabilidade do contexto **Configurações** (FOUNDATION-009 §5), distinto de **Configurações da Plataforma**, que pertence a esta Capability.
+Adicionalmente, **Configurações Financeiras** (taxas, modalidades, regras de cálculo e calendário financeiro) não pertencem a esta Capability: são responsabilidade do contexto **Configurações Financeiras** (FOUNDATION-009 §5), distinto de **Configurações da Plataforma**, que pertence a esta Capability.
 
 ---
 

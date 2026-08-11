@@ -2,7 +2,7 @@
 
 **ID:** FOUNDATION-007
 
-**Versão:** 1.0.0
+**Versão:** 1.1.0
 
 **Status:** Aprovado
 
@@ -108,6 +108,18 @@ Responsável por:
 
 ---
 
+## 3.8 Administrar Configuracoes Financeiras
+
+Responsavel por:
+
+- Modalidades financeiras permitidas;
+- Parametros, taxas e politicas financeiras autorizadas;
+- Calendario financeiro operacional;
+- Vigencia e versionamento de configuracoes financeiras;
+- Snapshots imutaveis de configuracao para propostas e contratos.
+
+---
+
 # 4. Princípios
 
 ## Princípio 01
@@ -154,4 +166,5 @@ Este documento será considerado aprovado quando:
 
 | Versão | Data | Descrição |
 |---------|------|-----------|
+| 1.1.0 | 2026-08-11 | Capability Administrar Configuracoes Financeiras adicionada ao Product Map para o EPIC-009. |
 | 1.0.0 | 01/08/2026 | Primeira versão oficial do Product Map do MVP. |

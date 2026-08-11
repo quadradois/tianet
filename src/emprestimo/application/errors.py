@@ -141,6 +141,30 @@ class RegistroComunicacaoNaoEncontradoError(DomainError):
         self.registro_id = registro_id
 
 
+class ModalidadeFinanceiraNaoEncontradaError(DomainError):
+    """Modalidade financeira nao encontrada ou fora da fronteira informada."""
+
+    def __init__(self, modalidade_id: uuid.UUID) -> None:
+        super().__init__(f"Modalidade financeira nao encontrada: {modalidade_id}")
+        self.modalidade_id = modalidade_id
+
+
+class CalendarioFinanceiroNaoEncontradoError(DomainError):
+    """Calendario financeiro nao encontrado ou fora da fronteira informada."""
+
+    def __init__(self, calendario_id: uuid.UUID) -> None:
+        super().__init__(f"Calendario financeiro nao encontrado: {calendario_id}")
+        self.calendario_id = calendario_id
+
+
+class ConfiguracaoFinanceiraNaoEncontradaError(DomainError):
+    """Configuracao financeira nao encontrada ou fora da fronteira informada."""
+
+    def __init__(self, configuracao_id: uuid.UUID) -> None:
+        super().__init__(f"Configuracao financeira nao encontrada: {configuracao_id}")
+        self.configuracao_id = configuracao_id
+
+
 class AutenticacaoRecusadaError(DomainError):
     """Autenticacao recusada com mensagem uniforme (IMP-088)."""
 
