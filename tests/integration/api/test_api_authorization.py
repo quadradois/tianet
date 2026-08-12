@@ -8,9 +8,9 @@ from dataclasses import dataclass
 from typing import cast
 
 import pytest
-from fastapi.testclient import TestClient
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
+from starlette.testclient import TestClient
 from tests.factories import CarteiraFactory, TenantFactory, UsuarioFactory
 
 from emprestimo.application.autenticacao import HmacAccessTokenService

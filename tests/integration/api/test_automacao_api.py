@@ -1,7 +1,7 @@
 import pytest
 from fastapi.routing import APIRoute
-from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session
+from starlette.testclient import TestClient
 
 from emprestimo.presentation.api.automacao_routes import router as automacao_router
 from emprestimo.presentation.api.dependencies import get_notification_channel

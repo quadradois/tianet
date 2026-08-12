@@ -17,7 +17,7 @@ from datetime import UTC, datetime, timedelta
 from unittest.mock import Mock
 
 import pytest
-from fastapi.testclient import TestClient
+from starlette.testclient import TestClient
 
 from emprestimo.application.autorizacao import Principal
 from emprestimo.application.cadastro_devedor import DevedorCriado

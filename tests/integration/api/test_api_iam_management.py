@@ -7,9 +7,9 @@ from collections.abc import Iterator
 from dataclasses import dataclass
 
 import pytest
-from fastapi.testclient import TestClient
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
+from starlette.testclient import TestClient
 from tests.factories import TenantFactory, UsuarioFactory
 
 from emprestimo.application.autenticacao import HmacAccessTokenService

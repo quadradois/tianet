@@ -9,10 +9,10 @@ from datetime import datetime, timedelta
 from typing import Any, cast
 
 import pytest
-from fastapi.testclient import TestClient
 from httpx import Response
 from sqlalchemy import select
 from sqlalchemy.orm import Session, sessionmaker
+from starlette.testclient import TestClient
 from tests.factories import TenantFactory, UsuarioFactory
 
 from emprestimo.application.autenticacao import AutenticacaoService, HmacAccessTokenService

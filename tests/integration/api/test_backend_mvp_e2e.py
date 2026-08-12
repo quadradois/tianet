@@ -10,9 +10,9 @@ from decimal import Decimal
 from typing import Any
 
 import pytest
-from fastapi.testclient import TestClient
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session, sessionmaker
+from starlette.testclient import TestClient
 from tests.factories import CarteiraFactory, TenantFactory, UsuarioFactory
 
 from emprestimo.application.iam_catalogo import CATALOGO_PERMISSOES

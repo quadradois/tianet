@@ -9,9 +9,9 @@ from datetime import UTC, datetime, timedelta
 from typing import Any, cast
 
 import pytest
-from fastapi.testclient import TestClient
 from httpx import Response
 from sqlalchemy.orm import Session
+from starlette.testclient import TestClient
 
 from emprestimo.application.autenticacao import HmacAccessTokenService
 from emprestimo.domain.platform.credencial import Credencial
