@@ -1,7 +1,7 @@
 {
   "$schema": "./identifier-registry.schema.json",
   "versao": "1.1.0",
-  "atualizadoEm": "2026-08-11",
+  "atualizadoEm": "2026-08-12",
   "normativo": true,
   "especificacao": "docs/governance/SPEC-002-governance-identifier-system.md",
   "gramatica": "<NAMESPACE>-<NUMERO:3digitos>[-<QUALIFICADOR>]",
@@ -111,7 +111,7 @@
       "classe": "DOCUMENT",
       "governadoPor": "sequencial",
       "regraNumeracao": "ultimo + 1",
-      "ultimo": 19,
+      "ultimo": 23,
       "status": "ACTIVE",
       "validador": "docs:validate/identifiers",
       "local": "docs/implementation/{plans,backlogs}/"
