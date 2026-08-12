@@ -8,7 +8,7 @@ from collections.abc import Iterator
 
 import pytest
 from fastapi import HTTPException
-from fastapi.testclient import TestClient
+from starlette.testclient import TestClient
 
 from emprestimo.application.health import HealthReport
 from emprestimo.presentation.api import dependencies

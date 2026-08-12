@@ -122,13 +122,17 @@ def _get_existing_tables(engine: Engine) -> set[str]:
     return set(insp.get_table_names())
 
 
+def _reset_public_schema(engine: Engine) -> None:
+    """Remove objetos residuais de Alembic para iniciar testes com metadata limpa."""
+    with engine.begin() as conn:
+        conn.execute(sa.text("DROP SCHEMA IF EXISTS public CASCADE"))
+        conn.execute(sa.text("CREATE SCHEMA public"))
+
+
 @pytest.fixture(scope="session")
 def engine() -> Iterator[Engine]:
     e = create_engine(database_url())
-    with e.begin() as conn:
-        for tabela in TABELAS_DROP:
-            conn.execute(sa.text(f"DROP TABLE IF EXISTS {tabela} CASCADE"))
-            conn.execute(sa.text(f"DROP TYPE IF EXISTS {tabela} CASCADE"))
+    _reset_public_schema(e)
     Base.metadata.create_all(e)
     yield e
     # Drop tables in FK-respecting order to avoid FK constraint errors

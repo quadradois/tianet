@@ -13,8 +13,8 @@ import pytest
 from alembic.config import Config
 from alembic.script import ScriptDirectory
 from fastapi import HTTPException
-from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session, sessionmaker
+from starlette.testclient import TestClient
 from tests.factories import CarteiraFactory, TenantFactory
 
 from emprestimo.application.scheduler import ResultadoExecucao, SchedulerService

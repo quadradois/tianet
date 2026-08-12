@@ -9,8 +9,8 @@ from decimal import Decimal
 from unittest.mock import Mock
 
 import pytest
-from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session, sessionmaker
+from starlette.testclient import TestClient
 from tests.factories import CarteiraFactory, TenantFactory, UsuarioFactory
 
 from emprestimo.application.autorizacao import Principal, RecursoDeOutroTenantError
