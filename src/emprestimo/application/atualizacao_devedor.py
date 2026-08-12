@@ -18,13 +18,17 @@ import json
 import uuid
 from collections.abc import Callable
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import UTC, datetime
 
 from emprestimo.application.errors import IdempotenciaConflitoError
 from emprestimo.application.ports import AuditoriaRegistro, UnitOfWork
 from emprestimo.domain.credit.contato import Contato, TipoContato
 from emprestimo.domain.credit.devedor import DevedorState
 from emprestimo.domain.credit.eventos_devedor import DevedorAtualizado
+from emprestimo.domain.credit.notifications import (
+    EstadoPreferenciaNotificacao,
+    PreferenciaNotificacao,
+)
 from emprestimo.domain.credit.unicidade_devedor import UnicidadeDevedorService
 
 ESCOPO_IDEMPOTENCIA = "devedor-atualizacao"
@@ -60,9 +64,19 @@ def _solicitacao_hash(
     if contatos is not None:
         # Ordena para consistência
         contatos_ordenados = sorted(
-            [(c["tipo"], c["valor"], str(c.get("preferencial", "false")).lower()) for c in contatos]
+            [
+                (
+                    c["tipo"],
+                    c["valor"],
+                    str(c.get("preferencial", "false")).lower(),
+                    c.get("notificacao_estado"),
+                    c.get("notificacao_evidencia"),
+                    c.get("notificacao_origem"),
+                )
+                for c in contatos
+            ]
         )
-        partes.append("|".join(f"{t}:{v}:{p}" for t, v, p in contatos_ordenados))
+        partes.append("|".join(":".join(map(str, item)) for item in contatos_ordenados))
     bruto = "|".join(partes)
     return hashlib.sha256(bruto.encode("utf-8")).hexdigest()
 
@@ -93,6 +107,7 @@ class DevedorAtualizacaoService:
         *,
         nome: str | None = None,
         contatos: list[dict[str, object]] | None = None,
+        usuario_id: uuid.UUID | None = None,
     ) -> DevedorAtualizadoResultado:
         """Executa a atualização parcial do Devedor em transação única.
 
@@ -198,17 +213,42 @@ class DevedorAtualizacaoService:
                 # Aggregate precisa ser reconciliada explicitamente com o banco.
                 # A remoção é soft-delete (DOMAIN-021 §141): a linha permanece e o
                 # histórico de auditoria é preservado, nunca fisicamente excluído.
+                carteira = uow.carteira.find_by_id(devedor.carteira_id)
+                tenant_id = carteira.tenant_id if carteira else uuid.UUID(int=0)
                 ids_atuais = {c.id for c in devedor.contatos}
                 for persistido in uow.contato.find_by_devedor(devedor.id):
                     if persistido.id not in ids_atuais:
+                        preferencia = uow.preferencia_notificacao.find_by_contato(
+                            persistido.id, tenant_id
+                        )
+                        if preferencia is not None:
+                            preferencia.revogar(agora=datetime.now(UTC))
+                            uow.preferencia_notificacao.save(preferencia)
                         persistido.remover()
                         uow.contato.save(persistido)
                 for contato in devedor.contatos:
                     uow.contato.save(contato)
 
                 # 6. Evento de domínio para auditoria (ADR-002)
-                carteira = uow.carteira.find_by_id(devedor.carteira_id)
-                tenant_id = carteira.tenant_id if carteira else uuid.UUID(int=0)
+                if contatos is not None:
+                    for contato, entrada in zip(devedor.contatos, contatos, strict=True):
+                        estado = entrada.get("notificacao_estado")
+                        if estado is None:
+                            continue
+                        if usuario_id is None:
+                            raise ValueError("usuario_id obrigatorio para registrar consentimento")
+                        uow.preferencia_notificacao.save(
+                            PreferenciaNotificacao(
+                                tenant_id=tenant_id,
+                                carteira_id=devedor.carteira_id,
+                                contato_id=contato.id,
+                                estado=EstadoPreferenciaNotificacao(str(estado)),
+                                evidencia=str(entrada["notificacao_evidencia"]),
+                                origem=str(entrada["notificacao_origem"]),
+                                ator_id=usuario_id,
+                                registrada_em=datetime.now(UTC),
+                            )
+                        )
                 evento = DevedorAtualizado.from_devedor(
                     devedor,
                     tenant_id,

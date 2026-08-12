@@ -15,6 +15,13 @@ from datetime import datetime
 from typing import Any
 
 from emprestimo.domain.common.events import DomainEventEnvelope
+from emprestimo.domain.credit.automacao_ports import (
+    JobAgendadoRepository,
+    PreferenciaNotificacaoRepository,
+    SolicitacaoNotificacaoRepository,
+    TemplateNotificacaoRepository,
+    TentativaJobRepository,
+)
 from emprestimo.domain.credit.ports import (
     AcaoCobrancaRepository,
     AgendaItemRepository,
@@ -167,6 +174,11 @@ class UnitOfWork(ABC):
     pagamento: PagamentoRepository
     memoria_calculo: MemoriaCalculoRepository
     evento_financeiro: EventoFinanceiroRepository
+    job_agendado: JobAgendadoRepository
+    tentativa_job: TentativaJobRepository
+    preferencia_notificacao: PreferenciaNotificacaoRepository
+    template_notificacao: TemplateNotificacaoRepository
+    solicitacao_notificacao: SolicitacaoNotificacaoRepository
     idempotencia: IdempotenciaRegistro
 
     @abstractmethod

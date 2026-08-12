@@ -167,7 +167,7 @@ class RegistroComunicacaoResponse(BaseModel):
     registro_id: uuid.UUID
     tenant_id: uuid.UUID
     carteira_id: uuid.UUID
-    responsavel_id: uuid.UUID
+    responsavel_id: uuid.UUID | None
     canal: CanalComunicacao
     ocorrido_em: datetime
     resumo: str

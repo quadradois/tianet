@@ -6,11 +6,15 @@ import uuid
 from datetime import date, datetime
 from typing import Any
 
-from fastapi import APIRouter, Depends, Header, HTTPException, Query
+from fastapi import APIRouter, Depends, Header, HTTPException, Query, Request
 
 from emprestimo.application.autorizacao import Principal
 from emprestimo.domain.credit.carteira import Carteira
 from emprestimo.domain.credit.operacao_diaria import EstadoCobranca, EstadoCompromisso
+from emprestimo.presentation.api.automacao_schemas import (
+    ConciliacaoLegadaRequest,
+    NotificacaoResponse,
+)
 from emprestimo.presentation.api.dependencies import (
     exigir_permissao,
     get_apropriar_pagamento_promessa_service,
@@ -22,12 +26,14 @@ from emprestimo.presentation.api.dependencies import (
     get_criar_lembrete_agenda_service,
     get_manter_compromisso_agenda_service,
     get_manter_lembrete_agenda_service,
+    get_notification_service,
     get_principal_atual,
     get_registrar_acao_cobranca_service,
     get_registrar_comunicacao_manual_service,
     get_registrar_promessa_service,
     get_relatorios_operacionais_service,
 )
+from emprestimo.presentation.api.observability import get_correlation_id
 from emprestimo.presentation.api.openapi import (
     RESPOSTA_CONFLITO_ESTADO,
     RESPOSTA_PAYLOAD_INVALIDO,
@@ -71,6 +77,7 @@ PERMISSAO_LEMBRETE_GERIR = "agenda.lembrete.gerir"
 PERMISSAO_COMUNICACAO_REGISTRAR = "comunicacao.registrar"
 PERMISSAO_COMUNICACAO_LER = "comunicacao.ler"
 PERMISSAO_RELATORIOS_LER = "relatorios.operacionais.ler"
+PERMISSAO_NOTIFICACAO_CONCILIAR = "notificacao.conciliar"
 
 router = APIRouter(
     prefix="/credit",
@@ -244,6 +251,7 @@ def criar_compromisso(
     responses=combinar_respostas(RESPOSTA_CONFLITO_ESTADO),
 )
 def criar_lembrete(
+    request: Request,
     agenda_item_id: uuid.UUID,
     payload: LembreteAgendaCreateRequest,
     idempotency_key: str | None = Header(default=None, alias="Idempotency-Key"),
@@ -257,6 +265,7 @@ def criar_lembrete(
         horario=payload.horario,
         mensagem=payload.mensagem,
         idempotency_key=_exigir_idempotency_key(idempotency_key),
+        correlation_id=get_correlation_id(request),
     )
     return _lembrete_response(resultado)
 
@@ -355,23 +364,37 @@ def reagendar_lembrete(
 
 @router.post(
     "/agenda/lembretes/{lembrete_id}/enviar",
-    response_model=LembreteResponse,
-    summary="Marcar lembrete como enviado",
+    response_model=NotificacaoResponse,
+    summary="Conciliar manualmente envio legado de lembrete",
     responses=combinar_respostas(RESPOSTA_CONFLITO_ESTADO),
+    deprecated=True,
 )
 def enviar_lembrete(
     lembrete_id: uuid.UUID,
+    payload: ConciliacaoLegadaRequest,
     idempotency_key: str | None = Header(default=None, alias="Idempotency-Key"),
-    principal: Principal = Depends(exigir_permissao(PERMISSAO_LEMBRETE_GERIR)),
-    service: Any = Depends(get_manter_lembrete_agenda_service),
-) -> LembreteResponse:
-    return _lembrete_response(
-        service.enviar(
-            tenant_id=principal.tenant_id,
-            lembrete_id=lembrete_id,
-            usuario_id=principal.usuario_id,
-            idempotency_key=_exigir_idempotency_key(idempotency_key),
-        )
+    principal: Principal = Depends(exigir_permissao(PERMISSAO_NOTIFICACAO_CONCILIAR)),
+    service: Any = Depends(get_notification_service),
+) -> NotificacaoResponse:
+    chave = _exigir_idempotency_key(idempotency_key)
+    resultado = service.conciliar(
+        tenant_id=principal.tenant_id,
+        solicitacao_id=payload.notification_id,
+        provider_message_id=payload.provider_message_id,
+        usuario_id=principal.usuario_id,
+        motivo=payload.motivo,
+        idempotency_key=chave,
+        lembrete_id_esperado=lembrete_id,
+    )
+    return NotificacaoResponse(
+        id=resultado.id,
+        carteira_id=resultado.carteira_id,
+        lembrete_id=resultado.lembrete_id,
+        job_id=resultado.job_id,
+        estado=resultado.estado,
+        provider_message_id=resultado.provider_message_id,
+        resultado_em=resultado.resultado_em,
+        codigo_resultado=resultado.codigo_resultado,
     )
 
 

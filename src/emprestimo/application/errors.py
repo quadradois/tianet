@@ -133,6 +133,24 @@ class LembreteNaoEncontradoError(DomainError):
         self.lembrete_id = lembrete_id
 
 
+class JobAgendadoNaoEncontradoError(DomainError):
+    def __init__(self, job_id: uuid.UUID) -> None:
+        super().__init__(f"Job agendado nao encontrado: {job_id}")
+        self.job_id = job_id
+
+
+class NotificacaoNaoEncontradaError(DomainError):
+    def __init__(self, notificacao_id: uuid.UUID) -> None:
+        super().__init__(f"Notificacao nao encontrada: {notificacao_id}")
+        self.notificacao_id = notificacao_id
+
+
+class TemplateNotificacaoNaoEncontradoError(DomainError):
+    def __init__(self, template_id: uuid.UUID) -> None:
+        super().__init__(f"Template de notificacao nao encontrado: {template_id}")
+        self.template_id = template_id
+
+
 class RegistroComunicacaoNaoEncontradoError(DomainError):
     """Registro de comunicacao nao encontrado ou fora da fronteira informada."""
 

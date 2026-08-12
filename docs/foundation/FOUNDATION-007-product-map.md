@@ -2,7 +2,7 @@
 
 **ID:** FOUNDATION-007
 
-**Versão:** 1.1.0
+**Versão:** 1.2.0
 
 **Status:** Aprovado
 
@@ -84,7 +84,8 @@ Responsável por:
 - Agenda financeira;
 - Compromissos;
 - Lembretes;
-- Vencimentos.
+- Vencimentos;
+- Automação temporal de lembretes por Scheduler governado.
 
 ---
 
@@ -94,7 +95,8 @@ Responsável por:
 
 - Mensagens;
 - Notificações;
-- Histórico de comunicação.
+- Histórico de comunicação;
+- Consentimento, opt-out e templates transacionais versionados.
 
 ---
 
@@ -166,5 +168,6 @@ Este documento será considerado aprovado quando:
 
 | Versão | Data | Descrição |
 |---------|------|-----------|
+| 1.2.0 | 2026-08-11 | Automação de Agenda e Comunicação incorporada sem criar nova Capability no EPIC-010. |
 | 1.1.0 | 2026-08-11 | Capability Administrar Configuracoes Financeiras adicionada ao Product Map para o EPIC-009. |
 | 1.0.0 | 01/08/2026 | Primeira versão oficial do Product Map do MVP. |

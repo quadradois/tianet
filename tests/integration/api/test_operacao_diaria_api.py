@@ -146,7 +146,7 @@ def test_api_operacao_diaria_rejeita_periodo_de_relatorio_invertido(
     assert resposta.json()["codigo"] == "payload_invalido"
 
 
-def test_api_operacao_diaria_mapeia_transicao_invalida_de_lembrete_para_409(
+def test_api_operacao_diaria_exige_evidencia_na_conciliacao_legada_e_mapeia_cancelamento(
     client: TestClient,
 ) -> None:
     def _falhar(**_: object) -> None:
@@ -166,8 +166,8 @@ def test_api_operacao_diaria_mapeia_transicao_invalida_de_lembrete_para_409(
         headers={"Idempotency-Key": "api-lembrete-cancelar-invalido"},
     )
 
-    assert enviar.status_code == 409
-    assert enviar.json()["codigo"] == "conflito_estado"
+    assert enviar.status_code == 400
+    assert enviar.json()["codigo"] == "payload_invalido"
     assert cancelar.status_code == 409
     assert cancelar.json()["codigo"] == "conflito_estado"
 

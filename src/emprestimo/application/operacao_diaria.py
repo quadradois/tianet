@@ -51,6 +51,7 @@ from emprestimo.domain.credit.promessa import (
     PromessaPagamento,
     PromessaPagamentoState,
 )
+from emprestimo.domain.credit.scheduler import JobAgendado
 
 ESCOPO_IDEMPOTENCIA_ACAO_COBRANCA = "operacao-diaria-acao-cobranca"
 ESCOPO_IDEMPOTENCIA_PROMESSA = "operacao-diaria-promessa"
@@ -170,7 +171,7 @@ class RegistroComunicacaoResultado:
     registro_id: uuid.UUID
     tenant_id: uuid.UUID
     carteira_id: uuid.UUID
-    responsavel_id: uuid.UUID
+    responsavel_id: uuid.UUID | None
     canal: CanalComunicacao
     ocorrido_em: datetime
     resumo: str
@@ -581,6 +582,7 @@ class CriarLembreteAgenda:
         horario: datetime,
         mensagem: str,
         idempotency_key: str,
+        correlation_id: str | None = None,
     ) -> LembreteResultado:
         solicitacao_hash = _hash_operacao(
             tenant_id=tenant_id,
@@ -625,6 +627,17 @@ class CriarLembreteAgenda:
                     str(exc),
                 ) from exc
             uow.lembrete.save(lembrete)
+            job = JobAgendado(
+                tenant_id=lembrete.tenant_id,
+                carteira_id=lembrete.carteira_id,
+                tipo="enviar_lembrete",
+                executar_em=lembrete.horario,
+                correlation_id=correlation_id or str(uuid.uuid4()),
+                payload={"lembrete_id": str(lembrete.id)},
+                origem_tipo="lembrete",
+                origem_id=lembrete.id,
+            )
+            uow.job_agendado.save(job)
             uow.idempotencia.concluir(
                 idempotency_key,
                 ESCOPO_IDEMPOTENCIA_LEMBRETE,

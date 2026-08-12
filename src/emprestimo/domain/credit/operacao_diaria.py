@@ -393,11 +393,11 @@ class Lembrete:
 
 @dataclass(frozen=True)
 class RegistroComunicacao:
-    """Entrada imutavel de comunicacao manual."""
+    """Entrada imutavel de comunicacao manual ou tecnica."""
 
     tenant_id: uuid.UUID
     carteira_id: uuid.UUID
-    responsavel_id: uuid.UUID
+    responsavel_id: uuid.UUID | None
     canal: CanalComunicacao
     ocorrido_em: datetime
     resumo: str
@@ -407,12 +407,24 @@ class RegistroComunicacao:
     parcela_id: uuid.UUID | None = None
     cobranca_acao_id: uuid.UUID | None = None
     agenda_item_id: uuid.UUID | None = None
+    ator_tipo: str | None = None
+    ator_identificador: str | None = None
+    notification_id: uuid.UUID | None = None
+    template_id: uuid.UUID | None = None
+    template_versao: int | None = None
+    provider_message_id: str | None = None
     id: uuid.UUID = field(default_factory=uuid.uuid4)
 
     def __post_init__(self) -> None:
         _validar_uuid("tenant_id", self.tenant_id)
         _validar_uuid("carteira_id", self.carteira_id)
-        _validar_uuid("responsavel_id", self.responsavel_id)
+        if self.responsavel_id is not None:
+            _validar_uuid("responsavel_id", self.responsavel_id)
+        elif not self.ator_tipo or not self.ator_identificador:
+            raise ViolacaoInvarianteError(
+                "EPIC-010",
+                "comunicacao automatica exige identidade tecnica",
+            )
         if self.devedor_id is not None:
             _validar_uuid("devedor_id", self.devedor_id)
         if self.emprestimo_id is not None:
@@ -421,6 +433,17 @@ class RegistroComunicacao:
             _validar_uuid("parcela_id", self.parcela_id)
         if self.cobranca_acao_id is not None:
             _validar_uuid("cobranca_acao_id", self.cobranca_acao_id)
+        if self.notification_id is not None:
+            _validar_uuid("notification_id", self.notification_id)
+            if (
+                self.template_id is None
+                or self.template_versao is None
+                or self.template_versao < 1
+                or not self.provider_message_id
+            ):
+                raise ViolacaoInvarianteError(
+                    "EPIC-010", "comunicacao automatica exige evidencia estruturada"
+                )
         if self.agenda_item_id is not None:
             _validar_uuid("agenda_item_id", self.agenda_item_id)
         if not isinstance(self.canal, CanalComunicacao):

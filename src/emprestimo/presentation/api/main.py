@@ -34,8 +34,10 @@ from emprestimo.application.errors import (
     DevedorNaoEncontradoError,
     EmprestimoNaoEncontradoError,
     IdempotenciaConflitoError,
+    JobAgendadoNaoEncontradoError,
     LembreteNaoEncontradoError,
     ModalidadeFinanceiraNaoEncontradaError,
+    NotificacaoNaoEncontradaError,
     PagamentoNaoEncontradoError,
     PerfilConflitoError,
     PerfilNaoEncontradoError,
@@ -43,6 +45,7 @@ from emprestimo.application.errors import (
     PropostaComercialNaoEncontradaError,
     RegistroComunicacaoNaoEncontradoError,
     SimulacaoComercialNaoEncontradaError,
+    TemplateNotificacaoNaoEncontradoError,
     TransicaoEstadoInvalidaError,
     UsuarioNaoEncontradoError,
 )
@@ -50,11 +53,13 @@ from emprestimo.domain.common.errors import (
     DevedorJaExisteError,
     DocumentoInvalidoError,
     PerfilJaExisteError,
+    TemplateNotificacaoJaExisteError,
     TenantJaExisteError,
     ViolacaoInvarianteError,
 )
 from emprestimo.domain.credit.contato import ContatoInvalidoError
 from emprestimo.presentation.api.auth_routes import router as auth_router
+from emprestimo.presentation.api.automacao_routes import router as automacao_router
 from emprestimo.presentation.api.comercial_routes import router as comercial_router
 from emprestimo.presentation.api.configuracoes_financeiras_routes import (
     router as configuracoes_financeiras_router,
@@ -92,6 +97,7 @@ def create_app() -> FastAPI:
     app.include_router(motor_router)
     app.include_router(operacao_diaria_router)
     app.include_router(configuracoes_financeiras_router)
+    app.include_router(automacao_router)
     app.add_exception_handler(RequestValidationError, _payload_invalido)
     app.add_exception_handler(AutenticacaoRecusadaError, _autenticacao_recusada)
     app.add_exception_handler(AcessoNegadoError, _acesso_negado)
@@ -108,6 +114,9 @@ def create_app() -> FastAPI:
     app.add_exception_handler(PagamentoNaoEncontradoError, _recurso_nao_encontrado)
     app.add_exception_handler(AgendaItemNaoEncontradoError, _recurso_nao_encontrado)
     app.add_exception_handler(LembreteNaoEncontradoError, _recurso_nao_encontrado)
+    app.add_exception_handler(JobAgendadoNaoEncontradoError, _recurso_nao_encontrado)
+    app.add_exception_handler(NotificacaoNaoEncontradaError, _recurso_nao_encontrado)
+    app.add_exception_handler(TemplateNotificacaoNaoEncontradoError, _recurso_nao_encontrado)
     app.add_exception_handler(RegistroComunicacaoNaoEncontradoError, _recurso_nao_encontrado)
     app.add_exception_handler(ModalidadeFinanceiraNaoEncontradaError, _recurso_nao_encontrado)
     app.add_exception_handler(CalendarioFinanceiroNaoEncontradoError, _recurso_nao_encontrado)
@@ -117,6 +126,7 @@ def create_app() -> FastAPI:
     app.add_exception_handler(PerfilJaExisteError, _perfil_conflito)
     app.add_exception_handler(TenantJaExisteError, _tenant_ja_existe)
     app.add_exception_handler(DevedorJaExisteError, _devedor_ja_existe)
+    app.add_exception_handler(TemplateNotificacaoJaExisteError, _conflito_estado)
     app.add_exception_handler(DevedorNaoEncontradoError, _devedor_nao_encontrado)
     app.add_exception_handler(IdempotenciaConflitoError, _conflito_idempotencia)
     app.add_exception_handler(TransicaoEstadoInvalidaError, _conflito_estado)

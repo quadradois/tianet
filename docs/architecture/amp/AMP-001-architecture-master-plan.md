@@ -2,11 +2,15 @@
 
 **ID:** AMP-001
 
-**Versão:** 1.2.0
+**Versão:** 1.3.0
 
-**Status:** Rascunho para revisão arquitetural
+**Status:** Aprovado como plano diretor; sujeito a revisoes versionadas
 
 **Data:** 2026-08-08
+
+**Alteração na v1.3.0:** ADR-007 (Scheduler / Batch Processing) e ADR-009
+(Notifications / Channels) foram emitidas em 11/08/2026 para encerrar as
+decisões arquiteturais pendentes do EPIC-010 antes do PLAN técnico.
 
 **Alteração na v1.2.0:** a ADR-004 (Autenticação e Autorização) deixou de ser
 reserva — foi emitida em 08/08/2026 com escopo reduzido: ABAC, OIDC e MFA
@@ -346,7 +350,9 @@ Abstrações que ainda não existem como contextos, mas inevitavelmente surgirã
 
 # 8. Decisões Arquiteturais Futuras (ADRs)
 
-Não criar as ADRs agora. Listar apenas o que provavelmente será necessário, com motivo e momento adequado.
+Esta tabela é a fonte de verdade para as reservas de ADR. Uma ADR é emitida
+somente quando o gatilho indicado se materializa; itens emitidos permanecem na
+tabela para preservar o histórico da reserva.
 
 | ADR | Nome | Motivo | Momento adequado |
 |-----|------|--------|------------------|
@@ -354,9 +360,9 @@ Não criar as ADRs agora. Listar apenas o que provavelmente será necessário, c
 | ~~**ADR-004**~~ | ~~Autenticação e Autorização (IAM)~~ | **EMITIDA em 08/08/2026** — ver [ADR-004](../adrs/ADR-004-autenticacao-e-autorizacao-iam.md). Escopo reduzido em relação à reserva: ABAC, OIDC e MFA ficaram fora. | — |
 | **ADR-005** | Event Bus / Mensageria | Transporte de eventos de domínio entre contextos. | Quando separar contextos físicos ou introduzir read models. |
 | **ADR-006** | Workflow / Orchestration | Processos de renegociação, acordos, aprovações. | Quando esses processos se tornarem complexos. |
-| **ADR-007** | Scheduler / Batch Processing | Agendamento de cobranças, lembretes, vencimentos. | Quando agenda/cobrança automática entrar. |
+| ~~**ADR-007**~~ | ~~Scheduler / Batch Processing~~ | **EMITIDA em 11/08/2026** — ver [ADR-007](../adrs/ADR-007-scheduler-batch-processing.md). Define fila PostgreSQL, worker separado, lease, relógio, health, retry e retenção para o EPIC-010. | — |
 | **ADR-008** | Search / Indexing | Consultas rápidas e full-text. | Quando listagens simples não atenderem performance. |
-| **ADR-009** | Notifications / Channels | Abstração de canais de comunicação. | Quando comunicação fora do MVP. |
+| ~~**ADR-009**~~ | ~~Notifications / Channels~~ | **EMITIDA em 11/08/2026** — ver [ADR-009](../adrs/ADR-009-notifications-channels.md). Define e-mail via Resend, porta, idempotência, consentimento, templates e conciliação para o EPIC-010. | — |
 | **ADR-010** | External Integrations / Adapters | Bancos, PIX, registros de dívida. | Quando integrações bancárias forem prioridade. |
 | **ADR-011** | API Pública / Gateway | Exposição para parceiros e correspondentes. | Quando abrir API para terceiros. |
 | **ADR-012** | Data Lake / Analytics | Relatórios avançados, BI, machine learning. | 2+ anos, quando volume de dados justificar. |
@@ -565,12 +571,18 @@ Em paralelo, pode-se iniciar o **EPIC-002 — Cadastro de Devedores**, pois é b
 
 | Versão | Data | Descrição |
 |--------|------|-----------|
+| 1.3.0 | 2026-08-11 | ADR-007 e ADR-009 emitidas para o EPIC-010; reservas e orientação da seção 8 atualizadas. |
+| 1.2.0 | 2026-08-08 | ADR-004 emitida com escopo reduzido; ABAC, OIDC e MFA permaneceram fora. |
+| 1.1.0 | 2026-08-08 | Numeração dos Épicos alinhada ao ROADMAP-ALIGNMENT, preservando EPIC-003 Comercial e EPIC-004 Contratos. |
 | 1.0.0 | 2026-08-04 | Rascunho do AMP-001 consolidando AS-IS, TO-BE, Context Map, dependências, abstrações emergentes, ADRs futuras, hotspots, roadmap, dívida, oportunidades e parecer do CTO. |
 
 ---
 
 ## Nota de encerramento
 
-Este documento é uma **proposta arquitetural**. Nenhuma implementação foi realizada. Nenhum documento oficial existente foi alterado. As conclusões foram derivadas exclusivamente da documentação oficial (Foundation, Domain, Product, ADRs, PLANs, Handoffs, Auditorias, Discoveries) e do código implementado.
+Este documento é o **plano diretor arquitetural aprovado e versionado**. A
+revisao 1.3.0 materializou somente decisoes documentais; nenhuma implementacao
+de Scheduler ou Notification foi realizada. As conclusoes foram derivadas da
+documentacao oficial e do codigo observado.
 
-**Aguardando revisão arquitetural consolidada.**
+**Revisao arquitetural consolidada; novas mudancas exigem versao e historico.**
