@@ -104,11 +104,11 @@ const contracts = {
 
   registry(source) {
     const registry = JSON.parse(source.registry);
-    assert.strictEqual(registry.namespaces.PRODUCT.ultimo, 9, 'Registry PRODUCT deve fechar em 9');
-    assert.strictEqual(registry.namespaces.EPIC.ultimo, 9, 'Registry EPIC deve fechar em 9');
-    assert.strictEqual(registry.namespaces.FEATURE.ultimo, 41, 'Registry FEATURE deve fechar em 41');
-    assert.strictEqual(registry.namespaces.US.ultimo, 112, 'Registry US deve fechar em 112');
-    assert.strictEqual(registry.namespaces.PLAN.ultimo, 17, 'Registry PLAN deve fechar em 17');
+    assert.ok(registry.namespaces.PRODUCT.ultimo >= 9, 'Registry PRODUCT deve incluir PRODUCT-009');
+    assert.ok(registry.namespaces.EPIC.ultimo >= 9, 'Registry EPIC deve incluir EPIC-009');
+    assert.ok(registry.namespaces.FEATURE.ultimo >= 41, 'Registry FEATURE deve incluir FEATURE-041');
+    assert.ok(registry.namespaces.US.ultimo >= 112, 'Registry US deve incluir US-112');
+    assert.ok(registry.namespaces.PLAN.ultimo >= 17, 'Registry PLAN deve incluir PLAN-017');
   },
 
   planBacklog(source) {
@@ -198,9 +198,11 @@ test('mutacao: remover FEATURE-041 do Epic e rejeitado', () => {
 });
 
 test('mutacao: reduzir PLAN ultimo no registry e rejeitado', () => {
+  const registry = JSON.parse(docs.registry);
+  registry.namespaces.PLAN.ultimo = 16;
   const altered = {
     ...docs,
-    registry: docs.registry.replace('"ultimo": 17', '"ultimo": 16'),
+    registry: JSON.stringify(registry),
   };
   assert.throws(() => contracts.registry(altered));
 });

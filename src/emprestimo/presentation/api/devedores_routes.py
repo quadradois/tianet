@@ -110,7 +110,7 @@ def _de_aggregate(devedor: Devedor) -> DevedorResponse:
 def criar_devedor(
     payload: DevedorCreateRequest,
     carteira: Carteira = Depends(get_carteira_do_principal),
-    _: Principal = Depends(exigir_permissao(PERMISSAO_DEVEDOR_CRIAR)),
+    principal: Principal = Depends(exigir_permissao(PERMISSAO_DEVEDOR_CRIAR)),
     idempotency_key: str | None = Header(default=None, alias="Idempotency-Key"),
     service: DevedorCadastroService = Depends(get_devedor_cadastro_service),
 ) -> DevedorResponse:
@@ -126,6 +126,7 @@ def criar_devedor(
         nome=payload.nome,
         contatos=[c.model_dump() for c in payload.contatos],
         idempotency_key=chave,
+        usuario_id=principal.usuario_id,
     )
     return DevedorResponse(
         id=resultado.devedor_id,
@@ -241,7 +242,7 @@ def atualizar_devedor(
     payload: DevedorUpdateRequest,
     idempotency_key: str | None = Header(default=None, alias="Idempotency-Key"),
     devedor: Devedor = Depends(get_devedor_da_carteira),
-    _: Principal = Depends(exigir_permissao(PERMISSAO_DEVEDOR_ATUALIZAR)),
+    principal: Principal = Depends(exigir_permissao(PERMISSAO_DEVEDOR_ATUALIZAR)),
     service: DevedorAtualizacaoService = Depends(get_devedor_atualizacao_service),
     consulta: DevedorConsultaService = Depends(get_devedor_consulta_service),
 ) -> DevedorResponse:
@@ -258,6 +259,7 @@ def atualizar_devedor(
         contatos=(
             [c.model_dump() for c in payload.contatos] if payload.contatos is not None else None
         ),
+        usuario_id=principal.usuario_id,
     )
     return _reler_devedor(devedor.id, consulta)
 

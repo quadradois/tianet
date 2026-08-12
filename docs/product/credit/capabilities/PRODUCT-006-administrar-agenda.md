@@ -2,7 +2,7 @@
 
 **ID:** PRODUCT-006
 
-**Versao:** 1.1.0
+**Versao:** 1.2.0
 
 **Status:** Proposto
 
@@ -18,7 +18,7 @@ lembretes e retornos operacionais da carteira no Bounded Context Agenda.
 # 2. Valor de Negocio
 
 Administrar Agenda reduz perda de retornos e oferece ao operador uma visao
-temporal do trabalho pendente sem exigir automacao no primeiro ciclo.
+temporal do trabalho pendente, com automacao opcional e governada.
 
 ---
 
@@ -28,6 +28,8 @@ temporal do trabalho pendente sem exigir automacao no primeiro ciclo.
 - exibir `SituacaoParcelaNaDataV1` como vencimento financeiro somente leitura;
 - criar compromissos e lembretes;
 - reagendar, concluir e cancelar compromissos e lembretes;
+- programar execucao automatica de lembretes por job duravel;
+- cancelar atomicamente o job quando o lembrete deixar de ser elegivel;
 - preservar historico de transicoes;
 - integrar opcionalmente referencias de Devedor, Emprestimo ou Cobranca;
 - aplicar IAM/RBAC e isolamento por Tenant/Carteira.
@@ -45,8 +47,8 @@ interno de Cobranca.
 # 5. Limites
 
 - nao altera vencimento ou estado financeiro;
-- nao executa Scheduler, cron ou batch no MVP;
-- nao dispara notificacao externa;
+- nao implementa Scheduler dentro do dominio Agenda;
+- nao chama provedor de notificacao diretamente;
 - nao cria obrigacao financeira.
 
 ---
@@ -67,6 +69,7 @@ interno de Cobranca.
 # 7. Epicos
 
 - EPIC-007 - Operacao Diaria.
+- EPIC-010 - Automacao Operacional, Scheduler e Notificacoes.
 
 ---
 
@@ -77,6 +80,8 @@ interno de Cobranca.
   operacional;
 - compromissos possuem responsavel, data, prioridade e estado validos;
 - compromissos e lembretes compartilham transicoes e preservam historico;
+- Lembrete e job correspondente sao persistidos ou cancelados atomicamente;
+- Scheduler revalida a origem e nao decide regra de Agenda;
 - referencias externas resolvem para a mesma cadeia por contrato/ACL;
 - Tenant/Carteira e permissoes limitam todas as operacoes.
 
@@ -86,5 +91,6 @@ interno de Cobranca.
 
 | Versao | Data | Descricao |
 |--------|------|-----------|
+| 1.2.0 | 2026-08-11 | Automacao de lembretes por Scheduler externo ao dominio Agenda incorporada pelo EPIC-010. |
 | 1.1.0 | 2026-08-10 | Agenda financeira, ciclo de lembretes e integridade referencial formalizados. |
 | 1.0.0 | 2026-08-10 | Primeira versao da Capability Administrar Agenda para o EPIC-007. |

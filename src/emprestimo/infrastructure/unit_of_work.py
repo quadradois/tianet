@@ -29,6 +29,7 @@ from emprestimo.infrastructure.repositories import (
     SqlAlchemyDevedorRepository,
     SqlAlchemyEmprestimoRepository,
     SqlAlchemyEventoFinanceiroRepository,
+    SqlAlchemyJobAgendadoRepository,
     SqlAlchemyLembreteRepository,
     SqlAlchemyMemoriaCalculoRepository,
     SqlAlchemyModalidadeFinanceiraRepository,
@@ -36,13 +37,17 @@ from emprestimo.infrastructure.repositories import (
     SqlAlchemyParcelaRepository,
     SqlAlchemyPerfilAcessoRepository,
     SqlAlchemyPermissaoRepository,
+    SqlAlchemyPreferenciaNotificacaoRepository,
     SqlAlchemyPromessaPagamentoRepository,
     SqlAlchemyPropostaComercialRepository,
     SqlAlchemyRegistroComunicacaoRepository,
     SqlAlchemyRelatorioOperacionalCacheRepository,
     SqlAlchemySessaoRepository,
     SqlAlchemySimulacaoComercialRepository,
+    SqlAlchemySolicitacaoNotificacaoRepository,
+    SqlAlchemyTemplateNotificacaoRepository,
     SqlAlchemyTenantRepository,
+    SqlAlchemyTentativaJobRepository,
     SqlAlchemyTokenAtivacaoRepository,
     SqlAlchemyUsuarioRepository,
 )
@@ -85,6 +90,11 @@ class SqlAlchemyUnitOfWork(UnitOfWork):
         self.pagamento = SqlAlchemyPagamentoRepository(self._session)
         self.memoria_calculo = SqlAlchemyMemoriaCalculoRepository(self._session)
         self.evento_financeiro = SqlAlchemyEventoFinanceiroRepository(self._session)
+        self.job_agendado = SqlAlchemyJobAgendadoRepository(self._session)
+        self.tentativa_job = SqlAlchemyTentativaJobRepository(self._session)
+        self.preferencia_notificacao = SqlAlchemyPreferenciaNotificacaoRepository(self._session)
+        self.template_notificacao = SqlAlchemyTemplateNotificacaoRepository(self._session)
+        self.solicitacao_notificacao = SqlAlchemySolicitacaoNotificacaoRepository(self._session)
         self.idempotencia = SqlAlchemyIdempotenciaRegistro(self._session)
 
     def commit(self) -> None:

@@ -16,7 +16,7 @@ import json
 import uuid
 from collections.abc import Callable
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import UTC, datetime
 
 from emprestimo.application.errors import IdempotenciaConflitoError
 from emprestimo.application.ports import AuditoriaRegistro, UnitOfWork
@@ -24,6 +24,10 @@ from emprestimo.domain.credit.contato import Contato, TipoContato
 from emprestimo.domain.credit.devedor import Devedor, DevedorState
 from emprestimo.domain.credit.documento import Documento
 from emprestimo.domain.credit.eventos_devedor import DevedorCadastrado
+from emprestimo.domain.credit.notifications import (
+    EstadoPreferenciaNotificacao,
+    PreferenciaNotificacao,
+)
 from emprestimo.domain.credit.unicidade_devedor import UnicidadeDevedorService
 
 ESCOPO_IDEMPOTENCIA = "devedor-cadastro"
@@ -47,9 +51,15 @@ class DevedorCriado:
     criado_em: datetime
 
 
-def _solicitacao_hash(carteira_id: uuid.UUID, documento: str, nome: str) -> str:
+def _solicitacao_hash(
+    carteira_id: uuid.UUID,
+    documento: str,
+    nome: str,
+    contatos: list[dict[str, object]],
+) -> str:
     """Fingerprint do payload — detecta chave reenviada com resultado divergente."""
-    bruto = f"{carteira_id}|{documento.strip()}|{nome.strip()}"
+    canonico = json.dumps(contatos, sort_keys=True, separators=(",", ":"), default=str)
+    bruto = f"{carteira_id}|{documento.strip()}|{nome.strip()}|{canonico}"
     return hashlib.sha256(bruto.encode("utf-8")).hexdigest()
 
 
@@ -79,10 +89,11 @@ class DevedorCadastroService:
         nome: str,
         contatos: list[dict[str, object]],
         idempotency_key: str,
+        usuario_id: uuid.UUID | None = None,
     ) -> DevedorCriado:
         """Executa o cadastro do Devedor em transação única."""
         doc_normalizado = documento.strip()
-        hash_solicitacao = _solicitacao_hash(carteira_id, doc_normalizado, nome.strip())
+        hash_solicitacao = _solicitacao_hash(carteira_id, doc_normalizado, nome.strip(), contatos)
 
         self._auditoria.registrar(
             "devedor",
@@ -151,6 +162,24 @@ class DevedorCadastroService:
                 # 6. Evento de domínio para auditoria (ADR-002)
                 carteira = uow.carteira.find_by_id(carteira_id)
                 tenant_id = carteira.tenant_id if carteira else uuid.UUID(int=0)
+                for contato, entrada in zip(devedor.contatos, contatos, strict=True):
+                    estado = entrada.get("notificacao_estado")
+                    if estado is None:
+                        continue
+                    if usuario_id is None:
+                        raise ValueError("usuario_id obrigatorio para registrar consentimento")
+                    uow.preferencia_notificacao.save(
+                        PreferenciaNotificacao(
+                            tenant_id=tenant_id,
+                            carteira_id=carteira_id,
+                            contato_id=contato.id,
+                            estado=EstadoPreferenciaNotificacao(str(estado)),
+                            evidencia=str(entrada["notificacao_evidencia"]),
+                            origem=str(entrada["notificacao_origem"]),
+                            ator_id=usuario_id,
+                            registrada_em=datetime.now(UTC),
+                        )
+                    )
                 evento = DevedorCadastrado.from_devedor(devedor, tenant_id)
                 self._auditoria.registrar(
                     "devedor",

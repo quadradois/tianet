@@ -19,6 +19,7 @@ from sqlalchemy.orm import Session
 from emprestimo.application.atualizacao import TenantAtualizacaoService
 from emprestimo.application.atualizacao_devedor import DevedorAtualizacaoService
 from emprestimo.application.autenticacao import AutenticacaoService, HmacAccessTokenService
+from emprestimo.application.automacao import AutomacaoAdminService
 from emprestimo.application.autorizacao import (
     AutorizacaoService,
     Principal,
@@ -61,6 +62,11 @@ from emprestimo.application.estado import TenantEstadoService
 from emprestimo.application.estado_devedor import DevedorEstadoService
 from emprestimo.application.health import HealthService
 from emprestimo.application.historico_devedor import DevedorHistoricoService
+from emprestimo.application.notifications import (
+    FakeNotificationChannel,
+    NotificationService,
+    TemplateNotificacaoService,
+)
 from emprestimo.application.operacao_diaria import (
     ApropriarPagamentoPromessa,
     ConsultarAgendaOperacional,
@@ -77,6 +83,7 @@ from emprestimo.application.operacao_diaria import (
 from emprestimo.application.perfis_acesso import PerfisAcessoService
 from emprestimo.application.provisioning import TenantProvisioningService
 from emprestimo.application.relatorios import RelatoriosOperacionaisService
+from emprestimo.domain.credit.automacao_ports import NotificationChannel
 from emprestimo.domain.credit.carteira import Carteira
 from emprestimo.domain.credit.devedor import Devedor
 from emprestimo.domain.credit.ports import CarteiraRepository
@@ -88,6 +95,7 @@ from emprestimo.infrastructure.auditoria import (
     SqlAlchemyAuditoriaRegistro,
 )
 from emprestimo.infrastructure.db.session import create_session, get_session_factory
+from emprestimo.infrastructure.notifications import ResendNotificationChannel
 from emprestimo.infrastructure.repositories import (
     SqlAlchemyCarteiraRepository,
     SqlAlchemyDevedorRepository,
@@ -589,6 +597,46 @@ def get_captura_snapshot_configuracao_service(
     return CapturaSnapshotConfiguracaoService(
         uow_factory=lambda: SqlAlchemyUnitOfWork(session_factory)
     )
+
+
+def get_notification_channel() -> NotificationChannel:
+    api_key = os.environ.get("RESEND_API_KEY")
+    remetente = os.environ.get("RESEND_FROM")
+    if api_key and remetente:
+        return ResendNotificationChannel(api_key=api_key, remetente=remetente)
+    if os.environ.get("APP_ENV", "development") == "production":
+        raise RuntimeError("RESEND_API_KEY e RESEND_FROM sao obrigatorios em producao")
+    return FakeNotificationChannel()
+
+
+def get_automacao_admin_service(
+    session: Session = Depends(_get_session),
+) -> AutomacaoAdminService:
+    del session
+    session_factory = get_session_factory()
+    return AutomacaoAdminService(
+        uow_factory=lambda: SqlAlchemyUnitOfWork(session_factory),
+        auditoria=SqlAlchemyAuditoriaRegistro(session_factory),
+    )
+
+
+def get_notification_service(
+    session: Session = Depends(_get_session),
+) -> NotificationService:
+    del session
+    session_factory = get_session_factory()
+    return NotificationService(
+        uow_factory=lambda: SqlAlchemyUnitOfWork(session_factory),
+        channel=get_notification_channel(),
+    )
+
+
+def get_template_notificacao_service(
+    session: Session = Depends(_get_session),
+) -> TemplateNotificacaoService:
+    del session
+    session_factory = get_session_factory()
+    return TemplateNotificacaoService(uow_factory=lambda: SqlAlchemyUnitOfWork(session_factory))
 
 
 def _motor_service_class(nome: str) -> Any:

@@ -75,3 +75,12 @@ class PerfilJaExisteError(DomainError):
 
     def __init__(self) -> None:
         super().__init__("Perfil de Acesso ja existente no Tenant")
+
+
+class TemplateNotificacaoJaExisteError(DomainError):
+    """Codigo e versao de template ja emitidos no mesmo Tenant."""
+
+    def __init__(self, codigo: str, versao: int) -> None:
+        super().__init__(f"Template {codigo!r} versao {versao} ja existe no Tenant")
+        self.codigo = codigo
+        self.versao = versao

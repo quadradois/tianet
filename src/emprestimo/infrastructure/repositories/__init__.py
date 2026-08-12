@@ -112,6 +112,21 @@ from emprestimo.infrastructure.db.orm import (
     UsuarioORM,
     UsuarioPerfilORM,
 )
+from emprestimo.infrastructure.repositories.automacao import (
+    SqlAlchemyJobAgendadoRepository as SqlAlchemyJobAgendadoRepository,
+)
+from emprestimo.infrastructure.repositories.automacao import (
+    SqlAlchemyPreferenciaNotificacaoRepository as SqlAlchemyPreferenciaNotificacaoRepository,
+)
+from emprestimo.infrastructure.repositories.automacao import (
+    SqlAlchemySolicitacaoNotificacaoRepository as SqlAlchemySolicitacaoNotificacaoRepository,
+)
+from emprestimo.infrastructure.repositories.automacao import (
+    SqlAlchemyTemplateNotificacaoRepository as SqlAlchemyTemplateNotificacaoRepository,
+)
+from emprestimo.infrastructure.repositories.automacao import (
+    SqlAlchemyTentativaJobRepository as SqlAlchemyTentativaJobRepository,
+)
 from emprestimo.infrastructure.repositories.configuracoes_financeiras import (
     SqlAlchemyCalendarioFinanceiroRepository as SqlAlchemyCalendarioFinanceiroRepository,
 )

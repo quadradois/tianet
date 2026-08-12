@@ -15,7 +15,7 @@ import uuid
 from datetime import datetime
 from typing import Any
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 from emprestimo.domain.credit.contato import TipoContato
 from emprestimo.domain.credit.devedor import DevedorState
@@ -29,6 +29,9 @@ class ContatoPayload(BaseModel):
     tipo: TipoContato
     valor: str = Field(min_length=1, max_length=254)
     preferencial: bool = False
+    notificacao_estado: str | None = Field(default=None, pattern="^(permitido|opt_out)$")
+    notificacao_evidencia: str | None = Field(default=None, min_length=1, max_length=500)
+    notificacao_origem: str | None = Field(default=None, min_length=1, max_length=120)
 
     @field_validator("valor", mode="before")
     @classmethod
@@ -36,6 +39,17 @@ class ContatoPayload(BaseModel):
         if isinstance(valor, str):
             return valor.strip()
         return valor
+
+    @model_validator(mode="after")
+    def _grupo_notificacao_indivisivel(self) -> ContatoPayload:
+        grupo = (
+            self.notificacao_estado,
+            self.notificacao_evidencia,
+            self.notificacao_origem,
+        )
+        if any(item is not None for item in grupo) and not all(item is not None for item in grupo):
+            raise ValueError("campos de consentimento devem ser informados em conjunto")
+        return self
 
 
 class ContatoResponse(BaseModel):

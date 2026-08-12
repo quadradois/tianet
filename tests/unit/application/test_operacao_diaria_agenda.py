@@ -31,6 +31,7 @@ from emprestimo.domain.credit.operacao_diaria import (
     Lembrete,
 )
 from emprestimo.domain.credit.ports import AgendaItemFiltros
+from emprestimo.domain.credit.scheduler import JobAgendado
 
 TENANT_ID = uuid.UUID("71000000-0000-0000-0000-000000000001")
 CARTEIRA_ID = uuid.UUID("71000000-0000-0000-0000-000000000002")
@@ -210,6 +211,8 @@ def test_criar_lembrete_e_cancelar_com_replay() -> None:
     assert cancelado.estado is EstadoLembrete.CANCELADO
     assert replay == cancelado
     assert len(uow.lembrete.salvos) == 2
+    assert len(uow.job_agendado.salvos) == 1
+    assert uow.job_agendado.salvos[0].origem_id == criado.lembrete_id
 
 
 def test_reagendar_e_concluir_lembrete() -> None:
@@ -466,6 +469,14 @@ class _LembreteRepo:
 
 
 @dataclass
+class _JobRepo:
+    salvos: list[JobAgendado] = field(default_factory=list)
+
+    def save(self, job: JobAgendado) -> None:
+        self.salvos.append(job)
+
+
+@dataclass
 class _FakeUoW:
     agenda_items: list[AgendaItem] = field(default_factory=list)
     lembretes: list[Lembrete] = field(default_factory=list)
@@ -476,6 +487,7 @@ class _FakeUoW:
     idempotencia: _IdempotenciaFake = field(default_factory=_IdempotenciaFake)
     agenda_item: _AgendaItemRepo = field(init=False)
     lembrete: _LembreteRepo = field(init=False)
+    job_agendado: _JobRepo = field(init=False)
     carteira: _RepoId = field(init=False)
     devedor: _RepoId = field(init=False)
     usuario: _RepoId = field(init=False)
@@ -484,6 +496,7 @@ class _FakeUoW:
     def __post_init__(self) -> None:
         self.agenda_item = _AgendaItemRepo(self.agenda_items)
         self.lembrete = _LembreteRepo(self.lembretes)
+        self.job_agendado = _JobRepo()
         self.carteira = _RepoId(_EntidadeTenant(id=CARTEIRA_ID, tenant_id=TENANT_ID))
         self.devedor = _RepoId(_Devedor(carteira_id=CARTEIRA_ID))
         self.usuario = _RepoId(_EntidadeTenant(id=USUARIO_ID, tenant_id=TENANT_ID))

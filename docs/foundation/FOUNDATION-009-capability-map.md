@@ -2,7 +2,7 @@
 
 **ID:** FOUNDATION-009
 
-**Versão:** 1.1.0
+**Versão:** 1.2.0
 
 **Status:** Aprovado
 
@@ -126,8 +126,8 @@ Os Bounded Contexts abaixo são as fronteiras do domínio. Cada contexto é aten
 | Configuracoes Financeiras | Taxas, modalidades, parametros autorizados, vigencia e calendario financeiro | Não | Emergente (EPIC-009) |
 | Carteira (Credit) | Aggregate raiz do contexto financeiro; vínculo com Tenant | Não | Existente (estrutura) |
 | Billing | Cobrança de uso, assinaturas, faturamento entre tenants | Não | Futuro (pós-MVP) |
-| Notification | Canais de comunicação, templates, preferências, filas | Não | Futuro (pós-MVP) |
-| Scheduler | Agendamento, cron, batch, workflows temporizados | Não | Futuro (pós-MVP) |
+| Notification | Canais de comunicação, templates, preferências, filas | Não | Emergente (EPIC-010) |
+| Scheduler | Agendamento, cron e batch operacional | Não | Emergente (EPIC-010) |
 | Workflow | Orquestração de processos de negócio (acordos, aprovações) | Não | Futuro (pós-MVP) |
 | Event Bus | Transporte confiável de eventos de domínio (Saga/Outbox) | Não | Futuro (pós-MVP) |
 | Search | Índices de consulta para operações, devedores, contratos | Não | Futuro (pós-MVP) |
@@ -304,6 +304,7 @@ flowchart TD
 
 | Versão | Data | Autor | Descrição da Mudança |
 |--------|------|-------|---------------------|
+| 1.2.0 | 2026-08-11 | Produto + Arquitetura | Scheduler e Notification promovidos a contextos emergentes pelo EPIC-010, sem nova Capability. |
 | 0.1.0 | 2026-08-05 | SDD + Agent Loop Arquitetural | Criação inicial — hierarquia oficial, mapa de contextos e regras de evolução da camada Product. |
 | 1.0.0 | 2026-08-05 | SDD + Agent Loop Arquitetural | Ajustes aprovados pela Arquitetura: tabela de conceitos fundamentais (§3), ciclo de vida conectado ao SDD (§4), critérios objetivos de criação de novas Capabilities (§9) e promoção para Aprovado. |
 | 1.1.0 | 2026-08-11 | SDD + Agent Loop Arquitetural | Contexto Configuracoes Financeiras canonizado para EPIC-009, alias legado de Configuracoes declarado e BR-009 adicionada. |

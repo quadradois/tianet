@@ -20,6 +20,13 @@ from emprestimo.infrastructure.db.base import Base
 from emprestimo.infrastructure.db.session import database_url
 
 TABELAS_TRUNCATE = (
+    "notificacao_evidencia",
+    "solicitacao_notificacao",
+    "template_notificacao",
+    "preferencia_notificacao",
+    "scheduler_worker_heartbeat",
+    "tentativa_job",
+    "job_agendado",
     "snapshot_configuracao_contratual",
     "configuracao_financeira_evento",
     "configuracao_financeira",
@@ -61,6 +68,13 @@ TABELAS_TRUNCATE = (
 )
 
 TABELAS_DROP = (
+    "notificacao_evidencia",
+    "solicitacao_notificacao",
+    "template_notificacao",
+    "preferencia_notificacao",
+    "scheduler_worker_heartbeat",
+    "tentativa_job",
+    "job_agendado",
     "snapshot_configuracao_contratual",
     "configuracao_financeira_evento",
     "configuracao_financeira",

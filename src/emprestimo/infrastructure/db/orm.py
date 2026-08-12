@@ -21,6 +21,7 @@ from decimal import Decimal
 
 from sqlalchemy import (
     JSON,
+    Boolean,
     CheckConstraint,
     Date,
     DateTime,
@@ -845,9 +846,19 @@ class RegistroComunicacaoORM(Base):
     emprestimo_id: Mapped[uuid.UUID | None] = mapped_column(
         Uuid, ForeignKey("emprestimo.id"), nullable=True, index=True
     )
-    responsavel_id: Mapped[uuid.UUID] = mapped_column(
-        Uuid, ForeignKey("usuario.id"), nullable=False
+    responsavel_id: Mapped[uuid.UUID | None] = mapped_column(
+        Uuid, ForeignKey("usuario.id"), nullable=True
     )
+    ator_tipo: Mapped[str | None] = mapped_column(String(30), nullable=True)
+    ator_identificador: Mapped[str | None] = mapped_column(String(120), nullable=True)
+    notification_id: Mapped[uuid.UUID | None] = mapped_column(
+        Uuid, ForeignKey("solicitacao_notificacao.id"), nullable=True
+    )
+    template_id: Mapped[uuid.UUID | None] = mapped_column(
+        Uuid, ForeignKey("template_notificacao.id"), nullable=True
+    )
+    template_versao: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    provider_message_id: Mapped[str | None] = mapped_column(String(255), nullable=True)
     canal: Mapped[str] = mapped_column(String(50), nullable=False)
     resumo: Mapped[str] = mapped_column(String(500), nullable=False)
     resultado: Mapped[str] = mapped_column(Text, nullable=False)
@@ -862,7 +873,16 @@ class RegistroComunicacaoORM(Base):
         Uuid, ForeignKey("agenda_item.id"), nullable=True, index=True
     )
 
-    __table_args__ = (CheckConstraint("resumo <> ''", name="ck_comunicacao_resumo"),)
+    __table_args__ = (
+        UniqueConstraint("notification_id", name="uq_comunicacao_notification"),
+        CheckConstraint("resumo <> ''", name="ck_comunicacao_resumo"),
+        CheckConstraint(
+            "(responsavel_id IS NOT NULL AND ator_tipo IS NULL AND ator_identificador IS NULL) "
+            "OR (responsavel_id IS NULL AND ator_tipo IS NOT NULL "
+            "AND ator_identificador IS NOT NULL)",
+            name="ck_comunicacao_ator",
+        ),
+    )
 
 
 class RelatorioOperacionalCacheORM(Base):
@@ -1047,3 +1067,139 @@ class SnapshotConfiguracaoContratualORM(Base):
         Uuid, ForeignKey("usuario.id"), nullable=False
     )
     motivo: Mapped[str | None] = mapped_column(String(500), nullable=True)
+
+
+class JobAgendadoORM(Base):
+    __tablename__ = "job_agendado"
+    __table_args__ = (
+        UniqueConstraint("tenant_id", "origem_tipo", "origem_id", name="uq_job_origem_tenant"),
+        CheckConstraint("max_tentativas BETWEEN 1 AND 5", name="ck_job_max_tentativas"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True)
+    tenant_id: Mapped[uuid.UUID] = mapped_column(Uuid, ForeignKey("tenant.id"), nullable=False)
+    carteira_id: Mapped[uuid.UUID] = mapped_column(Uuid, ForeignKey("carteira.id"), nullable=False)
+    tipo: Mapped[str] = mapped_column(String(80), nullable=False)
+    executar_em: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    correlation_id: Mapped[str] = mapped_column(String(255), nullable=False)
+    payload: Mapped[dict[str, object]] = mapped_column(JSON, nullable=False)
+    origem_tipo: Mapped[str] = mapped_column(String(80), nullable=False)
+    origem_id: Mapped[uuid.UUID] = mapped_column(Uuid, nullable=False)
+    estado: Mapped[str] = mapped_column(String(40), nullable=False)
+    max_tentativas: Mapped[int] = mapped_column(Integer, nullable=False)
+    tentativas: Mapped[int] = mapped_column(Integer, nullable=False)
+    proxima_execucao_em: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    lease_token: Mapped[uuid.UUID | None] = mapped_column(Uuid, nullable=True)
+    lease_ate: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    cancelamento_solicitado: Mapped[bool] = mapped_column(Boolean, nullable=False)
+    criado_em: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    atualizado_em: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+
+class TentativaJobORM(Base):
+    __tablename__ = "tentativa_job"
+    __table_args__ = (UniqueConstraint("job_id", "numero", name="uq_tentativa_job_numero"),)
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True)
+    job_id: Mapped[uuid.UUID] = mapped_column(Uuid, ForeignKey("job_agendado.id"), nullable=False)
+    tenant_id: Mapped[uuid.UUID] = mapped_column(Uuid, ForeignKey("tenant.id"), nullable=False)
+    carteira_id: Mapped[uuid.UUID] = mapped_column(Uuid, ForeignKey("carteira.id"), nullable=False)
+    lease_token: Mapped[uuid.UUID] = mapped_column(Uuid, nullable=False, unique=True)
+    execution_id: Mapped[uuid.UUID] = mapped_column(Uuid, nullable=False, unique=True)
+    numero: Mapped[int] = mapped_column(Integer, nullable=False)
+    estado: Mapped[str] = mapped_column(String(40), nullable=False)
+    iniciada_em: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    finalizada_em: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    erro_codigo: Mapped[str | None] = mapped_column(String(120), nullable=True)
+
+
+class SchedulerWorkerHeartbeatORM(Base):
+    __tablename__ = "scheduler_worker_heartbeat"
+    worker_id: Mapped[str] = mapped_column(String(120), primary_key=True)
+    estado: Mapped[str] = mapped_column(String(30), nullable=False)
+    concorrencia: Mapped[int] = mapped_column(Integer, nullable=False)
+    em_execucao: Mapped[int] = mapped_column(Integer, nullable=False)
+    ultimo_heartbeat_em: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    lag_segundos: Mapped[int] = mapped_column(Integer, nullable=False)
+
+
+class PreferenciaNotificacaoORM(Base):
+    __tablename__ = "preferencia_notificacao"
+    __table_args__ = (
+        UniqueConstraint("tenant_id", "contato_id", name="uq_preferencia_tenant_contato"),
+    )
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True)
+    tenant_id: Mapped[uuid.UUID] = mapped_column(Uuid, ForeignKey("tenant.id"), nullable=False)
+    carteira_id: Mapped[uuid.UUID] = mapped_column(Uuid, ForeignKey("carteira.id"), nullable=False)
+    contato_id: Mapped[uuid.UUID] = mapped_column(Uuid, ForeignKey("contato.id"), nullable=False)
+    estado: Mapped[str] = mapped_column(String(30), nullable=False)
+    evidencia: Mapped[str] = mapped_column(String(500), nullable=False)
+    origem: Mapped[str] = mapped_column(String(120), nullable=False)
+    ator_id: Mapped[uuid.UUID] = mapped_column(Uuid, ForeignKey("usuario.id"), nullable=False)
+    registrada_em: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    revogada_em: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+
+class TemplateNotificacaoORM(Base):
+    __tablename__ = "template_notificacao"
+    __table_args__ = (UniqueConstraint("tenant_id", "codigo", "versao", name="uq_template_versao"),)
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True)
+    tenant_id: Mapped[uuid.UUID] = mapped_column(Uuid, ForeignKey("tenant.id"), nullable=False)
+    codigo: Mapped[str] = mapped_column(String(120), nullable=False)
+    versao: Mapped[int] = mapped_column(Integer, nullable=False)
+    assunto: Mapped[str] = mapped_column(String(300), nullable=False)
+    corpo: Mapped[str] = mapped_column(Text, nullable=False)
+    parametros_permitidos: Mapped[list[str]] = mapped_column(JSON, nullable=False)
+    hash_conteudo: Mapped[str] = mapped_column(String(64), nullable=False)
+    criado_por_usuario_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid, ForeignKey("usuario.id"), nullable=False
+    )
+    estado: Mapped[str] = mapped_column(String(30), nullable=False)
+    aprovado_por_usuario_id: Mapped[uuid.UUID | None] = mapped_column(
+        Uuid, ForeignKey("usuario.id"), nullable=True
+    )
+    aprovado_em: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    ativado_em: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    motivo_aprovacao: Mapped[str | None] = mapped_column(String(500), nullable=True)
+
+
+class SolicitacaoNotificacaoORM(Base):
+    __tablename__ = "solicitacao_notificacao"
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True)
+    tenant_id: Mapped[uuid.UUID] = mapped_column(Uuid, ForeignKey("tenant.id"), nullable=False)
+    carteira_id: Mapped[uuid.UUID] = mapped_column(Uuid, ForeignKey("carteira.id"), nullable=False)
+    lembrete_id: Mapped[uuid.UUID] = mapped_column(Uuid, ForeignKey("lembrete.id"), nullable=False)
+    job_id: Mapped[uuid.UUID] = mapped_column(Uuid, ForeignKey("job_agendado.id"), nullable=False)
+    tentativa_job_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid, ForeignKey("tentativa_job.id"), nullable=False
+    )
+    contato_id: Mapped[uuid.UUID] = mapped_column(Uuid, ForeignKey("contato.id"), nullable=False)
+    template_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid, ForeignKey("template_notificacao.id"), nullable=False
+    )
+    chave_idempotente: Mapped[str] = mapped_column(String(255), nullable=False, unique=True)
+    payload_canonico: Mapped[dict[str, object]] = mapped_column(JSON, nullable=False)
+    payload_hash: Mapped[str] = mapped_column(String(64), nullable=False)
+    versao_solicitacao: Mapped[int] = mapped_column(Integer, nullable=False)
+    preparada_em: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    estado: Mapped[str] = mapped_column(String(40), nullable=False)
+    provider_message_id: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    resultado_em: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    codigo_resultado: Mapped[str | None] = mapped_column(String(120), nullable=True)
+    conciliacao_chave: Mapped[str | None] = mapped_column(String(255), nullable=True)
+
+
+class NotificacaoEvidenciaORM(Base):
+    __tablename__ = "notificacao_evidencia"
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True)
+    solicitacao_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid, ForeignKey("solicitacao_notificacao.id"), nullable=False
+    )
+    tentativa_job_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid, ForeignKey("tentativa_job.id"), nullable=False
+    )
+    tenant_id: Mapped[uuid.UUID] = mapped_column(Uuid, ForeignKey("tenant.id"), nullable=False)
+    carteira_id: Mapped[uuid.UUID] = mapped_column(Uuid, ForeignKey("carteira.id"), nullable=False)
+    provider_message_id: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    status: Mapped[str] = mapped_column(String(40), nullable=False)
+    chave_idempotente: Mapped[str] = mapped_column(String(255), nullable=False)
+    ocorrido_em: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)

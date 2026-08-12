@@ -45,7 +45,7 @@
       "classe": "DOCUMENT",
       "governadoPor": "sequencial",
       "regraNumeracao": "ultimo + 1",
-      "ultimo": 9,
+      "ultimo": 10,
       "status": "ACTIVE",
       "validador": "docs:validate/identifiers",
       "local": "docs/product/**/epics/"
@@ -56,7 +56,7 @@
       "classe": "DOCUMENT",
       "governadoPor": "sequencial",
       "regraNumeracao": "ultimo + 1",
-      "ultimo": 41,
+      "ultimo": 45,
       "status": "ACTIVE",
       "validador": "docs:validate/identifiers",
       "local": "docs/product/**/features/"
@@ -67,7 +67,7 @@
       "classe": "DOCUMENT",
       "governadoPor": "sequencial",
       "regraNumeracao": "ultimo + 1",
-      "ultimo": 112,
+      "ultimo": 124,
       "status": "ACTIVE",
       "validador": "docs:validate/identifiers",
       "local": "docs/product/**/user-stories/"
@@ -92,7 +92,7 @@
       "status": "ACTIVE",
       "validador": "docs:validate/identifiers",
       "local": "docs/architecture/adrs/",
-      "nota": "DA-098-002: o Registry nao calcula o proximo ADR nem transcreve as reservas — o AMP-001 e a unica fonte de verdade. ADR-003..ADR-017 estao reservadas; por isso a decisao de identidade do Devedor recebeu ADR-018."
+      "nota": "DA-098-002: o Registry nao calcula o proximo ADR nem transcreve reservas ou emissoes; o AMP-001 e a unica fonte de verdade. Identificadores reservados permanecem governados pela tabela do AMP, inclusive quando emitidos; por isso a decisao de identidade do Devedor recebeu ADR-018."
     },
     "AMP": {
       "prefixo": "AMP",
@@ -111,7 +111,7 @@
       "classe": "DOCUMENT",
       "governadoPor": "sequencial",
       "regraNumeracao": "ultimo + 1",
-      "ultimo": 17,
+      "ultimo": 19,
       "status": "ACTIVE",
       "validador": "docs:validate/identifiers",
       "local": "docs/implementation/{plans,backlogs}/"
