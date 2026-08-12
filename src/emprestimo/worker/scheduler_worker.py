@@ -64,32 +64,43 @@ class _DaemonExecutor:
 @dataclass(frozen=True)
 class WorkerSettings:
     concurrency: int = 4
-    batch_size: int = 20
-    poll_interval_seconds: float = 2.0
+    batch_size: int = 4
+    poll_interval_seconds: float = 1.0
     heartbeat_seconds: float = 10.0
     graceful_shutdown_seconds: float = 30.0
-    lease_renewal_seconds: float = 10.0
-    max_attempt_runtime_seconds: float = 120.0
+    lease_seconds: float = 60.0
+    lease_renewal_seconds: float = 20.0
+    max_attempt_runtime_seconds: float = 300.0
 
     def __post_init__(self) -> None:
-        if self.concurrency < 1 or self.concurrency > 32:
-            raise ValueError("concurrency deve estar entre 1 e 32")
-        if self.batch_size < 1 or self.batch_size > 100:
-            raise ValueError("batch_size deve estar entre 1 e 100")
-        if self.lease_renewal_seconds <= 0:
-            raise ValueError("lease_renewal_seconds deve ser positivo")
-        if self.max_attempt_runtime_seconds <= self.lease_renewal_seconds:
-            raise ValueError("max_attempt_runtime_seconds deve exceder a renovacao")
+        if self.concurrency < 1 or self.concurrency > 16:
+            raise ValueError("concurrency deve estar entre 1 e 16")
+        if self.batch_size < 1 or self.batch_size > 16:
+            raise ValueError("batch_size deve estar entre 1 e 16")
+        if self.poll_interval_seconds < 1 or self.poll_interval_seconds > 30:
+            raise ValueError("poll_interval_seconds deve estar entre 1 e 30")
+        if self.lease_seconds < 30 or self.lease_seconds > 300:
+            raise ValueError("lease_seconds deve estar entre 30 e 300")
+        if self.lease_renewal_seconds <= 0 or self.lease_renewal_seconds > self.lease_seconds / 3:
+            raise ValueError("lease_renewal_seconds deve ser no maximo um terco do lease")
+        if self.graceful_shutdown_seconds < 5 or self.graceful_shutdown_seconds > 120:
+            raise ValueError("graceful_shutdown_seconds deve estar entre 5 e 120")
+        if self.max_attempt_runtime_seconds < 30 or self.max_attempt_runtime_seconds > 1800:
+            raise ValueError("max_attempt_runtime_seconds deve estar entre 30 e 1800")
 
     @classmethod
     def from_env(cls) -> WorkerSettings:
         return cls(
             concurrency=int(os.environ.get("SCHEDULER_CONCURRENCY", "4")),
-            batch_size=int(os.environ.get("SCHEDULER_BATCH_SIZE", "20")),
-            poll_interval_seconds=float(os.environ.get("SCHEDULER_POLL_SECONDS", "2")),
-            lease_renewal_seconds=float(os.environ.get("SCHEDULER_LEASE_RENEW_SECONDS", "10")),
+            batch_size=int(os.environ.get("SCHEDULER_BATCH_SIZE", "4")),
+            poll_interval_seconds=float(os.environ.get("SCHEDULER_POLL_INTERVAL_SECONDS", "1")),
+            graceful_shutdown_seconds=float(
+                os.environ.get("SCHEDULER_SHUTDOWN_GRACE_SECONDS", "30")
+            ),
+            lease_seconds=float(os.environ.get("SCHEDULER_LEASE_SECONDS", "60")),
+            lease_renewal_seconds=float(os.environ.get("SCHEDULER_LEASE_RENEW_SECONDS", "20")),
             max_attempt_runtime_seconds=float(
-                os.environ.get("SCHEDULER_MAX_ATTEMPT_RUNTIME_SECONDS", "120")
+                os.environ.get("SCHEDULER_MAX_ATTEMPT_RUNTIME_SECONDS", "300")
             ),
         )
 
@@ -178,6 +189,17 @@ class SchedulerWorker:
         ativos: dict[Future[None], tuple[ClaimScheduler, float, float]] = {}
         for future, (claim, iniciado, ultima_renovacao) in self._futures.items():
             if future.done():
+                if not future.cancelled() and (exc := future.exception()) is not None:
+                    self._supervisor_unhealthy = True
+                    logger.error(
+                        "scheduler_execution_failed",
+                        exc_info=(type(exc), exc, exc.__traceback__),
+                        extra={
+                            "job_id": str(claim.job.id),
+                            "execution_id": str(claim.tentativa.execution_id),
+                            "correlation_id": claim.job.correlation_id,
+                        },
+                    )
                 continue
             duracao = agora - iniciado
             if duracao >= self._settings.max_attempt_runtime_seconds:
@@ -251,7 +273,10 @@ def main() -> None:
         pool_pre_ping=True,
     )
     session_factory = sessionmaker(bind=engine, expire_on_commit=False)
-    service = SchedulerService(lambda: SqlAlchemyUnitOfWork(session_factory))
+    service = SchedulerService(
+        lambda: SqlAlchemyUnitOfWork(session_factory),
+        lease_duration=timedelta(seconds=settings.lease_seconds),
+    )
     api_key = os.environ.get("RESEND_API_KEY")
     remetente = os.environ.get("RESEND_FROM")
     if api_key and remetente:
