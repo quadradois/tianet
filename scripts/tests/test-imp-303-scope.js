@@ -11,7 +11,10 @@ const root = path.resolve(__dirname, '..', '..');
 const manifestPath = path.join(root, 'docs/audits/evidence/frontend-mvp-imp-303-protected-baseline.json');
 const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8'));
 const divergences = [];
-const sha256 = (absolute) => crypto.createHash('sha256').update(fs.readFileSync(absolute)).digest('hex');
+const sha256Buffer = (buffer) => crypto.createHash('sha256').update(buffer).digest('hex');
+const sha256 = (absolute) => sha256Buffer(fs.readFileSync(absolute));
+const gitBlobSha = (relative) =>
+  sha256Buffer(childProcess.execFileSync('git', ['cat-file', 'blob', `HEAD:${relative}`], { cwd: root }));
 const parseStatusPath = (line) => line.replace(/^.{2}\s?/, '').replace(/\\/g, '/');
 
 assert.strictEqual(manifest.baselineCount, 401, 'baseline IMP-303 deve conter 401 paths');
@@ -65,6 +68,8 @@ assert.deepStrictEqual(routeFiles.sort(), [
 ], 'IMP-303 nao pode criar Route Handler publico novo');
 
 const mutable = new Set(manifest.mutableBaselinePaths);
+const status = childProcess.execFileSync('git', ['status', '--porcelain=v1', '--untracked-files=all'], { cwd: root, encoding: 'utf8' });
+const worktreePaths = new Set(status.split(/\r?\n/).filter(Boolean).map(parseStatusPath));
 let protectedCount = 0;
 for (const [relative, expected] of Object.entries(manifest.files)) {
   if (mutable.has(relative)) continue;
@@ -74,12 +79,10 @@ for (const [relative, expected] of Object.entries(manifest.files)) {
     divergences.push(`${relative}: ausente`);
     continue;
   }
-  const actual = sha256(absolute);
+  const actual = worktreePaths.has(relative) ? sha256(absolute) : gitBlobSha(relative);
   if (actual !== expected) divergences.push(`${relative}: ${actual} != ${expected}`);
 }
 
-const status = childProcess.execFileSync('git', ['status', '--porcelain=v1', '--untracked-files=all'], { cwd: root, encoding: 'utf8' });
-const worktreePaths = new Set(status.split(/\r?\n/).filter(Boolean).map(parseStatusPath));
 const committedDelta = childProcess.execFileSync('git', ['diff', '--name-only', `${manifest.head}...HEAD`], { cwd: root, encoding: 'utf8' });
 const actualPaths = new Set([
   ...committedDelta.split(/\r?\n/).filter(Boolean).map((line) => line.replace(/\\/g, '/')),
