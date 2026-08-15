@@ -2,7 +2,7 @@
 
 **ID:** FEATURE-012
 
-**Versão:** 1.0.0
+**Versão:** 1.1.0
 
 **Status:** Concluido
 
@@ -45,6 +45,8 @@ Esta Feature contempla:
 - decidir a permissão por operação, não por recurso individual;
 - barrar acesso a recurso de outro Tenant, respondendo 404 sem revelar existência;
 - transmitir o Principal à requisição para as camadas subsequentes;
+- disponibilizar ao próprio Principal autenticado seu contexto operacional
+  corrente, incluindo Tenant, Carteira padrão, Perfil e Permissões efetivas;
 - auditar eventos de acesso negado na trilha append-only (ADR-002);
 - manter `/health` público.
 
@@ -71,7 +73,8 @@ Esta Feature é composta pelas seguintes User Stories:
 - US-039 — Validar Token e Resolver Principal;
 - US-040 — Autorizar Operação por Perfil;
 - US-041 — Barrar Acesso Cross-Tenant;
-- US-042 — Auditar Eventos de Acesso Negado.
+- US-042 — Auditar Eventos de Acesso Negado;
+- US-125 — Consultar Contexto Operacional Corrente.
 
 ---
 
@@ -105,6 +108,9 @@ Esta Feature será considerada concluída quando:
 - token expirado (após os 15 minutos de validade) não conceder acesso;
 - o Principal (Usuário e Tenant) estiver resolvido e propagado a toda requisição
   protegida;
+- o próprio Principal puder consultar Tenant, Carteira padrão, Perfil e
+  Permissões efetivas sem informar `usuario_id` e sem exigir permissão
+  administrativa adicional;
 - a autorização for decidida pelo Perfil do Usuário autenticado (RBAC);
 - eventos de acesso negado forem auditados na trilha append-only;
 - `/health` permanecer acessível sem token.
@@ -115,4 +121,5 @@ Esta Feature será considerada concluída quando:
 
 | Versão | Data | Descrição |
 |---------|------|-----------|
+| 1.1.0 | 12/08/2026 | Complementa a Feature com US-125 para bootstrap autenticado do contexto operacional corrente. |
 | 1.0.0 | 08/08/2026 | Primeira versão oficial da Feature Autorizar Requisição, criada no ciclo SDD do EPIC-006. |

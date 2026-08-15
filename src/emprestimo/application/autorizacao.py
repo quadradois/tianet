@@ -9,9 +9,13 @@ from dataclasses import dataclass
 from datetime import datetime
 
 from emprestimo.application.autenticacao import AccessTokenIssuer
-from emprestimo.application.errors import AcessoNegadoError, AutenticacaoRecusadaError
+from emprestimo.application.errors import (
+    AcessoNegadoError,
+    AutenticacaoRecusadaError,
+    ContextoOperacionalIncompletoError,
+)
 from emprestimo.application.ports import AuditoriaRegistro, UnitOfWork
-from emprestimo.domain.platform.perfil import PerfilAcesso
+from emprestimo.domain.platform.perfil import PerfilAcesso, PerfilState
 from emprestimo.domain.platform.tenant import TenantState
 from emprestimo.domain.platform.usuario import UsuarioState
 
@@ -25,6 +29,23 @@ class Principal:
     perfil_acesso: str | None
     access_token_expira_em: datetime
     administrador_plataforma: bool = False
+
+
+@dataclass(frozen=True)
+class ContextoOperacionalResultado:
+    """Contexto corrente derivado exclusivamente do Principal autenticado."""
+
+    usuario_id: uuid.UUID
+    usuario_nome: str
+    usuario_email: str
+    tenant_id: uuid.UUID
+    tenant_nome: str
+    tenant_identificador_institucional: str
+    carteira_id: uuid.UUID
+    carteira_nome: str
+    perfil_id: uuid.UUID | None
+    perfil_nome: str | None
+    permissoes: tuple[str, ...]
 
 
 class RecursoDeOutroTenantError(LookupError):
@@ -94,6 +115,50 @@ class AutorizacaoService:
     def recusar_principal_ausente(self) -> None:
         """Audita a ausencia/malformacao do Bearer antes de recusar a requisicao."""
         self._registrar_recusa_autenticacao(AutenticacaoRecusadaError())
+
+    def consultar_contexto(self, principal: Principal) -> ContextoOperacionalResultado:
+        """Resolve o contexto do proprio Principal sem aceitar IDs externos."""
+        try:
+            with self._uow_factory() as uow:
+                usuario = uow.usuario.find_by_id(principal.usuario_id)
+                tenant = uow.tenant.find_by_id(principal.tenant_id)
+                if (
+                    usuario is None
+                    or usuario.estado is not UsuarioState.ATIVO
+                    or usuario.tenant_id != principal.tenant_id
+                    or tenant is None
+                    or tenant.estado is not TenantState.ATIVO
+                ):
+                    raise AutenticacaoRecusadaError()
+                perfil = uow.perfil_acesso.find_by_usuario_id(principal.usuario_id)
+                if isinstance(perfil, PerfilAcesso) and perfil.tenant_id != principal.tenant_id:
+                    raise AutenticacaoRecusadaError()
+                carteiras = uow.carteira.find_by_tenant_id(principal.tenant_id)
+                if len(carteiras) != 1:
+                    raise ContextoOperacionalIncompletoError()
+                carteira = carteiras[0]
+                uow.commit()
+        except AutenticacaoRecusadaError as exc:
+            self._registrar_recusa_autenticacao(exc)
+            raise AssertionError("unreachable") from exc
+
+        return ContextoOperacionalResultado(
+            usuario_id=usuario.id,
+            usuario_nome=usuario.nome,
+            usuario_email=usuario.email,
+            tenant_id=tenant.id,
+            tenant_nome=tenant.nome,
+            tenant_identificador_institucional=tenant.identificador_institucional,
+            carteira_id=carteira.id,
+            carteira_nome=carteira.nome,
+            perfil_id=perfil.id if isinstance(perfil, PerfilAcesso) else None,
+            perfil_nome=perfil.nome if isinstance(perfil, PerfilAcesso) else None,
+            permissoes=(
+                tuple(sorted(permissao.codigo for permissao in perfil.permissoes))
+                if isinstance(perfil, PerfilAcesso) and perfil.estado is PerfilState.ATIVO
+                else ()
+            ),
+        )
 
     def exigir_permissao(self, principal: Principal, operacao: str) -> None:
         try:

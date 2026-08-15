@@ -2,6 +2,8 @@
 
 from emprestimo.domain.platform.permissao import Permissao
 
+CATALOGO_PERMISSOES_VERSAO = "1.0.0"
+
 CATALOGO_PERMISSOES = (
     Permissao("tenant.criar", "Provisionar Tenants"),
     Permissao("tenant.ler", "Consultar Tenants"),

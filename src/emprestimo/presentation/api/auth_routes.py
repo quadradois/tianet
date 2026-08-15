@@ -2,13 +2,10 @@
 
 from __future__ import annotations
 
-from typing import Any
-
-from fastapi import APIRouter, Body, Depends
+from fastapi import APIRouter, Depends
 
 from emprestimo.application.autenticacao import AutenticacaoService
 from emprestimo.application.credenciais import CredenciaisService
-from emprestimo.application.errors import AutenticacaoRecusadaError
 from emprestimo.presentation.api.dependencies import (
     get_autenticacao_service,
     get_credenciais_service,
@@ -49,15 +46,14 @@ def ativar(
     summary="Autenticar usuario e emitir tokens",
 )
 def login(
-    payload: Any = Body(default=None),
+    payload: AuthLoginRequest,
     service: AutenticacaoService = Depends(get_autenticacao_service),
 ) -> AuthLoginResponse:
     """Autentica Usuario ativo no Tenant identificado (FEATURE-009)."""
-    request = _parse_login(payload)
     resultado = service.login(
-        identificador_institucional=request.identificador_institucional,
-        email=request.email,
-        segredo=request.segredo,
+        identificador_institucional=payload.identificador_institucional,
+        email=payload.email,
+        segredo=payload.segredo,
     )
     return AuthLoginResponse(
         usuario_id=resultado.usuario_id,
@@ -75,12 +71,11 @@ def login(
     summary="Renovar access token por refresh token",
 )
 def refresh(
-    payload: Any = Body(default=None),
+    payload: AuthRefreshRequest,
     service: AutenticacaoService = Depends(get_autenticacao_service),
 ) -> AuthRefreshResponse:
     """Renova access token sem nova credencial (US-029)."""
-    request = _parse_refresh(payload)
-    resultado = service.refresh(refresh_token=request.refresh_token)
+    resultado = service.refresh(refresh_token=payload.refresh_token)
     return AuthRefreshResponse(
         usuario_id=resultado.usuario_id,
         tenant_id=resultado.tenant_id,
@@ -95,44 +90,9 @@ def refresh(
     summary="Encerrar sessao revogando refresh token",
 )
 def logout(
-    payload: Any = Body(default=None),
+    payload: AuthRefreshRequest,
     service: AutenticacaoService = Depends(get_autenticacao_service),
 ) -> AuthLogoutResponse:
     """Revoga refresh token da sessao atual (US-030)."""
-    request = _parse_refresh(payload)
-    service.logout(refresh_token=request.refresh_token)
+    service.logout(refresh_token=payload.refresh_token)
     return AuthLogoutResponse(status="ok")
-
-
-def _parse_login(payload: Any) -> AuthLoginRequest:
-    if not isinstance(payload, dict):
-        raise AutenticacaoRecusadaError()
-    identificador_institucional = payload.get("identificador_institucional")
-    email = payload.get("email")
-    segredo = payload.get("segredo")
-    if (
-        not isinstance(identificador_institucional, str)
-        or not isinstance(email, str)
-        or not isinstance(segredo, str)
-    ):
-        raise AutenticacaoRecusadaError()
-    try:
-        return AuthLoginRequest(
-            identificador_institucional=identificador_institucional,
-            email=email,
-            segredo=segredo,
-        )
-    except ValueError:
-        raise AutenticacaoRecusadaError() from None
-
-
-def _parse_refresh(payload: Any) -> AuthRefreshRequest:
-    if not isinstance(payload, dict):
-        raise AutenticacaoRecusadaError()
-    refresh_token = payload.get("refresh_token")
-    if not isinstance(refresh_token, str):
-        raise AutenticacaoRecusadaError()
-    try:
-        return AuthRefreshRequest(refresh_token=refresh_token)
-    except ValueError:
-        raise AutenticacaoRecusadaError() from None

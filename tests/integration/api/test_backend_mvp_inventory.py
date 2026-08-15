@@ -43,9 +43,9 @@ def test_openapi_inventory_covers_backend_mvp_contexts() -> None:
     schema = create_app().openapi()
     operations = _operations(schema)
 
-    assert len(operations) == 105
+    assert len(operations) == 107
     assert sum(1 for _, path in operations if _is_public(path)) == 5
-    assert sum(1 for _, path in operations if not _is_public(path)) == 100
+    assert sum(1 for _, path in operations if not _is_public(path)) == 102
 
     paths = set(schema["paths"])
     for context, expected_fragment in EXPECTED_CONTEXTS.items():
@@ -69,6 +69,4 @@ def test_openapi_inventory_declares_correlation_id_on_public_and_protected_route
     for (method, path), operation in _operations(schema).items():
         responses = operation["responses"]
         for status, response in responses.items():
-            if status == "422":
-                continue
             assert "X-Correlation-ID" in response.get("headers", {}), (method, path, status)

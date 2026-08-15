@@ -81,7 +81,7 @@ def test_imp_269_openapi_cobre_routers_reais_e_contratos_transversais() -> None:
     operations = _operations(schema)
     router_operations = _router_operations()
 
-    assert len(operations) == 105
+    assert len(operations) == 107
     assert operations.keys() == router_operations
     assert schema["components"]["schemas"]["ErroResponse"]["required"] == [
         "codigo",
@@ -99,10 +99,8 @@ def test_imp_269_openapi_cobre_routers_reais_e_contratos_transversais() -> None:
         responses = operation["responses"]
         assert "500" in responses, (method, path)
         for status, response in responses.items():
-            if status == "422":
-                continue
             assert "X-Correlation-ID" in response.get("headers", {}), (method, path, status)
-            if status in {"400", "401", "403", "404", "409", "500"}:
+            if status in {"400", "401", "403", "404", "409", "422", "500"}:
                 _assert_error_response(response, method, path, status)
 
 

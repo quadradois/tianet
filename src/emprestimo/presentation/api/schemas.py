@@ -233,3 +233,44 @@ class PermissoesEfetivasResponse(BaseModel):
     perfil_id: uuid.UUID | None
     perfil_nome: str | None
     permissoes: list[str]
+
+
+class ContextoUsuarioResponse(BaseModel):
+    id: uuid.UUID
+    nome: str
+    email: str
+
+
+class ContextoTenantResponse(BaseModel):
+    id: uuid.UUID
+    nome: str
+    identificador_institucional: str
+
+
+class ContextoCarteiraResponse(BaseModel):
+    id: uuid.UUID
+    nome: str
+
+
+class ContextoPerfilResponse(BaseModel):
+    id: uuid.UUID
+    nome: str
+
+
+class ContextoOperacionalResponse(BaseModel):
+    usuario: ContextoUsuarioResponse
+    tenant: ContextoTenantResponse
+    carteira_padrao: ContextoCarteiraResponse
+    perfil: ContextoPerfilResponse | None
+    permissoes: list[str]
+
+
+class PermissaoCatalogoItemResponse(BaseModel):
+    codigo: str
+    descricao: str
+    grupo: str
+
+
+class PermissoesCatalogoResponse(BaseModel):
+    versao: str
+    itens: list[PermissaoCatalogoItemResponse]

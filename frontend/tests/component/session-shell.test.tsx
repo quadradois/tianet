@@ -1,0 +1,72 @@
+import { render, screen, waitFor } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+
+import { LoginForm } from "../../src/components/auth/login-form.client";
+import { LogoutButton } from "../../src/components/auth/logout-button.client";
+import { AppShell } from "../../src/components/shell/app-shell";
+import type { OperationalContext } from "../../src/lib/bff/context.server";
+
+const replace = vi.fn();
+const refresh = vi.fn();
+
+vi.mock("next/navigation", () => ({ useRouter: () => ({ replace, refresh }) }));
+
+const context: OperationalContext = {
+  carteira_padrao: { id: "carteira-1", nome: "Carteira Centro" },
+  perfil: null,
+  permissoes: [],
+  tenant: { id: "tenant-1", identificador_institucional: "ACME", nome: "Instituicao ACME" },
+  usuario: { email: "operador@example.test", id: "usuario-1", nome: "Operador" },
+};
+
+describe("login e shell", () => {
+  beforeEach(() => { vi.restoreAllMocks(); replace.mockReset(); refresh.mockReset(); });
+
+  it("envia somente o AuthLoginRequest ao BFF e navega para destino fixo", async () => {
+    const fetchMock = vi.spyOn(globalThis, "fetch").mockResolvedValue(Response.json({ authenticated: true, correlationId: "corr-login" }));
+    const user = userEvent.setup();
+    render(<LoginForm />);
+    await user.type(screen.getByRole("textbox", { name: "Instituicao" }), "ACME");
+    await user.type(screen.getByRole("textbox", { name: "E-mail" }), "operador@example.test");
+    await user.type(screen.getByLabelText("Senha"), "segredo");
+    await user.click(screen.getByRole("button", { name: "Entrar" }));
+    await waitFor(() => expect(replace).toHaveBeenCalledWith("/app"));
+    const request = fetchMock.mock.calls[0];
+    expect(request?.[0]).toBe("/api/auth/login");
+    const init = request?.[1];
+    expect(init?.method).toBe("POST");
+    expect(JSON.parse(String(init?.body))).toEqual({
+      email: "operador@example.test",
+      identificador_institucional: "ACME",
+      segredo: "segredo",
+    });
+    expect(String(init?.body)).not.toMatch(/tenant|carteira|usuario_id|access_token|refresh_token/);
+  });
+
+  it("apresenta Tenant, Carteira e perfil nulo sem fabricar permissao ou navegacao", () => {
+    render(<AppShell context={context}><h1>Dashboard</h1></AppShell>);
+    expect(screen.getByRole("heading", { name: "Dashboard" })).toBeInTheDocument();
+    expect(screen.getByText("Instituicao ACME")).toBeInTheDocument();
+    expect(screen.getByText("Carteira Centro")).toBeInTheDocument();
+    expect(screen.getByText("Sem perfil ativo")).toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "Dashboard" })).not.toBeInTheDocument();
+    expect(document.body.textContent).not.toMatch(/access-token|refresh-token|devedores/i);
+  });
+
+  it("exibe o destino Dashboard somente com ao menos uma permissao exata", () => {
+    render(<AppShell context={{ ...context, perfil: { id: "perfil-1", nome: "Operador" }, permissoes: ["agenda.ler"] }}><h1>Dashboard</h1></AppShell>);
+    expect(screen.getByRole("link", { name: "Dashboard" })).toHaveAttribute("href", "/app");
+  });
+
+  it("remove PII da tela depois que o logout local encerra a sessao mesmo com backend 5xx", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(Response.json(
+      { codigo: "backend_indisponivel", mensagem: "indisponivel" },
+      { status: 502 },
+    ));
+    render(<LogoutButton />);
+    await userEvent.click(screen.getByRole("button", { name: "Sair" }));
+    await waitFor(() => expect(replace).toHaveBeenCalledWith("/login"));
+    expect(refresh).toHaveBeenCalledOnce();
+  });
+});

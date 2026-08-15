@@ -7,6 +7,136 @@ on:
       - master
 
 jobs:
+  frontend:
+    name: Frontend foundation (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os:
+          - ubuntu-latest
+          - windows-latest
+    defaults:
+      run:
+        working-directory: frontend
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "24.19.0"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install frontend dependencies
+        run: |
+          npm install --global npm@11.17.0 --ignore-scripts
+          node tests/toolchain-check.mjs
+          npm ci --ignore-scripts
+
+      - name: Run unit smoke
+        run: npm run test:unit
+
+      - name: Run component and MSW smoke
+        run: npm run test:component
+
+      - name: Check generated OpenAPI types
+        run: npm run api:check
+
+      - name: Run certified contract smoke
+        run: npm run test:contract
+
+      - name: Run session and BFF integration suite
+        run: npm run test:bff
+
+      - name: Lint frontend
+        run: npm run lint
+
+      - name: Typecheck frontend
+        run: npm run typecheck
+
+      - name: Build frontend
+        run: npm run build
+
+      - name: Install Chromium with Linux dependencies
+        if: runner.os == 'Linux'
+        run: npx playwright install --with-deps chromium
+
+      - name: Install Chromium on Windows
+        if: runner.os == 'Windows'
+        run: npx playwright install chromium
+
+      - name: Run accessibility gate
+        run: npm run test:a11y
+
+      - name: Capture foundation screenshots
+        run: npm run test:visual
+
+      - name: Run Playwright foundation suite
+        run: npm run test:e2e
+
+      - name: Run authenticated shell and context suite
+        run: npm run test:session
+
+      - name: Run operational dashboard suite
+        run: npm run test:dashboard
+
+      - name: Run Devedores suite
+        run: npm run test:devedores
+
+      - name: Run Comercial suite
+        run: npm run test:comercial
+
+      - name: Run Contratos suite
+        run: npm run test:contratos
+
+      - name: Run Motor suite
+        run: npm run test:motor
+
+      - name: Run Cobranca suite
+        run: npm run test:cobranca
+
+      - name: Run Agenda and Comunicacao suite
+        run: npm run test:agenda
+
+      - name: Run Relatorios suite
+        run: npm run test:relatorios
+
+      - name: Run Configuracoes Financeiras suite
+        run: npm run test:configuracoes
+
+      - name: Run IAM permitido suite
+        run: npm run test:iam
+
+      - name: Run Automacao suite
+        run: npm run test:automacao
+
+      - name: Run composed journeys suite
+        run: npm run test:jornadas
+
+      - name: Run UI security certification
+        run: npm run test:certification
+
+      - name: Upload Playwright diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: frontend-playwright-${{ runner.os }}
+          path: |
+            frontend/playwright-report/
+            frontend/test-results/
+          if-no-files-found: ignore
+          retention-days: 7
+
+      - name: Verify IMP-303 final readiness scope
+        working-directory: .
+        run: node scripts/tests/test-imp-303-scope.js
+
   backend:
     name: Backend gates
     runs-on: ubuntu-latest
@@ -52,6 +182,9 @@ jobs:
 
       - name: Install Python dependencies
         run: uv sync --locked --all-extras --dev
+
+      - name: Verify real FastAPI and PostgreSQL readiness harness
+        run: node frontend/tests/infrastructure/real-stack-smoke.mjs
 
       - name: Run Python tests
         run: uv run pytest -q
@@ -100,3 +233,6 @@ jobs:
 
       - name: Test docs tooling
         run: npm run docs:test
+
+      - name: Verify IMP-303 final readiness scope
+        run: node scripts/tests/test-imp-303-scope.js

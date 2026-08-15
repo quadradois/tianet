@@ -111,7 +111,7 @@ def criar_devedor(
     payload: DevedorCreateRequest,
     carteira: Carteira = Depends(get_carteira_do_principal),
     principal: Principal = Depends(exigir_permissao(PERMISSAO_DEVEDOR_CRIAR)),
-    idempotency_key: str | None = Header(default=None, alias="Idempotency-Key"),
+    idempotency_key: str = Header(alias="Idempotency-Key", min_length=1, max_length=255),
     service: DevedorCadastroService = Depends(get_devedor_cadastro_service),
 ) -> DevedorResponse:
     """Cadastra um Devedor na Carteira (FEATURE-005, AD-002).
@@ -240,7 +240,7 @@ def obter_historico_devedor(
 )
 def atualizar_devedor(
     payload: DevedorUpdateRequest,
-    idempotency_key: str | None = Header(default=None, alias="Idempotency-Key"),
+    idempotency_key: str = Header(alias="Idempotency-Key", min_length=1, max_length=255),
     devedor: Devedor = Depends(get_devedor_da_carteira),
     principal: Principal = Depends(exigir_permissao(PERMISSAO_DEVEDOR_ATUALIZAR)),
     service: DevedorAtualizacaoService = Depends(get_devedor_atualizacao_service),
@@ -270,7 +270,7 @@ def atualizar_devedor(
     summary="Inativar um Devedor (IMP-059, US-025)",
 )
 def inativar_devedor(
-    idempotency_key: str | None = Header(default=None, alias="Idempotency-Key"),
+    idempotency_key: str = Header(alias="Idempotency-Key", min_length=1, max_length=255),
     devedor: Devedor = Depends(get_devedor_da_carteira),
     _: Principal = Depends(exigir_permissao(PERMISSAO_DEVEDOR_INATIVAR)),
     service: DevedorEstadoService = Depends(get_devedor_estado_service),
@@ -292,7 +292,7 @@ def inativar_devedor(
     summary="Reativar um Devedor (IMP-059, US-026)",
 )
 def reativar_devedor(
-    idempotency_key: str | None = Header(default=None, alias="Idempotency-Key"),
+    idempotency_key: str = Header(alias="Idempotency-Key", min_length=1, max_length=255),
     devedor: Devedor = Depends(get_devedor_da_carteira),
     _: Principal = Depends(exigir_permissao(PERMISSAO_DEVEDOR_REATIVAR)),
     service: DevedorEstadoService = Depends(get_devedor_estado_service),
