@@ -2,9 +2,9 @@
 
 **ID:** PLAN-027-EXEC
 
-**Versao:** 1.0.0
+**Versao:** 1.1.0
 
-**Status:** Planejado; nenhum IMP iniciado
+**Status:** IMP-305 concluido; IMP-306..311 planejados
 
 ---
 
@@ -36,7 +36,14 @@ aprovacao permanece porque e a caixa de entrada do agente de IA
   qualquer passo desfaz tudo; nenhum calculo financeiro fora do Motor.
 - **Suite minima:** integracao contra PostgreSQL real, com rollback exercitado
   passo a passo.
-- **Status:** Planejado.
+- **Status:** Concluido.
+- **Nota de execucao:** o guardrail de exclusividade do Motor
+  (`test_motor_exclusivity_guardrails.py`) proibe qualquer modulo fora do Motor
+  de importar `motor_financeiro`. O orquestrador recebe a etapa financeira por
+  injecao (`CriadorDeEmprestimo`) e nao referencia o Motor em nenhum ponto; a
+  criacao do Emprestimo e a geracao do plano vivem em
+  `application/motor_financeiro.criar_emprestimo_e_plano_em`, que aceita um
+  `UnitOfWork` ja aberto.
 
 ### IMP-306 - Endpoint de lancamento
 
@@ -144,4 +151,5 @@ aprovacao permanece porque e a caixa de entrada do agente de IA
 
 | Versao | Data | Descricao |
 |---|---|---|
+| 1.1.0 | 2026-08-16 | IMP-305 concluido: lancamento composto em transacao unica, com a etapa financeira injetada para respeitar o guardrail de exclusividade do Motor. |
 | 1.0.0 | 2026-08-16 | Backlog inicial IMP-305..IMP-311. |
