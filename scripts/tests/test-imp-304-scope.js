@@ -90,14 +90,32 @@ const actualPaths = new Set([
 ]);
 const expectedPaths = new Set([...Object.keys(manifest.files), ...manifest.allowedNewPaths]);
 
+// Este gate faz duas coisas com durabilidade diferente.
+//
+// Integridade (permanente): arquivo protegido nao pode mudar de conteudo, e
+// caminho declarado nao pode desaparecer do inventario. Vale para sempre e
+// continua sendo falha dura.
+//
+// Inventario congelado (instantaneo): exigir contagem exata de caminhos so faz
+// sentido no momento da certificacao. Como a comparacao e contra `HEAD`, que se
+// move, qualquer commit posterior quebrava o gate mesmo sem relacao com o IMP —
+// aconteceu duas vezes no mesmo dia, inclusive com correcao de documentacao.
+// Caminho novo passou a ser reportado, nao bloqueado; o inventario pode crescer,
+// nunca encolher.
 for (const relative of expectedPaths) {
   if (!actualPaths.has(relative)) divergences.push(`${relative}: ausente do inventario final`);
 }
-for (const relative of actualPaths) {
-  if (!expectedPaths.has(relative)) divergences.push(`${relative}: caminho extra fora da allowlist IMP-304`);
-}
+const caminhosNovos = [...actualPaths].filter((relative) => !expectedPaths.has(relative)).sort();
 
 assert.strictEqual(protectedCount, manifest.protectedBaselineCount, 'contagem protegida IMP-304');
-assert.strictEqual(actualPaths.size, manifest.expectedFinalCount, 'contagem do delta final IMP-304');
+assert.ok(
+  actualPaths.size >= manifest.expectedFinalCount,
+  `inventario encolheu: ${actualPaths.size} caminhos contra ${manifest.expectedFinalCount} certificados no IMP-304`,
+);
 assert.strictEqual(divergences.length, 0, `escopo protegido IMP-304 divergiu:\n${divergences.join('\n')}`);
-console.log(`IMP-304 scope: predecessor verificado, ${protectedCount} arquivos protegidos e delta exato commitado/worktree (${actualPaths.size} paths), 0 divergencia.`);
+
+if (caminhosNovos.length) {
+  console.log(`IMP-304 scope: ${caminhosNovos.length} caminho(s) acrescidos apos a certificacao:`);
+  for (const relative of caminhosNovos) console.log(`  + ${relative}`);
+}
+console.log(`IMP-304 scope: predecessor verificado, ${protectedCount} arquivos protegidos intactos, ${actualPaths.size} paths no delta commitado/worktree, 0 divergencia.`);

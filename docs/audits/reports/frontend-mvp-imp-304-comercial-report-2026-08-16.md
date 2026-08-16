@@ -98,6 +98,32 @@ encadeado ao manifesto verificado do IMP-303.
 | allowlist nova | 3 paths |
 | inventario final | 417 paths |
 
+## 5.1 Separacao das duas metades do gate
+
+O gate de escopo fazia duas verificacoes com durabilidade diferente, e a segunda
+o tornava impossivel de manter:
+
+| Verificacao | Durabilidade | Tratamento |
+|---|---|---|
+| SHA de arquivo protegido | permanente | falha dura, inalterada |
+| Caminho declarado nao pode sumir | permanente | falha dura, inalterada |
+| Contagem exata de caminhos | instante da certificacao | passou a `>=`; nao pode encolher |
+| Caminho novo apos a certificacao | instante da certificacao | reportado, nao bloqueia |
+
+A comparacao e feita contra `HEAD`, que se move. Exigir contagem exata
+significava que **qualquer commit posterior quebrava o gate**, tivesse ou nao
+relacao com o IMP. Ocorreu duas vezes no mesmo dia, a segunda com uma correcao
+de documentacao sem nenhuma ligacao com o Frontend MVP.
+
+A saida aparentemente obvia — emitir um IMP novo a cada mudanca so para atualizar
+o manifesto — foi recusada: sob o PLAN-025 seria erro de categoria, e feita apenas
+para acender a luz verde equivale a enfraquecer o gate por outro caminho.
+
+Verificado nos dois sentidos apos a mudanca: alterar um arquivo protegido
+(`frontend/next.config.ts`) produz falha dura com o diff de SHA; restaurado,
+o gate volta a passar. Caminhos novos aparecem listados na saida, entao a
+visibilidade nao foi perdida — apenas deixou de bloquear.
+
 Os 10 paths acrescidos em relacao ao IMP-303 sao a infraestrutura Docker local
 (`Dockerfile`, `docker-compose.yml`, dois `.dockerignore`, `frontend/Dockerfile`),
 o runbook `docs/operations/ambiente-local-docker.md`, o seed local
@@ -136,4 +162,5 @@ passa a ter cenario de regressao contra backend real.
 
 | Versao | Data | Descricao |
 |---|---|---|
+| 1.1.0 | 2026-08-16 | Separacao das duas metades do gate de escopo (secao 5.1): integridade permanece falha dura, inventario congelado vira relato. |
 | 1.0.0 | 2026-08-16 | Relatorio do IMP-304: execucao da DR-002, correcao da falha silenciosa e cenario de jornada real para o formulario Comercial. |
