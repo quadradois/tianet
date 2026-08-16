@@ -1,12 +1,25 @@
+name: tianet
+
+x-backend: &backend
+  build: .
+  environment: &backend-env
+    DATABASE_URL: postgresql+psycopg://emprestimo:${POSTGRES_PASSWORD:?defina POSTGRES_PASSWORD no .env}@postgres:5432/emprestimo
+    APP_ENV: ${APP_ENV:-development}
+    JWT_SECRET_KEY: ${JWT_SECRET_KEY:?defina JWT_SECRET_KEY no .env}
+  depends_on:
+    postgres:
+      condition: service_healthy
+
 services:
   postgres:
     image: postgres:16
     environment:
       POSTGRES_USER: emprestimo
-      POSTGRES_PASSWORD: emprestimo
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?defina POSTGRES_PASSWORD no .env}
       POSTGRES_DB: emprestimo
+    # Loopback apenas: o banco nunca deve escutar na interface publica.
     ports:
-      - "5432:5432"
+      - "127.0.0.1:5432:5432"
     volumes:
       - postgres-data:/var/lib/postgresql/data
     healthcheck:
@@ -15,16 +28,68 @@ services:
       timeout: 5s
       retries: 10
 
+  # One-shot: api e worker so sobem depois que o schema esta na versao head.
+  migrate:
+    <<: *backend
+    command: alembic upgrade head
+    restart: "no"
+
   api:
-    build: .
+    <<: *backend
     command: uvicorn emprestimo.presentation.api.main:app --host 0.0.0.0 --port 8000
     environment:
-      DATABASE_URL: postgresql+psycopg://emprestimo:emprestimo@postgres:5432/emprestimo
-      JWT_SECRET_KEY: ${JWT_SECRET_KEY:-}
+      <<: *backend-env
+      PLATFORM_ADMIN_BOOTSTRAP_ENABLED: ${PLATFORM_ADMIN_BOOTSTRAP_ENABLED:-false}
+      PLATFORM_ADMIN_BOOTSTRAP_SECRET_HASH: ${PLATFORM_ADMIN_BOOTSTRAP_SECRET_HASH:-}
+    # 3000 vive aqui porque o frontend compartilha esta netns (ver servico frontend).
     ports:
-      - "8000:8000"
+      - "127.0.0.1:8000:8000"
+      - "127.0.0.1:3000:3000"
     depends_on:
       postgres:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - import urllib.request;urllib.request.urlopen("http://127.0.0.1:8000/health",timeout=3)
+      interval: 5s
+      timeout: 5s
+      retries: 12
+      start_period: 10s
+
+  worker:
+    <<: *backend
+    command: emprestimo-scheduler-worker
+    environment:
+      <<: *backend-env
+      # Sem RESEND_*, e com APP_ENV != production, o worker usa FakeNotificationChannel.
+      RESEND_API_KEY: ${RESEND_API_KEY:-}
+      RESEND_FROM: ${RESEND_FROM:-}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+    # O worker trata SIGTERM e drena o lease antes de sair.
+    stop_grace_period: 30s
+
+  frontend:
+    build: ./frontend
+    # session.server.ts:95 recusa backend nao-HTTPS em producao, exceto loopback.
+    # Compartilhar a netns da api torna 127.0.0.1:8000 legitimamente loopback:
+    # o trafego com token nunca cruza a rede. No servidor isso vira HTTPS real.
+    network_mode: "service:api"
+    environment:
+      FRONTEND_BACKEND_URL: http://127.0.0.1:8000
+      FRONTEND_ORIGIN: ${FRONTEND_ORIGIN:-http://localhost:3000}
+      FRONTEND_SESSION_KEY_ID: ${FRONTEND_SESSION_KEY_ID:?defina no .env}
+      FRONTEND_SESSION_KEY: ${FRONTEND_SESSION_KEY:?defina no .env}
+    depends_on:
+      api:
         condition: service_healthy
 
 volumes:

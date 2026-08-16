@@ -1,0 +1,21 @@
+# Contexto do backend: apenas pyproject/alembic/src/migrations importam.
+.git
+.github
+.venv
+node_modules
+frontend
+docs
+tests
+scripts
+graphify-out
+hooks
+migrations/**/__pycache__
+**/__pycache__
+*.pyc
+*.env
+.env
+.pytest_cache
+.mypy_cache
+.ruff_cache
+htmlcov
+.coverage

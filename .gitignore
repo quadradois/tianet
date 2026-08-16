@@ -20,8 +20,11 @@ htmlcov/
 /frontend/.env*
 !/frontend/.env.example
 
-# Env
+# Env — padrao amplo: qualquer variacao de nome, nao so a que lembramos de listar.
 .env
+*.env
+!*.env.example
+.secrets.local/
 
 # Editors / OS
 .idea/
