@@ -26,8 +26,10 @@ def test_iniciar_sessao_armazena_hash_do_refresh_token() -> None:
     assert sessao.usuario_id == USUARIO_ID
     assert sessao.tenant_id == TENANT_ID
     assert "refresh-token-legivel" not in sessao.refresh_token_hash
-    assert sessao.verificar_refresh_token("refresh-token-legivel") is True
-    assert sessao.verificar_refresh_token("outro-token") is False
+    # `agora` explicito como no restante do arquivo: sem ele a verificacao usa o
+    # relogio real e o teste passa a falhar sete dias depois de AGORA.
+    assert sessao.verificar_refresh_token("refresh-token-legivel", AGORA) is True
+    assert sessao.verificar_refresh_token("outro-token", AGORA) is False
 
 
 def test_refresh_token_expira_em_sete_dias() -> None:
