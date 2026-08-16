@@ -696,7 +696,10 @@ def test_openapi_declara_contratos_de_erro_iam_autorizacao() -> None:
                 continue
 
             _assert_erro_response(responses, "401", metodo, path)
-            _assert_erro_response(responses, "403", metodo, path)
+            if path == "/iam/contexto-atual":
+                assert "403" not in responses, (metodo, path)
+            else:
+                _assert_erro_response(responses, "403", metodo, path)
             if (metodo, path) in ROTAS_COM_404_DOCUMENTADO:
                 _assert_erro_response(responses, "404", metodo, path)
                 rotas_com_404_encontradas.add((metodo, path))

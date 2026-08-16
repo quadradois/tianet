@@ -2,9 +2,14 @@
 
 **ID:** FOUNDATION-001
 
-**Versão:** 1.0.0
+**Versão:** 2.0.0
 
 **Status:** Aprovado
+
+> **Auditoria aberta.** A correção do público-alvo em 2.0.0 invalida premissas de
+> artefatos derivados da versão 1.0.0. EPICs, Features e o modelo de domínio
+> podem carregar cerimônia institucional que não corresponde ao Credor
+> individual. O levantamento do alcance ainda não foi feito.
 
 ---
 
@@ -37,15 +42,24 @@ A TiaNet nasce para eliminar esses problemas.
 
 # 3. Público-Alvo
 
-A TiaNet foi concebida para organizações e profissionais que administram operações de crédito recorrentes.
+A TiaNet é para o **Credor individual**: a pessoa que empresta o próprio dinheiro e administra pessoalmente suas operações.
 
-Entre eles:
+Perfil:
 
-- financeiras;
-- correspondentes financeiros;
-- empresas de crédito;
-- investidores privados;
-- gestores de carteiras de crédito.
+- empresta capital próprio, não de terceiros;
+- opera sozinho, sem equipe;
+- hoje controla por planilha, caderno ou aplicativo genérico;
+- valoriza previsibilidade e prova do que foi combinado mais do que relatório analítico.
+
+**Ele é uma pessoa só, e isso é determinante.** Não existe analista, mesa de crédito ou comitê. Quem cadastra o devedor é quem define o valor, aprova a operação e recebe o pagamento. Qualquer separação de funções entre humanos é ficção neste produto, e desenhar para ela produz cerimônia que ninguém executa.
+
+A TiaNet **não** é para financeiras, correspondentes financeiros, empresas de crédito ou gestores de carteira de terceiros. Esses perfis exigem segregação de funções, alçadas e governança interna que este produto deliberadamente não modela.
+
+## 3.1 O segundo operador é um agente de IA
+
+O Credor não está sozinho na operação, mas seu par não é humano: um agente de IA atende os pedidos que chegam por canais de mensagem, registra o pré-cadastro e o submete ao Credor.
+
+Essa é a única separação de funções real do produto: **o agente propõe, o Credor decide.** Ela justifica a existência de proposta com aprovação — que sem esse contexto pareceria burocracia herdada e seria removida por engano.
 
 ---
 
@@ -114,4 +128,5 @@ A Product Vision será considerada atendida quando a plataforma permitir que um 
 
 | Versão | Data | Descrição |
 |---------|------|-----------|
+| 2.0.0 | 16/08/2026 | Correção do público-alvo: o produto é para o Credor individual que empresta o próprio dinheiro, não para financeiras e correspondentes. A versão 1.0.0 descrevia organizações, contradizendo os §1, §2 e §7 do próprio documento, que sempre falaram de um Credor no singular controlando planilhas. Dessa contradição derivou a cerimônia institucional hoje presente no fluxo Comercial e de Contratos. Registrada também a separação real de funções: agente de IA propõe, Credor decide. Mudança maior por invalidar premissas de artefatos derivados. |
 | 1.0.0 | 01/08/2026 | Primeira versão oficial da Product Vision da TiaNet. |

@@ -198,6 +198,13 @@ class AcessoNegadoError(DomainError):
         self.operacao = operacao
 
 
+class ContextoOperacionalIncompletoError(DomainError):
+    """O proprio Principal nao possui uma unica Carteira operacional."""
+
+    def __init__(self) -> None:
+        super().__init__("Contexto operacional corrente indisponivel")
+
+
 class PerfilNaoEncontradoError(DomainError):
     def __init__(self, perfil_id: uuid.UUID) -> None:
         super().__init__(f"Perfil de Acesso nao encontrado: {perfil_id}")

@@ -120,7 +120,7 @@ def consultar_fila_cobranca(
 def registrar_acao_cobranca(
     cobranca_caso_id: uuid.UUID,
     payload: AcaoCobrancaCreateRequest,
-    idempotency_key: str | None = Header(default=None, alias="Idempotency-Key"),
+    idempotency_key: str = Header(alias="Idempotency-Key", min_length=1, max_length=255),
     principal: Principal = Depends(exigir_permissao(PERMISSAO_ACAO_REGISTRAR)),
     service: Any = Depends(get_registrar_acao_cobranca_service),
 ) -> AcaoCobrancaResponse:
@@ -145,7 +145,7 @@ def registrar_acao_cobranca(
 def registrar_promessa(
     cobranca_caso_id: uuid.UUID,
     payload: PromessaPagamentoCreateRequest,
-    idempotency_key: str | None = Header(default=None, alias="Idempotency-Key"),
+    idempotency_key: str = Header(alias="Idempotency-Key", min_length=1, max_length=255),
     principal: Principal = Depends(exigir_permissao(PERMISSAO_PROMESSA_REGISTRAR)),
     service: Any = Depends(get_registrar_promessa_service),
 ) -> PromessaPagamentoResponse:
@@ -172,7 +172,7 @@ def registrar_promessa(
 def apropriar_promessa(
     promessa_id: uuid.UUID,
     payload: ApropriacaoPagamentoCreateRequest,
-    idempotency_key: str | None = Header(default=None, alias="Idempotency-Key"),
+    idempotency_key: str = Header(alias="Idempotency-Key", min_length=1, max_length=255),
     principal: Principal = Depends(exigir_permissao(PERMISSAO_PROMESSA_APROPRIAR)),
     service: Any = Depends(get_apropriar_pagamento_promessa_service),
 ) -> ApropriacaoPagamentoResponse:
@@ -226,7 +226,7 @@ def consultar_agenda(
 def criar_compromisso(
     devedor_id: uuid.UUID,
     payload: CompromissoAgendaCreateRequest,
-    idempotency_key: str | None = Header(default=None, alias="Idempotency-Key"),
+    idempotency_key: str = Header(alias="Idempotency-Key", min_length=1, max_length=255),
     carteira: Carteira = Depends(get_carteira_do_principal),
     principal: Principal = Depends(exigir_permissao(PERMISSAO_COMPROMISSO_GERIR)),
     service: Any = Depends(get_criar_compromisso_agenda_service),
@@ -254,7 +254,7 @@ def criar_lembrete(
     request: Request,
     agenda_item_id: uuid.UUID,
     payload: LembreteAgendaCreateRequest,
-    idempotency_key: str | None = Header(default=None, alias="Idempotency-Key"),
+    idempotency_key: str = Header(alias="Idempotency-Key", min_length=1, max_length=255),
     principal: Principal = Depends(exigir_permissao(PERMISSAO_LEMBRETE_GERIR)),
     service: Any = Depends(get_criar_lembrete_agenda_service),
 ) -> LembreteResponse:
@@ -279,7 +279,7 @@ def criar_lembrete(
 def reagendar_compromisso(
     agenda_item_id: uuid.UUID,
     payload: ReagendarRequest,
-    idempotency_key: str | None = Header(default=None, alias="Idempotency-Key"),
+    idempotency_key: str = Header(alias="Idempotency-Key", min_length=1, max_length=255),
     principal: Principal = Depends(exigir_permissao(PERMISSAO_COMPROMISSO_GERIR)),
     service: Any = Depends(get_manter_compromisso_agenda_service),
 ) -> AgendaItemResponse:
@@ -302,7 +302,7 @@ def reagendar_compromisso(
 )
 def concluir_compromisso(
     agenda_item_id: uuid.UUID,
-    idempotency_key: str | None = Header(default=None, alias="Idempotency-Key"),
+    idempotency_key: str = Header(alias="Idempotency-Key", min_length=1, max_length=255),
     principal: Principal = Depends(exigir_permissao(PERMISSAO_COMPROMISSO_GERIR)),
     service: Any = Depends(get_manter_compromisso_agenda_service),
 ) -> AgendaItemResponse:
@@ -324,7 +324,7 @@ def concluir_compromisso(
 )
 def cancelar_compromisso(
     agenda_item_id: uuid.UUID,
-    idempotency_key: str | None = Header(default=None, alias="Idempotency-Key"),
+    idempotency_key: str = Header(alias="Idempotency-Key", min_length=1, max_length=255),
     principal: Principal = Depends(exigir_permissao(PERMISSAO_COMPROMISSO_GERIR)),
     service: Any = Depends(get_manter_compromisso_agenda_service),
 ) -> AgendaItemResponse:
@@ -347,7 +347,7 @@ def cancelar_compromisso(
 def reagendar_lembrete(
     lembrete_id: uuid.UUID,
     payload: ReagendarRequest,
-    idempotency_key: str | None = Header(default=None, alias="Idempotency-Key"),
+    idempotency_key: str = Header(alias="Idempotency-Key", min_length=1, max_length=255),
     principal: Principal = Depends(exigir_permissao(PERMISSAO_LEMBRETE_GERIR)),
     service: Any = Depends(get_manter_lembrete_agenda_service),
 ) -> LembreteResponse:
@@ -372,7 +372,7 @@ def reagendar_lembrete(
 def enviar_lembrete(
     lembrete_id: uuid.UUID,
     payload: ConciliacaoLegadaRequest,
-    idempotency_key: str | None = Header(default=None, alias="Idempotency-Key"),
+    idempotency_key: str = Header(alias="Idempotency-Key", min_length=1, max_length=255),
     principal: Principal = Depends(exigir_permissao(PERMISSAO_NOTIFICACAO_CONCILIAR)),
     service: Any = Depends(get_notification_service),
 ) -> NotificacaoResponse:
@@ -406,7 +406,7 @@ def enviar_lembrete(
 )
 def concluir_lembrete(
     lembrete_id: uuid.UUID,
-    idempotency_key: str | None = Header(default=None, alias="Idempotency-Key"),
+    idempotency_key: str = Header(alias="Idempotency-Key", min_length=1, max_length=255),
     principal: Principal = Depends(exigir_permissao(PERMISSAO_LEMBRETE_GERIR)),
     service: Any = Depends(get_manter_lembrete_agenda_service),
 ) -> LembreteResponse:
@@ -428,7 +428,7 @@ def concluir_lembrete(
 )
 def cancelar_lembrete(
     lembrete_id: uuid.UUID,
-    idempotency_key: str | None = Header(default=None, alias="Idempotency-Key"),
+    idempotency_key: str = Header(alias="Idempotency-Key", min_length=1, max_length=255),
     principal: Principal = Depends(exigir_permissao(PERMISSAO_LEMBRETE_GERIR)),
     service: Any = Depends(get_manter_lembrete_agenda_service),
 ) -> LembreteResponse:
@@ -451,7 +451,7 @@ def cancelar_lembrete(
 def registrar_comunicacao(
     devedor_id: uuid.UUID,
     payload: ComunicacaoManualCreateRequest,
-    idempotency_key: str | None = Header(default=None, alias="Idempotency-Key"),
+    idempotency_key: str = Header(alias="Idempotency-Key", min_length=1, max_length=255),
     carteira: Carteira = Depends(get_carteira_do_principal),
     principal: Principal = Depends(exigir_permissao(PERMISSAO_COMUNICACAO_REGISTRAR)),
     service: Any = Depends(get_registrar_comunicacao_manual_service),

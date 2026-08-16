@@ -74,7 +74,7 @@ router = APIRouter(
 )
 def criar_emprestimo(
     contrato_id: uuid.UUID,
-    idempotency_key: str | None = Header(default=None, alias="Idempotency-Key"),
+    idempotency_key: str = Header(alias="Idempotency-Key", min_length=1, max_length=255),
     principal: Principal = Depends(exigir_permissao(PERMISSAO_EMPRESTIMO_CRIAR)),
     service: Any = Depends(get_criacao_emprestimo_service),
 ) -> EmprestimoResponse:
@@ -176,7 +176,7 @@ def consultar_parcelas(
 def registrar_pagamento(
     emprestimo_id: uuid.UUID,
     payload: PagamentoCreateRequest,
-    idempotency_key: str | None = Header(default=None, alias="Idempotency-Key"),
+    idempotency_key: str = Header(alias="Idempotency-Key", min_length=1, max_length=255),
     principal: Principal = Depends(exigir_permissao(PERMISSAO_PAGAMENTO_REGISTRAR)),
     service: Any = Depends(get_pagamento_service),
 ) -> PagamentoResponse:
@@ -274,7 +274,7 @@ def consultar_quitacao(
 def executar_quitacao(
     emprestimo_id: uuid.UUID,
     payload: QuitacaoRequest,
-    idempotency_key: str | None = Header(default=None, alias="Idempotency-Key"),
+    idempotency_key: str = Header(alias="Idempotency-Key", min_length=1, max_length=255),
     principal: Principal = Depends(exigir_permissao(PERMISSAO_QUITACAO_EXECUTAR)),
     service: Any = Depends(get_quitacao_renegociacao_service),
 ) -> QuitacaoResponse:
@@ -303,7 +303,7 @@ def executar_quitacao(
 def registrar_renegociacao(
     emprestimo_id: uuid.UUID,
     payload: RenegociacaoCreateRequest,
-    idempotency_key: str | None = Header(default=None, alias="Idempotency-Key"),
+    idempotency_key: str = Header(alias="Idempotency-Key", min_length=1, max_length=255),
     principal: Principal = Depends(exigir_permissao(PERMISSAO_RENEGOCIACAO_CRIAR)),
     service: Any = Depends(get_quitacao_renegociacao_service),
 ) -> RenegociacaoResponse:

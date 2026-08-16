@@ -73,7 +73,7 @@ router = APIRouter(
 def criar_tenant(
     payload: TenantCreateRequest,
     _: Principal = Depends(exigir_permissao(PERMISSAO_TENANT_CRIAR)),
-    idempotency_key: str | None = Header(default=None, alias="Idempotency-Key"),
+    idempotency_key: str = Header(alias="Idempotency-Key", min_length=1, max_length=255),
     service: TenantProvisioningService = Depends(get_tenant_provisioning_service),
 ) -> TenantProvisioningResponse:
     """Provisiona uma nova organização (UC-001..UC-007, AD-002)."""

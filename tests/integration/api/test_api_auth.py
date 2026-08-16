@@ -112,6 +112,14 @@ def _assert_401_uniforme(resp: Response) -> None:
     }
 
 
+def _assert_400_payload_invalido(resp: Response) -> None:
+    assert resp.status_code == 400
+    assert resp.json() == {
+        "codigo": "payload_invalido",
+        "mensagem": "Payload, parametros ou headers invalidos",
+    }
+
+
 def _parse_dt(valor: str) -> datetime:
     return datetime.fromisoformat(valor)
 
@@ -276,10 +284,10 @@ def test_login_payload_invalido_400(client: TestClient) -> None:
         json={"identificador_institucional": "IDENT", "email": "maria@exemplo.com"},
     )
 
-    _assert_401_uniforme(resp)
+    _assert_400_payload_invalido(resp)
 
 
-def test_login_credencial_em_formato_invalido_401_uniforme_sem_ecoar_input(
+def test_login_credencial_em_formato_invalido_400_sem_ecoar_input(
     client: TestClient,
     usuario_api: _UsuarioApi,
 ) -> None:
@@ -292,17 +300,17 @@ def test_login_credencial_em_formato_invalido_401_uniforme_sem_ecoar_input(
         },
     )
 
-    _assert_401_uniforme(resp)
+    _assert_400_payload_invalido(resp)
     assert usuario_api.segredo not in resp.text
 
 
-def test_login_corpo_nao_objeto_401_uniforme(client: TestClient) -> None:
+def test_login_corpo_nao_objeto_400(client: TestClient) -> None:
     resp = client.post("/auth/login", json=["payload", "invalido"])
 
-    _assert_401_uniforme(resp)
+    _assert_400_payload_invalido(resp)
 
 
-def test_login_corpo_ausente_ou_json_malformado_401_uniforme(client: TestClient) -> None:
+def test_login_corpo_ausente_ou_json_malformado_400(client: TestClient) -> None:
     sem_corpo = client.post("/auth/login")
     malformado = client.post(
         "/auth/login",
@@ -312,8 +320,8 @@ def test_login_corpo_ausente_ou_json_malformado_401_uniforme(client: TestClient)
         headers={"Content-Type": "application/json"},
     )
 
-    _assert_401_uniforme(sem_corpo)
-    _assert_401_uniforme(malformado)
+    _assert_400_payload_invalido(sem_corpo)
+    _assert_400_payload_invalido(malformado)
 
 
 def test_refresh_valido_retorna_novo_access_token_sem_novo_refresh(
@@ -382,15 +390,15 @@ def test_refresh_malformado_ou_revogado_401_uniforme(
     _assert_401_uniforme(resp)
 
 
-def test_refresh_vazio_401_uniforme(client: TestClient) -> None:
+def test_refresh_vazio_400(client: TestClient) -> None:
     resp = client.post("/auth/refresh", json={"refresh_token": ""})
 
-    _assert_401_uniforme(resp)
+    _assert_400_payload_invalido(resp)
 
 
-def test_refresh_e_logout_corpo_ausente_401_uniforme(client: TestClient) -> None:
-    _assert_401_uniforme(client.post("/auth/refresh"))
-    _assert_401_uniforme(client.post("/auth/logout"))
+def test_refresh_e_logout_corpo_ausente_400(client: TestClient) -> None:
+    _assert_400_payload_invalido(client.post("/auth/refresh"))
+    _assert_400_payload_invalido(client.post("/auth/logout"))
 
 
 def test_logout_valido_revoga_refresh_e_e_idempotente(

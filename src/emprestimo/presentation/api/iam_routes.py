@@ -9,6 +9,10 @@ from fastapi import APIRouter, Depends, Header, HTTPException
 
 from emprestimo.application.autorizacao import AutorizacaoService, Principal
 from emprestimo.application.credenciais import CredenciaisService
+from emprestimo.application.iam_catalogo import (
+    CATALOGO_PERMISSOES,
+    CATALOGO_PERMISSOES_VERSAO,
+)
 from emprestimo.application.perfis_acesso import (
     PerfilResultado,
     PerfisAcessoService,
@@ -22,16 +26,24 @@ from emprestimo.presentation.api.dependencies import (
     get_principal_atual,
 )
 from emprestimo.presentation.api.openapi import (
+    RESPOSTA_CONFLITO_ESTADO,
     RESPOSTA_RECURSO_NAO_ENCONTRADO,
     RESPOSTAS_PROTEGIDAS,
     combinar_respostas,
 )
 from emprestimo.presentation.api.schemas import (
     AlterarCredencialRequest,
+    ContextoCarteiraResponse,
+    ContextoOperacionalResponse,
+    ContextoPerfilResponse,
+    ContextoTenantResponse,
+    ContextoUsuarioResponse,
     CredencialResponse,
     PerfilCreateRequest,
     PerfilResponse,
     PerfilUpdateRequest,
+    PermissaoCatalogoItemResponse,
+    PermissoesCatalogoResponse,
     PermissoesEfetivasResponse,
     RedefinirCredencialRequest,
 )
@@ -72,6 +84,58 @@ def _permissoes(resultado: PermissoesEfetivasResultado) -> PermissoesEfetivasRes
         perfil_id=resultado.perfil_id,
         perfil_nome=resultado.perfil_nome,
         permissoes=list(resultado.permissoes),
+    )
+
+
+@router.get(
+    "/contexto-atual",
+    response_model=ContextoOperacionalResponse,
+    responses=combinar_respostas(RESPOSTA_CONFLITO_ESTADO),
+)
+def consultar_contexto_atual(
+    principal: Principal = Depends(get_principal_atual),
+    service: AutorizacaoService = Depends(get_autorizacao_service),
+) -> ContextoOperacionalResponse:
+    resultado = service.consultar_contexto(principal)
+    perfil = (
+        ContextoPerfilResponse(id=resultado.perfil_id, nome=resultado.perfil_nome)
+        if resultado.perfil_id is not None and resultado.perfil_nome is not None
+        else None
+    )
+    return ContextoOperacionalResponse(
+        usuario=ContextoUsuarioResponse(
+            id=resultado.usuario_id,
+            nome=resultado.usuario_nome,
+            email=resultado.usuario_email,
+        ),
+        tenant=ContextoTenantResponse(
+            id=resultado.tenant_id,
+            nome=resultado.tenant_nome,
+            identificador_institucional=resultado.tenant_identificador_institucional,
+        ),
+        carteira_padrao=ContextoCarteiraResponse(
+            id=resultado.carteira_id,
+            nome=resultado.carteira_nome,
+        ),
+        perfil=perfil,
+        permissoes=list(resultado.permissoes),
+    )
+
+
+@router.get("/permissoes", response_model=PermissoesCatalogoResponse)
+def consultar_catalogo_permissoes(
+    _: Principal = Depends(exigir_permissao("perfil.ler")),
+) -> PermissoesCatalogoResponse:
+    return PermissoesCatalogoResponse(
+        versao=CATALOGO_PERMISSOES_VERSAO,
+        itens=[
+            PermissaoCatalogoItemResponse(
+                codigo=permissao.codigo,
+                descricao=permissao.descricao,
+                grupo=permissao.codigo.split(".", maxsplit=1)[0],
+            )
+            for permissao in sorted(CATALOGO_PERMISSOES, key=lambda item: item.codigo)
+        ],
     )
 
 
@@ -165,7 +229,7 @@ def redefinir_credencial(
 @router.post("/perfis", status_code=201, response_model=PerfilResponse)
 def criar_perfil(
     payload: PerfilCreateRequest,
-    idempotency_key: str | None = Header(default=None, alias="Idempotency-Key"),
+    idempotency_key: str = Header(alias="Idempotency-Key", min_length=1, max_length=255),
     principal: Principal = Depends(exigir_permissao("perfil.gerir")),
     service: PerfisAcessoService = Depends(get_perfis_acesso_service),
 ) -> PerfilResponse:
@@ -214,7 +278,7 @@ def consultar_perfil(
 def renomear_perfil(
     perfil_id: uuid.UUID,
     payload: PerfilUpdateRequest,
-    idempotency_key: str | None = Header(default=None, alias="Idempotency-Key"),
+    idempotency_key: str = Header(alias="Idempotency-Key", min_length=1, max_length=255),
     principal: Principal = Depends(_exigir_permissao_perfil("perfil.gerir")),
     service: PerfisAcessoService = Depends(get_perfis_acesso_service),
 ) -> PerfilResponse:
@@ -236,7 +300,7 @@ def renomear_perfil(
 )
 def inativar_perfil(
     perfil_id: uuid.UUID,
-    idempotency_key: str | None = Header(default=None, alias="Idempotency-Key"),
+    idempotency_key: str = Header(alias="Idempotency-Key", min_length=1, max_length=255),
     principal: Principal = Depends(_exigir_permissao_perfil("perfil.gerir")),
     service: PerfisAcessoService = Depends(get_perfis_acesso_service),
 ) -> PerfilResponse:
@@ -258,7 +322,7 @@ def inativar_perfil(
 def associar_permissao(
     perfil_id: uuid.UUID,
     codigo: str,
-    idempotency_key: str | None = Header(default=None, alias="Idempotency-Key"),
+    idempotency_key: str = Header(alias="Idempotency-Key", min_length=1, max_length=255),
     principal: Principal = Depends(_exigir_permissao_perfil("perfil.gerir")),
     service: PerfisAcessoService = Depends(get_perfis_acesso_service),
 ) -> PerfilResponse:
@@ -281,7 +345,7 @@ def associar_permissao(
 def remover_permissao(
     perfil_id: uuid.UUID,
     codigo: str,
-    idempotency_key: str | None = Header(default=None, alias="Idempotency-Key"),
+    idempotency_key: str = Header(alias="Idempotency-Key", min_length=1, max_length=255),
     principal: Principal = Depends(_exigir_permissao_perfil("perfil.gerir")),
     service: PerfisAcessoService = Depends(get_perfis_acesso_service),
 ) -> PerfilResponse:
@@ -304,7 +368,7 @@ def remover_permissao(
 def atribuir_perfil(
     usuario_id: uuid.UUID,
     perfil_id: uuid.UUID,
-    idempotency_key: str | None = Header(default=None, alias="Idempotency-Key"),
+    idempotency_key: str = Header(alias="Idempotency-Key", min_length=1, max_length=255),
     principal: Principal = Depends(_exigir_permissao_usuario("perfil.gerir")),
     service: PerfisAcessoService = Depends(get_perfis_acesso_service),
 ) -> PermissoesEfetivasResponse:
@@ -326,7 +390,7 @@ def atribuir_perfil(
 )
 def remover_perfil_usuario(
     usuario_id: uuid.UUID,
-    idempotency_key: str | None = Header(default=None, alias="Idempotency-Key"),
+    idempotency_key: str = Header(alias="Idempotency-Key", min_length=1, max_length=255),
     principal: Principal = Depends(_exigir_permissao_usuario("perfil.gerir")),
     service: PerfisAcessoService = Depends(get_perfis_acesso_service),
 ) -> PermissoesEfetivasResponse:

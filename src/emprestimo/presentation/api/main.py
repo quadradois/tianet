@@ -29,6 +29,7 @@ from emprestimo.application.errors import (
     CarteiraNaoEncontradaError,
     CobrancaCasoNaoEncontradoError,
     ConfiguracaoFinanceiraNaoEncontradaError,
+    ContextoOperacionalIncompletoError,
     ContratoCreditoNaoEncontradoError,
     CredencialInvalidaError,
     DevedorNaoEncontradoError,
@@ -123,6 +124,7 @@ def create_app() -> FastAPI:
     app.add_exception_handler(ConfiguracaoFinanceiraNaoEncontradaError, _recurso_nao_encontrado)
     app.add_exception_handler(RecursoDeOutroTenantError, _recurso_nao_encontrado)
     app.add_exception_handler(PerfilConflitoError, _perfil_conflito)
+    app.add_exception_handler(ContextoOperacionalIncompletoError, _contexto_incompleto)
     app.add_exception_handler(PerfilJaExisteError, _perfil_conflito)
     app.add_exception_handler(TenantJaExisteError, _tenant_ja_existe)
     app.add_exception_handler(DevedorJaExisteError, _devedor_ja_existe)
@@ -150,12 +152,22 @@ def _corpo(codigo: str, mensagem: str) -> dict[str, str]:
 
 
 async def _payload_invalido(request: Request, exc: Exception) -> JSONResponse:
-    if request.url.path.startswith("/auth/"):
-        return _corpo_autenticacao_recusada()
     erros = cast(RequestValidationError, exc)
+    if any(
+        erro.get("type") == "missing"
+        and tuple(erro.get("loc", ())) == ("header", "Idempotency-Key")
+        for erro in erros.errors()
+    ):
+        return JSONResponse(
+            status_code=400,
+            content=_corpo(
+                "idempotency_key_ausente",
+                "Idempotency-Key obrigatoria",
+            ),
+        )
     return JSONResponse(
         status_code=400,
-        content=_corpo("payload_invalido", str(erros.errors()[:3])),
+        content=_corpo("payload_invalido", "Payload, parametros ou headers invalidos"),
     )
 
 
@@ -182,6 +194,17 @@ async def _recurso_nao_encontrado(_: Request, exc: Exception) -> JSONResponse:
 
 async def _perfil_conflito(_: Request, exc: Exception) -> JSONResponse:
     return JSONResponse(status_code=409, content=_corpo("perfil_conflito", str(exc)))
+
+
+async def _contexto_incompleto(_: Request, exc: Exception) -> JSONResponse:
+    del exc
+    return JSONResponse(
+        status_code=409,
+        content=_corpo(
+            "contexto_operacional_incompleto",
+            "Contexto operacional corrente indisponivel",
+        ),
+    )
 
 
 def _corpo_autenticacao_recusada() -> JSONResponse:

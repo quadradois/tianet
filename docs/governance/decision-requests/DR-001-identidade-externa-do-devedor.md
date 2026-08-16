@@ -1,4 +1,4 @@
-# DECISION REQUEST — DR-001 — Identidade externa do Devedor e forma dos endpoints
+# DR-001 — Decision Request — Identidade externa do Devedor e forma dos endpoints
 
 **Data:** 2026-08-07
 **Solicitante:** Engenharia (sessão de execução do PLAN-003 — EPIC-002)
@@ -191,3 +191,4 @@ documentada, não como resultado de divergência — caso contrário reaparece.
 | Versão | Data | Descrição |
 |---------|------|-----------|
 | 1.0.0 | 07/08/2026 | Abertura da Decision Request — identidade externa do Devedor. |
+| 1.0.1 | 16/08/2026 | Normalizacao do H1 para declarar o ID no inicio, conforme a regra de emissao verificada por `identifier-check.js` (SPEC-002 §5.9). Conteudo e decisao inalterados. |

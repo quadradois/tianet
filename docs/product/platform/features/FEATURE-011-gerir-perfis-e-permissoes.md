@@ -2,7 +2,7 @@
 
 **ID:** FEATURE-011
 
-**Versão:** 1.0.0
+**Versão:** 1.1.0
 
 **Status:** Concluido
 
@@ -33,6 +33,8 @@ Esta Feature contempla (todas as operações restritas à fronteira do Tenant �
 - listar e consultar as Permissões de um Perfil;
 - atribuir, alterar e remover a atribuição de Perfil de um Usuário do mesmo Tenant;
 - consultar as Permissões efetivas de um Usuário (perfil atribuído);
+- consultar o catálogo canônico e versionado de códigos de Permissão, sem
+  permitir que a interface invente códigos fora do backend;
 - decidir a autorização por operação, não por recurso individual (RBAC);
 - garantir que nenhum Perfil de outro Tenant seja visível, consultável ou alterável;
 - exigir autorização por perfil (RBAC) para gerir Perfis e atribuí-los a Usuários;
@@ -60,7 +62,8 @@ Esta Feature é composta pelas seguintes User Stories:
 - US-035 — Criar e Manter Perfis;
 - US-036 — Associar Permissões a Perfil;
 - US-037 — Atribuir Perfil a Usuário;
-- US-038 — Consultar Permissões Efetivas.
+- US-038 — Consultar Permissões Efetivas;
+- US-126 — Consultar Catálogo de Permissões.
 
 ---
 
@@ -89,12 +92,14 @@ Esta Feature será considerada concluída quando:
 - Permissões puderem ser associadas e removidas do Perfil;
 - a atribuição do Perfil a Usuário ocorrer dentro do mesmo Tenant;
 - as Permissões efetivas de um Usuário refletirem as Permissões do Perfil atribuído;
+- o catálogo canônico de Permissões puder ser consultado por operador
+  autorizado, com código, descrição, grupo e versão;
 - nenhum Perfil de outro Tenant for visível, consultável, alterável ou removível;
 - recurso de outro Tenant responder 404, e não 403 — sem revelar existência (precedente da ADR-018);
 - a autorização for decidida por permissão de operação, não por recurso individual (RBAC);
 - a gestão de Perfis e a atribuição a Usuários exigirem autorização por perfil;
 - cada criação, alteração e atribuição de Perfil ser registrada para auditoria na trilha append-only (ADR-002);
-- as User Stories US-035, US-036, US-037 e US-038 estarem concluídas.
+- as User Stories US-035, US-036, US-037, US-038 e US-126 estarem concluídas.
 
 ---
 
@@ -102,4 +107,5 @@ Esta Feature será considerada concluída quando:
 
 | Versão | Data | Descrição |
 |---------|------|-----------|
+| 1.1.0 | 12/08/2026 | Complementa a Feature com US-126 para consulta governada do catálogo de Permissões requerido pela administração IAM. |
 | 1.0.0 | 08/08/2026 | Primeira versão oficial da Feature Gerir Perfis e Permissões, criada no ciclo SDD do EPIC-006. |
