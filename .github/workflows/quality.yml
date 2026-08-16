@@ -63,6 +63,14 @@ jobs:
       - name: Build frontend
         run: npm run build
 
+      # Precisa rodar AQUI: depois do build (checa .next/static) e antes de
+      # qualquer suite Playwright. As suites E2E sobrescrevem os PNGs de
+      # docs/audits/evidence/, e este gate exige que o SHA-256 de cada PNG
+      # esteja fixado nos relatorios commitados. Rodando depois do E2E ele
+      # compara screenshot recem-gerado contra SHA antigo e falha sempre.
+      - name: Run UI security certification
+        run: npm run test:certification
+
       - name: Install Chromium with Linux dependencies
         if: runner.os == 'Linux'
         run: npx playwright install --with-deps chromium
@@ -135,9 +143,6 @@ jobs:
       - name: Run composed journeys suite
         if: runner.os == 'Linux'
         run: npm run test:jornadas
-
-      - name: Run UI security certification
-        run: npm run test:certification
 
       - name: Upload Playwright diagnostics
         if: always()
