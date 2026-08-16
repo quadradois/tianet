@@ -332,7 +332,7 @@ export async function createCommercialSimulation(
 ): Promise<ComercialActionState> {
   if (!isUuid(devedorId)) return { kind: "problem", message: "Identificador do Devedor invalido.", status: 400, correlationId: correlationId() };
   const parametros = parseOpaqueParameters(formString(formData, "parametros", 5_000) ?? "");
-  if (!parametros) return { kind: "problem", message: "Informe parametros comerciais em JSON objeto nao vazio e sem regra financeira livre.", status: 400, correlationId: correlationId() };
+  if (!parametros) return { kind: "problem", message: "Informe parametros comerciais em JSON objeto nao vazio.", status: 400, correlationId: correlationId() };
   const body: SimulationCreateRequest = { parametros };
   return executeMutation(cookies, context, dependencies, COMERCIAL_SIMULATION_CREATE_PERMISSION, 201, (client, carteiraId, correlation) => client.POST(
     "/credit/carteiras/{carteira_id}/devedores/{devedor_id}/simulacoes-comerciais",
@@ -348,7 +348,8 @@ export async function createCommercialProposal(
   dependencies: BffDependencies,
 ): Promise<ComercialActionState> {
   if (!isUuid(devedorId)) return { kind: "problem", message: "Identificador do Devedor invalido.", status: 400, correlationId: correlationId() };
-  const parametros = parseOpaqueParameters(formString(formData, "parametros", 5_000) ?? "{}") ?? {};
+  const parametros = parseOpaqueParameters(formString(formData, "parametros", 5_000) ?? "");
+  if (!parametros) return { kind: "problem", message: "Informe parametros comerciais em JSON objeto nao vazio.", status: 400, correlationId: correlationId() };
   const simulacaoId = formString(formData, "simulacao_id", 36);
   if (simulacaoId && !isUuid(simulacaoId)) return { kind: "problem", message: "Identificador da Simulacao invalido.", status: 400, correlationId: correlationId() };
   const body: ProposalCreateRequest = { parametros, ...(simulacaoId ? { simulacao_id: simulacaoId } : {}) };
@@ -367,7 +368,7 @@ export async function updateCommercialProposal(
 ): Promise<ComercialActionState> {
   if (!isUuid(propostaId)) return { kind: "problem", message: "Identificador da Proposta invalido.", status: 400, correlationId: correlationId() };
   const parametros = parseOpaqueParameters(formString(formData, "parametros", 5_000) ?? "");
-  if (!parametros) return { kind: "problem", message: "Informe parametros comerciais em JSON objeto nao vazio e sem regra financeira livre.", status: 400, correlationId: correlationId() };
+  if (!parametros) return { kind: "problem", message: "Informe parametros comerciais em JSON objeto nao vazio.", status: 400, correlationId: correlationId() };
   const body: ProposalUpdateRequest = { parametros };
   return executeMutation(cookies, context, dependencies, COMERCIAL_PROPOSAL_CREATE_PERMISSION, 200, (client, _carteiraId, correlation) => client.PATCH(
     "/credit/propostas-comerciais/{proposta_id}",

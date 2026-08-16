@@ -443,6 +443,32 @@ localmente e publicou o relatorio final de prontidao.
 
 ---
 
+# 7.1 Correcao pos-certificacao
+
+### IMP-304 - Restaurar a opacidade dos parametros comerciais (DR-002)
+
+- **Objetivo:** executar a Opcao B da DR-002. Remover a inspecao de nomes de
+  chave em `parseOpaqueParameters`, que bloqueava o vocabulario canonico do
+  Motor (`quantidade_parcelas`, `taxa_juros_mensal`) e impedia concluir a
+  jornada `Contrato ate pagamento` pela interface. Corrigir, no mesmo pacote, a
+  falha silenciosa que convertia parametros invalidos em objeto vazio.
+- **Componentes afetados:** `frontend/src/lib/comercial/comercial-policy.ts`,
+  `frontend/src/lib/bff/comercial.server.ts`,
+  `frontend/tests/unit/comercial-policy.test.ts`,
+  `frontend/tests/jornadas-e2e/jornadas-compostas.spec.ts`,
+  matriz de rastreabilidade.
+- **Dependencias:** IMP-303; DR-002 resolvida.
+- **Criterios de conclusao:** vocabulario oficial do Motor atravessa o BFF
+  intacto; parametro invalido responde `400` com mensagem acionavel, nunca `422`
+  opaco; jornada real submete o formulario Comercial contra backend real e a
+  cadeia fecha ate o plano de parcelas; scanner anti-calculo permanece verde;
+  matriz sem declaracao de jornada observada que nao se completa.
+- **Suite minima:** `test:unit`, `test:bff`, `test:comercial`, `test:jornadas`,
+  `test:certification` e os gates completos do PLAN-025.
+- **Status:** Concluido.
+
+---
+
 # 8. Gates
 
 - `uv run pytest -q`;
@@ -465,6 +491,7 @@ localmente e publicou o relatorio final de prontidao.
 
 | Versao | Data | Descricao |
 |---|---|---|
+| 3.2.0 | 2026-08-16 | IMP-304 concluido: DR-002 executada pela Opcao B, parametros comerciais opacos restaurados, falha silenciosa corrigida para `400` acionavel e cenario de jornada real submetendo o formulario Comercial contra backend real. |
 | 3.1.0 | 2026-08-14 | IMP-303 concluido com recertificacao final local do Frontend MVP, relatorio de prontidao publicado, scope encadeado 401/66/335/3/404 e CI remota mantida como caveat nao observado. |
 | 3.0.0 | 2026-08-14 | IMP-302 concluido com certificacao agregada de UI, seguranca e fronteiras: 50 PNGs vigentes, bundle publico sem tokens, Client Components sem backend direto, Web Interface Guidelines e scanner anti-calculo financeiro; IMP-303 permanece planejado. |
 | 2.9.0 | 2026-08-14 | IMP-301 concluido com jornadas compostas P0/P1 em stack real Next.js/FastAPI/PostgreSQL, seed integrado, ausencia de mocks Playwright, login/RBAC/404/5xx, fluxos Devedor-Proposta-Contrato-Emprestimo, pagamento idempotente, operacao diaria, IAM e Automacao; IMP-302 permanece planejado. |

@@ -93,6 +93,26 @@ test("Devedor -> Proposta e Proposta -> Contrato -> Emprestimo", async ({ page }
   await expect(page.getByRole("heading", { name: new RegExp(requiredId("loan")) })).toBeVisible();
 });
 
+// DR-002: nenhuma suite submetia o formulario Comercial contra backend real. O
+// vocabulario canonico do Motor era rejeitado pelo BFF e a jornada nao fechava
+// pela interface, com as suites de stub e de stack real passando em separado.
+test("formulario Comercial aceita o vocabulario do Motor contra backend real", async ({ page }) => {
+  await login(page);
+  await page.goto(`${state.frontendUrl}/app/devedores/${requiredId("devedor")}/comercial`);
+  await expect(page.getByRole("heading", { name: "Simulacoes e propostas" })).toBeVisible();
+
+  await page.locator("#proposal-parametros").fill(JSON.stringify({
+    moeda: "BRL",
+    primeiro_vencimento: "2026-12-10",
+    quantidade_parcelas: 2,
+    taxa_juros_mensal: "0.0200",
+    valor_contratado: "4200.00",
+  }));
+  await page.getByRole("button", { name: "Criar proposta comercial" }).click();
+
+  await expect(page.getByText("Proposta comercial criada.")).toBeVisible();
+});
+
 test("pagamento repetido com a mesma chave e consulta do Motor sem calculo local", async ({ page }) => {
   expect(seed.paymentReplayVerified).toBe(true);
   await login(page);

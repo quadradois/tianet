@@ -54,7 +54,6 @@ export type ProposalFilters = Readonly<{
 }>;
 
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-const FORBIDDEN_FINANCIAL_KEYS = /(?:juros|mora|multa|amortiza|saldo|quitacao|renegocia|parcela|pagamento|emprestimo|memoria)/i;
 
 export function hasExactPermission(permissions: readonly string[], permission: ComercialPermission): boolean {
   return new Set(permissions).has(permission);
@@ -97,13 +96,16 @@ export function allowedProposalDecisions(proposal: Pick<Proposal, "estado">, per
   return [];
 }
 
+// DR-002: os parametros comerciais sao opacos por contrato, entao o BFF nao
+// inspeciona nomes de chave. Filtrar por nome bloqueava o vocabulario canonico
+// do Motor (`quantidade_parcelas`, `taxa_juros_mensal`) e nunca impediu calculo,
+// que pode usar qualquer nome. A garantia anti-motor-paralelo e o scanner
+// estatico certifyNoFinancialEngineParallel, que veta aritmetica no frontend.
 export function parseOpaqueParameters(raw: string): Record<string, unknown> | undefined {
   try {
     const parsed: unknown = JSON.parse(raw);
     if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed)) return undefined;
-    const entries = Object.entries(parsed);
-    if (entries.length === 0) return undefined;
-    if (entries.some(([key]) => FORBIDDEN_FINANCIAL_KEYS.test(key))) return undefined;
+    if (Object.keys(parsed).length === 0) return undefined;
     return parsed as Record<string, unknown>;
   } catch {
     return undefined;

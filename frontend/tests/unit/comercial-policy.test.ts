@@ -21,11 +21,24 @@ describe("comercial-policy", () => {
     expect(resolveProposalFilters({ estado: "todos", page: "0", size: "500", periodo: "2026" })).toEqual({ page: 1, size: 20 });
   });
 
-  it("mantem parametros como objeto opaco e rejeita regra financeira livre", () => {
+  it("mantem parametros como objeto opaco, sem inspecionar nomes de chave (DR-002)", () => {
     expect(parseOpaqueParameters('{"produto":"assistido"}')).toEqual({ produto: "assistido" });
-    expect(parseOpaqueParameters('{"saldo_calculado":"1"}')).toBeUndefined();
+    // O vocabulario canonico do Motor precisa atravessar o BFF intacto: transportar
+    // valor digitado pelo operador nao e calcular. Ver DR-002 secao 5.
+    expect(
+      parseOpaqueParameters(
+        '{"valor_contratado":"6000.00","quantidade_parcelas":3,"primeiro_vencimento":"2026-09-16","taxa_juros_mensal":"0.0250","moeda":"BRL"}',
+      ),
+    ).toEqual({
+      moeda: "BRL",
+      primeiro_vencimento: "2026-09-16",
+      quantidade_parcelas: 3,
+      taxa_juros_mensal: "0.0250",
+      valor_contratado: "6000.00",
+    });
     expect(parseOpaqueParameters('[]')).toBeUndefined();
     expect(parseOpaqueParameters('{}')).toBeUndefined();
+    expect(parseOpaqueParameters("nao-json")).toBeUndefined();
   });
 
   it("exibe acoes somente por estado retornado e permissao de decisao", () => {
