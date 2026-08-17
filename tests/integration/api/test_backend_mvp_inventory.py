@@ -43,9 +43,9 @@ def test_openapi_inventory_covers_backend_mvp_contexts() -> None:
     schema = create_app().openapi()
     operations = _operations(schema)
 
-    assert len(operations) == 107
+    assert len(operations) == 108
     assert sum(1 for _, path in operations if _is_public(path)) == 5
-    assert sum(1 for _, path in operations if not _is_public(path)) == 102
+    assert sum(1 for _, path in operations if not _is_public(path)) == 103
 
     paths = set(schema["paths"])
     for context, expected_fragment in EXPECTED_CONTEXTS.items():

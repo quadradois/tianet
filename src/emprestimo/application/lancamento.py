@@ -13,6 +13,8 @@ etapas produz hoje (ver PLAN-027 e o Discovery correspondente).
 
 from __future__ import annotations
 
+import hashlib
+import json
 import uuid
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass
@@ -22,6 +24,7 @@ from typing import Protocol
 from emprestimo.application.errors import (
     CarteiraNaoEncontradaError,
     DevedorNaoEncontradoError,
+    IdempotenciaConflitoError,
     TransicaoEstadoInvalidaError,
     UsuarioNaoEncontradoError,
 )
@@ -33,6 +36,8 @@ from emprestimo.domain.credit.contrato_credito_state import ContratoCreditoState
 from emprestimo.domain.credit.devedor import Devedor
 from emprestimo.domain.credit.documento import Documento
 from emprestimo.domain.credit.proposta_comercial import PropostaComercial
+
+ESCOPO_IDEMPOTENCIA = "credit.lancamento"
 
 
 class ResultadoFinanceiro(Protocol):
@@ -126,6 +131,7 @@ class LancamentoService:
         usuario_id: uuid.UUID,
         condicoes: CondicoesLancamento,
         data_referencia: date,
+        idempotency_key: str,
         devedor_id: uuid.UUID | None = None,
         devedor_novo: DevedorNovo | None = None,
     ) -> LancamentoResultado:
@@ -134,8 +140,19 @@ class LancamentoService:
                 "PLAN-027",
                 "informe exatamente um entre devedor existente e devedor novo",
             )
+        hash_solicitacao = _solicitacao_hash(
+            carteira_id=carteira_id,
+            usuario_id=usuario_id,
+            condicoes=condicoes,
+            devedor_id=devedor_id,
+            devedor_novo=devedor_novo,
+        )
 
         with self._uow_factory() as uow:
+            replay = self._replay_ou_registrar_chave(uow, idempotency_key, hash_solicitacao)
+            if replay is not None:
+                uow.commit()
+                return replay
             self._validar_contexto(
                 uow, tenant_id=tenant_id, carteira_id=carteira_id, usuario_id=usuario_id
             )
@@ -160,14 +177,30 @@ class LancamentoService:
                 data_referencia=data_referencia,
             )
 
-            uow.commit()
-            return LancamentoResultado(
+            resultado = LancamentoResultado(
                 devedor_id=devedor.id,
                 proposta_id=proposta.id,
                 contrato_id=contrato.id,
                 emprestimo_id=financeiro.emprestimo_id,
                 quantidade_parcelas=financeiro.quantidade_parcelas,
             )
+            uow.idempotencia.concluir(idempotency_key, ESCOPO_IDEMPOTENCIA, _serializar(resultado))
+            uow.commit()
+            return resultado
+
+    def _replay_ou_registrar_chave(
+        self, uow: UnitOfWork, idempotency_key: str, hash_solicitacao: str
+    ) -> LancamentoResultado | None:
+        """Replay seguro (AD-002): mesma chave, mesmo resultado; divergente, conflito."""
+        existente = uow.idempotencia.find_by_chave(idempotency_key, ESCOPO_IDEMPOTENCIA)
+        if existente is None:
+            uow.idempotencia.registrar(idempotency_key, ESCOPO_IDEMPOTENCIA, hash_solicitacao)
+            return None
+        if existente["estado"] != "finished":
+            raise IdempotenciaConflitoError(idempotency_key, "lancamento em andamento")
+        if existente["solicitacao_hash"] != hash_solicitacao:
+            raise IdempotenciaConflitoError(idempotency_key, "resultado divergente")
+        return _desserializar(existente["resultado"])
 
     # -- passos ------------------------------------------------------------
 
@@ -261,3 +294,59 @@ class LancamentoService:
             raise TransicaoEstadoInvalidaError(proposta.id, "lancar_contrato", str(exc)) from exc
         uow.contrato_credito.save(contrato)
         return contrato
+
+
+def _solicitacao_hash(
+    *,
+    carteira_id: uuid.UUID,
+    usuario_id: uuid.UUID,
+    condicoes: CondicoesLancamento,
+    devedor_id: uuid.UUID | None,
+    devedor_novo: DevedorNovo | None,
+) -> str:
+    """Impressao da intencao: mesma intencao, mesma chave; intencao nova, chave nova."""
+    corpo = json.dumps(
+        {
+            "carteira_id": str(carteira_id),
+            "usuario_id": str(usuario_id),
+            "condicoes": dict(condicoes.como_parametros()),
+            "devedor_id": str(devedor_id) if devedor_id else None,
+            "devedor_novo": (
+                None
+                if devedor_novo is None
+                else {
+                    "documento": devedor_novo.documento,
+                    "nome": devedor_novo.nome,
+                    "contato_whatsapp": devedor_novo.contato_whatsapp,
+                }
+            ),
+        },
+        sort_keys=True,
+    )
+    return hashlib.sha256(corpo.encode("utf-8")).hexdigest()
+
+
+def _serializar(resultado: LancamentoResultado) -> str:
+    return json.dumps(
+        {
+            "devedor_id": str(resultado.devedor_id),
+            "proposta_id": str(resultado.proposta_id),
+            "contrato_id": str(resultado.contrato_id),
+            "emprestimo_id": str(resultado.emprestimo_id),
+            "quantidade_parcelas": resultado.quantidade_parcelas,
+        },
+        sort_keys=True,
+    )
+
+
+def _desserializar(conteudo: str | None) -> LancamentoResultado:
+    if not conteudo:
+        raise IdempotenciaConflitoError("?", "resultado ausente no registro")
+    dados = json.loads(conteudo)
+    return LancamentoResultado(
+        devedor_id=uuid.UUID(dados["devedor_id"]),
+        proposta_id=uuid.UUID(dados["proposta_id"]),
+        contrato_id=uuid.UUID(dados["contrato_id"]),
+        emprestimo_id=uuid.UUID(dados["emprestimo_id"]),
+        quantidade_parcelas=int(dados["quantidade_parcelas"]),
+    )

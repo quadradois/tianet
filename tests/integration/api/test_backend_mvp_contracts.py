@@ -32,6 +32,7 @@ from emprestimo.presentation.api.configuracoes_financeiras_routes import (
 from emprestimo.presentation.api.contratos_routes import router as contratos_router
 from emprestimo.presentation.api.devedores_routes import router as devedores_router
 from emprestimo.presentation.api.iam_routes import router as iam_router
+from emprestimo.presentation.api.lancamento_routes import router as lancamento_router
 from emprestimo.presentation.api.main import create_app
 from emprestimo.presentation.api.motor_routes import router as motor_router
 from emprestimo.presentation.api.observability_routes import router as observability_router
@@ -81,7 +82,7 @@ def test_imp_269_openapi_cobre_routers_reais_e_contratos_transversais() -> None:
     operations = _operations(schema)
     router_operations = _router_operations()
 
-    assert len(operations) == 107
+    assert len(operations) == 108
     assert operations.keys() == router_operations
     assert schema["components"]["schemas"]["ErroResponse"]["required"] == [
         "codigo",
@@ -229,6 +230,7 @@ def _api_routes() -> Iterable[APIRoute]:
         comercial_router,
         contratos_router,
         motor_router,
+        lancamento_router,
         operacao_diaria_router,
         configuracoes_financeiras_router,
         automacao_router,

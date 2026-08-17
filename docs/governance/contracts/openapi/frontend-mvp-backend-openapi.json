@@ -855,6 +855,50 @@
         "title": "ConciliacaoRequest",
         "type": "object"
       },
+      "CondicoesLancamentoRequest": {
+        "additionalProperties": false,
+        "description": "Os quatro parametros digitados pelo Credor no ato.\n\nCampos tipados, nao JSON opaco: aqui o vocabulario do Motor e explicito e o\nerro aparece na entrada, nao tres telas adiante.",
+        "properties": {
+          "moeda": {
+            "default": "BRL",
+            "maxLength": 3,
+            "minLength": 3,
+            "title": "Moeda",
+            "type": "string"
+          },
+          "primeiro_vencimento": {
+            "format": "date",
+            "title": "Primeiro Vencimento",
+            "type": "string"
+          },
+          "quantidade_parcelas": {
+            "maximum": 360.0,
+            "minimum": 1.0,
+            "title": "Quantidade Parcelas",
+            "type": "integer"
+          },
+          "taxa_juros_mensal": {
+            "maxLength": 32,
+            "minLength": 1,
+            "title": "Taxa Juros Mensal",
+            "type": "string"
+          },
+          "valor_contratado": {
+            "maxLength": 32,
+            "minLength": 1,
+            "title": "Valor Contratado",
+            "type": "string"
+          }
+        },
+        "required": [
+          "valor_contratado",
+          "taxa_juros_mensal",
+          "quantidade_parcelas",
+          "primeiro_vencimento"
+        ],
+        "title": "CondicoesLancamentoRequest",
+        "type": "object"
+      },
       "ConfiguracaoFinanceiraCreateRequest": {
         "additionalProperties": false,
         "properties": {
@@ -1808,6 +1852,37 @@
         "title": "DevedorListagemResponse",
         "type": "object"
       },
+      "DevedorNovoRequest": {
+        "additionalProperties": false,
+        "description": "Devedor cadastrado no proprio wizard.\n\nO contato de WhatsApp e obrigatorio: sem numero nao ha destino para o\ncomprovante (PLAN-027, decisao formal 2).",
+        "properties": {
+          "contato_whatsapp": {
+            "maxLength": 20,
+            "minLength": 8,
+            "title": "Contato Whatsapp",
+            "type": "string"
+          },
+          "documento": {
+            "maxLength": 32,
+            "minLength": 1,
+            "title": "Documento",
+            "type": "string"
+          },
+          "nome": {
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Nome",
+            "type": "string"
+          }
+        },
+        "required": [
+          "documento",
+          "nome",
+          "contato_whatsapp"
+        ],
+        "title": "DevedorNovoRequest",
+        "type": "object"
+      },
       "DevedorResponse": {
         "description": "DTO único do Devedor (RA-012) — usado em todas as respostas de sucesso.",
         "properties": {
@@ -2478,6 +2553,85 @@
           "correlation_id"
         ],
         "title": "JobResponse",
+        "type": "object"
+      },
+      "LancamentoCreateRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "condicoes": {
+            "$ref": "#/components/schemas/CondicoesLancamentoRequest"
+          },
+          "data_referencia": {
+            "format": "date",
+            "title": "Data Referencia",
+            "type": "string"
+          },
+          "devedor_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Devedor Id"
+          },
+          "devedor_novo": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/DevedorNovoRequest"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "condicoes",
+          "data_referencia"
+        ],
+        "title": "LancamentoCreateRequest",
+        "type": "object"
+      },
+      "LancamentoResponse": {
+        "description": "Identificadores da cadeia criada, para navegacao e comprovante.",
+        "properties": {
+          "contrato_id": {
+            "format": "uuid",
+            "title": "Contrato Id",
+            "type": "string"
+          },
+          "devedor_id": {
+            "format": "uuid",
+            "title": "Devedor Id",
+            "type": "string"
+          },
+          "emprestimo_id": {
+            "format": "uuid",
+            "title": "Emprestimo Id",
+            "type": "string"
+          },
+          "proposta_id": {
+            "format": "uuid",
+            "title": "Proposta Id",
+            "type": "string"
+          },
+          "quantidade_parcelas": {
+            "title": "Quantidade Parcelas",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "devedor_id",
+          "proposta_id",
+          "contrato_id",
+          "emprestimo_id",
+          "quantidade_parcelas"
+        ],
+        "title": "LancamentoResponse",
         "type": "object"
       },
       "LembreteAgendaCreateRequest": {
@@ -10567,6 +10721,191 @@
         "summary": "Listar emprestimos da carteira",
         "tags": [
           "financial-engine"
+        ]
+      }
+    },
+    "/credit/carteiras/{carteira_id}/lancamentos": {
+      "post": {
+        "operationId": "lancar_emprestimo_credit_carteiras__carteira_id__lancamentos_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "carteira_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Carteira Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": true,
+            "schema": {
+              "maxLength": 255,
+              "minLength": 1,
+              "title": "Idempotency-Key",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Identificador tecnico de correlacao aceito ou gerado pela API.",
+            "in": "header",
+            "name": "X-Correlation-ID",
+            "required": false,
+            "schema": {
+              "maxLength": 128,
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LancamentoCreateRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LancamentoResponse"
+                }
+              }
+            },
+            "description": "Successful Response",
+            "headers": {
+              "X-Correlation-ID": {
+                "description": "Identificador tecnico de correlacao da requisicao.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErroResponse"
+                }
+              }
+            },
+            "description": "Payload, parametros ou headers invalidos para a operacao.",
+            "headers": {
+              "X-Correlation-ID": {
+                "description": "Identificador tecnico de correlacao da requisicao.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErroResponse"
+                }
+              }
+            },
+            "description": "Autenticacao recusada por token ausente, invalido ou expirado.",
+            "headers": {
+              "X-Correlation-ID": {
+                "description": "Identificador tecnico de correlacao da requisicao.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErroResponse"
+                }
+              }
+            },
+            "description": "Principal autenticado nao possui permissao para a operacao.",
+            "headers": {
+              "X-Correlation-ID": {
+                "description": "Identificador tecnico de correlacao da requisicao.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErroResponse"
+                }
+              }
+            },
+            "description": "Recurso inexistente ou indisponivel para o Tenant autenticado.",
+            "headers": {
+              "X-Correlation-ID": {
+                "description": "Identificador tecnico de correlacao da requisicao.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErroResponse"
+                }
+              }
+            },
+            "description": "Transicao de estado invalida para o recurso atual.",
+            "headers": {
+              "X-Correlation-ID": {
+                "description": "Identificador tecnico de correlacao da requisicao.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErroResponse"
+                }
+              }
+            },
+            "description": "Erro tecnico inesperado com resposta segura e correlacionavel.",
+            "headers": {
+              "X-Correlation-ID": {
+                "description": "Identificador tecnico de correlacao da requisicao.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "summary": "Lancar emprestimo em uma unica operacao",
+        "tags": [
+          "launch"
         ]
       }
     },

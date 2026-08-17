@@ -172,8 +172,25 @@ Caveats nao bloqueantes para a avaliacao:
 
 ---
 
+# 7.1 Atualizacao posterior do snapshot
+
+O registro de 2026-08-12 permanece integro: o hardening deste PLAN produziu 107
+operacoes com o SHA-256
+`8dadf18eab0dad186044d71e832f72a5850661307d196187f2d0794b9d1d9ec1`.
+
+Em 2026-08-16 o PLAN-027/IMP-306 publicou
+`POST /credit/carteiras/{carteira_id}/lancamentos`. O snapshot governado deve
+bater byte a byte com o runtime, entao foi regerado: **108 operacoes, 137
+schemas**, SHA-256
+`5ebbe33b73ffa20de28a11240bbd53660bb15f989a82fc48456358786a58b153`.
+
+Nada do hardening foi desfeito; a superficie e aditiva.
+
+---
+
 # 8. Historico de versoes
 
 | Versao | Data | Descricao |
 |---|---|---|
+| 1.1.0 | 2026-08-16 | Registrada a regeracao do snapshot pelo PLAN-027/IMP-306, sem alterar o registro original do hardening. |
 | 1.0.0 | 2026-08-12 | Execucao IMP-276..IMP-283, snapshot OpenAPI e decisao de manter IMP-284 bloqueado ate judge. |

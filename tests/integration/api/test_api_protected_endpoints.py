@@ -48,6 +48,7 @@ RESPOSTA_401 = {
 }
 ERRO_RESPONSE_REF = {"$ref": "#/components/schemas/ErroResponse"}
 ROTAS_COM_404_DOCUMENTADO = {
+    ("post", "/credit/carteiras/{carteira_id}/lancamentos"),
     ("get", "/credit/automacao/jobs/{job_id}"),
     ("post", "/credit/automacao/jobs/{job_id}/cancelar"),
     ("post", "/credit/automacao/jobs/{job_id}/retry"),

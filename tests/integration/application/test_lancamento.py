@@ -10,7 +10,10 @@ import pytest
 from sqlalchemy.orm import Session, sessionmaker
 from tests.factories import CarteiraFactory, TenantFactory, UsuarioFactory
 
-from emprestimo.application.errors import TransicaoEstadoInvalidaError
+from emprestimo.application.errors import (
+    IdempotenciaConflitoError,
+    TransicaoEstadoInvalidaError,
+)
 from emprestimo.application.lancamento import CondicoesLancamento, DevedorNovo, LancamentoService
 from emprestimo.application.motor_financeiro import criar_emprestimo_e_plano_em
 from emprestimo.domain.credit.contrato_credito_state import ContratoCreditoState
@@ -87,6 +90,7 @@ def test_lancamento_cria_devedor_e_toda_a_cadeia_em_uma_transacao(
         ),
         condicoes=_condicoes(),
         data_referencia=date(2026, 8, 16),
+        idempotency_key=str(uuid.uuid4()),
     )
 
     with session_factory() as session:
@@ -118,6 +122,7 @@ def test_lancamento_reutiliza_devedor_existente(
         ),
         condicoes=_condicoes(),
         data_referencia=date(2026, 8, 16),
+        idempotency_key=str(uuid.uuid4()),
     )
 
     segundo = servico.lancar(
@@ -127,6 +132,7 @@ def test_lancamento_reutiliza_devedor_existente(
         devedor_id=primeiro.devedor_id,
         condicoes=_condicoes(valor_contratado="1500.00", quantidade_parcelas=2),
         data_referencia=date(2026, 8, 16),
+        idempotency_key=str(uuid.uuid4()),
     )
 
     assert segundo.devedor_id == primeiro.devedor_id
@@ -157,6 +163,7 @@ def test_falha_no_motor_desfaz_o_devedor_criado_na_mesma_transacao(
             # quantidade_parcelas invalida derruba o Motor no ultimo passo
             condicoes=_condicoes(quantidade_parcelas=0),
             data_referencia=date(2026, 8, 16),
+            idempotency_key=str(uuid.uuid4()),
         )
 
     with session_factory() as session:
@@ -165,3 +172,59 @@ def test_falha_no_motor_desfaz_o_devedor_criado_na_mesma_transacao(
             Documento.from_str(documento), ambiente.carteira_id
         )
         assert encontrado is None
+
+
+def test_replay_com_a_mesma_chave_nao_lanca_duas_vezes(
+    session_factory: sessionmaker[Session],
+) -> None:
+    ambiente = _ambiente(session_factory)
+    servico = _servico(session_factory)
+    chave = str(uuid.uuid4())
+    argumentos = {
+        "tenant_id": ambiente.tenant_id,
+        "carteira_id": ambiente.carteira_id,
+        "usuario_id": ambiente.usuario_id,
+        "devedor_novo": DevedorNovo(
+            documento=_cpf(), nome="Cliente Idempotente", contato_whatsapp="(11) 95555-4433"
+        ),
+        "condicoes": _condicoes(),
+        "data_referencia": date(2026, 8, 16),
+        "idempotency_key": chave,
+    }
+
+    primeiro = servico.lancar(**argumentos)  # type: ignore[arg-type]
+    segundo = servico.lancar(**argumentos)  # type: ignore[arg-type]
+
+    assert segundo == primeiro
+
+
+def test_mesma_chave_com_intencao_diferente_e_conflito(
+    session_factory: sessionmaker[Session],
+) -> None:
+    ambiente = _ambiente(session_factory)
+    servico = _servico(session_factory)
+    chave = str(uuid.uuid4())
+    servico.lancar(
+        tenant_id=ambiente.tenant_id,
+        carteira_id=ambiente.carteira_id,
+        usuario_id=ambiente.usuario_id,
+        devedor_novo=DevedorNovo(
+            documento=_cpf(), nome="Primeira Intencao", contato_whatsapp="(11) 94444-3322"
+        ),
+        condicoes=_condicoes(),
+        data_referencia=date(2026, 8, 16),
+        idempotency_key=chave,
+    )
+
+    with pytest.raises(IdempotenciaConflitoError):
+        servico.lancar(
+            tenant_id=ambiente.tenant_id,
+            carteira_id=ambiente.carteira_id,
+            usuario_id=ambiente.usuario_id,
+            devedor_novo=DevedorNovo(
+                documento=_cpf(), nome="Outra Intencao", contato_whatsapp="(11) 93333-2211"
+            ),
+            condicoes=_condicoes(valor_contratado="99999.00"),
+            data_referencia=date(2026, 8, 16),
+            idempotency_key=chave,
+        )

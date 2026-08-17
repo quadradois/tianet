@@ -2,9 +2,9 @@
 
 **ID:** PLAN-027-EXEC
 
-**Versao:** 1.1.0
+**Versao:** 1.2.0
 
-**Status:** IMP-305 concluido; IMP-306..311 planejados
+**Status:** IMP-305 e IMP-306 concluidos; IMP-307..311 planejados
 
 ---
 
@@ -59,7 +59,13 @@ aprovacao permanece porque e a caixa de entrada do agente de IA
   permissoes de Devedor, Comercial, Contratos e Motor; contagem de operacoes do
   snapshot atualizada de forma explicita.
 - **Suite minima:** integracao de API, contrato e idempotencia.
-- **Status:** Planejado.
+- **Status:** Concluido.
+- **Nota de execucao:** o inventario passou de 107 para 108 operacoes e de 133
+  para 137 schemas. O snapshot governado foi regerado (byte a byte com o
+  runtime, por contrato), o cliente tipado do frontend foi regenerado e os pinos
+  de contagem, SHA e header idempotente foram avancados deliberadamente. A
+  matriz permanece em 107: nenhuma jornada frontend consome a operacao nova
+  ainda, e ela entra na matriz no IMP-308.
 
 ### IMP-307 - Comprovante do lancamento
 
@@ -151,5 +157,6 @@ aprovacao permanece porque e a caixa de entrada do agente de IA
 
 | Versao | Data | Descricao |
 |---|---|---|
+| 1.2.0 | 2026-08-16 | IMP-306 concluido: endpoint de lancamento publicado, inventario em 108/137 e pinos de contrato avancados. |
 | 1.1.0 | 2026-08-16 | IMP-305 concluido: lancamento composto em transacao unica, com a etapa financeira injetada para respeitar o guardrail de exclusividade do Motor. |
 | 1.0.0 | 2026-08-16 | Backlog inicial IMP-305..IMP-311. |
