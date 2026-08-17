@@ -93,10 +93,16 @@ test("lista Emprestimos e cria Emprestimo a partir de Contrato liberado sem Cart
 test("consulta detalhe, parcelas, saldo, memoria, pagamento e quitacao sem recalculo local", async ({ page, context }, testInfo) => {
   await login(page);
   await page.goto(`/app/motor/${IDS.loan}`);
-  await expect(page.getByRole("heading", { name: "R$ 1.000,00" }).first()).toBeVisible();
+  // O painel abre dizendo de quem e o emprestimo, e nao qual e o identificador.
+  await expect(page.getByRole("heading", { name: "Maria Souza" })).toBeVisible();
+  await expect(page.getByText("Ainda falta receber")).toBeVisible();
+  await expect(page.getByText(IDS.loan, { exact: true })).toHaveCount(0);
   await expect(page.getByText("Quanto ainda falta")).toBeVisible();
   await expect(page.getByText("Como a conta foi feita")).toBeVisible();
   await expect(page.getByText("R$ 1.010,00").first()).toBeVisible();
+  // As operacoes ficam abaixo do painel e recolhidas: primeiro entender, depois agir.
+  await expect(page.getByRole("button", { name: "Gerar parcelas", exact: true })).toBeHidden();
+  await page.getByText("Operacoes deste emprestimo").click();
   await activateButton(page, "Gerar parcelas");
   await expect(page.getByText(/Plano de parcelas gerado pelo Motor/)).toBeVisible();
   await activateButton(page, "Registrar pagamento");

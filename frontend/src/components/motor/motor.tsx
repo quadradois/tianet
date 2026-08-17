@@ -9,8 +9,12 @@ import {
   MOTOR_PAYMENT_CREATE_PERMISSION,
   MOTOR_RENEGOTIATION_CREATE_PERMISSION,
   MOTOR_SETTLEMENT_EXECUTE_PERMISSION,
+  SITUACOES,
   agruparPorSituacao,
   hasExactPermission,
+  parcelaEncerrada,
+  rotuloMemoria,
+  rotuloParcela,
   type Balance,
   type CalculationMemory,
   type InstallmentPlan,
@@ -40,6 +44,8 @@ type MotorPageProps = Readonly<{
 
 type MotorDetailProps = Readonly<{
   balance: MotorReadResult<Balance>;
+  /** Nome do Devedor, resolvido no servidor. Ausente sem permissao de leitura. */
+  devedor?: string | undefined;
   generateInstallmentsAction: MotorAction;
   initialState: MotorActionState;
   installments: MotorReadResult<InstallmentPlan>;
@@ -94,25 +100,6 @@ function JsonBlock({ label, value }: { label: string; value: unknown }) {
   );
 }
 
-function LoanCard({ loan }: { loan: Loan }) {
-  return (
-    <article className="rounded-2xl border border-border bg-card p-4 shadow-sm">
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <h2 className="text-lg font-semibold">{moeda(loan.principal_original)}</h2>
-          <p className="text-sm text-muted-foreground">Emprestado em {formatarData(loan.criado_em)}</p>
-        </div>
-        <span className="rounded-full bg-secondary px-3 py-1 text-xs font-semibold text-secondary-foreground">{loan.estado}</span>
-      </div>
-      <div className="mt-4">
-        <Link className="text-sm font-semibold text-primary underline-offset-4 hover:underline" href={`/app/motor/${loan.id}`}>
-          Ver parcelas
-        </Link>
-      </div>
-    </article>
-  );
-}
-
 /**
  * Linha da lista operacional: quem, quanto e desde quando.
  *
@@ -134,7 +121,7 @@ function LoanRow({ devedor, loan }: { devedor: string | undefined; loan: Loan })
           className="shrink-0 rounded-xl border border-border px-3 py-2 text-sm font-semibold text-primary underline-offset-4 hover:underline"
           href={`/app/motor/${loan.id}`}
         >
-          Ver parcelas
+          Mais informacoes
         </Link>
       </div>
     </li>
@@ -250,7 +237,7 @@ export function EmprestimosDoDevedor({ recoveryHref, result }: Readonly<{ recove
                           className="shrink-0 rounded-xl border border-border px-3 py-2 text-sm font-semibold text-primary underline-offset-4 hover:underline"
                           href={`/app/motor/${loan.id}`}
                         >
-                          Ver parcelas
+                          Mais informacoes
                         </Link>
                       </div>
                     </li>
@@ -298,7 +285,97 @@ function DetailCommands({
   );
 }
 
-function ReadyAuxiliary({ balance, installments, memories, settlementPreview }: Pick<MotorDetailProps, "balance" | "installments" | "memories" | "settlementPreview">) {
+/** Numero grande com rotulo curto: a unidade de leitura do painel. */
+function Indicador({ destaque, detalhe, rotulo, valor }: Readonly<{ destaque?: boolean; detalhe?: string; rotulo: string; valor: string }>) {
+  return (
+    <div className={`rounded-2xl border p-4 ${destaque ? "border-primary/40 bg-primary/5" : "border-border bg-card"}`}>
+      <p className="text-xs uppercase tracking-wide text-muted-foreground">{rotulo}</p>
+      <p className="mt-1 text-2xl font-semibold tabular-nums">{valor}</p>
+      {detalhe ? <p className="text-sm text-muted-foreground">{detalhe}</p> : null}
+    </div>
+  );
+}
+
+/**
+ * Painel do emprestimo: o que o Credor precisa saber sem rolar nem clicar.
+ *
+ * Quanto emprestou, quanto ainda falta, qual e a proxima parcela e quantas ja
+ * foram pagas. Nada aqui e calculado: os valores vem do saldo que o backend
+ * devolveu, a proxima parcela e a primeira ainda em aberto na ordem recebida, e
+ * a contagem e o tamanho da lista.
+ */
+function PainelDoEmprestimo({
+  balance,
+  devedor,
+  installments,
+  loan,
+}: Readonly<{ balance: MotorReadResult<Balance>; devedor: string | undefined; installments: MotorReadResult<InstallmentPlan>; loan: Loan }>) {
+  const parcelas = installments.kind === "ready" ? installments.data.parcelas : [];
+  const emAberto = parcelas.filter((item) => !parcelaEncerrada(item.estado));
+  const proxima = emAberto[0];
+  const pagas = parcelas.filter((item) => item.estado === "liquidada");
+  const situacao = SITUACOES.find((item) => item.estado === loan.estado);
+
+  return (
+    <section className="space-y-4">
+      <div className="flex flex-wrap items-baseline justify-between gap-3">
+        <h1 className="text-3xl font-semibold tracking-tight">{devedor ?? "Emprestimo"}</h1>
+        <span className="rounded-full bg-secondary px-3 py-1 text-sm font-semibold text-secondary-foreground">
+          {situacao?.titulo ?? loan.estado}
+        </span>
+      </div>
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        <Indicador detalhe={`em ${formatarData(loan.criado_em)}`} rotulo="Emprestado" valor={moeda(loan.principal_original)} />
+        <Indicador
+          destaque
+          detalhe={balance.kind === "ready" ? `em ${formatarData(balance.data.data_referencia)}` : "indisponivel agora"}
+          rotulo="Ainda falta receber"
+          valor={balance.kind === "ready" ? moeda(balance.data.total) : "--"}
+        />
+        <Indicador
+          detalhe={proxima ? `parcela ${proxima.numero} · ${rotuloParcela(proxima.estado)}` : "nenhuma em aberto"}
+          rotulo="Proximo vencimento"
+          valor={proxima ? formatarData(proxima.vencimento) : "--"}
+        />
+        <Indicador
+          detalhe={proxima ? `valor de ${moeda(proxima.valor_previsto)}` : "todas encerradas"}
+          rotulo="Parcelas pagas"
+          valor={parcelas.length ? `${pagas.length} de ${parcelas.length}` : "--"}
+        />
+      </div>
+    </section>
+  );
+}
+
+/** Parcelas em quatro colunas, na ordem em que o Credor pergunta. */
+function TabelaDeParcelas({ installments }: Readonly<{ installments: MotorReadResult<InstallmentPlan> }>) {
+  if (installments.kind !== "ready") return null;
+  return (
+    <article className="rounded-2xl border border-border bg-card p-4">
+      <h2 className="font-semibold">Parcelas</h2>
+      <div className="mt-3 overflow-auto" data-state="overflow">
+        <table className="w-full min-w-[420px] text-left text-sm">
+          <caption className="sr-only">Parcelas do emprestimo com vencimento, valor e situacao</caption>
+          <thead className="text-xs uppercase text-muted-foreground">
+            <tr><th className="py-2">Parcela</th><th>Vence em</th><th>Valor</th><th>Situacao</th></tr>
+          </thead>
+          <tbody>
+            {installments.data.parcelas.map((item) => (
+              <tr className="border-t border-border" key={item.id}>
+                <td className="py-2">{item.numero}</td>
+                <td>{formatarData(item.vencimento)}</td>
+                <td className="tabular-nums">{moeda(item.valor_previsto)}</td>
+                <td>{rotuloParcela(item.estado)}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </article>
+  );
+}
+
+function ReadyAuxiliary({ balance, memories, settlementPreview }: Pick<MotorDetailProps, "balance" | "memories" | "settlementPreview">) {
   return (
     <section className="grid gap-4 lg:grid-cols-2">
       {balance.kind === "ready" ? (
@@ -315,39 +392,31 @@ function ReadyAuxiliary({ balance, installments, memories, settlementPreview }: 
       {settlementPreview.kind === "ready" ? (
         <article className="rounded-2xl border border-border bg-card p-4">
           <h2 className="font-semibold">Valor para quitar hoje</h2>
-          <JsonBlock label="Valor de quitacao retornado" value={settlementPreview.data.valor_quitacao} />
-        </article>
-      ) : null}
-      {installments.kind === "ready" ? (
-        <article className="rounded-2xl border border-border bg-card p-4">
-          <h2 className="font-semibold">Parcelas</h2>
-          <div className="mt-3 overflow-auto">
-            <table className="w-full min-w-[720px] text-left text-sm">
-              <thead className="text-xs uppercase text-muted-foreground">
-                <tr><th>Numero</th><th>Vencimento</th><th>Valor previsto</th><th>Principal</th><th>Juros</th><th>Encargos</th><th>Estado</th></tr>
-              </thead>
-              <tbody>
-                {installments.data.parcelas.map((item) => (
-                  <tr className="border-t border-border" key={item.id}>
-                    <td>{item.numero}</td>
-                    <td>{formatarData(item.vencimento)}</td>
-                    <td>{moeda(item.valor_previsto)}</td>
-                    <td>{moeda(item.principal)}</td>
-                    <td>{moeda(item.juros)}</td>
-                    <td>{moeda(item.encargos)}</td>
-                    <td>{item.estado}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+          <p className="mt-2 text-2xl font-semibold tabular-nums">{moeda(settlementPreview.data.valor_quitacao.valor_total)}</p>
+          <dl className="mt-3 grid gap-3 sm:grid-cols-3">
+            <RawValue label="Principal" value={moeda(settlementPreview.data.valor_quitacao.componentes.principal)} />
+            <RawValue label="Juros" value={moeda(settlementPreview.data.valor_quitacao.componentes.juros)} />
+            <RawValue label="Encargos" value={moeda(settlementPreview.data.valor_quitacao.componentes.encargos)} />
+          </dl>
         </article>
       ) : null}
       {memories.kind === "ready" ? (
         <article className="rounded-2xl border border-border bg-card p-4">
           <h2 className="font-semibold">Como a conta foi feita</h2>
           <div className="mt-3 space-y-3">
-            {memories.data.map((memory) => <JsonBlock key={memory.id} label={memory.tipo} value={memory} />)}
+            {memories.data.map((memory) => (
+              <details className="rounded-xl border border-border bg-muted/30 p-3" key={memory.id}>
+                <summary className="cursor-pointer text-sm font-semibold">{rotuloMemoria(memory.tipo)}</summary>
+                <ol className="mt-3 space-y-2 pl-5 text-sm">
+                  {memory.passos.map((passo, indice) => (
+                    <li key={`${memory.id}-${indice}`}>{passo.nome}</li>
+                  ))}
+                </ol>
+                {/* O detalhe tecnico continua acessivel para suporte e auditoria,
+                    porem fechado: quem opera nao precisa dele para decidir. */}
+                <JsonBlock label="Detalhe tecnico" value={memory} />
+              </details>
+            ))}
           </div>
         </article>
       ) : null}
@@ -357,6 +426,7 @@ function ReadyAuxiliary({ balance, installments, memories, settlementPreview }: 
 
 export function MotorDetailPage({
   balance,
+  devedor,
   generateInstallmentsAction,
   initialState = INITIAL_MOTOR_ACTION_STATE,
   installments,
@@ -371,22 +441,35 @@ export function MotorDetailPage({
 }: MotorDetailProps) {
   return (
     <main className="space-y-6 p-6">
-      <span className="sr-only">loading empty denied 404 409 422 overflow</span>
       {loan.kind === "denied" ? <DeniedPanel /> : null}
       {loan.kind === "problem" ? <ProblemPanel problem={loan.problem} recoveryHref={recoveryHref} /> : null}
       {loan.kind === "ready" ? (
         <>
-          <LoanCard loan={loan.data} />
-          <DetailCommands
-            generateInstallmentsAction={generateInstallmentsAction}
-            initialState={initialState}
-            loanId={loan.data.id}
-            paymentAction={paymentAction}
-            permissions={permissions}
-            renegotiationAction={renegotiationAction}
-            settlementAction={settlementAction}
-          />
-          <ReadyAuxiliary balance={balance} installments={installments} memories={memories} settlementPreview={settlementPreview} />
+          <PainelDoEmprestimo balance={balance} devedor={devedor} installments={installments} loan={loan.data} />
+          <TabelaDeParcelas installments={installments} />
+          {/* As operacoes vem depois do painel: primeiro entender, depois agir.
+              Sem nenhuma permissao de comando o bloco nao existe, em vez de
+              abrir vazio e sugerir uma acao indisponivel. */}
+          {hasExactPermission(permissions, MOTOR_INSTALLMENT_CREATE_PERMISSION)
+          || hasExactPermission(permissions, MOTOR_PAYMENT_CREATE_PERMISSION)
+          || hasExactPermission(permissions, MOTOR_SETTLEMENT_EXECUTE_PERMISSION)
+          || hasExactPermission(permissions, MOTOR_RENEGOTIATION_CREATE_PERMISSION) ? (
+          <details className="rounded-2xl border border-border bg-muted/30 p-4">
+            <summary className="cursor-pointer font-semibold">Operacoes deste emprestimo</summary>
+            <div className="mt-4">
+              <DetailCommands
+                generateInstallmentsAction={generateInstallmentsAction}
+                initialState={initialState}
+                loanId={loan.data.id}
+                paymentAction={paymentAction}
+                permissions={permissions}
+                renegotiationAction={renegotiationAction}
+                settlementAction={settlementAction}
+              />
+            </div>
+          </details>
+          ) : null}
+          <ReadyAuxiliary balance={balance} memories={memories} settlementPreview={settlementPreview} />
         </>
       ) : null}
     </main>

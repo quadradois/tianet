@@ -99,6 +99,10 @@ const server = createServer(async (request, response) => {
   if (mode === "nao-encontrado") return send(response, 404, { codigo: "emprestimo_nao_encontrado", mensagem: "detalhe cross-carteira" }, correlation);
   if (mode === "estados") return send(response, 500, { codigo: "interno", mensagem: "stack secreta" }, "corr-motor-states-294");
 
+  if (request.method === "GET" && url.pathname === `/credit/carteiras/${IDS.wallet}/devedores/${IDS.debtor}`) {
+    // O painel do emprestimo abre com o nome do Devedor como titulo.
+    return send(response, 200, { atualizado_em: "2026-08-14T10:00:00Z", carteira_id: IDS.wallet, contatos: [], criado_em: "2026-08-14T10:00:00Z", documento: "39053344705", estado: "ativo", id: IDS.debtor, nome: "Maria Souza", tenant_id: IDS.tenant }, correlation);
+  }
   if (request.method === "GET" && url.pathname === `/credit/carteiras/${IDS.wallet}/devedores`) {
     // A lista resolve o nome do Devedor no servidor; sem esta rota a tela cairia
     // em "Devedor nao identificado" e a legibilidade nao seria provada.

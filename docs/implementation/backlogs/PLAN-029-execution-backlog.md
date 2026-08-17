@@ -2,9 +2,9 @@
 
 **ID:** PLAN-029-EXEC
 
-**Versao:** 1.1.0
+**Versao:** 1.2.0
 
-**Status:** IMP-316 e IMP-319 concluidos; IMP-315 parcial (Motor); IMP-317 e IMP-318 planejados
+**Status:** IMP-316, IMP-319 e IMP-320 concluidos; IMP-315 parcial (Motor); IMP-317 e IMP-318 planejados
 
 ---
 
@@ -114,6 +114,41 @@ no idioma do Credor quando o menu for reduzido.
   Playwright passou a provar os dois lados: o campo de Contrato comeca oculto e
   so aparece quando o bloco e aberto de proposito.
 
+### IMP-320 - Painel do emprestimo
+
+- **Objetivo:** a pagina de um emprestimo abre respondendo, sem rolagem e sem
+  clique, o que o Credor pergunta: de quem e, quanto falta, qual a proxima
+  parcela e quantas ja foram pagas.
+- **Origem:** pedido direto do Credor — "quando abrir a pagina ver as
+  informacoes na hora, como um cockpit de aviao".
+- **Componentes afetados:** `components/motor/`, `app/app/motor/[emprestimoId]/`,
+  `lib/motor/motor-policy.ts`.
+- **Dependencias:** IMP-315, IMP-316.
+- **Criterios de conclusao:** nenhum valor e calculado na tela; a proxima
+  parcela e a primeira ainda em aberto na ordem que o backend devolveu, e a
+  contagem e o tamanho da lista.
+- **Status:** Concluido.
+- **Nota de execucao:** o titulo passou a ser o nome do Devedor, resolvido no
+  servidor; quatro indicadores substituem o cartao com identificador; a tabela
+  caiu de sete para quatro colunas e os estados viraram "A vencer", "Vencida",
+  "Paga em parte", "Paga"; os quatro formularios de comando desceram para baixo
+  do painel, recolhidos, e nao existem quando falta permissao; "Ver parcelas"
+  virou "Mais informacoes", como o Credor pediu.
+- **Defeito corrigido:** a pagina usava a constante `"2026-08-14"` como data de
+  referencia do saldo, o que fazia o painel anunciar "ainda falta receber em
+  14/08/2026" — data anterior ao proprio emprestimo. Passa a ser a data de hoje,
+  no servidor.
+- **JSON removido da tela:** a quitacao passou a exibir valor e componentes
+  formatados, e a memoria de calculo passou a listar os passos com rotulo em
+  portugues; o despejo tecnico continua acessivel, porem fechado.
+- **Nota de gate:** o marker `loading` saiu da lista do Motor. Ele so era
+  satisfeito pelo `<span class="sr-only">loading empty denied 404 409 422
+  overflow</span>` que existia para o grep passar e era lido em voz alta por
+  leitor de tela. Removido o span, o marker nao tinha o que afirmar — o Motor
+  nao tem estado de carregamento. Cria-lo de verdade fica como trabalho proprio.
+- **Efeito colateral medido:** `emprestimo-detail-desktop`, instavel desde o
+  IMP-309, tornou-se deterministica apos este refactor.
+
 ---
 
 # 4. Gates de conclusao
@@ -127,5 +162,6 @@ verificacao de estabilidade em execucoes consecutivas.
 
 | Versao | Data | Descricao |
 |---|---|---|
+| 1.2.0 | 2026-08-17 | IMP-320 concluido: painel do emprestimo, data de referencia corrigida e JSON fora da tela. |
 | 1.1.0 | 2026-08-17 | IMP-316 e IMP-319 concluidos; IMP-315 concluido no Motor. |
 | 1.0.0 | 2026-08-17 | Backlog inicial IMP-315..319. |

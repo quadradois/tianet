@@ -159,6 +159,42 @@ export function agruparPorSituacao(loans: readonly Loan[]): readonly (Situacao &
   }));
 }
 
+/**
+ * Como cada estado de parcela e dito ao Credor.
+ *
+ * O estado vem do backend; aqui so se troca o rotulo. "liquidada" e termo de
+ * contabilidade, "Paga" e o que a pessoa entende.
+ */
+const ROTULO_PARCELA: Readonly<Record<string, string>> = {
+  prevista: "A vencer",
+  vencida: "Vencida",
+  parcialmente_liquidada: "Paga em parte",
+  liquidada: "Paga",
+  cancelada: "Cancelada",
+};
+
+export function rotuloParcela(estado: string): string {
+  return ROTULO_PARCELA[estado] ?? estado;
+}
+
+/** Tipo da memoria de calculo, dito ao Credor em vez de `geracao_parcelas`. */
+const ROTULO_MEMORIA: Readonly<Record<string, string>> = {
+  geracao_parcelas: "Geracao das parcelas",
+  saldo: "Calculo do saldo",
+  pagamento: "Aplicacao do pagamento",
+  quitacao: "Calculo da quitacao",
+  renegociacao: "Renegociacao",
+};
+
+export function rotuloMemoria(tipo: string): string {
+  return ROTULO_MEMORIA[tipo] ?? tipo;
+}
+
+/** Parcela ja encerrada: nao entra em "proxima" nem conta como pendente. */
+export function parcelaEncerrada(estado: string): boolean {
+  return estado === "liquidada" || estado === "cancelada";
+}
+
 export function allowedMotorCommands(loan: Pick<Loan, "estado">, permissions: readonly string[]): readonly MotorCommand[] {
   if (loan.estado !== "ativo") return [];
   const commands: MotorCommand[] = [];

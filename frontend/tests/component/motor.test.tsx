@@ -134,7 +134,7 @@ describe("Motor UI", () => {
     expect(screen.getByRole("heading", { name: /Devedor nao identificado/i })).toBeInTheDocument();
     expect(screen.queryByText(encerrado.devedor_id)).not.toBeInTheDocument();
 
-    expect(screen.getAllByRole("link", { name: /Ver parcelas/i })).toHaveLength(3);
+    expect(screen.getAllByRole("link", { name: /Mais informacoes/i })).toHaveLength(3);
   });
 
   it("embute os emprestimos do Devedor, omitindo grupo vazio e sem deduzir situacao", () => {
@@ -147,7 +147,7 @@ describe("Motor UI", () => {
     expect(screen.getByRole("heading", { name: /Quitados \(1\)/i })).toBeInTheDocument();
     // Na pagina de um Devedor especifico, grupo sem nada e ruido.
     expect(screen.queryByRole("heading", { name: /Encerrados/i })).not.toBeInTheDocument();
-    expect(screen.getAllByRole("link", { name: /Ver parcelas/i })).toHaveLength(2);
+    expect(screen.getAllByRole("link", { name: /Mais informacoes/i })).toHaveLength(2);
   });
 
   it("declara ausencia total de emprestimo do Devedor sem inventar grupo", () => {
@@ -156,6 +156,46 @@ describe("Motor UI", () => {
 
     expect(screen.getByText(/Este devedor ainda nao tem nenhum emprestimo/i)).toBeInTheDocument();
     expect(screen.queryByRole("heading", { name: /Em andamento/i })).not.toBeInTheDocument();
+  });
+
+  it("painel responde quanto falta, qual a proxima parcela e quantas foram pagas", () => {
+    const plano: InstallmentPlan = {
+      ...installments,
+      parcelas: [
+        { ...installments.parcelas[0]!, estado: "liquidada", id: "00000000-0000-4000-8000-000000000061", numero: 1, valor_previsto: "1030.00", vencimento: "2026-09-01" },
+        { ...installments.parcelas[0]!, estado: "prevista", id: "00000000-0000-4000-8000-000000000062", numero: 2, valor_previsto: "1058.06", vencimento: "2026-10-01" },
+        { ...installments.parcelas[0]!, estado: "prevista", id: "00000000-0000-4000-8000-000000000063", numero: 3, valor_previsto: "1062.00", vencimento: "2026-11-01" },
+      ],
+    };
+    render(
+      <MotorDetailPage
+        balance={{ kind: "ready", data: balance }}
+        devedor="Maria Souza"
+        generateInstallmentsAction={action}
+        initialState={INITIAL_MOTOR_ACTION_STATE}
+        installments={{ kind: "ready", data: plano }}
+        loan={{ kind: "ready", data: loan }}
+        memories={{ kind: "denied" }}
+        paymentAction={action}
+        permissions={permissions}
+        recoveryHref="/session/recover"
+        renegotiationAction={action}
+        settlementAction={action}
+        settlementPreview={{ kind: "denied" }}
+      />,
+    );
+
+    // Quem, antes de qualquer numero.
+    expect(screen.getByRole("heading", { name: "Maria Souza" })).toBeInTheDocument();
+    // A proxima e a primeira ainda em aberto, nao a primeira da lista.
+    // Aparece no indicador e na tabela; ambos devem dizer a mesma data.
+    expect(screen.getAllByText("01/10/2026")).toHaveLength(2);
+    expect(screen.getByText(/parcela 2/)).toBeInTheDocument();
+    expect(screen.getByText("1 de 3")).toBeInTheDocument();
+    // "liquidada" e termo de contabilidade; o Credor le "Paga".
+    expect(screen.getAllByText("Paga")[0]).toBeInTheDocument();
+    expect(screen.getAllByText("A vencer")[0]).toBeInTheDocument();
+    expect(screen.queryByText("liquidada")).not.toBeInTheDocument();
   });
 
   it("nega acesso em linguagem comum, sem fallback permissivo", () => {
@@ -192,6 +232,11 @@ describe("Motor UI", () => {
         settlementPreview={{ kind: "ready", data: settlement }}
       />,
     );
+    // O painel responde as quatro perguntas antes de qualquer rolagem.
+    expect(screen.getByText("Emprestado")).toBeInTheDocument();
+    expect(screen.getByText("Ainda falta receber")).toBeInTheDocument();
+    expect(screen.getByText("Proximo vencimento")).toBeInTheDocument();
+    expect(screen.getByText("Parcelas pagas")).toBeInTheDocument();
     expect(screen.getByText("Quanto ainda falta")).toBeInTheDocument();
     expect(screen.getAllByText("Como a conta foi feita")[0]).toBeInTheDocument();
     expect(screen.getByText(/Pagamento idempotente/i)).toBeInTheDocument();

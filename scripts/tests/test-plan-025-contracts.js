@@ -2121,7 +2121,14 @@ const contracts = {
     assert.doesNotMatch(source.component + source.commandDialog + source.listPage + source.detailPage, /accessToken|refreshToken|Authorization|Bearer|localStorage|sessionStorage/, 'Motor nao expoe tokens no browser');
     assert.doesNotMatch(source.component + source.commandDialog + source.loader + source.policy, /\.reduce\(|parseFloat\(|parseInt\(|Math\.(?:round|floor|ceil)|Intl\.NumberFormat|toFixed\(|\+\s*(?:principal|juros|encargos|saldo|total|valor)|(?:principal|juros|encargos|saldo|total|valor)\s*\+/, 'Motor nao calcula ou formata valor financeiro localmente');
     // Vocabulario do Credor, e nao da certificacao (PLAN-029 IMP-315).
-    for (const marker of ['loading', 'empty', 'Sem permissao', '404', '409', '422', 'overflow', 'Como a conta foi feita', 'Pagamento idempotente', 'Valor para quitar hoje', 'Renegociacao opaca']) {
+    //
+    // 'loading' saiu da lista: o Motor nao tem estado de carregamento. O marker
+    // era satisfeito por um <span class="sr-only">loading empty denied 404 409
+    // 422 overflow</span> que existia so para o grep passar — e era lido em voz
+    // alta por leitor de tela. Removido o span, o marker nao tinha o que
+    // afirmar. Criar um estado de carregamento de verdade para o Motor fica
+    // como trabalho proprio; ate la, a lista nao finge que ele existe.
+    for (const marker of ['empty', 'Sem permissao', '404', '409', '422', 'overflow', 'Como a conta foi feita', 'Pagamento idempotente', 'Valor para quitar hoje', 'Renegociacao opaca']) {
       assertText(source.component + source.componentTest + source.e2eTest, marker, `estado Motor ${marker}`);
     }
     assertText(source.component, 'Emprestimo nao encontrado ou indisponivel.', 'UI Motor preserva 404 neutro');
