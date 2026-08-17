@@ -633,6 +633,8 @@ function readScaffold() {
         && !normalized.includes('/src/components/automacao/')
         && !normalized.includes('/src/lib/automacao/')
         && !normalized.includes('/src/components/shell/')
+        && !normalized.includes('/src/components/lancamento/')
+        && !normalized.includes('/src/lib/lancamento/')
         && !normalized.includes('/src/app/app/contratos/');
     })
     .sort()
@@ -697,6 +699,8 @@ function readFoundation() {
         && !normalized.includes('/src/components/automacao/')
         && !normalized.includes('/src/lib/automacao/')
         && !normalized.includes('/src/components/shell/')
+        && !normalized.includes('/src/components/lancamento/')
+        && !normalized.includes('/src/lib/lancamento/')
         && !normalized.includes('/src/app/app/contratos/');
     })
     .sort()
@@ -732,6 +736,8 @@ function readFoundation() {
         && !normalized.includes('/src/components/automacao/')
         && !normalized.includes('/src/lib/automacao/')
         && !normalized.includes('/src/components/shell/')
+        && !normalized.includes('/src/components/lancamento/')
+        && !normalized.includes('/src/lib/lancamento/')
         && !normalized.includes('/src/app/app/contratos/');
     })
     .map((file) => path.relative(sourceRoot, file).replace(/\\/g, '/'));

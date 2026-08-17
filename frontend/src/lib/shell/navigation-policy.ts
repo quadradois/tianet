@@ -3,6 +3,8 @@ export type NavigationDestination = Readonly<{
   label: string;
   requiredPermission?: string;
   requiredAnyPermission?: readonly string[];
+  /** Exige todas: destino que executa uma cadeia so aparece se ela for possivel. */
+  requiredAllPermissions?: readonly string[];
 }>;
 
 export const SHELL_NAVIGATION: readonly NavigationDestination[] = [
@@ -10,6 +12,16 @@ export const SHELL_NAVIGATION: readonly NavigationDestination[] = [
     href: "/app",
     label: "Dashboard",
     requiredAnyPermission: ["relatorios.operacionais.ler", "agenda.ler", "cobranca.caso.ler"],
+  },
+  {
+    href: "/app/lancamentos",
+    label: "Novo emprestimo",
+    requiredAllPermissions: [
+      "devedor.criar",
+      "comercial.proposta.criar",
+      "contratos.contrato.criar",
+      "motor.emprestimo.criar",
+    ],
   },
   {
     href: "/app/devedores",
@@ -114,5 +126,7 @@ export function visibleNavigationItems(
   return destinations.filter((destination) =>
     (destination.requiredPermission === undefined || granted.has(destination.requiredPermission))
     && (destination.requiredAnyPermission === undefined
-      || destination.requiredAnyPermission.some((permission) => granted.has(permission))));
+      || destination.requiredAnyPermission.some((permission) => granted.has(permission)))
+    && (destination.requiredAllPermissions === undefined
+      || destination.requiredAllPermissions.every((permission) => granted.has(permission))));
 }

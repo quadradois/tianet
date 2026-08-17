@@ -2,9 +2,9 @@
 
 **ID:** PLAN-027-EXEC
 
-**Versao:** 1.2.0
+**Versao:** 1.3.0
 
-**Status:** IMP-305 e IMP-306 concluidos; IMP-307..311 planejados
+**Status:** IMP-305, IMP-306 e IMP-308 concluidos; IMP-307 e IMP-309..311 planejados
 
 ---
 
@@ -95,7 +95,13 @@ aprovacao permanece porque e a caixa de entrada do agente de IA
   pelo operador; nenhuma aritmetica no frontend; erro preserva o que foi
   digitado e exibe o correlation ID.
 - **Suite minima:** unidade, componente, BFF e Playwright.
-- **Status:** Planejado.
+- **Status:** Concluido em unidade, componente, BFF e contrato; **Playwright
+  contra stack real pendente**, coberto pelo IMP-311.
+- **Nota de execucao:** a busca de Devedor reusa a listagem existente em vez de
+  criar uma consulta paralela. A navegacao ganhou `requiredAllPermissions`: o
+  destino so aparece com as quatro permissoes da cadeia, porque exibir link que
+  leva a "Sem permissao" e pior que nao exibir. Os diretorios da feature foram
+  excluidos da varredura de foundation, como todas as demais features ja sao.
 
 ### IMP-309 - Tela de emprestimos
 
@@ -157,6 +163,7 @@ aprovacao permanece porque e a caixa de entrada do agente de IA
 
 | Versao | Data | Descricao |
 |---|---|---|
+| 1.3.0 | 2026-08-17 | IMP-308 concluido em unidade, componente, BFF e contrato; verificacao em stack real pendente. |
 | 1.2.0 | 2026-08-16 | IMP-306 concluido: endpoint de lancamento publicado, inventario em 108/137 e pinos de contrato avancados. |
 | 1.1.0 | 2026-08-16 | IMP-305 concluido: lancamento composto em transacao unica, com a etapa financeira injetada para respeitar o guardrail de exclusividade do Motor. |
 | 1.0.0 | 2026-08-16 | Backlog inicial IMP-305..IMP-311. |
