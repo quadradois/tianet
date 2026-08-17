@@ -16,7 +16,7 @@ export function AppShell({ children, context }: AppShellProps) {
       <header className="border-b border-border bg-background">
         <div className="mx-auto flex w-full max-w-(--size-content) items-center justify-between gap-4 px-5 py-4 sm:px-8 lg:px-10">
           <div className="min-w-0">
-            <p className="text-xs font-semibold uppercase tracking-[0.12em] text-muted-foreground">Frontend MVP</p>
+            <p className="text-xs font-semibold uppercase tracking-[0.12em] text-muted-foreground">TiaNet</p>
             <p className="truncate text-sm font-medium" title={context.usuario.email}>{context.usuario.nome}</p>
           </div>
           <LogoutButton />

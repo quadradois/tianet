@@ -65,9 +65,9 @@ reverter arquivos.
 
 | Evidencia | Dimensao | SHA-256 |
 |---|---:|---|
-| `frontend-mvp-imp-294-motor-list-desktop.png` | 1440x900 | `925590cd66e11f8f2dd352e91684da5b4bc0029e526cd2f798a842bb799561f9` |
-| `frontend-mvp-imp-294-motor-list-mobile.png` | 390x844 | `22b1b7118794f0f307523b284e1bf74f2ac642721008eb213010d290a7189bc8` |
-| `frontend-mvp-imp-294-emprestimo-detail-desktop.png` | 1440x900 | `12d5f41be1e4e9285d32d1b187f26aabea9ab747c4ba34a867bfb3f4f7dc3b03` |
+| `frontend-mvp-imp-294-motor-list-desktop.png` | 1440x900 | `be04ac5308608f63b86c21b489ad5b79bafeef6ff50f4dd81a82cbc734425bcf` |
+| `frontend-mvp-imp-294-motor-list-mobile.png` | 390x844 | `2c38db4674555f765bd26d9b14bef84c1d5138e01550a716e71f1f788882a431` |
+| `frontend-mvp-imp-294-emprestimo-detail-desktop.png` | 1440x900 | `51785bc72845264fb3fda73a2485fc6ee407a8d33bbe6a5a1d69ac0a4141d796` |
 | `frontend-mvp-imp-294-pagamento-flow-mobile.png` | 390x844 | `750fdd46508028c1e1ba942a64e9b84bb99afa98c954e96eea2035e64ccacefc` |
 
 ---

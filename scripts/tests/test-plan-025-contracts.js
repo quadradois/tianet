@@ -1670,7 +1670,12 @@ const contracts = {
     }
     assertText(source.component, 'Correlation ID:', 'falha publica correlation segura');
     assertText(source.component, 'Dados nao encontrados ou indisponiveis.', '404 permanece neutro');
-    assertText(source.navigationPolicy, 'label: "Dashboard"', 'navegacao aponta para Dashboard existente');
+    // O rotulo virou "Inicio" no PLAN-029 IMP-318: "Dashboard" e palavra de
+    // quem constroi o sistema, nao de quem empresta o proprio dinheiro. O que o
+    // gate protege continua sendo o mesmo — a navegacao aponta para a rota que
+    // existe, e nao para uma futura.
+    assertText(source.navigationPolicy, 'label: "Inicio"', 'navegacao aponta para a tela inicial existente');
+    assertText(source.navigationPolicy, 'grupo: "principal"', 'navegacao separa dia a dia de administracao');
     assert.doesNotMatch(source.navigationPolicy, /href:\s*["']\/(?:dashboard|credit)/, 'navegacao nao antecipa rota futura');
     assertText(packageJson.scripts?.['test:dashboard'] ?? '', 'playwright.dashboard.config.ts', 'script Playwright Dashboard dedicado');
     assertText(packageJson.scripts?.['test:harness'] ?? '', 'npm run test:dashboard', 'harness inclui Dashboard');
@@ -3461,7 +3466,7 @@ test('mutacao IMP-289: usar prefixo de Permissao e rejeitado', () => {
 
 test('mutacao IMP-289: antecipar Dashboard na navegacao e rejeitado', () => {
   const source = readShell();
-  const navigationPolicy = source.navigationPolicy.replace('label: "Dashboard",', 'label: "Dashboard",\n  },\n  { href: "/dashboard", label: "Dashboard paralelo"');
+  const navigationPolicy = source.navigationPolicy.replace('label: "Inicio",', 'label: "Inicio",\n  },\n  { grupo: "principal", href: "/dashboard", label: "Dashboard paralelo"');
   assert.notStrictEqual(navigationPolicy, source.navigationPolicy);
   assert.throws(() => contracts.shell({ ...source, navigationPolicy }));
 });

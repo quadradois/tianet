@@ -183,7 +183,7 @@ export function Dashboard({ period, recoveryHref, summary, dueDates, agenda, col
   return (
     <div className="grid min-w-0 gap-6">
       <header className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
-        <div><p className="text-xs font-semibold uppercase tracking-[0.12em] text-muted-foreground">Operacao diaria</p><h1 className="text-balance text-3xl font-bold tracking-tight">Dashboard</h1><p className="mt-2 max-w-3xl text-sm text-muted-foreground">Como esta a sua operacao hoje. Situacao da sua carteira na data escolhida.</p></div>
+        <div><h1 className="text-balance text-3xl font-bold tracking-tight">Inicio</h1><p className="mt-2 max-w-3xl text-sm text-muted-foreground">Como esta a sua operacao hoje. Situacao da sua carteira na data escolhida.</p></div>
         <form className="flex flex-col gap-2 sm:flex-row sm:items-end" method="get">
           <div className="grid gap-1"><Label htmlFor="data_referencia">Data de referencia</Label><Input autoComplete="off" defaultValue={period.referenceDate} id="data_referencia" max={MAX_REFERENCE_DATE} min={MIN_REFERENCE_DATE} name="data_referencia" required type="date" /></div>
           <button className="min-h-(--size-control) rounded-md bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground transition-colors hover:bg-primary/90" type="submit">Atualizar</button>

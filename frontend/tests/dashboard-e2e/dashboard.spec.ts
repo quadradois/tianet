@@ -26,7 +26,7 @@ test("login compoe o Dashboard completo sem expor token ou backend ao browser", 
   page.on("request", (request) => requests.push(request.url()));
   await login(page);
   await expect(page).toHaveURL(/\/app\?data_referencia=\d{4}-\d{2}-\d{2}$/);
-  await expect(page.getByRole("heading", { name: "Dashboard" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Inicio" })).toBeVisible();
   await expect(page.getByText("12345.67")).toBeVisible();
   await expect(page.locator("dd:visible, td:visible").filter({ hasText: /^vencida$/ }).first()).toBeVisible();
   await expect(page.getByText("Contato operacional com o cliente")).toBeVisible();

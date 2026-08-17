@@ -54,9 +54,24 @@ describe("login e shell", () => {
     expect(document.body.textContent).not.toMatch(/access-token|refresh-token|devedores/i);
   });
 
-  it("exibe o destino Dashboard somente com ao menos uma permissao exata", () => {
-    render(<AppShell context={{ ...context, perfil: { id: "perfil-1", nome: "Operador" }, permissoes: ["agenda.ler"] }}><h1>Dashboard</h1></AppShell>);
-    expect(screen.getByRole("link", { name: "Dashboard" })).toHaveAttribute("href", "/app");
+  it("exibe a tela inicial somente com ao menos uma permissao exata", () => {
+    render(<AppShell context={{ ...context, perfil: { id: "perfil-1", nome: "Operador" }, permissoes: ["agenda.ler"] }}><h1>Inicio</h1></AppShell>);
+    expect(screen.getByRole("link", { name: "Inicio" })).toHaveAttribute("href", "/app");
+  });
+
+  it("mantem o dia a dia a vista e recolhe a administracao, sem perder destino", () => {
+    render(
+      <AppShell context={{ ...context, perfil: { id: "perfil-1", nome: "Operador" }, permissoes: ["agenda.ler", "devedor.ler", "perfil.ler"] }}>
+        <h1>Inicio</h1>
+      </AppShell>,
+    );
+    // Dia a dia: sempre visivel.
+    expect(screen.getByRole("link", { name: "Inicio" })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Devedores" })).toBeInTheDocument();
+    // Administracao: recolhida, porem presente — esconder nao e remover, e a
+    // tela continua alcancavel para quem tem a permissao.
+    expect(screen.getByText("Administracao")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "IAM" })).toHaveAttribute("href", "/app/iam");
   });
 
   it("remove PII da tela depois que o logout local encerra a sessao mesmo com backend 5xx", async () => {

@@ -2,9 +2,9 @@
 
 **ID:** PLAN-029-EXEC
 
-**Versao:** 1.3.0
+**Versao:** 1.4.0
 
-**Status:** IMP-315..317, IMP-319 e IMP-320 concluidos; IMP-318 planejado
+**Status:** IMP-315..320 concluidos — ciclo encerrado
 
 ---
 
@@ -112,6 +112,23 @@ no idioma do Credor quando o menu for reduzido.
 - **Criterios de conclusao:** nenhuma rota deixa de existir e nenhuma permissao
   muda; toda tela hoje alcancavel continua alcancavel.
 - **Suite minima:** unidade da policy, componente e Playwright de navegacao.
+- **Status:** Concluido.
+- **Nota de execucao:** cada destino ganhou o campo `grupo`. Cinco ficam a vista
+  — Inicio, Novo emprestimo, Devedores, Emprestimos e Cobranca —, que e o que o
+  Credor descreveu como o proprio trabalho: emprestar, ver quem deve, receber.
+  Os outros sete vao para "Administracao", recolhido. **Nada foi removido:** o
+  teste de componente afirma que o destino administrativo continua presente e
+  com o mesmo `href`, e o de unidade afirma que a soma dos dois grupos e igual
+  ao conjunto de destinos permitidos.
+- **Rotulos:** "Motor" virou "Emprestimos" e "Dashboard" virou "Inicio", no menu
+  e no titulo da pagina. "Dashboard" e palavra de quem constroi o sistema.
+  "Comercial" apontava para a mesma rota de "Devedores" com outro nome — foi
+  para Administracao, onde a duplicidade nao disputa a primeira vista.
+- **Identidade:** o cabecalho dizia "Frontend MVP"; passa a dizer TiaNet.
+- **Nota de gate:** o gate fixava `label: "Dashboard"` e havia uma mutacao que o
+  protegia. Ambos foram atualizados para `label: "Inicio"`, e uma asserção nova
+  exige o campo `grupo` — o gate continua impedindo que a navegacao aponte para
+  rota inexistente, que sempre foi o que ele protegia.
 
 ### IMP-319 - Motor sem formulario tecnico
 
@@ -179,6 +196,7 @@ verificacao de estabilidade em execucoes consecutivas.
 
 | Versao | Data | Descricao |
 |---|---|---|
+| 1.4.0 | 2026-08-17 | IMP-318 concluido: menu em dois grupos, rotulos em portugues do Credor e identidade TiaNet. Ciclo PLAN-029 encerrado. |
 | 1.3.0 | 2026-08-17 | IMP-315 e IMP-317 concluidos: prosa de arquitetura removida de todos os componentes, historico legivel e emprestimos no topo do devedor. |
 | 1.2.0 | 2026-08-17 | IMP-320 concluido: painel do emprestimo, data de referencia corrigida e JSON fora da tela. |
 | 1.1.0 | 2026-08-17 | IMP-316 e IMP-319 concluidos; IMP-315 concluido no Motor. |

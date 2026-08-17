@@ -62,7 +62,7 @@ test("login, refresh e logout em stack real sem chamada direta browser-backend",
   const origins: string[] = [];
   page.on("request", (request) => origins.push(new URL(request.url()).origin));
   await login(page);
-  await expect(page.getByRole("heading", { name: "Dashboard" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Inicio" })).toBeVisible();
   await page.getByRole("button", { name: "Sair" }).click();
   await expect(page).toHaveURL(/\/login$/);
   expect(origins.every((origin) => origin === state.frontendUrl)).toBe(true);

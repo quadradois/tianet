@@ -67,7 +67,7 @@ test("lista Emprestimos e cria Emprestimo a partir de Contrato liberado sem Cart
   await login(page);
   await page.goto(`/app/motor?contrato_id=${IDS.contract}&tenant_id=hostil&carteira_id=hostil`);
   await expect(page.getByRole("heading", { name: "Meus emprestimos" })).toBeVisible();
-  await expect(page.getByRole("link", { exact: true, name: "Motor" })).toHaveAttribute("href", "/app/motor");
+  await expect(page.getByRole("link", { exact: true, name: "Emprestimos" })).toHaveAttribute("href", "/app/motor");
   // O caminho principal de lancar e o wizard. A criacao por Contrato continua
   // possivel, mas recolhida: precisa ser aberta de proposito.
   await expect(page.getByLabel("Contrato liberado")).toBeHidden();

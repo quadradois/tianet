@@ -85,8 +85,8 @@ Fronteiras preservadas:
 
 | Evidencia | Dimensao | SHA-256 |
 |---|---:|---|
-| `frontend-mvp-imp-291-devedores-list-desktop.png` | 1440x900 | `2f1f36e9d6a6700a2c1ab8814ff526232ef552fd8571cb3c4f1eadeb2f648d49` |
-| `frontend-mvp-imp-291-devedores-list-mobile.png` | 390x844 | `0239536577d4b708a3efd4667da4313d3550f4da06c13587fff77c051c5076a9` |
+| `frontend-mvp-imp-291-devedores-list-desktop.png` | 1440x900 | `d4d20f86d3c77b3b80d240e8b01d6634dfb9e48018acfc84ccd6330fb6b9bb9a` |
+| `frontend-mvp-imp-291-devedores-list-mobile.png` | 390x844 | `bc710bf63a2ecd1f72e64664c898eeeae42d410e5bacd62b1ff3b920e5beb4d4` |
 | `frontend-mvp-imp-291-devedor-detail-desktop.png` | 1440x900 | `f6ed0b2ca980e69cbbce339e56344dc15564574d81dbf1472ffba95e851719bd` |
 | `frontend-mvp-imp-291-devedor-form-mobile.png` | 390x844 | `c339f5a6cfc125f8963e391e646d3dc4513f2b32d9e4c1afb8f83a4fcfe415a6` |
 
