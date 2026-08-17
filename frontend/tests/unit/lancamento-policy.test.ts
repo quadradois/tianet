@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  cpfValido,
   normalizarDecimal,
   permissoesFaltantes,
   podeLancar,
@@ -60,5 +61,23 @@ describe("lancamento-policy", () => {
       "Informe o WhatsApp do devedor.",
     ]);
     expect(validarDevedor({})).toHaveLength(3);
+  });
+
+  it("recusa CPF com digito verificador errado antes de ir ao backend", () => {
+    // Encontrado em teste manual: o backend respondia
+    // "digito verificador do CPF esta incorreto" e a tela engolia a explicacao,
+    // mostrando apenas "nao foi possivel concluir" tres passos adiante.
+    expect(cpfValido("52998224725")).toBe(true);
+    expect(cpfValido("529.982.247-25")).toBe(true);
+    expect(cpfValido("12345678901")).toBe(false);
+    expect(cpfValido("11111111111")).toBe(false);
+    expect(cpfValido("5299822472")).toBe(false);
+    expect(cpfValido("5299822472A")).toBe(false);
+
+    const base = { nome: "Cliente", contatoWhatsapp: "(11) 98888-7766" };
+    expect(validarDevedor({ ...base, documento: "12345678901" })).toEqual([
+      "CPF invalido: confira os numeros digitados.",
+    ]);
+    expect(validarDevedor({ ...base, documento: "529.982.247-25" })).toEqual([]);
   });
 });

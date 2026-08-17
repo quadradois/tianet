@@ -1,0 +1,63 @@
+- generic [active] [ref=f1e1]:
+  - link "Pular para o conteudo" [ref=f1e2] [cursor=pointer]:
+    - /url: "#conteudo-principal"
+  - generic [ref=f1e3]:
+    - banner [ref=f1e4]:
+      - generic [ref=f1e5]:
+        - generic [ref=f1e6]:
+          - paragraph [ref=f1e7]: Frontend MVP
+          - paragraph [ref=f1e8]: Administrador Local
+        - button "Sair" [ref=f1e10]
+    - generic [ref=f1e11]:
+      - complementary [ref=f1e12]:
+        - generic "Contexto operacional atual" [ref=f1e13]:
+          - generic [ref=f1e14]:
+            - term [ref=f1e15]: Tenant
+            - definition [ref=f1e16]: TiaNet Local
+          - generic [ref=f1e17]:
+            - term [ref=f1e18]: Carteira
+            - definition [ref=f1e19]: Carteira Principal
+          - generic [ref=f1e20]:
+            - term [ref=f1e21]: Perfil
+            - definition [ref=f1e22]: Operador Local (teste)
+        - navigation "Navegacao principal" [ref=f1e23]:
+          - list [ref=f1e24]:
+            - listitem [ref=f1e25]:
+              - link "Dashboard" [ref=f1e26] [cursor=pointer]:
+                - /url: /app
+            - listitem [ref=f1e27]:
+              - link "Novo emprestimo" [ref=f1e28] [cursor=pointer]:
+                - /url: /app/lancamentos
+            - listitem [ref=f1e29]:
+              - link "Devedores" [ref=f1e30] [cursor=pointer]:
+                - /url: /app/devedores
+            - listitem [ref=f1e31]:
+              - link "Comercial" [ref=f1e32] [cursor=pointer]:
+                - /url: /app/devedores
+            - listitem [ref=f1e33]:
+              - link "Contratos" [ref=f1e34] [cursor=pointer]:
+                - /url: /app/contratos
+            - listitem [ref=f1e35]:
+              - link "Motor" [ref=f1e36] [cursor=pointer]:
+                - /url: /app/motor
+            - listitem [ref=f1e37]:
+              - link "Cobranca" [ref=f1e38] [cursor=pointer]:
+                - /url: /app/cobranca
+            - listitem [ref=f1e39]:
+              - link "Agenda" [ref=f1e40] [cursor=pointer]:
+                - /url: /app/agenda
+            - listitem [ref=f1e41]:
+              - link "Relatorios" [ref=f1e42] [cursor=pointer]:
+                - /url: /app/relatorios
+            - listitem [ref=f1e43]:
+              - link "Configuracoes" [ref=f1e44] [cursor=pointer]:
+                - /url: /app/configuracoes-financeiras
+            - listitem [ref=f1e45]:
+              - link "IAM" [ref=f1e46] [cursor=pointer]:
+                - /url: /app/iam
+            - listitem [ref=f1e47]:
+              - link "Automacao" [ref=f1e48] [cursor=pointer]:
+                - /url: /app/automacao
+      - main [ref=f1e49]:
+        - status "Carregando conteúdo" [ref=f1e50]
+  - alert [ref=f1e56]

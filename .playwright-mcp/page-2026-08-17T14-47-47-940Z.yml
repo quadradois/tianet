@@ -1,0 +1,203 @@
+- generic [active] [ref=f3e1]:
+  - link "Pular para o conteudo" [ref=f3e2] [cursor=pointer]:
+    - /url: "#conteudo-principal"
+  - generic [ref=f3e3]:
+    - banner [ref=f3e4]:
+      - generic [ref=f3e5]:
+        - generic [ref=f3e6]:
+          - paragraph [ref=f3e7]: Frontend MVP
+          - paragraph [ref=f3e8]: Administrador Local
+        - button "Sair" [ref=f3e10]
+    - generic [ref=f3e11]:
+      - complementary [ref=f3e12]:
+        - generic "Contexto operacional atual" [ref=f3e13]:
+          - generic [ref=f3e14]:
+            - term [ref=f3e15]: Tenant
+            - definition [ref=f3e16]: TiaNet Local
+          - generic [ref=f3e17]:
+            - term [ref=f3e18]: Carteira
+            - definition [ref=f3e19]: Carteira Principal
+          - generic [ref=f3e20]:
+            - term [ref=f3e21]: Perfil
+            - definition [ref=f3e22]: Operador Local (teste)
+        - navigation "Navegacao principal" [ref=f3e23]:
+          - list [ref=f3e24]:
+            - listitem [ref=f3e25]:
+              - link "Dashboard" [ref=f3e26] [cursor=pointer]:
+                - /url: /app
+            - listitem [ref=f3e27]:
+              - link "Novo emprestimo" [ref=f3e28] [cursor=pointer]:
+                - /url: /app/lancamentos
+            - listitem [ref=f3e29]:
+              - link "Devedores" [ref=f3e30] [cursor=pointer]:
+                - /url: /app/devedores
+            - listitem [ref=f3e31]:
+              - link "Comercial" [ref=f3e32] [cursor=pointer]:
+                - /url: /app/devedores
+            - listitem [ref=f3e33]:
+              - link "Contratos" [ref=f3e34] [cursor=pointer]:
+                - /url: /app/contratos
+            - listitem [ref=f3e35]:
+              - link "Motor" [ref=f3e36] [cursor=pointer]:
+                - /url: /app/motor
+            - listitem [ref=f3e37]:
+              - link "Cobranca" [ref=f3e38] [cursor=pointer]:
+                - /url: /app/cobranca
+            - listitem [ref=f3e39]:
+              - link "Agenda" [ref=f3e40] [cursor=pointer]:
+                - /url: /app/agenda
+            - listitem [ref=f3e41]:
+              - link "Relatorios" [ref=f3e42] [cursor=pointer]:
+                - /url: /app/relatorios
+            - listitem [ref=f3e43]:
+              - link "Configuracoes" [ref=f3e44] [cursor=pointer]:
+                - /url: /app/configuracoes-financeiras
+            - listitem [ref=f3e45]:
+              - link "IAM" [ref=f3e46] [cursor=pointer]:
+                - /url: /app/iam
+            - listitem [ref=f3e47]:
+              - link "Automacao" [ref=f3e48] [cursor=pointer]:
+                - /url: /app/automacao
+      - main [ref=f3e49]:
+        - main [ref=f3e50]:
+          - generic [ref=f3e51]: loading empty denied 404 409 422 overflow
+          - article [ref=f3e52]:
+            - generic [ref=f3e53]:
+              - generic [ref=f3e54]:
+                - heading "Emprestimo 0840d360-c341-4a6a-9319-6ffdc85326bf" [level=2] [ref=f3e55]
+                - paragraph [ref=f3e56]: Contrato 779f4e5a-939e-4f01-98d9-5760909d18da
+              - generic [ref=f3e57]: ativo
+            - generic [ref=f3e58]:
+              - generic [ref=f3e59]:
+                - term [ref=f3e60]: Principal oficial
+                - definition [ref=f3e61]: "9000.00"
+              - generic [ref=f3e62]:
+                - term [ref=f3e63]: Moeda
+                - definition [ref=f3e64]: BRL
+              - generic [ref=f3e65]:
+                - term [ref=f3e66]: Criado em
+                - definition [ref=f3e67]: 2026-08-17T14:47:16.695228Z
+            - link "Abrir Motor" [ref=f3e69] [cursor=pointer]:
+              - /url: /app/motor/0840d360-c341-4a6a-9319-6ffdc85326bf
+          - generic [ref=f3e70]:
+            - generic [ref=f3e71]:
+              - heading "Gerar parcelas" [level=3] [ref=f3e72]
+              - paragraph [ref=f3e73]: Motor e autoridade financeira. Idempotency-Key e enviada quando o OpenAPI exige.
+              - paragraph [ref=f3e74]: "sem-idempotency:/credit/emprestimos/{emprestimo_id}/parcelas"
+              - generic [ref=f3e75]:
+                - generic [ref=f3e76]: Data de referencia
+                - textbox "Data de referencia" [ref=f3e77]: 2026-08-14
+              - button "Gerar parcelas" [ref=f3e78]
+            - generic [ref=f3e79]:
+              - heading "Registrar pagamento" [level=3] [ref=f3e80]
+              - paragraph [ref=f3e81]: Motor e autoridade financeira. Idempotency-Key e enviada quando o OpenAPI exige.
+              - paragraph [ref=f3e82]: Pagamento idempotente registrado pelo Motor.
+              - generic [ref=f3e83]:
+                - generic [ref=f3e84]: Valor recebido
+                - textbox "Valor recebido" [ref=f3e85]:
+                  - /placeholder: "100.00"
+              - generic [ref=f3e86]:
+                - generic [ref=f3e87]: Recebido em
+                - textbox "Recebido em" [ref=f3e88]: 2026-08-14T12:00:00Z
+              - generic [ref=f3e89]:
+                - generic [ref=f3e90]: Idempotency-Key
+                - textbox "Idempotency-Key" [ref=f3e91]:
+                  - /placeholder: opcional; gerada se vazia
+              - button "Registrar pagamento" [ref=f3e92]
+            - generic [ref=f3e93]:
+              - heading "Executar quitacao" [level=3] [ref=f3e94]
+              - paragraph [ref=f3e95]: Motor e autoridade financeira. Idempotency-Key e enviada quando o OpenAPI exige.
+              - paragraph [ref=f3e96]: Quitacao oficial executada pelo Motor.
+              - generic [ref=f3e97]:
+                - generic [ref=f3e98]: Recebido em
+                - textbox "Recebido em" [ref=f3e99]: 2026-08-14T12:00:00Z
+              - generic [ref=f3e100]:
+                - generic [ref=f3e101]: Idempotency-Key
+                - textbox "Idempotency-Key" [ref=f3e102]:
+                  - /placeholder: opcional; gerada se vazia
+              - button "Executar quitacao" [ref=f3e103]
+            - generic [ref=f3e104]:
+              - heading "Registrar renegociacao" [level=3] [ref=f3e105]
+              - paragraph [ref=f3e106]: Motor e autoridade financeira. Idempotency-Key e enviada quando o OpenAPI exige.
+              - paragraph [ref=f3e107]: Renegociacao opaca registrada sem formula local.
+              - generic [ref=f3e108]:
+                - generic [ref=f3e109]: Renegociado em
+                - textbox "Renegociado em" [ref=f3e110]: 2026-08-14T12:00:00Z
+              - generic [ref=f3e111]:
+                - generic [ref=f3e112]: Novos parametros opacos
+                - textbox "Novos parametros opacos" [ref=f3e113]: "{\"origem\":\"atendimento\"}"
+              - generic [ref=f3e114]:
+                - generic [ref=f3e115]: Idempotency-Key
+                - textbox "Idempotency-Key" [ref=f3e116]:
+                  - /placeholder: opcional; gerada se vazia
+              - button "Registrar renegociacao" [ref=f3e117]
+          - generic [ref=f3e118]:
+            - article [ref=f3e119]:
+              - heading "Saldo oficial" [level=2] [ref=f3e120]
+              - generic [ref=f3e121]:
+                - generic [ref=f3e122]:
+                  - term [ref=f3e123]: Principal
+                  - definition [ref=f3e124]: "9000.00"
+                - generic [ref=f3e125]:
+                  - term [ref=f3e126]: Juros
+                  - definition [ref=f3e127]: "0.00"
+                - generic [ref=f3e128]:
+                  - term [ref=f3e129]: Encargos
+                  - definition [ref=f3e130]: "0.00"
+                - generic [ref=f3e131]:
+                  - term [ref=f3e132]: Total
+                  - definition [ref=f3e133]: "9000.00"
+            - article [ref=f3e134]:
+              - heading "Quitacao oficial" [level=2] [ref=f3e135]
+              - group [ref=f3e136]:
+                - generic "Valor de quitacao retornado" [ref=f3e137] [cursor=pointer]
+            - article [ref=f3e138]:
+              - heading "Parcelas oficiais" [level=2] [ref=f3e139]
+              - table [ref=f3e141]:
+                - rowgroup [ref=f3e142]:
+                  - row [ref=f3e143]:
+                    - columnheader "Numero" [ref=f3e144]
+                    - columnheader "Vencimento" [ref=f3e145]
+                    - columnheader "Valor previsto" [ref=f3e146]
+                    - columnheader "Principal" [ref=f3e147]
+                    - columnheader "Juros" [ref=f3e148]
+                    - columnheader "Encargos" [ref=f3e149]
+                    - columnheader "Estado" [ref=f3e150]
+                - rowgroup [ref=f3e151]:
+                  - row [ref=f3e152]:
+                    - cell "1" [ref=f3e153]
+                    - cell "2026-09-25" [ref=f3e154]
+                    - cell "2323.13" [ref=f3e155]
+                    - cell "2250.00" [ref=f3e156]
+                    - cell "73.13" [ref=f3e157]
+                    - cell "0.00" [ref=f3e158]
+                    - cell "prevista" [ref=f3e159]
+                  - row [ref=f3e160]:
+                    - cell "2" [ref=f3e161]
+                    - cell "2026-10-25" [ref=f3e162]
+                    - cell "2304.44" [ref=f3e163]
+                    - cell "2250.00" [ref=f3e164]
+                    - cell "54.44" [ref=f3e165]
+                    - cell "0.00" [ref=f3e166]
+                    - cell "prevista" [ref=f3e167]
+                  - row [ref=f3e168]:
+                    - cell "3" [ref=f3e169]
+                    - cell "2026-11-25" [ref=f3e170]
+                    - cell "2308.13" [ref=f3e171]
+                    - cell "2250.00" [ref=f3e172]
+                    - cell "58.13" [ref=f3e173]
+                    - cell "0.00" [ref=f3e174]
+                    - cell "prevista" [ref=f3e175]
+                  - row [ref=f3e176]:
+                    - cell "4" [ref=f3e177]
+                    - cell "2026-12-25" [ref=f3e178]
+                    - cell "2304.44" [ref=f3e179]
+                    - cell "2250.00" [ref=f3e180]
+                    - cell "54.44" [ref=f3e181]
+                    - cell "0.00" [ref=f3e182]
+                    - cell "prevista" [ref=f3e183]
+            - article [ref=f3e184]:
+              - heading "Memoria de calculo oficial" [level=2] [ref=f3e185]
+              - group [ref=f3e187]:
+                - generic "geracao_parcelas" [ref=f3e188] [cursor=pointer]
+  - alert [ref=f3e189]

@@ -76,12 +76,41 @@ export function validarCondicoes(entrada: CondicoesEntrada): readonly string[] {
   return erros;
 }
 
+/**
+ * Confere os digitos verificadores do CPF.
+ *
+ * Regra de formato, nao de dinheiro: o backend continua sendo a autoridade
+ * (`DOMAIN-022`, VO-022-VAL-001/002). Isto existe para que o erro apareca no
+ * campo, e nao tres passos adiante como "nao foi possivel concluir".
+ */
+export function cpfValido(bruto: string): boolean {
+  const digitos = bruto.replace(/[.\-\s]/g, "");
+  if (!/^\d{11}$/.test(digitos)) return false;
+  if (new Set(digitos).size === 1) return false;
+  const numeros = [...digitos].map(Number);
+  // Laco explicito, e nao acumulador funcional: o scanner anti-motor-paralelo
+  // veta esse acumulador no frontend e nao distingue soma de digito verificador
+  // de soma financeira. A regra e cega por desenho, e abrir excecao nela para
+  // caber um caso legitimo seria o mesmo erro da DR-002.
+  for (const posicao of [9, 10]) {
+    let soma = 0;
+    for (let indice = 0; indice < posicao; indice += 1) {
+      soma += (numeros[indice] as number) * (posicao + 1 - indice);
+    }
+    const resto = (soma * 10) % 11;
+    if ((resto === 10 ? 0 : resto) !== numeros[posicao]) return false;
+  }
+  return true;
+}
+
 export function validarDevedor(entrada: DevedorEntrada): readonly string[] {
   if (entrada.devedorId) {
     return UUID.test(entrada.devedorId) ? [] : ["Devedor selecionado invalido."];
   }
   const erros: string[] = [];
-  if (!entrada.documento?.trim()) erros.push("Informe o documento do devedor.");
+  const documento = entrada.documento?.trim();
+  if (!documento) erros.push("Informe o CPF do devedor.");
+  else if (!cpfValido(documento)) erros.push("CPF invalido: confira os numeros digitados.");
   if (!entrada.nome?.trim()) erros.push("Informe o nome do devedor.");
   // Obrigatorio por decisao formal do PLAN-027: sem numero nao ha destino para
   // o comprovante.

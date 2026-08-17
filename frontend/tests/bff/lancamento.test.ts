@@ -207,4 +207,24 @@ describe("BFF Lancamento", () => {
     expect(resultado.correlationId).toBe("corr-409");
     expect(resultado.message).not.toContain("stack interno");
   });
+
+  it("sem data_referencia no formulario, usa hoje e nunca o primeiro vencimento", async () => {
+    // O wizard nao tem esse campo. O fallback anterior era o proprio vencimento,
+    // o que gera periodo de duracao zero: o Motor recusa com
+    // "data_fim deve ser posterior a data_inicio". Defeito encontrado apenas na
+    // stack real, porque todo teste daqui mandava o campo preenchido.
+    const selected = config();
+    const captura: { request?: Request } = {};
+    await criarLancamento(
+      await cookieStore(selected),
+      context([...LANCAMENTO_PERMISSIONS]),
+      form({}, ["data_referencia"]),
+      dependencies(selected, backendOk(captura)),
+    );
+
+    const corpo = await (captura.request as Request).json();
+    expect(corpo.data_referencia).not.toBe(corpo.condicoes.primeiro_vencimento);
+    expect(corpo.data_referencia < corpo.condicoes.primeiro_vencimento).toBe(true);
+    expect(corpo.data_referencia).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+  });
 });

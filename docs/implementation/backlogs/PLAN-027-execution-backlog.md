@@ -95,13 +95,31 @@ aprovacao permanece porque e a caixa de entrada do agente de IA
   pelo operador; nenhuma aritmetica no frontend; erro preserva o que foi
   digitado e exibe o correlation ID.
 - **Suite minima:** unidade, componente, BFF e Playwright.
-- **Status:** Concluido em unidade, componente, BFF e contrato; **Playwright
-  contra stack real pendente**, coberto pelo IMP-311.
+- **Status:** Concluido e **verificado em stack real** (Next.js + FastAPI +
+  PostgreSQL); Playwright automatizado pendente, coberto pelo IMP-311.
 - **Nota de execucao:** a busca de Devedor reusa a listagem existente em vez de
   criar uma consulta paralela. A navegacao ganhou `requiredAllPermissions`: o
   destino so aparece com as quatro permissoes da cadeia, porque exibir link que
   leva a "Sem permissao" e pior que nao exibir. Os diretorios da feature foram
   excluidos da varredura de foundation, como todas as demais features ja sao.
+- **Defeitos encontrados apenas na verificacao manual**, nenhum detectado por
+  unidade, componente, BFF ou contrato:
+  1. `data_referencia` sem valor no formulario caia no proprio vencimento,
+     gerando periodo de duracao zero — o Motor recusava com `data_fim deve ser
+     posterior a data_inicio`. Os testes sempre enviavam o campo, entao o
+     caminho real nunca era executado. Corrigido para a data do servidor, com
+     regressao provada nos dois sentidos.
+  2. CPF invalido atravessava os tres passos e voltava como erro generico. O
+     backend explicava o digito verificador; a tela engolia. Rotulo passou a
+     "CPF", com exemplo e validacao no passo 1.
+  3. `401` de contexto nao era capturado na pagina. O layout guarda a propria
+     chamada, mas layout e page renderizam concorrentemente e a rejeicao da
+     pagina escapava como erro de Server Component. Mesma exposicao existe nas
+     demais paginas e fica registrada como divida.
+- **Guardrail respeitado:** a validacao de CPF usa laco explicito porque o
+  scanner anti-motor-paralelo veta acumulador funcional e nao distingue digito
+  verificador de soma financeira. A regra e cega por desenho; abrir excecao nela
+  seria repetir o erro da DR-002.
 
 ### IMP-309 - Tela de emprestimos
 

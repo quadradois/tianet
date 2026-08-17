@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useActionState, useState } from "react";
 
 import type { LancamentoActionState } from "../../lib/lancamento/lancamento-policy";
-import { validarCondicoes, validarDevedor } from "../../lib/lancamento/lancamento-policy";
+import { cpfValido, validarCondicoes, validarDevedor } from "../../lib/lancamento/lancamento-policy";
 import { Button } from "../ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../ui/card";
 import { Input } from "../ui/input";
@@ -95,13 +95,21 @@ export function LancamentoWizard({ action, devedores, initialState }: WizardProp
             {devedorId ? null : (
               <>
                 <div className="grid gap-2">
-                  <Label htmlFor="documento">Documento</Label>
+                  <Label htmlFor="documento">CPF</Label>
                   <Input
+                    aria-describedby="documento-ajuda"
                     id="documento"
+                    inputMode="numeric"
                     name="documento"
                     onChange={(event) => setDocumento(event.target.value)}
+                    placeholder="000.000.000-00"
                     value={documento}
                   />
+                  <p className="text-sm text-muted-foreground" id="documento-ajuda">
+                    {documento && !cpfValido(documento)
+                      ? "CPF invalido: confira os numeros digitados."
+                      : "Com ou sem pontuacao."}
+                  </p>
                 </div>
                 <div className="grid gap-2">
                   <Label htmlFor="nome">Nome</Label>

@@ -106,7 +106,11 @@ export async function criarLancamento(
   const primeiroErroCondicoes = errosCondicoes[0];
   if (primeiroErroCondicoes) return invalido(primeiroErroCondicoes);
 
-  const dataReferencia = texto(formData, "data_referencia", 10) ?? condicoes.primeiroVencimento;
+  // Data em que o emprestimo esta sendo lancado. O Motor exige que o primeiro
+  // vencimento seja posterior a ela, entao o padrao e hoje — nunca o proprio
+  // vencimento, que produziria periodo de duracao zero e seria recusado.
+  const dataReferencia =
+    texto(formData, "data_referencia", 10) ?? new Date().toISOString().slice(0, 10);
 
   const body: LancamentoCreateRequest = {
     condicoes: {

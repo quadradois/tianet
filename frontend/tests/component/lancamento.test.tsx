@@ -27,7 +27,7 @@ function acaoOk() {
 }
 
 async function preencherDevedorNovo(user: ReturnType<typeof userEvent.setup>) {
-  await user.type(screen.getByLabelText("Documento"), "52998224725");
+  await user.type(screen.getByLabelText("CPF"), "52998224725");
   await user.type(screen.getByLabelText("Nome"), "Cliente do Wizard");
   await user.type(screen.getByLabelText("WhatsApp"), "(11) 98888-7766");
 }
@@ -51,7 +51,7 @@ describe("LancamentoWizard", () => {
     render(<LancamentoWizard action={acaoOk()} devedores={[]} initialState={inicial} />);
 
     expect(screen.getByRole("button", { name: "Continuar" })).toBeDisabled();
-    await user.type(screen.getByLabelText("Documento"), "52998224725");
+    await user.type(screen.getByLabelText("CPF"), "52998224725");
     await user.type(screen.getByLabelText("Nome"), "Cliente do Wizard");
     // Sem WhatsApp o comprovante nao teria destino: o passo continua travado.
     expect(screen.getByRole("button", { name: "Continuar" })).toBeDisabled();
@@ -112,7 +112,7 @@ describe("LancamentoWizard", () => {
 
     await user.selectOptions(screen.getByLabelText("Devedor ja cadastrado"), DEBTOR_ID);
 
-    expect(screen.queryByLabelText("Documento")).not.toBeInTheDocument();
+    expect(screen.queryByLabelText("CPF")).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Continuar" })).toBeEnabled();
   });
 

@@ -6,7 +6,7 @@ import {
   LancamentoWizard,
   type DevedorResumo,
 } from "@/components/lancamento/lancamento-wizard.client";
-import { createRuntimeDependencies } from "@/lib/bff/backend.server";
+import { ApiProblem, createRuntimeDependencies } from "@/lib/bff/backend.server";
 import { recoveryAttemptCookieName } from "@/lib/bff/context.server";
 import { currentOperationalContext } from "@/lib/bff/current-context.server";
 import { listDevedores } from "@/lib/bff/devedores.server";
@@ -26,7 +26,20 @@ export const metadata: Metadata = {
 export default async function LancamentosRoute() {
   const cookieStore = await cookies();
   const dependencies = createRuntimeDependencies();
-  const context = await currentOperationalContext();
+  const destinoRecuperacao = cookieStore.get(recoveryAttemptCookieName(dependencies.config))
+    ? "/login"
+    : "/session/recover";
+
+  // O layout guarda a propria chamada, mas layout e page renderizam
+  // concorrentemente: a rejeicao daqui escapa antes do redirect do layout
+  // abortar o render, e vira erro de Server Component no navegador.
+  let context;
+  try {
+    context = await currentOperationalContext();
+  } catch (error) {
+    if (error instanceof ApiProblem && error.status === 401) redirect(destinoRecuperacao);
+    throw error;
+  }
 
   if (!podeLancar(context.permissoes)) {
     return (
@@ -49,11 +62,7 @@ export default async function LancamentosRoute() {
     dependencies,
   );
   if (listagem.kind === "problem" && listagem.problem.status === 401) {
-    redirect(
-      cookieStore.get(recoveryAttemptCookieName(dependencies.config))
-        ? "/login"
-        : "/session/recover",
-    );
+    redirect(destinoRecuperacao);
   }
 
   // listDevedores devolve listagem ou devedor unico conforme o filtro; aqui so
