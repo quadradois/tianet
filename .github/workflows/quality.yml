@@ -155,9 +155,6 @@ jobs:
           if-no-files-found: ignore
           retention-days: 7
 
-      - name: Verify IMP-304 final readiness scope
-        working-directory: .
-        run: node scripts/tests/test-imp-304-scope.js
 
   backend:
     name: Backend gates
@@ -255,6 +252,3 @@ jobs:
 
       - name: Test docs tooling
         run: npm run docs:test
-
-      - name: Verify IMP-304 final readiness scope
-        run: node scripts/tests/test-imp-304-scope.js

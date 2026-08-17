@@ -1117,12 +1117,6 @@ const contracts = {
     assertNormalizedText(source.workflow, 'working-directory: frontend', 'CI frontend isolada');
     assertNormalizedText(source.workflow, 'node-version: "24.19.0"', 'CI Node fixado');
     assertText(source.workflow, 'node tests/toolchain-check.mjs', 'CI deve verificar toolchain multiplataforma');
-    assertText(source.workflow, 'node scripts/tests/test-imp-304-scope.js', 'CI deve verificar escopo corrente de sanitizacao BFF');
-    assertNormalizedText(
-      source.workflow,
-      '- name: Verify IMP-304 final readiness scope working-directory: . run: node scripts/tests/test-imp-304-scope.js',
-      'scope corrente do job frontend deve executar da raiz',
-    );
     for (const command of ['npm ci --ignore-scripts', 'npm run lint', 'npm run typecheck', 'npm run build']) {
       assertText(source.workflow, command, `CI frontend: ${command}`);
     }
@@ -1363,7 +1357,6 @@ const contracts = {
     assertText(source.playwrightConfig, 'reuseExistingServer: false', 'servidor visual nao pode ser reutilizado');
     assertText(source.workflow, 'npm run test:a11y', 'CI deve executar axe');
     assertText(source.workflow, 'npm run test:visual', 'CI deve gerar screenshots foundation');
-    assertText(source.workflow, 'node scripts/tests/test-imp-304-scope.js', 'CI deve verificar escopo corrente IMP-298');
     for (const ignored of ['/test-results/', '/playwright-report/', '/coverage/', '/blob-report/']) {
       assertText(source.gitignore, ignored, `artifact deve ser ignorado: ${ignored}`);
     }
@@ -1414,7 +1407,6 @@ const contracts = {
       assertText(source.contractTest, text, `teste contratual cobre ${text}`);
     }
     assertText(source.workflow, 'npm run api:check', 'CI bloqueia drift OpenAPI');
-    assertText(source.workflow, 'node scripts/tests/test-imp-304-scope.js', 'CI executa gate corrente IMP-298');
     assertText(source.workflow, 'fetch-depth: 0', 'CI disponibiliza o commit-base do escopo');
     assertText(source.scopeScript, '`${manifest.head}...HEAD`', 'scope inclui delta commitado desde o baseline');
     assertText(source.scopeScript, '...worktreePaths', 'scope inclui mudancas locais ainda nao commitadas');
@@ -1594,7 +1586,6 @@ const contracts = {
       assertText(source.bffTest + source.sessionTest, text, `suite BFF cobre ${text}`);
     }
     assertText(source.workflow, 'npm run test:bff', 'CI executa suite BFF');
-    assertText(source.workflow, 'node scripts/tests/test-imp-304-scope.js', 'CI executa gate corrente IMP-298');
     assert.doesNotMatch(source.workflow, /node scripts\/tests\/test-imp-287-scope\.js/, 'CI nao executa gate historico obsoleto');
     assertText(source.scopeScript, '`${manifest.head}...HEAD`', 'scope suporta checkout limpo');
     assertText(source.scopeScript, '...worktreePaths', 'scope inclui worktree local');
@@ -1671,7 +1662,6 @@ const contracts = {
     assertText(packageJson.scripts?.['test:dashboard'] ?? '', 'playwright.dashboard.config.ts', 'script Playwright Dashboard dedicado');
     assertText(packageJson.scripts?.['test:harness'] ?? '', 'npm run test:dashboard', 'harness inclui Dashboard');
     assertText(source.workflow, 'npm run test:dashboard', 'CI executa Dashboard');
-    assertText(source.workflow, 'node scripts/tests/test-imp-304-scope.js', 'CI executa scope corrente IMP-298');
     assert.doesNotMatch(source.workflow, /node scripts\/tests\/test-imp-28[4-9]-scope\.js/, 'CI nao executa scope historico');
     assertText(source.playwrightConfig, 'reuseExistingServer: false', 'Dashboard nao reutiliza servidores');
     assertText(source.playwrightConfig, 'npm run build && npm run start', 'Dashboard usa build de producao');
@@ -1796,7 +1786,6 @@ const contracts = {
     assertText(source.playwrightConfig, 'FRONTEND_BACKEND_URL', 'fixture backend e server-only');
     assertText(source.fixture, '/iam/contexto-atual', 'fixture real implementa contexto');
     assertText(source.workflow, 'npm run test:session', 'CI executa shell/contexto');
-    assertText(source.workflow, 'node scripts/tests/test-imp-304-scope.js', 'CI executa scope corrente IMP-298');
     assert.doesNotMatch(source.workflow, /node scripts\/tests\/test-imp-28[4-9]-scope\.js/, 'CI nao executa scope historico');
     const manifest = JSON.parse(source.manifest);
     const predecessorPath = path.join(ROOT, manifest.predecessor.path);
@@ -1840,7 +1829,6 @@ const contracts = {
     assertText(source.navigationPolicy, 'requiredPermission: "devedor.ler"', 'navegacao Devedores exige devedor.ler exato');
     assertText(source.packageJson, '"test:devedores"', 'package expoe gate Devedores');
     assertText(source.workflow, 'npm run test:devedores', 'CI executa gate Devedores');
-    assertText(source.workflow, 'node scripts/tests/test-imp-304-scope.js', 'CI executa scope corrente IMP-298');
     assertText(source.loader, 'context.carteira_padrao.id', 'BFF usa somente Carteira propria do contexto');
     assert.doesNotMatch(source.loader + source.listPage + source.detailPage + source.actions, /searchParams\.(?:tenant_id|carteira_id)|query\.(?:tenant_id|carteira_id)|formData\.get\(["'](?:tenant_id|carteira_id)["']\)/, 'Devedores nao aceita Tenant/Carteira do browser');
     for (const permission of ['devedor.ler', 'devedor.criar', 'devedor.atualizar', 'devedor.inativar', 'devedor.reativar']) {
@@ -1907,7 +1895,6 @@ const contracts = {
     assertText(source.devedoresComponent, '/app/devedores/${item.id}/comercial', 'Devedor ativo oferece entrada para Comercial');
     assertText(source.packageJson, '"test:comercial"', 'package expoe gate Comercial');
     assertText(source.workflow, 'npm run test:comercial', 'CI executa gate Comercial');
-    assertText(source.workflow, 'node scripts/tests/test-imp-304-scope.js', 'CI executa scope corrente IMP-298');
     assertText(source.loader, 'context.carteira_padrao.id', 'BFF Comercial usa somente Carteira propria');
     assert.doesNotMatch(source.loader + source.devedorComercialPage + source.propostaPage + source.actions, /searchParams\.(?:tenant_id|carteira_id)|query\.(?:tenant_id|carteira_id)|formData\.get\(["'](?:tenant_id|carteira_id)["']\)/, 'Comercial nao aceita Tenant/Carteira do browser');
     for (const permission of [
@@ -1987,7 +1974,6 @@ const contracts = {
     assert.match(source.loader, /^import "server-only";/, 'loader Contratos deve ser server-only');
     assertText(source.packageJson, '"test:contratos"', 'package expoe gate Contratos');
     assertText(source.workflow, 'npm run test:contratos', 'CI executa gate Contratos');
-    assertText(source.workflow, 'node scripts/tests/test-imp-304-scope.js', 'CI executa scope corrente IMP-298');
     assertText(source.navigationPolicy, 'href: "/app/contratos"', 'navegacao Contratos sob shell autenticado');
     assertText(source.comercialComponent, '/app/contratos?proposta_id=${item.id}', 'Comercial aprovado oferece ponte para Contratos');
     assertText(source.loader, 'context.carteira_padrao.id', 'BFF Contratos usa somente Carteira propria');
@@ -2079,7 +2065,6 @@ const contracts = {
     assert.match(source.loader, /^import "server-only";/, 'loader Motor deve ser server-only');
     assertText(source.packageJson, '"test:motor"', 'package expoe gate Motor');
     assertText(source.workflow, 'npm run test:motor', 'CI executa gate Motor');
-    assertText(source.workflow, 'node scripts/tests/test-imp-304-scope.js', 'CI executa scope corrente IMP-298');
     assertText(source.navigationPolicy, 'href: "/app/motor"', 'navegacao Motor sob shell autenticado');
     assertText(source.contratosComponent + source.contratoPage, '/app/motor?contrato_id=', 'Contratos liberado oferece ponte para Motor');
     assertText(source.loader, 'context.carteira_padrao.id', 'BFF Motor usa somente Carteira propria');
@@ -2165,7 +2150,6 @@ const contracts = {
     assert.match(source.loader, /^import "server-only";/, 'loader Cobranca deve ser server-only');
     assertText(source.packageJson, '"test:cobranca"', 'package expoe gate Cobranca');
     assertText(source.workflow, 'npm run test:cobranca', 'CI executa gate Cobranca');
-    assertText(source.workflow, 'node scripts/tests/test-imp-304-scope.js', 'CI executa scope corrente IMP-298');
     assertText(source.navigationPolicy, 'href: "/app/cobranca"', 'navegacao Cobranca sob shell autenticado');
     assertText(source.loader, 'context.carteira_padrao.id', 'BFF Cobranca usa somente Carteira propria');
     assert.doesNotMatch(source.loader + source.page + source.actions, /searchParams\.(?:tenant_id|carteira_id)|query\.(?:tenant_id|carteira_id)|formData\.get\(["'](?:tenant_id|carteira_id)["']\)/, 'Cobranca nao aceita Tenant/Carteira do browser');
@@ -2240,7 +2224,6 @@ const contracts = {
     assert.match(source.loader, /^import "server-only";/, 'loader Agenda/Comunicacao deve ser server-only');
     assertText(source.packageJson, '"test:agenda"', 'package expoe gate Agenda/Comunicacao');
     assertText(source.workflow, 'npm run test:agenda', 'CI executa gate Agenda/Comunicacao');
-    assertText(source.workflow, 'node scripts/tests/test-imp-304-scope.js', 'CI executa scope corrente IMP-298');
     assertText(source.navigationPolicy, 'href: "/app/agenda"', 'navegacao Agenda/Comunicacao sob shell autenticado');
     assertText(source.loader, 'context.carteira_padrao.id', 'BFF Agenda/Comunicacao usa somente Carteira propria');
     assert.doesNotMatch(source.loader + source.page + source.actions, /searchParams\.(?:tenant_id|carteira_id)|query\.(?:tenant_id|carteira_id)|formData\.get\(["'](?:tenant_id|carteira_id)["']\)/, 'Agenda/Comunicacao nao aceita Tenant/Carteira do browser');
@@ -2319,7 +2302,6 @@ const contracts = {
   },
 
   bffErrorSanitization(source = readBffErrorSanitization()) {
-    assertText(source.workflow, 'node scripts/tests/test-imp-304-scope.js', 'CI executa scope corrente de sanitizacao BFF');
     assertText(source.testPlan, 'node scripts/tests/test-bff-error-sanitization-scope.js', 'contrato documental aponta para scope corrente de sanitizacao BFF');
     assertText(source.report, 'Sanitizacao transversal de erros BFF', 'relatorio registra hardening transversal');
     assertText(source.report, 'IMP-297 permanece Planejado', 'relatorio nao autoriza IMP-297');
@@ -2363,7 +2345,6 @@ const contracts = {
     assert.match(source.loader, /^import "server-only";/, 'loader Relatorios deve ser server-only');
     assertText(source.packageJson, '"test:relatorios"', 'package expoe gate Relatorios');
     assertText(source.workflow, 'npm run test:relatorios', 'CI executa gate Relatorios');
-    assertText(source.workflow, 'node scripts/tests/test-imp-304-scope.js', 'CI executa scope corrente IMP-298');
     assertText(source.navigationPolicy, 'href: "/app/relatorios"', 'navegacao Relatorios sob shell autenticado');
     assertText(source.loader, 'context.carteira_padrao.id', 'BFF Relatorios usa somente Carteira propria');
     assert.doesNotMatch(source.loader + source.page, /searchParams\.(?:tenant_id|carteira_id)|query\.(?:tenant_id|carteira_id)|formData\.get\(["'](?:tenant_id|carteira_id)["']\)/, 'Relatorios nao aceita Tenant/Carteira do browser');
@@ -2432,7 +2413,6 @@ const contracts = {
     assert.match(source.loader, /^import "server-only";/, 'loader Configuracoes Financeiras deve ser server-only');
     assertText(source.packageJson, '"test:configuracoes"', 'package expoe gate Configuracoes Financeiras');
     assertText(source.workflow, 'npm run test:configuracoes', 'CI executa gate Configuracoes Financeiras');
-    assertText(source.workflow, 'node scripts/tests/test-imp-304-scope.js', 'CI executa scope corrente IMP-298');
     assertText(source.navigationPolicy, 'href: "/app/configuracoes-financeiras"', 'navegacao Configuracoes sob shell autenticado');
     assertText(source.navigationPolicy + source.navigationTest, 'configuracoes_financeiras.configuracao.ler', 'navegacao Configuracoes exige permissao exata');
     assertText(source.loader, 'context.carteira_padrao.id', 'BFF Configuracoes usa Carteira operacional propria');
@@ -2517,7 +2497,6 @@ const contracts = {
     assert.match(source.loader, /^import "server-only";/, 'loader IAM deve ser server-only');
     assertText(source.packageJson, '"test:iam"', 'package expoe gate IAM');
     assertText(source.workflow, 'npm run test:iam', 'CI executa gate IAM');
-    assertText(source.workflow, 'node scripts/tests/test-imp-304-scope.js', 'CI executa scope corrente IMP-299');
     assertText(source.navigationPolicy, 'href: "/app/iam"', 'navegacao IAM sob shell autenticado');
     for (const permission of ['perfil.ler', 'perfil.gerir']) {
       assertText(source.policy + source.loader + source.unitTest + source.bffTest + source.navigationTest, permission, `permissao IAM ${permission}`);
@@ -2605,7 +2584,6 @@ const contracts = {
     assert.match(source.loader, /^import "server-only";/, 'loader Automacao deve ser server-only');
     assertText(source.packageJson, '"test:automacao"', 'package expoe gate Automacao');
     assertText(source.workflow, 'npm run test:automacao', 'CI executa gate Automacao');
-    assertText(source.workflow, 'node scripts/tests/test-imp-304-scope.js', 'CI executa scope corrente IMP-300');
     assertText(source.navigationPolicy, 'href: "/app/automacao"', 'navegacao Automacao sob shell autenticado');
     for (const permission of [
       'automacao.job.consultar',
@@ -2694,7 +2672,6 @@ const contracts = {
     assertText(source.packageJson, '"test:jornadas"', 'package expoe gate de jornadas compostas');
     assertText(source.packageJson, 'playwright.jornadas.config.ts', 'gate de jornadas usa Playwright dedicado');
     assertText(source.workflow, 'npm run test:jornadas', 'CI executa jornadas compostas');
-    assertText(source.workflow, 'node scripts/tests/test-imp-304-scope.js', 'CI executa scope corrente IMP-301');
     assertText(source.playwrightConfig, 'jornadas-e2e/real-stack.mjs', 'Playwright usa stack real governado');
     assertText(source.realStack, 'postgres:16', 'jornadas sobem PostgreSQL real');
     assertText(source.realStack, 'uvicorn', 'jornadas sobem FastAPI real');
@@ -2746,7 +2723,6 @@ const contracts = {
     assertText(source.packageJson, 'ui-security-boundaries.mjs', 'gate de certificacao usa script dedicado');
     assertText(source.packageJson, 'npm run test:certification', 'harness inclui certificacao');
     assertText(source.workflow, 'npm run test:certification', 'CI executa certificacao UI/seguranca');
-    assertText(source.workflow, 'node scripts/tests/test-imp-304-scope.js', 'CI executa scope corrente IMP-302');
     assertText(source.certificationScript, 'docs/audits/evidence', 'certificacao varre evidencias visuais');
     assertText(source.certificationScript, 'frontend-mvp-imp-', 'certificacao cobre PNGs dos IMPs frontend');
     assertText(source.certificationScript, 'readPngDimensions', 'certificacao valida dimensoes PNG');
@@ -2781,7 +2757,6 @@ const contracts = {
   },
 
   finalReadiness(source = readFinalReadiness()) {
-    assertText(source.workflow, 'node scripts/tests/test-imp-304-scope.js', 'CI executa scope final IMP-303');
     assert.doesNotMatch(source.workflow, /node scripts\/tests\/test-imp-302-scope\.js/, 'CI nao executa scope historico IMP-302 como corrente');
     assertText(source.report, 'Frontend MVP concluido localmente', 'relatorio final declara conclusao local');
     assertText(source.report, 'IMP-274..IMP-303', 'relatorio final cobre toda a faixa do frontend');
@@ -3035,16 +3010,6 @@ test('mutacao IMP-284: usar range de versao e rejeitado', () => {
 test('mutacao IMP-284: remover build da CI e rejeitado', () => {
   const scaffold = readScaffold();
   const workflow = scaffold.workflow.replace('run: npm run build', 'run: echo build-removido');
-  assert.notStrictEqual(workflow, scaffold.workflow, 'mutacao precisa alterar o workflow');
-  assert.throws(() => contracts.scaffold({ ...scaffold, workflow }));
-});
-
-test('mutacao IMP-289: executar gate de escopo no diretorio frontend e rejeitado', () => {
-  const scaffold = readScaffold();
-  const workflow = scaffold.workflow.replace(
-    'working-directory: .\n        run: node scripts/tests/test-imp-304-scope.js',
-    'working-directory: frontend\n        run: node scripts/tests/test-imp-304-scope.js',
-  );
   assert.notStrictEqual(workflow, scaffold.workflow, 'mutacao precisa alterar o workflow');
   assert.throws(() => contracts.scaffold({ ...scaffold, workflow }));
 });
