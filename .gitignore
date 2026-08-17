@@ -44,3 +44,6 @@ postgres-data/
 /CODEX.md
 /CURSOR.md
 /GEMINI.md
+
+# Artefatos do Playwright MCP (sessao de inspecao manual)
+.playwright-mcp/

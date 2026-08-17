@@ -620,8 +620,13 @@ def _calcular_juros(
     taxa_mensal: Decimal,
     periodo: PeriodoFinanceiro,
 ) -> Decimal:
+    # Normaliza pelo mes a que o periodo pertence, nao pelo mes em que a parcela
+    # vence (DR-003). A taxa e contratada "por mes": um periodo que cobre um mes
+    # calendario deve custar exatamente essa taxa. Dividir pelos dias do mes de
+    # vencimento media um mes com a regua de outro — 01/01 a 01/02 tem 31 dias de
+    # janeiro e custava 1,107 mes por ser normalizado por fevereiro.
     dias_do_calendario = Decimal(
-        calendar.monthrange(periodo.data_fim.year, periodo.data_fim.month)[1]
+        calendar.monthrange(periodo.data_inicio.year, periodo.data_inicio.month)[1]
     )
     return _quantizar(principal * taxa_mensal * Decimal(periodo.dias) / dias_do_calendario)
 

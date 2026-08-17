@@ -1,7 +1,7 @@
 {
   "$schema": "./identifier-registry.schema.json",
   "versao": "1.1.0",
-  "atualizadoEm": "2026-08-16",
+  "atualizadoEm": "2026-08-17",
   "normativo": true,
   "especificacao": "docs/governance/SPEC-002-governance-identifier-system.md",
   "gramatica": "<NAMESPACE>-<NUMERO:3digitos>[-<QUALIFICADOR>]",
@@ -78,7 +78,7 @@
       "classe": "DOCUMENT",
       "governadoPor": "sequencial",
       "regraNumeracao": "ultimo + 1",
-      "ultimo": 29,
+      "ultimo": 30,
       "status": "ACTIVE",
       "validador": "docs:validate/identifiers",
       "local": "docs/domain/**"
@@ -111,7 +111,7 @@
       "classe": "DOCUMENT",
       "governadoPor": "sequencial",
       "regraNumeracao": "ultimo + 1",
-      "ultimo": 27,
+      "ultimo": 28,
       "status": "ACTIVE",
       "validador": "docs:validate/identifiers",
       "local": "docs/implementation/{plans,backlogs}/"
@@ -133,7 +133,7 @@
       "classe": "DOCUMENT",
       "governadoPor": "sequencial",
       "regraNumeracao": "ultimo + 1",
-      "ultimo": 2,
+      "ultimo": 3,
       "status": "ACTIVE",
       "validador": "docs:validate/identifiers",
       "local": "docs/governance/decision-requests/"
