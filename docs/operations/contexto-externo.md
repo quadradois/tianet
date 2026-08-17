@@ -1,6 +1,6 @@
 # Contexto Externo
 
-**Versao:** 1.0.0
+**Versao:** 1.1.0
 
 **Status:** Vivo — mantido manualmente
 
@@ -27,16 +27,38 @@ codigo, registre aqui na mesma hora. Um item errado e pior que um item ausente.
 
 # 2. Integracoes disponiveis
 
-## 2.1 API de WhatsApp
+## 2.1 API de WhatsApp — Evolution Go
+
+**Contrato oficial:** `docs/whatsapp/CRM_EVOLUTION_CONTRACT.md`. Fonte da verdade,
+auditada contra o codigo em producao. Leia antes de integrar qualquer coisa.
 
 | Campo | Valor |
 |---|---|
-| Situacao | **Existe e esta em uso em outros projetos do time** |
-| Uso previsto na TiaNet | canal oficial de toda comunicacao com o devedor |
-| Provedor | *a preencher* |
-| Autenticacao | *a preencher* |
-| Limites e custo por mensagem | *a preencher* |
+| Situacao | **Pronta e em uso em outros projetos do time** |
+| Provedor | Evolution Go auto-hospedado, `https://diamondgreen.com.br` |
+| Modelo | um tenant Evolution por Tenant da TiaNet |
+| Autenticacao | tres niveis: Global (`/tenant/*`), Tenant (`/instance/*` de gestao), Instancia (envio e conexao) |
+| Retry de webhook | 5 tentativas, 30s de intervalo, depois descarta — **nao existe replay** |
+| Tamanho de payload | midia vem em base64; `HistorySync` ja foi observado com 5,6MB |
 | Ambiente de teste | *a preencher* |
+
+### Recorte para a TiaNet
+
+O contrato descreve um CRM com clientes e corretores. Na TiaNet, `cliente` mapeia
+para **Tenant**; **corretor nao existe** — o Credor opera sozinho
+(`FOUNDATION-001 §3`). Portanto os Eventos 3 e 5 do contrato ficam fora de
+escopo, e o Evento 6 corresponde a inativacao de Tenant ja existente.
+
+### Achados que condicionam o desenho
+
+- **O webhook nao tem autenticacao**: a URL e o unico segredo. Por isso o
+  recebimento so pode criar um pre-cadastro pendente, nunca lancar financeiro —
+  quem descobrisse a URL emitiria divida no sistema.
+- **`consultar_status` da porta `NotificationChannel` nao tem endpoint
+  correspondente**: o status chega por webhook (`Receipt`), nao por consulta. O
+  adapter precisara ler recibos armazenados, ou a porta muda.
+- **Conexao e pre-requisito das duas direcoes**: nao se envia nada sem instancia
+  conectada, o que exige criar tenant, criar instancia e escanear o QR.
 
 Consequencias ja incorporadas ao desenho:
 
@@ -106,10 +128,18 @@ unico workflow e cobre apenas gates de qualidade.
 
 ## 5.1 Grafo de conhecimento (graphify)
 
-`graphify-out/` existe no repositorio, porem **gerado em 2026-08-06**: cobre 861
-nos, nao inclui os EPIC-003 a EPIC-010 nem o frontend. Deve ser regerado apos
-mudancas relevantes de documentacao ou codigo, e consultado antes de afirmar o
-que existe.
+`graphify-out/` e ignorado pelo git e vive apenas no disco de quem o gera.
+Regerado em 2026-08-16 sobre o codigo: **8.267 nos, 24.614 arestas**, cobrindo
+backend, frontend e testes. Diretorios gerados (`playwright-report`,
+`test-results`, `.next`) sao excluidos — sem isso, cerca de 1.200 nos de bundle
+minificado poluem o grafo.
+
+Consultar antes de afirmar que algo nao existe. O grafo responde por relacao
+entre simbolos do codigo; **nao cobre documentos** (extracao semantica nao foi
+executada) nem nada listado neste arquivo.
+
+O manifesto incremental nao foi salvo — a API mudou nesta versao do graphify —
+entao um `--update` fara reconstrucao completa.
 
 ---
 
@@ -117,10 +147,20 @@ que existe.
 
 Itens que bloqueiam ou distorcem decisoes enquanto nao forem respondidos:
 
-1. Qual provedor de WhatsApp, e quais os limites de envio?
-2. O agente de IA entra antes, junto ou depois do wizard de emprestimo?
-3. Ha conta Resend ativa, ou o e-mail deve sair do escopo?
-4. Qual servidor recebera o deploy, e existe dominio disponivel?
+1. **Onde o agente recebe a mensagem?** Duas topologias possiveis, e elas mudam
+   o escopo por inteiro:
+   - (a) Evolution → webhook da TiaNet → registra conversa → agente le e cria o
+     pre-cadastro;
+   - (b) Evolution → agente → agente chama um endpoint autenticado da TiaNet.
+   Em (b) a TiaNet **nao precisa de webhook publico**, o que e mais simples e
+   mais seguro.
+2. Onde ficam `evolution_tenant_id` e `evolution_api_key`? A entidade
+   `Configuracao` (chave/valor por Tenant) existe, mas `api_key` e segredo e
+   tabela generica de configuracao nao e lugar de segredo.
+3. Ha ambiente de teste do Evolution, ou a integracao sera exercitada direto em
+   producao?
+4. Ha conta Resend ativa, ou o e-mail deve sair do escopo?
+5. Qual servidor recebera o deploy, e existe dominio disponivel?
 
 ---
 
@@ -128,4 +168,5 @@ Itens que bloqueiam ou distorcem decisoes enquanto nao forem respondidos:
 
 | Versao | Data | Descricao |
 |---|---|---|
+| 1.1.0 | 2026-08-16 | WhatsApp preenchido a partir do contrato Evolution Go versionado em `docs/whatsapp/`: modelo de tenant, tres niveis de autenticacao, limites de retry e payload, recorte para a TiaNet e achados que condicionam o desenho. |
 | 1.0.0 | 2026-08-16 | Criado apos a sessao identificar que decisoes de desenho foram tomadas sem conhecer integracoes existentes fora do repositorio. |
