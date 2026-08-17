@@ -824,6 +824,13 @@ function readAgendaComunicacao() {
   }));
 }
 
+function readFormatoBrasileiro() {
+  return {
+    modulo: read('frontend/src/lib/formato/brasileiro.ts'),
+    teste: read('frontend/tests/unit/formato-brasileiro.test.ts'),
+  };
+}
+
 function readBffErrorSanitization() {
   return Object.fromEntries(Object.entries(BFF_ERROR_SANITIZATION_FILES).map(([key, rel]) => {
     const absolute = path.join(ROOT, rel);
@@ -2113,7 +2120,8 @@ const contracts = {
     assertText(source.loader + source.bffTest + source.contractTest, 'sem-idempotency:/credit/emprestimos/{emprestimo_id}/parcelas', 'parcelas nao inventa Idempotency-Key ausente no OpenAPI');
     assert.doesNotMatch(source.component + source.commandDialog + source.listPage + source.detailPage, /accessToken|refreshToken|Authorization|Bearer|localStorage|sessionStorage/, 'Motor nao expoe tokens no browser');
     assert.doesNotMatch(source.component + source.commandDialog + source.loader + source.policy, /\.reduce\(|parseFloat\(|parseInt\(|Math\.(?:round|floor|ceil)|Intl\.NumberFormat|toFixed\(|\+\s*(?:principal|juros|encargos|saldo|total|valor)|(?:principal|juros|encargos|saldo|total|valor)\s*\+/, 'Motor nao calcula ou formata valor financeiro localmente');
-    for (const marker of ['loading', 'empty', 'denied', '404', '409', '422', 'overflow', 'Memoria de calculo oficial', 'Pagamento idempotente', 'Quitacao oficial', 'Renegociacao opaca']) {
+    // Vocabulario do Credor, e nao da certificacao (PLAN-029 IMP-315).
+    for (const marker of ['loading', 'empty', 'Sem permissao', '404', '409', '422', 'overflow', 'Como a conta foi feita', 'Pagamento idempotente', 'Valor para quitar hoje', 'Renegociacao opaca']) {
       assertText(source.component + source.componentTest + source.e2eTest, marker, `estado Motor ${marker}`);
     }
     assertText(source.component, 'Emprestimo nao encontrado ou indisponivel.', 'UI Motor preserva 404 neutro');
@@ -2305,6 +2313,24 @@ const contracts = {
     const imp297 = impBlocks(source.backlog).find(({ id }) => id === 'IMP-297');
     assertText(imp296?.text ?? '', '- **Status:** Concluido.', 'IMP-296 deve estar concluido');
     assertText(imp297?.text ?? '', '- **Status:** Concluido.', 'IMP-297 deve estar concluido');
+  },
+
+  formatoBrasileiro(source = readFormatoBrasileiro()) {
+    // O modulo formata dinheiro para exibicao. Ele entra nesta varredura de
+    // proposito: o guardrail anti-motor-paralelo veta conversao numerica nas
+    // telas financeiras, e a saida correta foi respeitar a regra e ampliar a
+    // cobertura, nao abrir excecao nela (PLAN-029 secao 5).
+    assert.doesNotMatch(
+      source.modulo,
+      /Intl\.NumberFormat|toFixed\(|parseFloat\(|parseInt\(|Number\(|\.reduce\(|Math\./,
+      'formatacao nao converte valor financeiro para numero',
+    );
+    assert.doesNotMatch(source.modulo, /new Date|Date\.now/, 'formatacao de data nao usa Date, que aplicaria fuso do navegador');
+    assertText(source.modulo, 'agruparMilhares', 'formatacao agrupa milhares por manipulacao de texto');
+    for (const esperado of ['R$ 10.000,00', '390.533.447-05', '17/08/2026']) {
+      assertText(source.teste, esperado, `teste fixa formato ${esperado}`);
+    }
+    assertText(source.teste, '01/01/2026', 'teste cobre meia-noite UTC, que deslocaria o dia via Date');
   },
 
   bffErrorSanitization(source = readBffErrorSanitization()) {
@@ -2852,6 +2878,7 @@ test('IMP-294 materializa Motor e pagamentos governados', () => contracts.motor(
 test('IMP-295 materializa Cobranca governada', () => contracts.cobranca());
 test('IMP-296 materializa Agenda e Comunicacao governadas', () => contracts.agendaComunicacao());
 test('hardening transversal sanitiza mensagens dos BFFs herdados', () => contracts.bffErrorSanitization());
+test('IMP-316 formata valores sem converter para numero', () => contracts.formatoBrasileiro());
 test('IMP-297 materializa Relatorios governados', () => contracts.relatorios());
 test('IMP-298 materializa Configuracoes Financeiras governadas', () => contracts.configuracoes());
 test('IMP-299 materializa IAM permitido governado', () => contracts.iam());

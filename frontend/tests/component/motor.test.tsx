@@ -158,7 +158,7 @@ describe("Motor UI", () => {
     expect(screen.queryByRole("heading", { name: /Em andamento/i })).not.toBeInTheDocument();
   });
 
-  it("mostra denied sem tentar fallback permissivo", () => {
+  it("nega acesso em linguagem comum, sem fallback permissivo", () => {
     render(
       <MotorPage
         createAction={action}
@@ -170,7 +170,9 @@ describe("Motor UI", () => {
         result={{ kind: "denied" }}
       />,
     );
-    expect(screen.getAllByText("denied")[0]).toBeInTheDocument();
+    expect(screen.getAllByText("Sem permissao")[0]).toBeInTheDocument();
+    // Nem o nome do modulo interno nem o rotulo tecnico chegam ao operador.
+    expect(screen.queryByText(/denied|Modulo Motor/i)).not.toBeInTheDocument();
   });
 
   it("apresenta saldo, parcelas, memoria, pagamento idempotente, quitacao e renegociacao opaca", () => {
@@ -190,12 +192,14 @@ describe("Motor UI", () => {
         settlementPreview={{ kind: "ready", data: settlement }}
       />,
     );
-    expect(screen.getByText("Saldo oficial")).toBeInTheDocument();
-    expect(screen.getAllByText("Memoria de calculo oficial")[0]).toBeInTheDocument();
+    expect(screen.getByText("Quanto ainda falta")).toBeInTheDocument();
+    expect(screen.getAllByText("Como a conta foi feita")[0]).toBeInTheDocument();
     expect(screen.getByText(/Pagamento idempotente/i)).toBeInTheDocument();
-    expect(screen.getAllByText(/Quitacao oficial/i)[0]).toBeInTheDocument();
+    expect(screen.getAllByText(/Valor para quitar hoje/i)[0]).toBeInTheDocument();
     expect(screen.getByText(/Renegociacao opaca/i)).toBeInTheDocument();
-    expect(screen.getAllByText("1010.00")[0]).toBeInTheDocument();
+    // O valor chega do backend como "1010.00" e e exibido no formato do pais.
+    expect(screen.getAllByText("R$ 1.010,00")[0]).toBeInTheDocument();
+    expect(screen.queryByText("1010.00")).not.toBeInTheDocument();
   });
 
   it("mantem 404 neutro, 409, 422 e overflow observaveis", () => {

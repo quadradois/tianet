@@ -68,6 +68,10 @@ test("lista Emprestimos e cria Emprestimo a partir de Contrato liberado sem Cart
   await page.goto(`/app/motor?contrato_id=${IDS.contract}&tenant_id=hostil&carteira_id=hostil`);
   await expect(page.getByRole("heading", { name: "Meus emprestimos" })).toBeVisible();
   await expect(page.getByRole("link", { exact: true, name: "Motor" })).toHaveAttribute("href", "/app/motor");
+  // O caminho principal de lancar e o wizard. A criacao por Contrato continua
+  // possivel, mas recolhida: precisa ser aberta de proposito.
+  await expect(page.getByLabel("Contrato liberado")).toBeHidden();
+  await page.getByText("Criar a partir de um contrato ja existente").click();
   await expect(page.getByLabel("Contrato liberado")).toHaveValue(IDS.contract);
   // A lista separa pelos estados que o backend devolveu e identifica o Devedor
   // pelo nome. O identificador do Emprestimo sai do corpo da tela.
@@ -89,10 +93,10 @@ test("lista Emprestimos e cria Emprestimo a partir de Contrato liberado sem Cart
 test("consulta detalhe, parcelas, saldo, memoria, pagamento e quitacao sem recalculo local", async ({ page, context }, testInfo) => {
   await login(page);
   await page.goto(`/app/motor/${IDS.loan}`);
-  await expect(page.getByRole("heading", { name: new RegExp(`Emprestimo ${IDS.loan}`) })).toBeVisible();
-  await expect(page.getByText("Saldo oficial")).toBeVisible();
-  await expect(page.getByText("Memoria de calculo oficial")).toBeVisible();
-  await expect(page.getByText("1010.00").first()).toBeVisible();
+  await expect(page.getByRole("heading", { name: "R$ 1.000,00" }).first()).toBeVisible();
+  await expect(page.getByText("Quanto ainda falta")).toBeVisible();
+  await expect(page.getByText("Como a conta foi feita")).toBeVisible();
+  await expect(page.getByText("R$ 1.010,00").first()).toBeVisible();
   await activateButton(page, "Gerar parcelas");
   await expect(page.getByText(/Plano de parcelas gerado pelo Motor/)).toBeVisible();
   await activateButton(page, "Registrar pagamento");
@@ -119,7 +123,7 @@ test("RBAC, empty, 404, 409, 5xx e estados permanecem seguros", async ({ page })
   await expect(page).toHaveURL(/\/login$/);
   await login(page, "NENHUMA");
   await page.goto("/app/motor");
-  await expect(page.getByText("denied", { exact: true })).toBeVisible();
+  await expect(page.getByText("Sem permissao", { exact: true }).first()).toBeVisible();
   await page.getByRole("button", { name: "Sair" }).click();
   await expect(page).toHaveURL(/\/login$/);
   await login(page, "VAZIO");

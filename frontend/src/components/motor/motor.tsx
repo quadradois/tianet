@@ -1,5 +1,7 @@
 import Link from "next/link";
 
+import { data as formatarData, moeda } from "../../lib/formato/brasileiro";
+
 import {
   INITIAL_MOTOR_ACTION_STATE,
   MOTOR_INSTALLMENT_CREATE_PERMISSION,
@@ -66,8 +68,8 @@ function ProblemPanel({ problem, recoveryHref }: { problem: { correlationId: str
 function DeniedPanel() {
   return (
     <section className="rounded-2xl border border-border bg-muted p-4 text-sm text-muted-foreground">
-      <p className="font-semibold text-foreground">denied</p>
-      <p>Modulo Motor indisponivel para as permissoes efetivas atuais.</p>
+      <p className="font-semibold text-foreground">Sem permissao</p>
+      <p>Seu acesso atual nao permite ver os emprestimos.</p>
     </section>
   );
 }
@@ -97,19 +99,14 @@ function LoanCard({ loan }: { loan: Loan }) {
     <article className="rounded-2xl border border-border bg-card p-4 shadow-sm">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h2 className="text-lg font-semibold">Emprestimo {loan.id}</h2>
-          <p className="text-sm text-muted-foreground">Contrato {loan.contrato_id}</p>
+          <h2 className="text-lg font-semibold">{moeda(loan.principal_original)}</h2>
+          <p className="text-sm text-muted-foreground">Emprestado em {formatarData(loan.criado_em)}</p>
         </div>
         <span className="rounded-full bg-secondary px-3 py-1 text-xs font-semibold text-secondary-foreground">{loan.estado}</span>
       </div>
-      <dl className="mt-4 grid gap-3 sm:grid-cols-3">
-        <RawValue label="Principal oficial" value={loan.principal_original} />
-        <RawValue label="Moeda" value={loan.moeda} />
-        <RawValue label="Criado em" value={loan.criado_em} />
-      </dl>
       <div className="mt-4">
         <Link className="text-sm font-semibold text-primary underline-offset-4 hover:underline" href={`/app/motor/${loan.id}`}>
-          Abrir Motor
+          Ver parcelas
         </Link>
       </div>
     </article>
@@ -130,7 +127,7 @@ function LoanRow({ devedor, loan }: { devedor: string | undefined; loan: Loan })
         <div className="min-w-0">
           <h3 className="truncate text-lg font-semibold">{devedor ?? "Devedor nao identificado"}</h3>
           <p className="text-sm text-muted-foreground">
-            {loan.moeda} {loan.principal_original} · desde {loan.criado_em.slice(0, 10)}
+            {moeda(loan.principal_original)} · desde {formatarData(loan.criado_em)}
           </p>
         </div>
         <Link
@@ -178,7 +175,15 @@ export function MotorPage({ createAction, devedores, filters, initialContractId,
         </p>
       </header>
       {hasExactPermission(permissions, MOTOR_LOAN_CREATE_PERMISSION) ? (
-        <CreateLoanForm action={createAction} initialContractId={initialContractId} initialState={initialState} />
+        // O caminho de lancar emprestimo e o wizard em /app/lancamentos. Pedir
+        // UUID de Contrato ao Credor e o oposto do que o PLAN-027 decidiu; a
+        // criacao por Contrato existente segue possivel, mas recolhida.
+        <details className="rounded-2xl border border-border bg-muted/30 p-4">
+          <summary className="cursor-pointer text-sm font-semibold">Criar a partir de um contrato ja existente</summary>
+          <div className="mt-4">
+            <CreateLoanForm action={createAction} initialContractId={initialContractId} initialState={initialState} />
+          </div>
+        </details>
       ) : null}
       {result.kind === "denied" ? <DeniedPanel /> : null}
       {result.kind === "problem" ? <ProblemPanel problem={result.problem} recoveryHref={recoveryHref} /> : null}
@@ -238,10 +243,8 @@ export function EmprestimosDoDevedor({ recoveryHref, result }: Readonly<{ recove
                     <li className="rounded-2xl border border-border bg-card p-4 shadow-sm" key={loan.id}>
                       <div className="flex flex-wrap items-center justify-between gap-3">
                         <p className="text-sm">
-                          <span className="text-lg font-semibold">
-                            {loan.moeda} {loan.principal_original}
-                          </span>
-                          <span className="text-muted-foreground"> · desde {loan.criado_em.slice(0, 10)}</span>
+                          <span className="text-lg font-semibold">{moeda(loan.principal_original)}</span>
+                          <span className="text-muted-foreground"> · desde {formatarData(loan.criado_em)}</span>
                         </p>
                         <Link
                           className="shrink-0 rounded-xl border border-border px-3 py-2 text-sm font-semibold text-primary underline-offset-4 hover:underline"
@@ -300,24 +303,24 @@ function ReadyAuxiliary({ balance, installments, memories, settlementPreview }: 
     <section className="grid gap-4 lg:grid-cols-2">
       {balance.kind === "ready" ? (
         <article className="rounded-2xl border border-border bg-card p-4">
-          <h2 className="font-semibold">Saldo oficial</h2>
+          <h2 className="font-semibold">Quanto ainda falta</h2>
           <dl className="mt-3 grid gap-3 sm:grid-cols-2">
-            <RawValue label="Principal" value={balance.data.principal} />
-            <RawValue label="Juros" value={balance.data.juros} />
-            <RawValue label="Encargos" value={balance.data.encargos} />
-            <RawValue label="Total" value={balance.data.total} />
+            <RawValue label="Principal" value={moeda(balance.data.principal)} />
+            <RawValue label="Juros" value={moeda(balance.data.juros)} />
+            <RawValue label="Encargos" value={moeda(balance.data.encargos)} />
+            <RawValue label="Total" value={moeda(balance.data.total)} />
           </dl>
         </article>
       ) : null}
       {settlementPreview.kind === "ready" ? (
         <article className="rounded-2xl border border-border bg-card p-4">
-          <h2 className="font-semibold">Quitacao oficial</h2>
+          <h2 className="font-semibold">Valor para quitar hoje</h2>
           <JsonBlock label="Valor de quitacao retornado" value={settlementPreview.data.valor_quitacao} />
         </article>
       ) : null}
       {installments.kind === "ready" ? (
         <article className="rounded-2xl border border-border bg-card p-4">
-          <h2 className="font-semibold">Parcelas oficiais</h2>
+          <h2 className="font-semibold">Parcelas</h2>
           <div className="mt-3 overflow-auto">
             <table className="w-full min-w-[720px] text-left text-sm">
               <thead className="text-xs uppercase text-muted-foreground">
@@ -327,11 +330,11 @@ function ReadyAuxiliary({ balance, installments, memories, settlementPreview }: 
                 {installments.data.parcelas.map((item) => (
                   <tr className="border-t border-border" key={item.id}>
                     <td>{item.numero}</td>
-                    <td>{item.vencimento}</td>
-                    <td>{item.valor_previsto}</td>
-                    <td>{item.principal}</td>
-                    <td>{item.juros}</td>
-                    <td>{item.encargos}</td>
+                    <td>{formatarData(item.vencimento)}</td>
+                    <td>{moeda(item.valor_previsto)}</td>
+                    <td>{moeda(item.principal)}</td>
+                    <td>{moeda(item.juros)}</td>
+                    <td>{moeda(item.encargos)}</td>
                     <td>{item.estado}</td>
                   </tr>
                 ))}
@@ -342,7 +345,7 @@ function ReadyAuxiliary({ balance, installments, memories, settlementPreview }: 
       ) : null}
       {memories.kind === "ready" ? (
         <article className="rounded-2xl border border-border bg-card p-4">
-          <h2 className="font-semibold">Memoria de calculo oficial</h2>
+          <h2 className="font-semibold">Como a conta foi feita</h2>
           <div className="mt-3 space-y-3">
             {memories.data.map((memory) => <JsonBlock key={memory.id} label={memory.tipo} value={memory} />)}
           </div>
