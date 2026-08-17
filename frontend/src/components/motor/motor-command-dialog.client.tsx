@@ -64,7 +64,7 @@ export function MotorCommandForm({ action, command, emprestimoId, initialState }
   return (
     <form action={formAction} className="grid gap-3 rounded-lg border bg-card p-4">
       <h3 className="font-semibold">{title}</h3>
-      <p className="text-sm text-muted-foreground">Motor e autoridade financeira. Idempotency-Key e enviada quando o OpenAPI exige.</p>
+      <p className="text-sm text-muted-foreground">Os valores sao calculados pelo sistema.</p>
       <p className="text-xs text-muted-foreground">{evidence}</p>
       <input name="command" type="hidden" value={command} />
       <input name="emprestimo_id" type="hidden" value={emprestimoId} />

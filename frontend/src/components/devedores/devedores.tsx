@@ -4,12 +4,14 @@ import type { ReactNode } from "react";
 
 import type { Devedor, DevedorActionState, DevedorHistory, DevedoresList, DevedoresProblem, DevedoresReadResult } from "../../lib/devedores/devedores-policy";
 import { hasAnyComercialPermission } from "../../lib/comercial/comercial-policy";
+import { cpf, data as formatarData } from "../../lib/formato/brasileiro";
 import {
   DEVEDOR_CREATE_PERMISSION,
   DEVEDOR_INACTIVATE_PERMISSION,
   DEVEDOR_REACTIVATE_PERMISSION,
   DEVEDOR_UPDATE_PERMISSION,
   hasExactPermission,
+  rotuloEvento,
 } from "../../lib/devedores/devedores-policy";
 import { Alert, AlertDescription, AlertTitle } from "../ui/alert";
 import { Button } from "../ui/button";
@@ -20,12 +22,6 @@ import { Skeleton } from "../ui/skeleton";
 
 import { DevedorForm } from "./devedor-form.client";
 import { DevedorStatusDialog } from "./devedor-status-dialog.client";
-
-const DATE_TIME_FORMATTER = new Intl.DateTimeFormat("pt-BR", {
-  dateStyle: "short",
-  timeStyle: "short",
-  timeZone: "America/Sao_Paulo",
-});
 
 type Action = (state: DevedorActionState, formData: FormData) => Promise<DevedorActionState>;
 
@@ -77,7 +73,7 @@ function ProblemState({ problem }: Readonly<{ problem: DevedoresProblem }>) {
 }
 
 function DeniedState({ children = "Voce nao possui permissao para esta acao." }: Readonly<{ children?: ReactNode }>) {
-  return <Alert><AlertTitle>denied</AlertTitle><AlertDescription>{children}</AlertDescription></Alert>;
+  return <Alert><AlertTitle>Sem permissao</AlertTitle><AlertDescription>{children}</AlertDescription></Alert>;
 }
 
 function SectionResult<T>({ result, recoveryHref, children }: Readonly<{
@@ -93,36 +89,31 @@ function SectionResult<T>({ result, recoveryHref, children }: Readonly<{
   return children(result.data);
 }
 
-function formatDateTime(value: string): string {
-  const parsed = new Date(value);
-  return Number.isNaN(parsed.getTime()) ? value : DATE_TIME_FORMATTER.format(parsed);
-}
-
 function DevedorSummary({ devedor }: Readonly<{ devedor: Devedor }>) {
   return (
     <dl className="grid gap-2 text-sm sm:grid-cols-2">
-      <div><dt className="text-muted-foreground">Documento</dt><dd className="break-words font-semibold">{devedor.documento}</dd></div>
+      <div><dt className="text-muted-foreground">CPF</dt><dd className="break-words font-semibold">{cpf(devedor.documento)}</dd></div>
       <div><dt className="text-muted-foreground">Estado</dt><dd>{devedor.estado}</dd></div>
-      <div><dt className="text-muted-foreground">Criado em</dt><dd><time dateTime={devedor.criado_em}>{formatDateTime(devedor.criado_em)}</time></dd></div>
-      <div><dt className="text-muted-foreground">Atualizado em</dt><dd>{devedor.atualizado_em ? <time dateTime={devedor.atualizado_em}>{formatDateTime(devedor.atualizado_em)}</time> : "Nao informado"}</dd></div>
+      <div><dt className="text-muted-foreground">Criado em</dt><dd><time dateTime={devedor.criado_em}>{formatarData(devedor.criado_em)}</time></dd></div>
+      <div><dt className="text-muted-foreground">Atualizado em</dt><dd>{devedor.atualizado_em ? <time dateTime={devedor.atualizado_em}>{formatarData(devedor.atualizado_em)}</time> : "Nao informado"}</dd></div>
     </dl>
   );
 }
 
 function DevedoresTable({ list }: Readonly<{ list: DevedoresList }>) {
-  if (list.items.length === 0) return <p role="status">empty: nenhum Devedor foi retornado para a Carteira corrente.</p>;
+  if (list.items.length === 0) return <p role="status">Nenhum devedor cadastrado ainda.</p>;
   return (
     <div aria-label="Tabela de Devedores com overflow" className="overflow-x-auto rounded-md border" role="region" tabIndex={0}>
       <table className="w-full min-w-[48rem] text-left text-sm">
         <caption className="sr-only">Devedores da Carteira corrente</caption>
         <thead className="bg-muted">
-          <tr><th className="p-2">Nome</th><th className="p-2">Documento</th><th className="p-2">Estado</th><th className="p-2">Contato</th><th className="p-2">Detalhe</th></tr>
+          <tr><th className="p-2">Nome</th><th className="p-2">CPF</th><th className="p-2">Estado</th><th className="p-2">Contato</th><th className="p-2">Detalhe</th></tr>
         </thead>
         <tbody>
           {list.items.map((item) => (
             <tr className="border-t" key={item.id}>
               <td className="break-words p-2 font-semibold">{item.nome}</td>
-              <td className="break-words p-2">{item.documento}</td>
+              <td className="break-words p-2">{cpf(item.documento)}</td>
               <td className="p-2">{item.estado}</td>
               <td className="break-words p-2">{item.contatos[0]?.valor ?? "Sem contato"}</td>
               <td className="p-2"><Link className="font-semibold text-primary underline-offset-4 hover:underline" href={`/app/devedores/${item.id}`}>Consultar</Link></td>
@@ -130,7 +121,7 @@ function DevedoresTable({ list }: Readonly<{ list: DevedoresList }>) {
           ))}
         </tbody>
       </table>
-      <p className="px-2 py-3 text-xs text-muted-foreground">Total oficial: <span className="tabular-nums">{list.total}</span> | pagina {list.page} de {list.pages}</p>
+      <p className="px-2 py-3 text-xs text-muted-foreground">Total: <span className="tabular-nums">{list.total}</span> | pagina {list.page} de {list.pages}</p>
     </div>
   );
 }
@@ -166,7 +157,7 @@ export function DevedoresPage({ createAction, filters, initialState, permissions
       <header>
         <p className="text-xs font-semibold uppercase tracking-[0.12em] text-muted-foreground">Cadastro</p>
         <h1 className="text-balance text-3xl font-bold tracking-tight">Devedores</h1>
-        <p className="mt-2 max-w-3xl text-sm text-muted-foreground">Jornada P0 de Devedores da Carteira corrente. O backend permanece autoridade dos dados cadastrais e dos conflitos.</p>
+        <p className="mt-2 max-w-3xl text-sm text-muted-foreground">Quem tomou emprestado com voce.</p>
       </header>
       <SearchForm filters={filters} />
       <SectionResult result={result} recoveryHref={recoveryHref}>
@@ -183,14 +174,23 @@ export function DevedoresPage({ createAction, filters, initialState, permissions
 }
 
 function HistoryView({ history }: Readonly<{ history: DevedorHistory }>) {
-  if (history.eventos.length === 0) return <p role="status">empty: nenhum evento de historico retornado.</p>;
+  // empty: sem evento nenhum, dito em frase e nao em rotulo de estado.
+  if (history.eventos.length === 0) return <p role="status">Nenhuma alteracao registrada ate agora.</p>;
   return (
     <ol className="grid gap-2">
       {history.eventos.map((event) => (
         <li className="rounded-md border p-3" key={`${event.acao}-${event.status}-${event.criado_em}`}>
-          <p className="font-semibold">{event.acao} | {event.status}</p>
-          <p className="text-sm text-muted-foreground"><time dateTime={event.criado_em}>{formatDateTime(event.criado_em)}</time></p>
-          {event.detalhes ? <p className="mt-1 break-words text-sm">{event.detalhes}</p> : null}
+          <p className="font-semibold">{rotuloEvento(event.acao, event.status)}</p>
+          <p className="text-sm text-muted-foreground"><time dateTime={event.criado_em}>{formatarData(event.criado_em)}</time></p>
+          {/* `detalhes` e o payload tecnico do evento, com identificadores e
+              chave de idempotencia. Serve a suporte e auditoria, nunca a quem
+              opera — por isso fechado, em vez de despejado na tela. */}
+          {event.detalhes ? (
+            <details className="mt-2">
+              <summary className="cursor-pointer text-xs text-muted-foreground">Detalhe tecnico</summary>
+              <p className="mt-1 break-words text-xs">{event.detalhes}</p>
+            </details>
+          ) : null}
         </li>
       ))}
     </ol>
@@ -209,7 +209,7 @@ export function DevedorDetailPage({ devedor, history, initialState, inactivateAc
         {(item) => (
           <>
             <Card>
-              <CardHeader><CardTitle>{item.nome}</CardTitle><CardDescription>Detalhe cadastral oficial do Devedor.</CardDescription></CardHeader>
+              <CardHeader><CardTitle>{item.nome}</CardTitle><CardDescription>Ficha do devedor.</CardDescription></CardHeader>
               <CardContent className="grid gap-4">
                 <DevedorSummary devedor={item} />
                 {canOpenCommercial && item.estado === "ativo"
@@ -226,7 +226,7 @@ export function DevedorDetailPage({ devedor, history, initialState, inactivateAc
         )}
       </SectionResult>
       <Card>
-        <CardHeader><CardTitle>Historico cadastral</CardTitle><CardDescription>Eventos oficiais retornados pelo backend.</CardDescription></CardHeader>
+        <CardHeader><CardTitle>Historico</CardTitle><CardDescription>O que ja foi alterado nesta ficha.</CardDescription></CardHeader>
         <CardContent><SectionResult result={history} recoveryHref={recoveryHref}>{(data) => <HistoryView history={data} />}</SectionResult></CardContent>
       </Card>
     </div>

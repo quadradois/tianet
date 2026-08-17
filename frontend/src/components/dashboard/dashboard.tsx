@@ -160,11 +160,11 @@ export function CollectionView({ data }: Readonly<{ data: CollectionQueue }>) {
 }
 
 async function SummarySection({ result, recoveryHref }: Readonly<{ result: DashboardProps["summary"]; recoveryHref: string }>) {
-  return <SectionCard title="Resumo da Carteira" description="Contagens e totais apresentados exatamente como recebidos."><SectionResult result={await result} recoveryHref={recoveryHref}>{(data) => <SummaryView data={data} />}</SectionResult></SectionCard>;
+  return <SectionCard title="Resumo da Carteira" description="Resumo da sua carteira."><SectionResult result={await result} recoveryHref={recoveryHref}>{(data) => <SummaryView data={data} />}</SectionResult></SectionCard>;
 }
 
 async function DueDatesSection({ result, recoveryHref }: Readonly<{ result: DashboardProps["dueDates"]; recoveryHref: string }>) {
-  return <SectionCard title="Vencimentos" description="Situacoes oficiais na data de referencia; nenhuma classificacao e calculada aqui."><SectionResult result={await result} recoveryHref={recoveryHref}>{(data) => <DueDatesView data={data} />}</SectionResult></SectionCard>;
+  return <SectionCard title="Vencimentos" description="Parcelas e suas situacoes na data escolhida."><SectionResult result={await result} recoveryHref={recoveryHref}>{(data) => <DueDatesView data={data} />}</SectionResult></SectionCard>;
 }
 
 async function AgendaSection({ result, recoveryHref }: Readonly<{ result: DashboardProps["agenda"]; recoveryHref: string }>) {
@@ -183,13 +183,13 @@ export function Dashboard({ period, recoveryHref, summary, dueDates, agenda, col
   return (
     <div className="grid min-w-0 gap-6">
       <header className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
-        <div><p className="text-xs font-semibold uppercase tracking-[0.12em] text-muted-foreground">Operacao diaria</p><h1 className="text-balance text-3xl font-bold tracking-tight">Dashboard</h1><p className="mt-2 max-w-3xl text-sm text-muted-foreground">Snapshot contratual da Carteira ativa. O backend permanece autoridade de todos os valores e estados.</p></div>
+        <div><p className="text-xs font-semibold uppercase tracking-[0.12em] text-muted-foreground">Operacao diaria</p><h1 className="text-balance text-3xl font-bold tracking-tight">Dashboard</h1><p className="mt-2 max-w-3xl text-sm text-muted-foreground">Como esta a sua operacao hoje. Situacao da sua carteira na data escolhida.</p></div>
         <form className="flex flex-col gap-2 sm:flex-row sm:items-end" method="get">
           <div className="grid gap-1"><Label htmlFor="data_referencia">Data de referencia</Label><Input autoComplete="off" defaultValue={period.referenceDate} id="data_referencia" max={MAX_REFERENCE_DATE} min={MIN_REFERENCE_DATE} name="data_referencia" required type="date" /></div>
           <button className="min-h-(--size-control) rounded-md bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground transition-colors hover:bg-primary/90" type="submit">Atualizar</button>
         </form>
       </header>
-      <p className="text-xs text-muted-foreground">Timezone governado: America/Sao_Paulo. A janela usa os limites civis e o offset vigente na data selecionada.</p>
+      <p className="text-xs text-muted-foreground"></p>
       <div className="grid min-w-0 gap-5 xl:grid-cols-2">
         <Suspense fallback={<DashboardLoadingState title="Resumo da Carteira" />}><SummarySection recoveryHref={recoveryHref} result={summary} /></Suspense>
         <Suspense fallback={<DashboardLoadingState title="Vencimentos" />}><DueDatesSection recoveryHref={recoveryHref} result={dueDates} /></Suspense>

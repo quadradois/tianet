@@ -39,6 +39,13 @@ export default async function DevedorDetailRoute({ params }: PageProps<"/app/dev
   }
   return (
     <>
+      {/* Os emprestimos vem antes de editar cadastro, inativar e historico: o
+          Credor pediu que abrir um devedor ja mostrasse a situacao dele. No
+          IMP-310 este bloco ficou no rodape, o que cumpria o criterio do
+          backlog e nao a intencao do pedido. */}
+      <div className="p-6 pb-0">
+        <EmprestimosDoDevedor recoveryHref={recoveryHref} result={emprestimos} />
+      </div>
       <DevedorDetailPage
         devedor={devedor}
         history={history}
@@ -49,9 +56,6 @@ export default async function DevedorDetailRoute({ params }: PageProps<"/app/dev
         recoveryHref={recoveryHref}
         updateAction={updateDevedorAction}
       />
-      <div className="p-6 pt-0">
-        <EmprestimosDoDevedor recoveryHref={recoveryHref} result={emprestimos} />
-      </div>
     </>
   );
 }

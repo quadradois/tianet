@@ -2,9 +2,9 @@
 
 **ID:** PLAN-029-EXEC
 
-**Versao:** 1.2.0
+**Versao:** 1.3.0
 
-**Status:** IMP-316, IMP-319 e IMP-320 concluidos; IMP-315 parcial (Motor); IMP-317 e IMP-318 planejados
+**Status:** IMP-315..317, IMP-319 e IMP-320 concluidos; IMP-318 planejado
 
 ---
 
@@ -35,16 +35,21 @@ no idioma do Credor quando o menu for reduzido.
   API, idempotencia, Tenant tecnico ou "oficial"; os markers exigidos pelo gate
   passam a ser satisfeitos pelos testes, que e onde a asserção pertence.
 - **Suite minima:** componente e Playwright das jornadas afetadas.
-- **Status:** Parcial — Motor concluido; Dashboard, Devedores e shell pendentes.
+- **Status:** Concluido nos componentes; falta apenas a identidade do shell,
+  que sai junto com o IMP-318 por tocar o mesmo arquivo.
 - **Nota de execucao:** o painel de negativa deixou de exibir "denied" e o nome
   do modulo interno; "(oficial)" saiu dos titulos de secao, que passaram a
   "Quanto ainda falta", "Valor para quitar hoje", "Parcelas" e "Como a conta foi
   feita"; o identificador do Emprestimo deixou de ser titulo do detalhe. A lista
   de markers do gate foi atualizada para o vocabulario novo, de modo que ela
   continua afirmando o que a tela mostra, e nao o que a tela mostrava.
-- **Pendente neste IMP:** a tela de detalhe do Motor ainda exibe quatro
-  formularios tecnicos no topo, com campo `Idempotency-Key`, data em formato de
-  maquina e a string literal `sem-idempotency:/credit/...`.
+- **Varredura final:** oito frases de arquitetura foram substituidas em todos
+  os componentes de uma vez — "o backend permanece autoridade...", "o frontend
+  apenas envia o comando idempotente", "Motor e autoridade financeira.
+  Idempotency-Key e enviada quando o OpenAPI exige", "Documento e imutavel na
+  API", "Timezone governado...", "Jornada P0", "Contagens e totais apresentados
+  exatamente como recebidos" e "Aguardando envio do formulario". O painel de
+  negativa deixou de dizer "denied" tambem em Devedores.
 
 ### IMP-316 - Formatacao brasileira de dinheiro, documento e data
 
@@ -84,6 +89,18 @@ no idioma do Credor quando o menu for reduzido.
 - **Nota:** corrige defeito de intencao do IMP-310, que satisfez o criterio do
   backlog e nao o pedido do Credor.
 - **Suite minima:** componente e Playwright.
+- **Status:** Concluido.
+- **Nota de execucao:** o bloco de emprestimos subiu para antes do formulario de
+  edicao, dos botoes de estado e do historico. O historico deixou de imprimir
+  `criar.aggregate_criado | ok` e o payload com identificadores: exibe "Cadastro",
+  "Dados atualizados", "Inativacao" ou "Reativacao", com o detalhe tecnico
+  recolhido para suporte. CPF passou a ser exibido com mascara na ficha e na
+  tabela, e o rotulo "Documento" virou "CPF".
+- **Guardrail respeitado (quarta vez):** o gate de RBAC de
+  `devedores-policy.ts` recusa **qualquer asterisco** no arquivo, para impedir
+  permissao com curinga — o que torna comentario de bloco impossivel ali. A
+  regra e mais ampla do que precisa ser, e ainda assim nao foi afrouxada: o
+  comentario novo usa `//`.
 
 ### IMP-318 - Navegacao enxuta
 
@@ -162,6 +179,7 @@ verificacao de estabilidade em execucoes consecutivas.
 
 | Versao | Data | Descricao |
 |---|---|---|
+| 1.3.0 | 2026-08-17 | IMP-315 e IMP-317 concluidos: prosa de arquitetura removida de todos os componentes, historico legivel e emprestimos no topo do devedor. |
 | 1.2.0 | 2026-08-17 | IMP-320 concluido: painel do emprestimo, data de referencia corrigida e JSON fora da tela. |
 | 1.1.0 | 2026-08-17 | IMP-316 e IMP-319 concluidos; IMP-315 concluido no Motor. |
 | 1.0.0 | 2026-08-17 | Backlog inicial IMP-315..319. |

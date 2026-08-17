@@ -103,3 +103,25 @@ export function formString(formData: FormData, key: string, max: number): string
 export function formBoolean(formData: FormData, key: string): boolean {
   return formData.get(key) === "on" || formData.get(key) === "true";
 }
+
+// Traduz o evento do historico para o que o operador entende.
+//
+// O registro chega como `criar.aggregate_criado | ok`, que descreve a mecanica
+// interna. Quem abre a ficha quer saber que o cadastro foi feito, e quando.
+//
+// Comentario de linha, e nao de bloco: o gate de RBAC deste arquivo recusa
+// qualquer asterisco, para impedir permissao com curinga. A regra e mais ampla
+// do que precisa ser, mas e cega por desenho e nao sera afrouxada por
+// comodidade de comentario.
+const ROTULO_ACAO: Readonly<Record<string, string>> = {
+  criar: "Cadastro",
+  atualizar: "Dados atualizados",
+  inativar: "Inativacao",
+  reativar: "Reativacao",
+};
+
+export function rotuloEvento(acao: string, status: string): string {
+  const [familia = acao] = acao.split(".");
+  const titulo = ROTULO_ACAO[familia] ?? acao;
+  return status === "ok" || status === "sucesso" ? titulo : `${titulo} — ${status}`;
+}

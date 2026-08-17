@@ -64,7 +64,10 @@ test("detalhe, historico e comandos idempotentes respeitam RBAC exato", async ({
   await page.goto("/app/devedores");
   await page.getByRole("link", { name: "Consultar" }).first().click();
   await expect(page.getByRole("heading", { name: "Cliente Devedor" })).toBeVisible();
-  await expect(page.getByText("criar.sucesso")).toBeVisible();
+  // O historico deixou de exibir o nome interno do evento. O detalhe tecnico
+  // continua acessivel, porem fechado.
+  await expect(page.getByText("Cadastro", { exact: true }).first()).toBeVisible();
+  await expect(page.getByText("criar.sucesso")).toHaveCount(0);
   // Abrir o Devedor ja mostra a situacao dos emprestimos dele, agrupada pelo
   // estado que o backend devolveu. Grupo sem nada nao aparece.
   await expect(page.getByRole("heading", { name: "Emprestimos deste devedor" })).toBeVisible();
@@ -85,7 +88,7 @@ test("detalhe, historico e comandos idempotentes respeitam RBAC exato", async ({
   await expect(page.getByText("Sem permissao de atualizar Devedor.")).toBeVisible();
   await expect(page.getByText("Sem permissao de inativar Devedor.")).toBeVisible();
   // Sem motor.emprestimo.ler o bloco nega, e o detalhe do Devedor continua util.
-  await expect(page.getByText("Modulo Motor indisponivel para as permissoes efetivas atuais.")).toBeVisible();
+  await expect(page.getByText("Seu acesso atual nao permite ver os emprestimos.")).toBeVisible();
   await expect(page.getByRole("heading", { name: "Cliente Devedor" })).toBeVisible();
 });
 
@@ -98,7 +101,8 @@ test("busca por documento, estados vazios e erros 404/409/422 sao seguros", asyn
   await expect(page).toHaveURL(/\/login$/);
   await login(page, "VAZIO");
   await page.goto("/app/devedores");
-  await expect(page.getByText(/empty/)).toBeVisible();
+  // empty: a ausencia e dita em frase.
+  await expect(page.getByText(/Nenhum devedor cadastrado ainda/)).toBeVisible();
   await page.getByRole("button", { name: "Sair" }).click();
   await expect(page).toHaveURL(/\/login$/);
   await login(page, "NAO-ENCONTRADO");

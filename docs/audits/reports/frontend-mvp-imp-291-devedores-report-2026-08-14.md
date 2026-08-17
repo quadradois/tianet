@@ -85,10 +85,10 @@ Fronteiras preservadas:
 
 | Evidencia | Dimensao | SHA-256 |
 |---|---:|---|
-| `frontend-mvp-imp-291-devedores-list-desktop.png` | 1440x900 | `3a3e1e0610ad4c0c65f5005249c6702fc133d52ca770df68f849c2fdd863a129` |
-| `frontend-mvp-imp-291-devedores-list-mobile.png` | 390x844 | `cc1d272854a42683ea64f3ebb330a2ea72d5623c91365485c874db4a2253bde1` |
-| `frontend-mvp-imp-291-devedor-detail-desktop.png` | 1440x900 | `b08d689966e77fde47fac82161ab4372a1212b07bba5ff3508fee0e7b9ee913d` |
-| `frontend-mvp-imp-291-devedor-form-mobile.png` | 390x844 | `df1db5992e7a3649a851c663305332721bb89a10e5bec262b3000cc422912ca4` |
+| `frontend-mvp-imp-291-devedores-list-desktop.png` | 1440x900 | `2f1f36e9d6a6700a2c1ab8814ff526232ef552fd8571cb3c4f1eadeb2f648d49` |
+| `frontend-mvp-imp-291-devedores-list-mobile.png` | 390x844 | `0239536577d4b708a3efd4667da4313d3550f4da06c13587fff77c051c5076a9` |
+| `frontend-mvp-imp-291-devedor-detail-desktop.png` | 1440x900 | `f6ed0b2ca980e69cbbce339e56344dc15564574d81dbf1472ffba95e851719bd` |
+| `frontend-mvp-imp-291-devedor-form-mobile.png` | 390x844 | `c339f5a6cfc125f8963e391e646d3dc4513f2b32d9e4c1afb8f83a4fcfe415a6` |
 
 ---
 
