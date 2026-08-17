@@ -24,6 +24,14 @@
 > acumulacao (secao 5) antecede a remocao do plano, porque e ela que torna o
 > modelo livre correto e nao depende de remover nada.
 >
+> **A obrigacao na data de acerto e apenas o juro do periodo.** Nao ha valor
+> minimo de amortizacao combinado: amortizar e voluntario, e o devedor quita
+> quando puder e quanto puder.
+>
+> **Atraso nao gera multa nem encargo.** Contam-se os dias corridos de atraso e
+> aplica-se a fracao da taxa correspondente, sobre o mesmo saldo devedor.
+> Atrasar e simplesmente ter mais tempo de juros.
+>
 > **Executada em:** PLAN-030.
 
 ---
@@ -160,8 +168,33 @@ teste de valor cobriu o caso sem pagamento.
 
 ---
 
-## 8. Historico de Versoes
+## 8. A regra de atraso ja estava satisfeita
+
+A correcao da secao 5 acumula ate a data de referencia, qualquer que ela seja.
+Isso **e** a regra de atraso decidida: nao existe calculo separado de mora.
+
+Verificado em `tests/unit/domain/test_motor_juros_saldo.py`, sem nenhuma linha
+de codigo adicional — os dois testes passaram na primeira execucao:
+
+| Situacao | Juros devidos |
+|---|---:|
+| Acerto em dia (01/09) | 500,00 |
+| Nove dias de atraso (10/09) | 650,00 — 500,00 de agosto mais 9/30 de setembro |
+| Encargos, em ambos os casos | 0,00 |
+
+Pagar somente os juros cumpre a obrigacao: o pagamento de 650,00 e integralmente
+alocado a juros, a amortizacao fica em zero e o saldo devedor permanece em
+10.000,00.
+
+Consequencia de projeto: o campo `encargos` do saldo existe e permanece sempre
+zerado. Ele nao e removido — a estrutura ja o carrega e um encargo futuro
+(negociado caso a caso) caberia ali sem alteracao de contrato.
+
+---
+
+## 9. Historico de Versoes
 
 | Versao | Data | Descricao |
 |---------|------|-----------|
+| 1.1.0 | 2026-08-17 | Obrigacao na data de acerto e atraso especificados; verificado que a correcao da secao 5 ja os satisfaz. |
 | 1.0.0 | 2026-08-17 | Abertura e resolucao: dois defeitos de juros, adocao do emprestimo livre com data de pagamento e fim do plano de parcelas. |

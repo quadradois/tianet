@@ -132,3 +132,44 @@ def test_sem_pagamento_a_acumulacao_continua_sobre_o_valor_cheio() -> None:
     # Agosto (31/31) e setembro (30/30) cheios sobre 10.000: 500,00 + 500,00.
     assert saldo.principal == Decimal("10000.00")
     assert saldo.juros == Decimal("1000.00")
+
+
+def test_atraso_e_apenas_mais_dias_do_mesmo_juro_sobre_o_mesmo_saldo() -> None:
+    """A regra de atraso decidida na DR-004, sem multa e sem encargo separado.
+
+    O acerto vencia em 01/09. O devedor so procura o Credor em 10/09. Os nove
+    dias de atraso sao cobrados na fracao da taxa que corresponde a eles, sobre
+    o mesmo saldo — nao ha penalidade, ha mais tempo de juros.
+    """
+    motor = MotorFinanceiro()
+    emprestimo = _emprestimo()
+
+    no_vencimento = motor.consultar_saldo(emprestimo=emprestimo, data_referencia=date(2026, 9, 1))
+    com_atraso = motor.consultar_saldo(emprestimo=emprestimo, data_referencia=date(2026, 9, 10))
+
+    assert no_vencimento.juros == Decimal("500.00")
+    # 500,00 de agosto cheio + 9/30 de um mes de setembro sobre 10.000 = 150,00.
+    assert com_atraso.juros == Decimal("650.00")
+    # Nenhum encargo e somado: atraso nao vira multa.
+    assert com_atraso.encargos == Decimal("0.00")
+
+
+def test_acerto_atrasado_quita_os_juros_do_periodo_e_o_saldo_nao_muda() -> None:
+    """Pagar so os juros e cumprir a obrigacao: a amortizacao e voluntaria."""
+    motor = MotorFinanceiro()
+    emprestimo = _emprestimo()
+
+    resultado = motor.registrar_pagamento(
+        emprestimo=emprestimo,
+        valor=Decimal("650.00"),
+        recebido_em=datetime(2026, 9, 10, tzinfo=UTC),
+        chave_idempotencia="acerto-atrasado",
+        usuario_id=uuid.uuid4(),
+    )
+
+    assert resultado.pagamento.valor_juros == Decimal("650.00")
+    assert resultado.pagamento.valor_amortizacao == Decimal("0.00")
+
+    saldo = motor.consultar_saldo(emprestimo=emprestimo, data_referencia=date(2026, 9, 10))
+    assert saldo.principal == Decimal("10000.00")
+    assert saldo.juros == Decimal("0.00")
