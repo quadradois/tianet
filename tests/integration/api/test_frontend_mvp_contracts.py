@@ -272,7 +272,7 @@ def test_imp_281_idempotency_key_runtime_e_openapi_sao_obrigatorios() -> None:
                 for metodo in rota.methods:
                     inventario.append((rota.path, metodo.lower(), campo.field_info.is_required()))
 
-    assert len(inventario) == 30
+    assert len(inventario) == 31
     assert all(required for _, _, required in inventario)
     for path, metodo, _ in inventario:
         parametros = contrato["paths"][path][metodo]["parameters"]

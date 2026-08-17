@@ -650,7 +650,7 @@ describe("transporte autenticado", () => {
 });
 
 describe("contratos tecnicos", () => {
-  it("confirma 5 operacoes publicas e 102 protegidas no snapshot governado", async () => {
+  it("confirma 5 operacoes publicas e 103 protegidas no snapshot governado", async () => {
     const snapshotPath = resolve(process.cwd(), "..", "docs", "governance", "contracts", "openapi", "frontend-mvp-backend-openapi.json");
     const snapshot: unknown = JSON.parse(await readFile(snapshotPath, "utf8"));
     if (typeof snapshot !== "object" || snapshot === null || !("paths" in snapshot)) throw new Error("snapshot invalido");
@@ -661,8 +661,8 @@ describe("contratos tecnicos", () => {
       return Object.values(item).filter((operation) => typeof operation === "object" && operation !== null && "responses" in operation);
     });
     const protectedCount = operations.filter((operation) => "security" in operation && Array.isArray(operation.security) && operation.security.length > 0).length;
-    expect(operations).toHaveLength(107);
-    expect(protectedCount).toBe(102);
+    expect(operations).toHaveLength(108);
+    expect(protectedCount).toBe(103);
     expect(operations.length - protectedCount).toBe(5);
   });
   it("normaliza correlation e idempotency sem confundir os identificadores", () => {

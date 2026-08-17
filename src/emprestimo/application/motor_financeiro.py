@@ -1121,3 +1121,43 @@ def _desserializar_resultado(conteudo: str | None) -> EmprestimoCriadoResultado:
         parametros_financeiros=dict(dados["parametros_financeiros"]),
         criado_em=datetime.fromisoformat(dados["criado_em"]),
     )
+
+
+@dataclass(frozen=True)
+class EmprestimoComPlano:
+    """Saida do Motor para um lancamento composto (IMP-305, PLAN-027)."""
+
+    emprestimo_id: uuid.UUID
+    quantidade_parcelas: int
+
+
+def criar_emprestimo_e_plano_em(
+    uow: UnitOfWork,
+    *,
+    saida_logica: object,
+    data_referencia: date,
+    motor_factory: Callable[[], MotorFinanceiro] = MotorFinanceiro,
+) -> EmprestimoComPlano:
+    """Cria o Emprestimo e gera o plano dentro de um UnitOfWork ja aberto.
+
+    Existe para que o lancamento composto possa participar da mesma transacao
+    sem importar o Motor: quem orquestra recebe esta funcao injetada e nunca
+    referencia o modulo financeiro. O calculo continua exclusivo do Motor.
+    """
+    try:
+        emprestimo = Emprestimo.criar_de_contrato_liberado(saida_logica)  # type: ignore[arg-type]
+    except ViolacaoInvarianteError as exc:
+        raise TransicaoEstadoInvalidaError(uuid.UUID(int=0), "criar_emprestimo", str(exc)) from exc
+    uow.emprestimo.save(emprestimo)
+
+    try:
+        plano = motor_factory().gerar_plano_parcelas(
+            emprestimo=emprestimo, data_referencia=data_referencia
+        )
+    except ViolacaoInvarianteError as exc:
+        raise TransicaoEstadoInvalidaError(emprestimo.id, "gerar_plano_parcelas", str(exc)) from exc
+
+    uow.emprestimo.save(emprestimo)
+    uow.parcela.save_many(plano.parcelas)
+    uow.memoria_calculo.save(plano.memoria, emprestimo.id)
+    return EmprestimoComPlano(emprestimo_id=emprestimo.id, quantidade_parcelas=len(plano.parcelas))

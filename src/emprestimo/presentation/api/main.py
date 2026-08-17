@@ -68,6 +68,7 @@ from emprestimo.presentation.api.configuracoes_financeiras_routes import (
 from emprestimo.presentation.api.contratos_routes import router as contratos_router
 from emprestimo.presentation.api.devedores_routes import router as devedores_router
 from emprestimo.presentation.api.iam_routes import router as iam_router
+from emprestimo.presentation.api.lancamento_routes import router as lancamento_router
 from emprestimo.presentation.api.motor_routes import router as motor_router
 from emprestimo.presentation.api.observability import (
     install_observability,
@@ -96,6 +97,7 @@ def create_app() -> FastAPI:
     app.include_router(comercial_router)
     app.include_router(contratos_router)
     app.include_router(motor_router)
+    app.include_router(lancamento_router)
     app.include_router(operacao_diaria_router)
     app.include_router(configuracoes_financeiras_router)
     app.include_router(automacao_router)

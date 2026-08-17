@@ -124,6 +124,28 @@ Verificado nos dois sentidos apos a mudanca: alterar um arquivo protegido
 o gate volta a passar. Caminhos novos aparecem listados na saida, entao a
 visibilidade nao foi perdida — apenas deixou de bloquear.
 
+## 5.2 Aposentadoria do gate na CI
+
+A separacao da secao 5.1 resolveu caminhos novos, mas nao arquivos protegidos
+alterados. O PLAN-027 altera arquivos protegidos por definicao: publicar uma
+operacao regera o snapshot OpenAPI, o cliente tipado e os pinos de contagem.
+Na primeira execucao o gate acusou 23 divergencias, todas legitimas.
+
+A causa e o `head` do manifesto: `e48cb72`, o `master` **anterior** ao PR #10.
+Com o PR mergeado, esse delta passou a incluir trabalho que ja esta no `master`
+e cresce a cada commit seguinte. O manifesto mede uma janela que nao existe
+mais.
+
+O gate cumpriu o que existia para provar — que o IMP-304 alterou exatamente o
+que declarou — e esse trabalho esta no `master`. Ele sai da CI e permanece no
+repositorio como evidencia historica, junto com seu manifesto. O PLAN-027 emite
+o proprio no IMP-311, quando tiver o que certificar.
+
+E a cadeia funcionando como projetada: cada manifesto serve ao seu momento de
+certificacao, nao para sempre. As asseracoes de contrato que exigiam a presenca
+do passo na CI foram removidas, e nao reescritas para parecerem verdadeiras —
+a propriedade que afirmavam deixou de existir.
+
 Os 10 paths acrescidos em relacao ao IMP-303 sao a infraestrutura Docker local
 (`Dockerfile`, `docker-compose.yml`, dois `.dockerignore`, `frontend/Dockerfile`),
 o runbook `docs/operations/ambiente-local-docker.md`, o seed local
@@ -162,5 +184,6 @@ passa a ter cenario de regressao contra backend real.
 
 | Versao | Data | Descricao |
 |---|---|---|
+| 1.2.0 | 2026-08-17 | Gate de escopo aposentado da CI (secao 5.2): cumpriu sua certificacao e o manifesto media uma janela inexistente. Script e manifesto permanecem como evidencia. |
 | 1.1.0 | 2026-08-16 | Separacao das duas metades do gate de escopo (secao 5.1): integridade permanece falha dura, inventario congelado vira relato. |
 | 1.0.0 | 2026-08-16 | Relatorio do IMP-304: execucao da DR-002, correcao da falha silenciosa e cenario de jornada real para o formulario Comercial. |
