@@ -286,7 +286,7 @@ class MotorFinanceiro:
         )
         principal = max(emprestimo.principal_original - amortizado, Decimal("0.00"))
         juros = max(
-            self._juros_acumulado(emprestimo, principal, data_referencia) - juros_pago,
+            self._juros_acumulado(emprestimo, data_referencia) - juros_pago,
             Decimal("0.00"),
         )
         encargos = Decimal("0.00")
@@ -497,18 +497,59 @@ class MotorFinanceiro:
     def _juros_acumulado(
         self,
         emprestimo: Emprestimo,
-        principal: Decimal,
         data_referencia: date,
     ) -> Decimal:
-        data_inicio = emprestimo.criado_em.date()
-        if data_referencia <= data_inicio or principal <= Decimal("0.00"):
+        """Juros acumulados desde a origem, trecho a trecho (DR-004).
+
+        A acumulacao anterior media sempre da criacao ate a data de referencia
+        aplicando o saldo **atual** sobre **todo** o periodo decorrido. Cada
+        amortizacao devolvia retroativamente juros ja corretamente cobrados: um
+        emprestimo de 10.000 que amortizou 4.500 passava a ser cobrado como se
+        sempre tivesse sido de 5.500.
+
+        O periodo e quebrado em dois marcos, e so nestes dois:
+
+        - **cada pagamento**, porque muda o saldo sobre o qual a taxa incide;
+        - **cada virada de mes**, porque muda a base de normalizacao da regra
+          (`DOMAIN-030`: o periodo e medido pelos dias do mes a que pertence).
+
+        Sem o segundo marco, dois meses cheios de um emprestimo sem pagamento
+        nenhum custavam 983,87 em vez de 1.000,00, por normalizar setembro pela
+        regua de agosto.
+        """
+        inicio = emprestimo.criado_em.date()
+        if data_referencia <= inicio:
             return Decimal("0.00")
-        periodo = PeriodoFinanceiro(data_inicio=data_inicio, data_fim=data_referencia)
-        return _calcular_juros(
-            principal=principal,
-            taxa_mensal=_taxa_mensal(emprestimo.parametros_financeiros),
-            periodo=periodo,
+
+        amortizado_em: dict[date, Decimal] = {}
+        for pagamento in self._pagamentos(emprestimo.id):
+            recebido = pagamento.recebido_em.date()
+            if inicio < recebido <= data_referencia:
+                amortizado_em[recebido] = (
+                    amortizado_em.get(recebido, Decimal("0.00")) + pagamento.valor_amortizacao
+                )
+
+        marcos = sorted(
+            set(amortizado_em) | set(_viradas_de_mes(inicio, data_referencia)) | {data_referencia}
         )
+        taxa = _taxa_mensal(emprestimo.parametros_financeiros)
+        saldo = emprestimo.principal_original
+        acumulado = Decimal("0.00")
+        atual = inicio
+        for marco in marcos:
+            if marco <= atual:
+                continue
+            if saldo > Decimal("0.00"):
+                acumulado += _calcular_juros(
+                    principal=saldo,
+                    taxa_mensal=taxa,
+                    periodo=PeriodoFinanceiro(data_inicio=atual, data_fim=marco),
+                )
+            # A amortizacao do dia reduz o saldo depois de cobrado o trecho que
+            # termina nele: quem pagou hoje deve os juros ate hoje.
+            saldo = max(saldo - amortizado_em.get(marco, Decimal("0.00")), Decimal("0.00"))
+            atual = marco
+        return _quantizar(acumulado)
 
     def _memoria_plano(
         self,
@@ -612,6 +653,19 @@ class MotorFinanceiro:
                 "encargos": str(pagamento.valor_encargos),
             },
         )
+
+
+def _viradas_de_mes(inicio: date, fim: date) -> tuple[date, ...]:
+    """Primeiro dia de cada mes estritamente entre `inicio` e `fim`."""
+    viradas: list[date] = []
+    ano, mes = (inicio.year, inicio.month + 1) if inicio.month < 12 else (inicio.year + 1, 1)
+    virada = date(ano, mes, 1)
+    while virada < fim:
+        if virada > inicio:
+            viradas.append(virada)
+        ano, mes = (virada.year, virada.month + 1) if virada.month < 12 else (virada.year + 1, 1)
+        virada = date(ano, mes, 1)
+    return tuple(viradas)
 
 
 def _calcular_juros(

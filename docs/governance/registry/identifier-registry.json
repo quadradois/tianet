@@ -133,7 +133,7 @@
       "classe": "DOCUMENT",
       "governadoPor": "sequencial",
       "regraNumeracao": "ultimo + 1",
-      "ultimo": 3,
+      "ultimo": 4,
       "status": "ACTIVE",
       "validador": "docs:validate/identifiers",
       "local": "docs/governance/decision-requests/"
