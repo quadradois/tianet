@@ -70,7 +70,7 @@ function form(overrides: Record<string, string> = {}, omit: readonly string[] = 
     nome: "Cliente do Wizard",
     contato_whatsapp: "(11) 98888-7766",
     valor: "6000,00",
-    taxa: "0,0300",
+    taxa: "3",
     parcelas: "3",
     primeiro_vencimento: "2026-09-20",
     data_referencia: "2026-08-17",
@@ -124,7 +124,7 @@ describe("BFF Lancamento", () => {
     const corpo = await request.json();
     expect(corpo.condicoes).toEqual({
       valor_contratado: "6000.00",
-      taxa_juros_mensal: "0.0300",
+      taxa_juros_mensal: "0.03",
       quantidade_parcelas: 3,
       primeiro_vencimento: "2026-09-20",
       moeda: "BRL",

@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   cpfValido,
   normalizarDecimal,
+  percentualParaFracao,
   permissoesFaltantes,
   podeLancar,
   validarCondicoes,
@@ -18,7 +19,7 @@ const TODAS = [
 
 const CONDICOES_OK = {
   valor: "6000.00",
-  taxa: "0.0300",
+  taxa: "3",
   parcelas: "3",
   primeiroVencimento: "2026-09-20",
 };
@@ -36,6 +37,8 @@ describe("lancamento-policy", () => {
   it("valida a forma das condicoes sem calcular nada", () => {
     expect(validarCondicoes(CONDICOES_OK)).toEqual([]);
     expect(validarCondicoes({ ...CONDICOES_OK, valor: "6.000,00" })).toHaveLength(1);
+    expect(validarCondicoes({ ...CONDICOES_OK, taxa: "0,05" })).toHaveLength(1);
+    expect(validarCondicoes({ ...CONDICOES_OK, taxa: "101" })).toHaveLength(1);
     expect(validarCondicoes({ ...CONDICOES_OK, parcelas: "0" })).toHaveLength(1);
     expect(validarCondicoes({ ...CONDICOES_OK, parcelas: "2.5" })).toHaveLength(1);
     expect(validarCondicoes({ ...CONDICOES_OK, parcelas: "361" })).toHaveLength(1);
@@ -79,5 +82,20 @@ describe("lancamento-policy", () => {
       "CPF invalido: confira os numeros digitados.",
     ]);
     expect(validarDevedor({ ...base, documento: "529.982.247-25" })).toEqual([]);
+  });
+
+  it("taxa e percentual inteiro e vira fracao sem aritmetica de ponto flutuante", () => {
+    // Um lancamento real saiu com 500% ao mes porque o campo aceitava decimal e
+    // o Credor digitou 5 pensando em porcento. Agora 5 significa 5%.
+    expect(percentualParaFracao("5")).toBe("0.05");
+    expect(percentualParaFracao("3")).toBe("0.03");
+    expect(percentualParaFracao("12")).toBe("0.12");
+    expect(percentualParaFracao("100")).toBe("1.00");
+    expect(percentualParaFracao("0")).toBe("0.00");
+
+    // Decimal e fora de faixa nao passam da validacao.
+    for (const taxa of ["0,05", "2.5", "101", "", "abc"]) {
+      expect(validarCondicoes({ ...CONDICOES_OK, taxa })).not.toEqual([]);
+    }
   });
 });

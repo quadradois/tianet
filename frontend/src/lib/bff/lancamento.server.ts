@@ -4,6 +4,7 @@ import type { components } from "../api/openapi.generated";
 import { createBackendClient } from "../api/client.server";
 import {
   normalizarDecimal,
+  percentualParaFracao,
   podeLancar,
   validarCondicoes,
   validarDevedor,
@@ -115,7 +116,8 @@ export async function criarLancamento(
   const body: LancamentoCreateRequest = {
     condicoes: {
       valor_contratado: normalizarDecimal(condicoes.valor),
-      taxa_juros_mensal: normalizarDecimal(condicoes.taxa),
+      // O Credor digita percentual inteiro; o contrato exige fracao.
+      taxa_juros_mensal: percentualParaFracao(condicoes.taxa),
       quantidade_parcelas: Number(condicoes.parcelas),
       primeiro_vencimento: condicoes.primeiroVencimento,
       moeda: "BRL",

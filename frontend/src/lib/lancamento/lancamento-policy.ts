@@ -65,7 +65,13 @@ const DECIMAL = /^\d{1,12}([.,]\d{1,4})?$/;
 export function validarCondicoes(entrada: CondicoesEntrada): readonly string[] {
   const erros: string[] = [];
   if (!DECIMAL.test(entrada.valor.trim())) erros.push("Informe o valor emprestado.");
-  if (!DECIMAL.test(entrada.taxa.trim())) erros.push("Informe a taxa de juros mensal.");
+  // Percentual inteiro: `5` significa 5% ao mes. Aceitar decimal aqui foi o que
+  // fez um lancamento sair com taxa de 500% — o Credor digitou 5 pensando em
+  // porcento e o contrato leu 5 como fracao.
+  const taxa = entrada.taxa.trim();
+  if (!/^\d{1,3}$/.test(taxa) || Number(taxa) > 100) {
+    erros.push("Informe a taxa de juros ao mes em numero inteiro, de 0 a 100.");
+  }
   const parcelas = Number(entrada.parcelas);
   if (!Number.isInteger(parcelas) || parcelas < 1 || parcelas > 360) {
     erros.push("Informe a quantidade de parcelas, de 1 a 360.");
@@ -120,4 +126,18 @@ export function validarDevedor(entrada: DevedorEntrada): readonly string[] {
 
 export function normalizarDecimal(valor: string): string {
   return valor.trim().replace(",", ".");
+}
+
+/**
+ * Converte a taxa percentual inteira digitada pelo Credor na fracao que o
+ * contrato exige: `5` vira `"0.05"`.
+ *
+ * Feito por manipulacao de texto, nunca por divisao. `5/100` em ponto flutuante
+ * abre a porta para artefatos de precisao num valor financeiro, e o Motor
+ * permanece a unica autoridade sobre o calculo — isto e conversao de unidade na
+ * entrada, como formatar uma data, nao regra de negocio.
+ */
+export function percentualParaFracao(percentualInteiro: string): string {
+  const digitos = percentualInteiro.trim().padStart(3, "0");
+  return `${digitos.slice(0, -2)}.${digitos.slice(-2)}`;
 }

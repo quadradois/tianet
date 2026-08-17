@@ -148,14 +148,19 @@ export function LancamentoWizard({ action, devedores, initialState }: WizardProp
               />
             </div>
             <div className="grid gap-2">
-              <Label htmlFor="taxa">Taxa de juros mensal</Label>
+              <Label htmlFor="taxa">Juros ao mes (%)</Label>
               <Input
+                aria-describedby="taxa-ajuda"
                 id="taxa"
-                inputMode="decimal"
+                inputMode="numeric"
                 name="taxa"
                 onChange={(event) => setTaxa(event.target.value)}
+                placeholder="5"
                 value={taxa}
               />
+              <p className="text-sm text-muted-foreground" id="taxa-ajuda">
+                Numero inteiro. Digite 5 para 5% ao mes.
+              </p>
             </div>
             <div className="grid gap-2">
               <Label htmlFor="parcelas">Quantidade de parcelas</Label>
@@ -190,8 +195,8 @@ export function LancamentoWizard({ action, devedores, initialState }: WizardProp
                 <dd>{valor}</dd>
               </div>
               <div>
-                <dt className="text-muted-foreground">Taxa mensal</dt>
-                <dd>{taxa}</dd>
+                <dt className="text-muted-foreground">Juros ao mes</dt>
+                <dd>{taxa ? `${taxa}%` : ""}</dd>
               </div>
               <div>
                 <dt className="text-muted-foreground">Parcelas</dt>

@@ -40,7 +40,7 @@ function preencherData(valor: string) {
 
 async function preencherCondicoes(user: ReturnType<typeof userEvent.setup>) {
   await user.type(screen.getByLabelText("Valor emprestado"), "6000,00");
-  await user.type(screen.getByLabelText("Taxa de juros mensal"), "0,0300");
+  await user.type(screen.getByLabelText("Juros ao mes (%)"), "3");
   await user.type(screen.getByLabelText("Quantidade de parcelas"), "3");
   preencherData("2026-09-20");
 }
@@ -67,7 +67,7 @@ describe("LancamentoWizard", () => {
     await user.click(screen.getByRole("button", { name: "Continuar" }));
 
     await user.type(screen.getByLabelText("Valor emprestado"), "6000,00");
-    await user.type(screen.getByLabelText("Taxa de juros mensal"), "0,0300");
+    await user.type(screen.getByLabelText("Juros ao mes (%)"), "3");
     await user.type(screen.getByLabelText("Quantidade de parcelas"), "0");
     preencherData("2026-09-20");
 
