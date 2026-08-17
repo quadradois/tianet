@@ -202,6 +202,64 @@ export function MotorPage({ createAction, devedores, filters, initialContractId,
   );
 }
 
+/**
+ * Emprestimos de um Devedor, para embutir na pagina de detalhe dele.
+ *
+ * Vive no modulo Motor de proposito. O Devedores e proibido por gate de nomear
+ * regra financeira, e a proibicao esta certa: quem apresenta Emprestimo e o
+ * Motor. A pagina de Devedor apenas embute este bloco, entao o gate continua
+ * valendo integralmente em `components/devedores/`.
+ *
+ * Somente leitura, e somente valores que o backend devolveu. Os grupos vazios
+ * sao omitidos: na pagina de um Devedor especifico eles seriam ruido, e a
+ * ausencia total ja tem mensagem propria.
+ */
+export function EmprestimosDoDevedor({ recoveryHref, result }: Readonly<{ recoveryHref: string; result: MotorReadResult<LoanList> }>) {
+  return (
+    <section className="space-y-4">
+      <h2 className="text-2xl font-semibold tracking-tight">Emprestimos deste devedor</h2>
+      {result.kind === "denied" ? <DeniedPanel /> : null}
+      {result.kind === "problem" ? <ProblemPanel problem={result.problem} recoveryHref={recoveryHref} /> : null}
+      {result.kind === "ready" && result.data.items.length === 0 ? (
+        <p className="rounded-2xl border border-dashed border-border p-6 text-sm text-muted-foreground">
+          Este devedor ainda nao tem nenhum emprestimo.
+        </p>
+      ) : null}
+      {result.kind === "ready"
+        ? agruparPorSituacao(result.data.items)
+            .filter((grupo) => grupo.emprestimos.length > 0)
+            .map((grupo) => (
+              <div className="space-y-3" key={grupo.chave}>
+                <h3 className="text-lg font-semibold">
+                  {grupo.titulo} <span className="text-base font-normal text-muted-foreground">({grupo.emprestimos.length})</span>
+                </h3>
+                <ul className="grid list-none gap-3 p-0">
+                  {grupo.emprestimos.map((loan) => (
+                    <li className="rounded-2xl border border-border bg-card p-4 shadow-sm" key={loan.id}>
+                      <div className="flex flex-wrap items-center justify-between gap-3">
+                        <p className="text-sm">
+                          <span className="text-lg font-semibold">
+                            {loan.moeda} {loan.principal_original}
+                          </span>
+                          <span className="text-muted-foreground"> · desde {loan.criado_em.slice(0, 10)}</span>
+                        </p>
+                        <Link
+                          className="shrink-0 rounded-xl border border-border px-3 py-2 text-sm font-semibold text-primary underline-offset-4 hover:underline"
+                          href={`/app/motor/${loan.id}`}
+                        >
+                          Ver parcelas
+                        </Link>
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ))
+        : null}
+    </section>
+  );
+}
+
 function DetailCommands({
   generateInstallmentsAction,
   initialState,

@@ -32,6 +32,19 @@ async function prepareEvidenceScreenshot(page: Page) {
     style.textContent = "[aria-live='polite'] { visibility: hidden !important; }";
     document.head.appendChild(style);
     window.scrollTo(0, 0);
+    // Congela o Correlation ID: e um UUID novo a cada requisicao. Mesmo dentro
+    // da regiao escondida por `visibility: hidden` ele desestabiliza a captura,
+    // porque a regiao continua ocupando layout e glifos diferentes quebram a
+    // linha em pontos diferentes, deslocando tudo abaixo. A substituicao mantem
+    // os mesmos 36 caracteres.
+    const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
+    for (let node = walker.nextNode(); node; node = walker.nextNode()) {
+      const value = node.nodeValue?.trim() ?? "";
+      if (UUID.test(value) && (node.parentElement?.textContent ?? "").includes("Correlation ID")) {
+        node.nodeValue = "00000000-0000-4000-8000-00000000evid";
+      }
+    }
   });
 }
 

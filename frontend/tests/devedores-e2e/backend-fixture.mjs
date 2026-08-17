@@ -23,7 +23,25 @@ function modeFromAuthorization(request) {
 function permissions(mode) {
   if (mode === "nenhuma") return [];
   if (mode === "leitura") return ["devedor.ler"];
-  return ["devedor.ler", "devedor.criar", "devedor.atualizar", "devedor.inativar", "devedor.reativar"];
+  // motor.emprestimo.ler acompanha o Credor real: o detalhe do Devedor embute os
+  // emprestimos dele. O modo "leitura" segue sem ela, para exercitar a negativa.
+  return ["devedor.ler", "devedor.criar", "devedor.atualizar", "devedor.inativar", "devedor.reativar", "motor.emprestimo.ler"];
+}
+
+function loan(overrides = {}) {
+  return {
+    carteira_id: IDS.wallet,
+    contrato_id: id(30),
+    criado_em: "2026-08-14T10:00:00Z",
+    devedor_id: IDS.debtor,
+    estado: "ativo",
+    id: id(40),
+    moeda: "BRL",
+    parametros_financeiros: { origem: "contrato" },
+    principal_original: "1000.00",
+    tenant_id: IDS.tenant,
+    ...overrides,
+  };
 }
 
 function operationalContext(mode) {
@@ -96,6 +114,10 @@ const server = createServer(async (request, response) => {
   }
   const mode = modeFromAuthorization(request);
   if (mode === "lento") await new Promise((resolve) => setTimeout(resolve, 350));
+  if (request.method === "GET" && url.pathname === `/credit/carteiras/${IDS.wallet}/emprestimos`) {
+    if (mode === "vazio") return send(response, 200, { items: [], page: 1, pages: 0, size: 100, total: 0 }, correlation);
+    return send(response, 200, { items: [loan(), loan({ estado: "quitado", id: id(41), principal_original: "2500.00" })], page: 1, pages: 1, size: 100, total: 2 }, correlation);
+  }
   if (!url.pathname.startsWith(`/credit/carteiras/${IDS.wallet}/devedores`)) {
     return send(response, 404, { codigo: "devedor_nao_encontrado", mensagem: "detalhe cross-carteira" }, correlation);
   }

@@ -85,10 +85,24 @@ Fronteiras preservadas:
 
 | Evidencia | Dimensao | SHA-256 |
 |---|---:|---|
-| `frontend-mvp-imp-291-devedores-list-desktop.png` | 1440x900 | `0359c3c6a5ec5dc08f689c263edcac080800a7e8c72389bbbf7941d26dfaf8b6` |
-| `frontend-mvp-imp-291-devedores-list-mobile.png` | 390x844 | `03c52e2c532c174b7656df2996968132cd948bf4f87908698c972e3a5c5634e3` |
-| `frontend-mvp-imp-291-devedor-detail-desktop.png` | 1440x900 | `6c1d687d72224accacdcf9d033e3717f981cd0bf09f970883685e28d876fc577` |
-| `frontend-mvp-imp-291-devedor-form-mobile.png` | 390x844 | `dc8c0762e48b50e48eb107787a2cf306dac47bd1122e6f07fc6b7365f7b47863` |
+| `frontend-mvp-imp-291-devedores-list-desktop.png` | 1440x900 | `3a3e1e0610ad4c0c65f5005249c6702fc133d52ca770df68f849c2fdd863a129` |
+| `frontend-mvp-imp-291-devedores-list-mobile.png` | 390x844 | `cc1d272854a42683ea64f3ebb330a2ea72d5623c91365485c874db4a2253bde1` |
+| `frontend-mvp-imp-291-devedor-detail-desktop.png` | 1440x900 | `b08d689966e77fde47fac82161ab4372a1212b07bba5ff3508fee0e7b9ee913d` |
+| `frontend-mvp-imp-291-devedor-form-mobile.png` | 390x844 | `df1db5992e7a3649a851c663305332721bb89a10e5bec262b3000cc422912ca4` |
+
+---
+
+> **Pinos avancados no IMP-310** (PLAN-027). Duas causas distintas, ambas reais:
+>
+> 1. **A tela mudou.** O detalhe do Devedor passou a embutir os emprestimos dele,
+>    e o fixture passou a conceder `motor.emprestimo.ler` — o que faz o item
+>    "Motor" aparecer na navegacao tambem nas capturas de lista.
+> 2. **A evidencia era irreprodutivel.** As capturas de detalhe variavam entre
+>    execucoes identicas: o Correlation ID e um UUID novo a cada requisicao e era
+>    impresso na tela apos Inativar/Reativar. O pino de SHA registrava ruido, nao
+>    prova. A jornada agora congela o Correlation ID antes da captura, preservando
+>    os 36 caracteres para nao deslocar o layout. Verificado: 4/4 identicas em
+>    execucoes consecutivas.
 
 ---
 

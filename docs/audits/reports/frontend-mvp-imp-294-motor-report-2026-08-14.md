@@ -68,7 +68,7 @@ reverter arquivos.
 | `frontend-mvp-imp-294-motor-list-desktop.png` | 1440x900 | `dcce7a9460b1815840224dbe5de165c5e846f44ae0c76541d9854b07322ef4f7` |
 | `frontend-mvp-imp-294-motor-list-mobile.png` | 390x844 | `724346c3fadddae966ec6a0b4130de2cc0947d2b693b78dc0b6c7e912e072965` |
 | `frontend-mvp-imp-294-emprestimo-detail-desktop.png` | 1440x900 | `bac442ac94fa6f6dcb70dde988c1eef7178d97397d256b75dcf52dcab788c6cf` |
-| `frontend-mvp-imp-294-pagamento-flow-mobile.png` | 390x844 | `52a3f492c8191b43a48c05088c8929371becc3d4bdf28dea88c5a2fbcaa3db25` |
+| `frontend-mvp-imp-294-pagamento-flow-mobile.png` | 390x844 | `750fdd46508028c1e1ba942a64e9b84bb99afa98c954e96eea2035e64ccacefc` |
 
 ---
 
@@ -77,16 +77,23 @@ reverter arquivos.
 > as capturas mudaram porque a tela mudou. Verificadas estaveis em quatro
 > execucoes consecutivas do `npm run test:motor`.
 >
-> **Defeito conhecido nas duas capturas de detalhe.** Elas variam entre execucoes
-> identicas, sem nenhuma alteracao de codigo: 34% dos pixels diferem, em toda a
-> area da imagem, com o texto pintado identico nas duas execucoes. Nenhum
-> deslocamento vertical entre -40 e +40 pixels realinha as imagens, entao nao e
-> simples rolagem. A causa nao foi isolada e o defeito e anterior ao IMP-309 —
-> por isso os pinos de detalhe permanecem nos bytes ja versionados, e nao nos
-> gerados localmente. Consequencia pratica: quem rodar o Playwright do Motor
-> localmente vera o gate `test-plan-025-contracts` acusar divergencia nessas duas
-> evidencias. Em CI nao ocorre, porque a certificacao roda antes do E2E
-> regenerar os PNGs.
+> **Causa da irreprodutibilidade isolada e corrigida no IMP-310.** As capturas de
+> detalhe variavam entre execucoes identicas: 34% dos pixels diferiam, em toda a
+> area da imagem. A causa e o Correlation ID — um UUID novo a cada requisicao.
+> Mesmo dentro da regiao escondida por `visibility: hidden`, ele desestabiliza a
+> captura, porque a regiao continua ocupando layout e glifos diferentes quebram
+> a linha em pontos diferentes, deslocando todo o conteudo abaixo. A jornada
+> agora o congela antes da captura, preservando os 36 caracteres.
+>
+> Resultado medido: `pagamento-flow-mobile` passou a ser deterministico e teve o
+> pino avancado. Em `emprestimo-detail-desktop` a instabilidade caiu de 441.801
+> para 9.616 pixels, confinados a uma faixa de 8 pixels na borda inferior da
+> viewport — residuo nao isolado. Por isso o pino dessa unica evidencia
+> permanece nos bytes ja versionados: a tela de detalhe nao mudou no IMP-310, e
+> pinar bytes instaveis registraria ruido em vez de prova. Consequencia pratica:
+> quem rodar o Playwright do Motor localmente vera o gate
+> `test-plan-025-contracts` acusar divergencia apenas nessa evidencia. Em CI nao
+> ocorre, porque a certificacao roda antes do E2E regenerar os PNGs.
 
 ---
 

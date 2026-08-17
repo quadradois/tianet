@@ -2,9 +2,9 @@
 
 **ID:** PLAN-027-EXEC
 
-**Versao:** 1.4.0
+**Versao:** 1.5.0
 
-**Status:** IMP-305, IMP-306, IMP-308 e IMP-309 concluidos; IMP-307, IMP-310 e IMP-311 planejados
+**Status:** IMP-305, IMP-306, IMP-308, IMP-309 e IMP-310 concluidos; IMP-307 e IMP-311 planejados
 
 ---
 
@@ -152,7 +152,17 @@ aprovacao permanece porque e a caixa de entrada do agente de IA
 - **Dependencias:** IMP-309.
 - **Criterios de conclusao:** somente leitura; somente valores retornados.
 - **Suite minima:** componente e Playwright.
-- **Status:** Planejado.
+- **Status:** Concluido.
+- **Nota de execucao:** o bloco reusa o filtro `devedor_id` que a listagem de
+  Emprestimos ja aceita — nenhuma superficie nova. Grupos vazios sao omitidos na
+  pagina de um Devedor especifico, e a ausencia total tem mensagem propria.
+- **Guardrail respeitado:** o gate de Devedores proibe **vocabulario**
+  financeiro (`emprestimo`, `parcela`, `saldo`) em `components/devedores/`,
+  `lib/bff/devedores.server.ts` e `lib/devedores/devedores-policy.ts`. Em vez de
+  afrouxar a regra ou de contorna-la criando arquivo irmao nao varrido — que
+  seria repetir a evasao documentada em `dependencies.py:643` —, a apresentacao
+  de Emprestimo ficou em `components/motor/`, que ja e governado para isso, e a
+  pagina do Devedor apenas a embute. O gate segue valendo integralmente.
 
 ---
 
@@ -193,6 +203,7 @@ aprovacao permanece porque e a caixa de entrada do agente de IA
 
 | Versao | Data | Descricao |
 |---|---|---|
+| 1.5.0 | 2026-08-17 | IMP-310 concluido: Devedor abre com os emprestimos dele; causa da evidencia visual irreprodutivel isolada e corrigida. |
 | 1.4.0 | 2026-08-17 | IMP-309 concluido: lista em tres grupos pelo estado oficial, Devedor pelo nome e evidencia visual repinada. |
 | 1.3.0 | 2026-08-17 | IMP-308 concluido em unidade, componente, BFF e contrato; verificacao em stack real pendente. |
 | 1.2.0 | 2026-08-16 | IMP-306 concluido: endpoint de lancamento publicado, inventario em 108/137 e pinos de contrato avancados. |

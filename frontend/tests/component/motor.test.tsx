@@ -1,7 +1,7 @@
 import { render, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
-import { MotorDetailPage, MotorPage } from "../../src/components/motor/motor";
+import { EmprestimosDoDevedor, MotorDetailPage, MotorPage } from "../../src/components/motor/motor";
 import { INITIAL_MOTOR_ACTION_STATE, type Balance, type CalculationMemory, type InstallmentPlan, type Loan, type LoanList, type SettlementPreview } from "../../src/lib/motor/motor-policy";
 
 const permissions = [
@@ -135,6 +135,27 @@ describe("Motor UI", () => {
     expect(screen.queryByText(encerrado.devedor_id)).not.toBeInTheDocument();
 
     expect(screen.getAllByRole("link", { name: /Ver parcelas/i })).toHaveLength(3);
+  });
+
+  it("embute os emprestimos do Devedor, omitindo grupo vazio e sem deduzir situacao", () => {
+    const quitado: Loan = { ...loan, estado: "quitado", id: "00000000-0000-4000-8000-000000000043" };
+    const list: LoanList = { items: [loan, quitado], page: 1, pages: 1, size: 100, total: 2 };
+    render(<EmprestimosDoDevedor recoveryHref="/session/recover" result={{ kind: "ready", data: list }} />);
+
+    expect(screen.getByRole("heading", { name: /Emprestimos deste devedor/i })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: /Em andamento \(1\)/i })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: /Quitados \(1\)/i })).toBeInTheDocument();
+    // Na pagina de um Devedor especifico, grupo sem nada e ruido.
+    expect(screen.queryByRole("heading", { name: /Encerrados/i })).not.toBeInTheDocument();
+    expect(screen.getAllByRole("link", { name: /Ver parcelas/i })).toHaveLength(2);
+  });
+
+  it("declara ausencia total de emprestimo do Devedor sem inventar grupo", () => {
+    const list: LoanList = { items: [], page: 1, pages: 0, size: 100, total: 0 };
+    render(<EmprestimosDoDevedor recoveryHref="/session/recover" result={{ kind: "ready", data: list }} />);
+
+    expect(screen.getByText(/Este devedor ainda nao tem nenhum emprestimo/i)).toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: /Em andamento/i })).not.toBeInTheDocument();
   });
 
   it("mostra denied sem tentar fallback permissivo", () => {
