@@ -123,6 +123,42 @@ export function resolveLoanFilters(query: Record<string, string | string[] | und
   };
 }
 
+/**
+ * Os tres grupos que o Credor pediu, cada um amarrado a um estado que o backend
+ * retorna. Nao ha derivacao: "quitado" e o estado oficial do Emprestimo, nunca
+ * uma conclusao tirada de datas ou de saldo no browser.
+ */
+export const SITUACOES = [
+  {
+    chave: "em-andamento",
+    estado: "ativo",
+    titulo: "Em andamento",
+    vazio: "Nenhum emprestimo em andamento.",
+  },
+  {
+    chave: "quitados",
+    estado: "quitado",
+    titulo: "Quitados",
+    vazio: "Nenhum emprestimo quitado ainda.",
+  },
+  {
+    chave: "encerrados",
+    estado: "cancelado",
+    titulo: "Encerrados",
+    vazio: "Nenhum emprestimo encerrado.",
+  },
+] as const satisfies readonly { chave: string; estado: LoanState; titulo: string; vazio: string }[];
+
+export type Situacao = (typeof SITUACOES)[number];
+
+/** Separa a pagina retornada nos tres grupos, comparando o estado literalmente. */
+export function agruparPorSituacao(loans: readonly Loan[]): readonly (Situacao & { emprestimos: readonly Loan[] })[] {
+  return SITUACOES.map((situacao) => ({
+    ...situacao,
+    emprestimos: loans.filter((loan) => loan.estado === situacao.estado),
+  }));
+}
+
 export function allowedMotorCommands(loan: Pick<Loan, "estado">, permissions: readonly string[]): readonly MotorCommand[] {
   if (loan.estado !== "ativo") return [];
   const commands: MotorCommand[] = [];

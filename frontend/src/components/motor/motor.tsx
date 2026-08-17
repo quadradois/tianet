@@ -7,6 +7,7 @@ import {
   MOTOR_PAYMENT_CREATE_PERMISSION,
   MOTOR_RENEGOTIATION_CREATE_PERMISSION,
   MOTOR_SETTLEMENT_EXECUTE_PERMISSION,
+  agruparPorSituacao,
   hasExactPermission,
   type Balance,
   type CalculationMemory,
@@ -25,6 +26,8 @@ type MotorAction = (state: MotorActionState, formData: FormData) => Promise<Moto
 
 type MotorPageProps = Readonly<{
   createAction: MotorAction;
+  /** devedor_id -> nome, resolvido no servidor. Vazio quando falta permissao de leitura de Devedor. */
+  devedores: ReadonlyMap<string, string>;
   filters: LoanFilters;
   initialContractId?: string | undefined;
   initialState: MotorActionState;
@@ -113,15 +116,65 @@ function LoanCard({ loan }: { loan: Loan }) {
   );
 }
 
-export function MotorPage({ createAction, filters, initialContractId, initialState, permissions, recoveryHref, result }: MotorPageProps) {
+/**
+ * Linha da lista operacional: quem, quanto e desde quando.
+ *
+ * O identificador do Emprestimo deixa de ser o titulo. Um UUID nao diz nada a
+ * quem emprestou o proprio dinheiro; o nome do Devedor diz. O identificador
+ * continua acessivel no destino do link, para suporte e auditoria.
+ */
+function LoanRow({ devedor, loan }: { devedor: string | undefined; loan: Loan }) {
   return (
-    <main className="space-y-6 p-6">
-      <span className="sr-only">loading empty denied 404 409 422 overflow</span>
+    <li className="rounded-2xl border border-border bg-card p-4 shadow-sm">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div className="min-w-0">
+          <h3 className="truncate text-lg font-semibold">{devedor ?? "Devedor nao identificado"}</h3>
+          <p className="text-sm text-muted-foreground">
+            {loan.moeda} {loan.principal_original} · desde {loan.criado_em.slice(0, 10)}
+          </p>
+        </div>
+        <Link
+          className="shrink-0 rounded-xl border border-border px-3 py-2 text-sm font-semibold text-primary underline-offset-4 hover:underline"
+          href={`/app/motor/${loan.id}`}
+        >
+          Ver parcelas
+        </Link>
+      </div>
+    </li>
+  );
+}
+
+function SituacaoSection({
+  devedores,
+  emprestimos,
+  titulo,
+  vazio,
+}: Readonly<{ devedores: ReadonlyMap<string, string>; emprestimos: readonly Loan[]; titulo: string; vazio: string }>) {
+  return (
+    <section className="space-y-3">
+      <h2 className="text-xl font-semibold">
+        {titulo} <span className="text-base font-normal text-muted-foreground">({emprestimos.length})</span>
+      </h2>
+      {emprestimos.length === 0 ? (
+        <p className="rounded-2xl border border-dashed border-border p-6 text-sm text-muted-foreground">{vazio}</p>
+      ) : (
+        <ul className="grid list-none gap-3 p-0">
+          {emprestimos.map((loan) => (
+            <LoanRow devedor={devedores.get(loan.devedor_id)} key={loan.id} loan={loan} />
+          ))}
+        </ul>
+      )}
+    </section>
+  );
+}
+
+export function MotorPage({ createAction, devedores, filters, initialContractId, initialState, permissions, recoveryHref, result }: MotorPageProps) {
+  return (
+    <main className="space-y-8 p-6">
       <header className="space-y-2">
-        <p className="text-sm font-medium text-muted-foreground">Motor Financeiro</p>
-        <h1 className="text-3xl font-semibold tracking-tight">Emprestimos e pagamentos</h1>
+        <h1 className="text-3xl font-semibold tracking-tight">Meus emprestimos</h1>
         <p className="max-w-3xl text-sm text-muted-foreground">
-          Crie Emprestimo a partir de Contrato liberado, consulte parcelas, saldo, memoria e quitacao sem recalculo local.
+          Separados pela situacao registrada em cada operacao. Abra um emprestimo para ver as parcelas e registrar pagamento.
         </p>
       </header>
       {hasExactPermission(permissions, MOTOR_LOAN_CREATE_PERMISSION) ? (
@@ -130,19 +183,20 @@ export function MotorPage({ createAction, filters, initialContractId, initialSta
       {result.kind === "denied" ? <DeniedPanel /> : null}
       {result.kind === "problem" ? <ProblemPanel problem={result.problem} recoveryHref={recoveryHref} /> : null}
       {result.kind === "ready" ? (
-        <section className="space-y-4">
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <h2 className="text-xl font-semibold">Carteira propria</h2>
-            <p className="text-sm text-muted-foreground">Pagina {filters.page} / tamanho {filters.size}</p>
-          </div>
-          {result.data.items.length === 0 ? (
-            <div className="rounded-2xl border border-dashed border-border p-6 text-sm text-muted-foreground">empty: nenhum Emprestimo oficial retornado.</div>
-          ) : (
-            <div className="grid gap-4">
-              {result.data.items.map((loan) => <LoanCard key={loan.id} loan={loan} />)}
-            </div>
-          )}
-        </section>
+        <div className="space-y-8">
+          {agruparPorSituacao(result.data.items).map((grupo) => (
+            <SituacaoSection
+              devedores={devedores}
+              emprestimos={grupo.emprestimos}
+              key={grupo.chave}
+              titulo={grupo.titulo}
+              vazio={grupo.vazio}
+            />
+          ))}
+          <p className="text-sm text-muted-foreground">
+            Pagina {filters.page} de {result.data.pages} · {result.data.total} emprestimos no total
+          </p>
+        </div>
       ) : null}
     </main>
   );

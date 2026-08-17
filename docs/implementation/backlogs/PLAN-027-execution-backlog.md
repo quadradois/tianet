@@ -2,9 +2,9 @@
 
 **ID:** PLAN-027-EXEC
 
-**Versao:** 1.3.0
+**Versao:** 1.4.0
 
-**Status:** IMP-305, IMP-306 e IMP-308 concluidos; IMP-307 e IMP-309..311 planejados
+**Status:** IMP-305, IMP-306, IMP-308 e IMP-309 concluidos; IMP-307, IMP-310 e IMP-311 planejados
 
 ---
 
@@ -131,7 +131,19 @@ aprovacao permanece porque e a caixa de entrada do agente de IA
 - **Criterios de conclusao:** nenhuma classificacao calculada no frontend;
   estados vazios explicitos.
 - **Suite minima:** componente e Playwright.
-- **Status:** Planejado.
+- **Status:** Concluido.
+- **Nota de execucao:** o agrupamento compara `loan.estado` literalmente com o
+  estado que o backend devolve (`ativo`/`quitado`/`cancelado`); nao ha derivacao
+  por data ou por saldo. Cada grupo declara a propria ausencia, em vez de uma
+  unica mensagem para a pagina inteira. O nome do Devedor substitui o UUID como
+  titulo da linha e e resolvido no servidor com **uma** chamada para a pagina
+  toda, nunca uma por emprestimo; sem `devedor.ler` o rotulo degrada para
+  "Devedor nao identificado" e a lista de emprestimos continua intacta.
+- **Nota de gate:** as duas evidencias visuais da lista foram repinadas porque a
+  tela mudou, e verificadas estaveis em quatro execucoes. As duas evidencias de
+  **detalhe** foram encontradas nao deterministicas — variam entre execucoes
+  identicas sem alteracao de codigo. Defeito anterior a este IMP, com medicao e
+  consequencia registradas no relatorio do IMP-294.
 
 ### IMP-310 - Devedor com situacao do emprestimo
 
@@ -181,6 +193,7 @@ aprovacao permanece porque e a caixa de entrada do agente de IA
 
 | Versao | Data | Descricao |
 |---|---|---|
+| 1.4.0 | 2026-08-17 | IMP-309 concluido: lista em tres grupos pelo estado oficial, Devedor pelo nome e evidencia visual repinada. |
 | 1.3.0 | 2026-08-17 | IMP-308 concluido em unidade, componente, BFF e contrato; verificacao em stack real pendente. |
 | 1.2.0 | 2026-08-16 | IMP-306 concluido: endpoint de lancamento publicado, inventario em 108/137 e pinos de contrato avancados. |
 | 1.1.0 | 2026-08-16 | IMP-305 concluido: lancamento composto em transacao unica, com a etapa financeira injetada para respeitar o guardrail de exclusividade do Motor. |

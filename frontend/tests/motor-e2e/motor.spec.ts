@@ -53,9 +53,16 @@ test("lista Emprestimos e cria Emprestimo a partir de Contrato liberado sem Cart
   page.on("request", (request) => requests.push(request.url()));
   await login(page);
   await page.goto(`/app/motor?contrato_id=${IDS.contract}&tenant_id=hostil&carteira_id=hostil`);
-  await expect(page.getByRole("heading", { name: "Emprestimos e pagamentos" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Meus emprestimos" })).toBeVisible();
   await expect(page.getByRole("link", { exact: true, name: "Motor" })).toHaveAttribute("href", "/app/motor");
   await expect(page.getByLabel("Contrato liberado")).toHaveValue(IDS.contract);
+  // A lista separa pelos estados que o backend devolveu e identifica o Devedor
+  // pelo nome. O identificador do Emprestimo sai do corpo da tela.
+  await expect(page.getByRole("heading", { name: /Em andamento \(1\)/ })).toBeVisible();
+  await expect(page.getByRole("heading", { name: /Quitados \(1\)/ })).toBeVisible();
+  await expect(page.getByRole("heading", { name: /Encerrados \(0\)/ })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Maria Souza" }).first()).toBeVisible();
+  await expect(page.getByText(IDS.loan, { exact: true })).toHaveCount(0);
   await activateButton(page, "Criar Emprestimo");
   await expect(page.getByText(/Emprestimo criado pelo Motor/)).toBeVisible();
   await assertNoToken(page, context);
@@ -104,7 +111,10 @@ test("RBAC, empty, 404, 409, 5xx e estados permanecem seguros", async ({ page })
   await expect(page).toHaveURL(/\/login$/);
   await login(page, "VAZIO");
   await page.goto("/app/motor");
-  await expect(page.getByText(/empty: nenhum Emprestimo/)).toBeVisible();
+  // empty: cada grupo declara a propria ausencia.
+  await expect(page.getByText(/Nenhum emprestimo em andamento/)).toBeVisible();
+  await expect(page.getByText(/Nenhum emprestimo quitado ainda/)).toBeVisible();
+  await expect(page.getByText(/Nenhum emprestimo encerrado/)).toBeVisible();
   await page.getByRole("button", { name: "Sair" }).click();
   await expect(page).toHaveURL(/\/login$/);
   await login(page, "NAO-ENCONTRADO");

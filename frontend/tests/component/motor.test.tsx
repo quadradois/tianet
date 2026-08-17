@@ -87,6 +87,7 @@ describe("Motor UI", () => {
     render(
       <MotorPage
         createAction={action}
+        devedores={new Map()}
         filters={{ page: 1, size: 20 }}
         initialContractId="00000000-0000-4000-8000-000000000030"
         initialState={INITIAL_MOTOR_ACTION_STATE}
@@ -95,16 +96,52 @@ describe("Motor UI", () => {
         result={{ kind: "ready", data: list }}
       />,
     );
-    expect(screen.getByRole("heading", { name: /Emprestimos e pagamentos/i })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: /Meus emprestimos/i })).toBeInTheDocument();
     expect(screen.getByLabelText(/Contrato liberado/i)).toHaveValue("00000000-0000-4000-8000-000000000030");
-    expect(screen.getByText(/empty: nenhum Emprestimo/i)).toBeInTheDocument();
+    // empty: cada um dos tres grupos declara a propria ausencia, em vez de uma
+    // unica mensagem generica para a pagina inteira.
+    expect(screen.getByText(/Nenhum emprestimo em andamento/i)).toBeInTheDocument();
+    expect(screen.getByText(/Nenhum emprestimo quitado ainda/i)).toBeInTheDocument();
+    expect(screen.getByText(/Nenhum emprestimo encerrado/i)).toBeInTheDocument();
     expect(screen.queryByText(/accessToken|Bearer|Authorization/i)).not.toBeInTheDocument();
+  });
+
+  it("separa os emprestimos pelo estado devolvido, com o nome do Devedor no lugar do UUID", () => {
+    const quitado: Loan = { ...loan, devedor_id: "00000000-0000-4000-8000-000000000011", estado: "quitado", id: "00000000-0000-4000-8000-000000000041" };
+    const encerrado: Loan = { ...loan, devedor_id: "00000000-0000-4000-8000-000000000012", estado: "cancelado", id: "00000000-0000-4000-8000-000000000042" };
+    const list: LoanList = { items: [loan, quitado, encerrado], page: 1, pages: 1, size: 20, total: 3 };
+    render(
+      <MotorPage
+        createAction={action}
+        devedores={new Map([[loan.devedor_id, "Maria Souza"], [quitado.devedor_id, "Joao Lima"]])}
+        filters={{ page: 1, size: 20 }}
+        initialState={INITIAL_MOTOR_ACTION_STATE}
+        permissions={permissions}
+        recoveryHref="/session/recover"
+        result={{ kind: "ready", data: list }}
+      />,
+    );
+
+    // O grupo vem do campo `estado` que o backend devolveu, nunca de uma
+    // conclusao tirada de datas ou de saldo aqui.
+    expect(screen.getByRole("heading", { name: /Em andamento \(1\)/i })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: /Quitados \(1\)/i })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: /Encerrados \(1\)/i })).toBeInTheDocument();
+
+    expect(screen.getByRole("heading", { name: "Maria Souza" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Joao Lima" })).toBeInTheDocument();
+    // Devedor fora do mapa degrada o rotulo; nunca cai para o identificador cru.
+    expect(screen.getByRole("heading", { name: /Devedor nao identificado/i })).toBeInTheDocument();
+    expect(screen.queryByText(encerrado.devedor_id)).not.toBeInTheDocument();
+
+    expect(screen.getAllByRole("link", { name: /Ver parcelas/i })).toHaveLength(3);
   });
 
   it("mostra denied sem tentar fallback permissivo", () => {
     render(
       <MotorPage
         createAction={action}
+        devedores={new Map()}
         filters={{ page: 1, size: 20 }}
         initialState={INITIAL_MOTOR_ACTION_STATE}
         permissions={[]}
