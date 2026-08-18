@@ -857,25 +857,20 @@
       },
       "CondicoesLancamentoRequest": {
         "additionalProperties": false,
-        "description": "Os quatro parametros digitados pelo Credor no ato.\n\nCampos tipados, nao JSON opaco: aqui o vocabulario do Motor e explicito e o\nerro aparece na entrada, nao tres telas adiante.",
+        "description": "Os tres parametros digitados pelo Credor no ato (DR-004).\n\nCampos tipados, nao JSON opaco: aqui o vocabulario do Motor e explicito e o\nerro aparece na entrada, nao tres telas adiante.\n\n`quantidade_parcelas` e `primeiro_vencimento` sairam: o emprestimo deixou de\nser um plano de parcelas e passou a ser livre, com acerto mensal no dia\ncombinado. O devedor deve, no minimo, os juros do periodo; amortizar e\nvoluntario.",
         "properties": {
+          "dia_de_acerto": {
+            "maximum": 31.0,
+            "minimum": 1.0,
+            "title": "Dia De Acerto",
+            "type": "integer"
+          },
           "moeda": {
             "default": "BRL",
             "maxLength": 3,
             "minLength": 3,
             "title": "Moeda",
             "type": "string"
-          },
-          "primeiro_vencimento": {
-            "format": "date",
-            "title": "Primeiro Vencimento",
-            "type": "string"
-          },
-          "quantidade_parcelas": {
-            "maximum": 360.0,
-            "minimum": 1.0,
-            "title": "Quantidade Parcelas",
-            "type": "integer"
           },
           "taxa_juros_mensal": {
             "maxLength": 32,
@@ -893,8 +888,7 @@
         "required": [
           "valor_contratado",
           "taxa_juros_mensal",
-          "quantidade_parcelas",
-          "primeiro_vencimento"
+          "dia_de_acerto"
         ],
         "title": "CondicoesLancamentoRequest",
         "type": "object"
@@ -2614,14 +2608,15 @@
             "title": "Emprestimo Id",
             "type": "string"
           },
+          "primeiro_acerto_em": {
+            "format": "date",
+            "title": "Primeiro Acerto Em",
+            "type": "string"
+          },
           "proposta_id": {
             "format": "uuid",
             "title": "Proposta Id",
             "type": "string"
-          },
-          "quantidade_parcelas": {
-            "title": "Quantidade Parcelas",
-            "type": "integer"
           }
         },
         "required": [
@@ -2629,7 +2624,7 @@
           "proposta_id",
           "contrato_id",
           "emprestimo_id",
-          "quantidade_parcelas"
+          "primeiro_acerto_em"
         ],
         "title": "LancamentoResponse",
         "type": "object"

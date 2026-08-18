@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from "@testing-library/react";
+import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 
@@ -32,17 +32,10 @@ async function preencherDevedorNovo(user: ReturnType<typeof userEvent.setup>) {
   await user.type(screen.getByLabelText("WhatsApp"), "(11) 98888-7766");
 }
 
-// Campo de data recebe o valor de uma vez: digitar caractere a caractere em
-// input[type=date] e lento o bastante para estourar o timeout em suite cheia.
-function preencherData(valor: string) {
-  fireEvent.change(screen.getByLabelText("Primeiro vencimento"), { target: { value: valor } });
-}
-
 async function preencherCondicoes(user: ReturnType<typeof userEvent.setup>) {
   await user.type(screen.getByLabelText("Valor emprestado"), "6000,00");
   await user.type(screen.getByLabelText("Juros ao mes (%)"), "3");
-  await user.type(screen.getByLabelText("Quantidade de parcelas"), "3");
-  preencherData("2026-09-20");
+  await user.type(screen.getByLabelText("Dia do acerto"), "10");
 }
 
 describe("LancamentoWizard", () => {
@@ -68,8 +61,7 @@ describe("LancamentoWizard", () => {
 
     await user.type(screen.getByLabelText("Valor emprestado"), "6000,00");
     await user.type(screen.getByLabelText("Juros ao mes (%)"), "3");
-    await user.type(screen.getByLabelText("Quantidade de parcelas"), "0");
-    preencherData("2026-09-20");
+    await user.type(screen.getByLabelText("Dia do acerto"), "0");
 
     expect(screen.getByRole("button", { name: "Continuar" })).toBeDisabled();
   });

@@ -38,8 +38,7 @@ export function permissoesFaltantes(permissions: readonly string[]): readonly st
 export type CondicoesEntrada = Readonly<{
   valor: string;
   taxa: string;
-  parcelas: string;
-  primeiroVencimento: string;
+  diaDeAcerto: string;
 }>;
 
 export type DevedorEntrada = Readonly<{
@@ -50,7 +49,6 @@ export type DevedorEntrada = Readonly<{
 }>;
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-const DATA_ISO = /^\d{4}-\d{2}-\d{2}$/;
 // Aceita "1234,56" ou "1234.56". O backend e a autoridade sobre o valor; aqui
 // so se verifica forma, nunca se calcula nem se arredonda nada.
 const DECIMAL = /^\d{1,12}([.,]\d{1,4})?$/;
@@ -72,12 +70,11 @@ export function validarCondicoes(entrada: CondicoesEntrada): readonly string[] {
   if (!/^\d{1,3}$/.test(taxa) || Number(taxa) > 100) {
     erros.push("Informe a taxa de juros ao mes em numero inteiro, de 0 a 100.");
   }
-  const parcelas = Number(entrada.parcelas);
-  if (!Number.isInteger(parcelas) || parcelas < 1 || parcelas > 360) {
-    erros.push("Informe a quantidade de parcelas, de 1 a 360.");
-  }
-  if (!DATA_ISO.test(entrada.primeiroVencimento.trim())) {
-    erros.push("Informe a data do primeiro vencimento.");
+  // O emprestimo deixou de ser plano de parcelas: o devedor escolhe um dia do
+  // mes para acertar, e o acerto se repete nele (DR-004).
+  const dia = entrada.diaDeAcerto.trim();
+  if (!/^\d{1,2}$/.test(dia) || Number(dia) < 1 || Number(dia) > 31) {
+    erros.push("Informe o dia do mes para o acerto, de 1 a 31.");
   }
   return erros;
 }

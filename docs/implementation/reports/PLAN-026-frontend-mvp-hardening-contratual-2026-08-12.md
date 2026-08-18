@@ -184,7 +184,18 @@ bater byte a byte com o runtime, entao foi regerado: **108 operacoes, 137
 schemas**, SHA-256
 `5ebbe33b73ffa20de28a11240bbd53660bb15f989a82fc48456358786a58b153`.
 
-Nada do hardening foi desfeito; a superficie e aditiva.
+Em 2026-08-17 a DR-004 trocou o modelo do emprestimo: o plano de parcelas deu
+lugar ao acerto mensal no dia combinado. O lancamento deixou de receber
+`quantidade_parcelas` e `primeiro_vencimento` e passou a receber `dia_de_acerto`;
+a resposta deixou de devolver `quantidade_parcelas` e passou a devolver
+`primeiro_acerto_em`. O snapshot foi regerado: **108 operacoes, 137 schemas**,
+SHA-256
+`ba4342af3a977fe65e0f0af60d7e6fd7cab219b386a4f9c03b9167051a1c02cd`.
+
+Diferente das duas anteriores, esta mudanca **nao e aditiva**: campos exigidos
+sairam do contrato. E deliberada e esta na resolucao da DR-004. A contagem de
+operacoes e de schemas nao muda porque a alteracao e de campo, nao de
+superficie. Nada do hardening foi desfeito.
 
 ---
 
@@ -192,5 +203,6 @@ Nada do hardening foi desfeito; a superficie e aditiva.
 
 | Versao | Data | Descricao |
 |---|---|---|
+| 1.2.0 | 2026-08-17 | Registrada a regeracao do snapshot pela DR-004/PLAN-030: lancamento passa a receber dia de acerto. |
 | 1.1.0 | 2026-08-16 | Registrada a regeracao do snapshot pelo PLAN-027/IMP-306, sem alterar o registro original do hardening. |
 | 1.0.0 | 2026-08-12 | Execucao IMP-276..IMP-283, snapshot OpenAPI e decisao de manter IMP-284 bloqueado ate judge. |

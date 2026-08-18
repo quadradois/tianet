@@ -20,8 +20,7 @@ const TODAS = [
 const CONDICOES_OK = {
   valor: "6000.00",
   taxa: "3",
-  parcelas: "3",
-  primeiroVencimento: "2026-09-20",
+  diaDeAcerto: "10",
 };
 
 describe("lancamento-policy", () => {
@@ -39,11 +38,12 @@ describe("lancamento-policy", () => {
     expect(validarCondicoes({ ...CONDICOES_OK, valor: "6.000,00" })).toHaveLength(1);
     expect(validarCondicoes({ ...CONDICOES_OK, taxa: "0,05" })).toHaveLength(1);
     expect(validarCondicoes({ ...CONDICOES_OK, taxa: "101" })).toHaveLength(1);
-    expect(validarCondicoes({ ...CONDICOES_OK, parcelas: "0" })).toHaveLength(1);
-    expect(validarCondicoes({ ...CONDICOES_OK, parcelas: "2.5" })).toHaveLength(1);
-    expect(validarCondicoes({ ...CONDICOES_OK, parcelas: "361" })).toHaveLength(1);
-    expect(validarCondicoes({ ...CONDICOES_OK, primeiroVencimento: "20/09/2026" })).toHaveLength(1);
-    expect(validarCondicoes({ valor: "", taxa: "", parcelas: "", primeiroVencimento: "" })).toHaveLength(4);
+    // O dia do acerto e do mes, entao 0, 32 e decimal nao existem.
+    expect(validarCondicoes({ ...CONDICOES_OK, diaDeAcerto: "0" })).toHaveLength(1);
+    expect(validarCondicoes({ ...CONDICOES_OK, diaDeAcerto: "32" })).toHaveLength(1);
+    expect(validarCondicoes({ ...CONDICOES_OK, diaDeAcerto: "2.5" })).toHaveLength(1);
+    expect(validarCondicoes({ ...CONDICOES_OK, diaDeAcerto: "31" })).toEqual([]);
+    expect(validarCondicoes({ valor: "", taxa: "", diaDeAcerto: "" })).toHaveLength(3);
   });
 
   it("aceita virgula decimal e entrega ponto ao contrato", () => {

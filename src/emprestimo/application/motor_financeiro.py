@@ -7,7 +7,7 @@ import json
 import uuid
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass
-from datetime import date, datetime
+from datetime import UTC, date, datetime
 from decimal import Decimal
 
 from emprestimo.application.errors import (
@@ -1125,10 +1125,13 @@ def _desserializar_resultado(conteudo: str | None) -> EmprestimoCriadoResultado:
 
 @dataclass(frozen=True)
 class EmprestimoComPlano:
-    """Saida do Motor para um lancamento composto (IMP-305, PLAN-027)."""
+    """Saida do Motor para um lancamento composto (IMP-305, PLAN-027).
+
+    O nome permanece ate o plano de parcelas ser removido no fim do PLAN-030.
+    """
 
     emprestimo_id: uuid.UUID
-    quantidade_parcelas: int
+    primeiro_acerto_em: date
 
 
 def criar_emprestimo_e_plano_em(
@@ -1150,14 +1153,22 @@ def criar_emprestimo_e_plano_em(
         raise TransicaoEstadoInvalidaError(uuid.UUID(int=0), "criar_emprestimo", str(exc)) from exc
     uow.emprestimo.save(emprestimo)
 
+    # Emprestimo livre: nao ha plano de parcelas a gerar (DR-004). O que o
+    # devedor deve em cada acerto e calculado no momento da consulta, sobre o
+    # saldo daquele dia — fixar isso num plano seria congelar um valor que muda
+    # a cada amortizacao.
     try:
-        plano = motor_factory().gerar_plano_parcelas(
-            emprestimo=emprestimo, data_referencia=data_referencia
-        )
+        primeiro_acerto = emprestimo.proximo_acerto_em(data_referencia)
     except ViolacaoInvarianteError as exc:
-        raise TransicaoEstadoInvalidaError(emprestimo.id, "gerar_plano_parcelas", str(exc)) from exc
-
+        raise TransicaoEstadoInvalidaError(emprestimo.id, "criar_emprestimo", str(exc)) from exc
+    if primeiro_acerto is None:
+        raise TransicaoEstadoInvalidaError(
+            emprestimo.id,
+            "criar_emprestimo",
+            "dia_de_acerto e obrigatorio no lancamento",
+        )
+    emprestimo.proximo_vencimento_em = datetime.combine(
+        primeiro_acerto, datetime.min.time(), tzinfo=UTC
+    )
     uow.emprestimo.save(emprestimo)
-    uow.parcela.save_many(plano.parcelas)
-    uow.memoria_calculo.save(plano.memoria, emprestimo.id)
-    return EmprestimoComPlano(emprestimo_id=emprestimo.id, quantidade_parcelas=len(plano.parcelas))
+    return EmprestimoComPlano(emprestimo_id=emprestimo.id, primeiro_acerto_em=primeiro_acerto)

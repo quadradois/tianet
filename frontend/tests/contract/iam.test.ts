@@ -5,7 +5,7 @@ import { describe, expect, it } from "vitest";
 
 import openapi from "../../../docs/governance/contracts/openapi/frontend-mvp-backend-openapi.json" with { type: "json" };
 
-const SNAPSHOT_SHA = "5ebbe33b73ffa20de28a11240bbd53660bb15f989a82fc48456358786a58b153";
+const SNAPSHOT_SHA = "ba4342af3a977fe65e0f0af60d7e6fd7cab219b386a4f9c03b9167051a1c02cd";
 const IAM_OPERATIONS = [
   "GET /iam/perfis",
   "POST /iam/perfis",

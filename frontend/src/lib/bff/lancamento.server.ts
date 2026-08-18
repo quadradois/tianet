@@ -55,7 +55,7 @@ function respostaValida(valor: unknown, context: OperationalContext): valor is L
   return (
     identificadores.every(
       (chave) => typeof dados[chave] === "string" && UUID_PATTERN.test(dados[chave] as string),
-    ) && Number.isInteger(dados.quantidade_parcelas)
+    ) && typeof dados.primeiro_acerto_em === "string"
   );
 }
 
@@ -100,8 +100,7 @@ export async function criarLancamento(
   const condicoes = {
     valor: texto(formData, "valor", 32) ?? "",
     taxa: texto(formData, "taxa", 32) ?? "",
-    parcelas: texto(formData, "parcelas", 8) ?? "",
-    primeiroVencimento: texto(formData, "primeiro_vencimento", 10) ?? "",
+    diaDeAcerto: texto(formData, "dia_de_acerto", 2) ?? "",
   };
   const errosCondicoes = validarCondicoes(condicoes);
   const primeiroErroCondicoes = errosCondicoes[0];
@@ -118,8 +117,7 @@ export async function criarLancamento(
       valor_contratado: normalizarDecimal(condicoes.valor),
       // O Credor digita percentual inteiro; o contrato exige fracao.
       taxa_juros_mensal: percentualParaFracao(condicoes.taxa),
-      quantidade_parcelas: Number(condicoes.parcelas),
-      primeiro_vencimento: condicoes.primeiroVencimento,
+      dia_de_acerto: Number(condicoes.diaDeAcerto),
       moeda: "BRL",
     },
     data_referencia: dataReferencia,

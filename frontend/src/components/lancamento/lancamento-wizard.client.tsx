@@ -31,13 +31,12 @@ export function LancamentoWizard({ action, devedores, initialState }: WizardProp
   const [contatoWhatsapp, setContatoWhatsapp] = useState("");
   const [valor, setValor] = useState("");
   const [taxa, setTaxa] = useState("");
-  const [parcelas, setParcelas] = useState("");
-  const [primeiroVencimento, setPrimeiroVencimento] = useState("");
+  const [diaDeAcerto, setDiaDeAcerto] = useState("");
 
   const errosDevedor = validarDevedor(
     devedorId ? { devedorId } : { documento, nome, contatoWhatsapp },
   );
-  const errosCondicoes = validarCondicoes({ valor, taxa, parcelas, primeiroVencimento });
+  const errosCondicoes = validarCondicoes({ valor, taxa, diaDeAcerto });
   const escolhido = devedores.find((devedor) => devedor.id === devedorId);
 
   if (state.kind === "success" && state.emprestimoId) {
@@ -46,7 +45,7 @@ export function LancamentoWizard({ action, devedores, initialState }: WizardProp
         <CardHeader>
           <CardTitle>Emprestimo lancado</CardTitle>
           <CardDescription>
-            O plano de parcelas foi gerado pelo Motor. Correlation ID: {state.correlationId}
+            Emprestimo lancado. Correlation ID: {state.correlationId}
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -163,24 +162,18 @@ export function LancamentoWizard({ action, devedores, initialState }: WizardProp
               </p>
             </div>
             <div className="grid gap-2">
-              <Label htmlFor="parcelas">Quantidade de parcelas</Label>
+              <Label htmlFor="dia_de_acerto">Dia do acerto</Label>
               <Input
-                id="parcelas"
+                aria-describedby="dia-ajuda"
+                id="dia_de_acerto"
                 inputMode="numeric"
-                name="parcelas"
-                onChange={(event) => setParcelas(event.target.value)}
-                value={parcelas}
+                name="dia_de_acerto"
+                onChange={(event) => setDiaDeAcerto(event.target.value)}
+                value={diaDeAcerto}
               />
-            </div>
-            <div className="grid gap-2">
-              <Label htmlFor="primeiro_vencimento">Primeiro vencimento</Label>
-              <Input
-                id="primeiro_vencimento"
-                name="primeiro_vencimento"
-                onChange={(event) => setPrimeiroVencimento(event.target.value)}
-                type="date"
-                value={primeiroVencimento}
-              />
+              <p className="text-sm text-muted-foreground" id="dia-ajuda">
+                Dia do mes em que o devedor acerta, todo mes. Digite 10 para todo dia 10.
+              </p>
             </div>
           </div>
 
@@ -199,16 +192,12 @@ export function LancamentoWizard({ action, devedores, initialState }: WizardProp
                 <dd>{taxa ? `${taxa}%` : ""}</dd>
               </div>
               <div>
-                <dt className="text-muted-foreground">Parcelas</dt>
-                <dd>{parcelas}</dd>
-              </div>
-              <div>
-                <dt className="text-muted-foreground">Primeiro vencimento</dt>
-                <dd>{primeiroVencimento}</dd>
+                <dt className="text-muted-foreground">Acerto</dt>
+                <dd>{diaDeAcerto ? `todo dia ${diaDeAcerto}` : ""}</dd>
               </div>
             </dl>
             <p className="text-sm text-muted-foreground">
-              O plano de parcelas aparece depois da confirmacao, calculado pelo Motor.
+              A cada acerto o devedor deve, no minimo, os juros do periodo. Amortizar e opcional.
             </p>
             <Button disabled={pending} type="submit">
               {pending ? "Lancando..." : "Confirmar lancamento"}

@@ -47,8 +47,7 @@ def _payload(**overrides: object) -> dict[str, object]:
         "condicoes": {
             "valor_contratado": "6000.00",
             "taxa_juros_mensal": "0.0300",
-            "quantidade_parcelas": 3,
-            "primeiro_vencimento": "2026-09-20",
+            "dia_de_acerto": 10,
             "moeda": "BRL",
         },
         "data_referencia": "2026-08-16",
@@ -101,7 +100,8 @@ def test_lancamento_cria_a_cadeia_completa_em_uma_chamada(
 
     assert resposta.status_code == 201
     corpo = resposta.json()
-    assert corpo["quantidade_parcelas"] == 3
+    # Emprestado em 2026-09-01 com acerto todo dia 10 -> primeiro acerto em 10/09.
+    assert corpo["primeiro_acerto_em"] == "2026-09-10"
     for chave in ("devedor_id", "proposta_id", "contrato_id", "emprestimo_id"):
         assert uuid.UUID(corpo[chave])
 

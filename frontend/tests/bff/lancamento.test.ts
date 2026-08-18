@@ -71,8 +71,7 @@ function form(overrides: Record<string, string> = {}, omit: readonly string[] = 
     contato_whatsapp: "(11) 98888-7766",
     valor: "6000,00",
     taxa: "3",
-    parcelas: "3",
-    primeiro_vencimento: "2026-09-20",
+    dia_de_acerto: "10",
     data_referencia: "2026-08-17",
     ...overrides,
   };
@@ -89,7 +88,7 @@ function respostaCriada() {
     proposta_id: PROPOSAL_ID,
     contrato_id: CONTRACT_ID,
     emprestimo_id: LOAN_ID,
-    quantidade_parcelas: 3,
+    primeiro_acerto_em: "2026-09-10",
   };
 }
 
@@ -125,8 +124,7 @@ describe("BFF Lancamento", () => {
     expect(corpo.condicoes).toEqual({
       valor_contratado: "6000.00",
       taxa_juros_mensal: "0.03",
-      quantidade_parcelas: 3,
-      primeiro_vencimento: "2026-09-20",
+      dia_de_acerto: 10,
       moeda: "BRL",
     });
     expect(corpo.devedor_novo.contato_whatsapp).toBe("(11) 98888-7766");
@@ -168,8 +166,8 @@ describe("BFF Lancamento", () => {
     const selected = config();
     const casos: readonly [Record<string, string>, readonly string[]][] = [
       [{ contato_whatsapp: "" }, ["contato_whatsapp"]],
-      [{ parcelas: "0" }, []],
-      [{ primeiro_vencimento: "20/09/2026" }, []],
+      [{ dia_de_acerto: "0" }, []],
+      [{ dia_de_acerto: "32" }, []],
     ];
     for (const [overrides, omit] of casos) {
       const fetch = vi.fn() as unknown as FetchLike;
@@ -223,8 +221,8 @@ describe("BFF Lancamento", () => {
     );
 
     const corpo = await (captura.request as Request).json();
-    expect(corpo.data_referencia).not.toBe(corpo.condicoes.primeiro_vencimento);
-    expect(corpo.data_referencia < corpo.condicoes.primeiro_vencimento).toBe(true);
+    // A data de referencia ausente cai para a data do servidor, nunca para uma
+    // data do formulario: foi assim que o wizard gerou periodo de duracao zero.
     expect(corpo.data_referencia).toMatch(/^\d{4}-\d{2}-\d{2}$/);
   });
 });
