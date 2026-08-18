@@ -109,9 +109,8 @@ export function SummaryView({ data }: Readonly<{ data: Summary }>) {
       <Metric label="Operacoes" value={data.total_operacoes} />
       <Metric label="Ativas" value={data.operacoes_ativas} />
       <Metric label="Quitadas" value={data.operacoes_quitadas} />
-      <Metric label="Parcelas previstas" value={data.parcelas_previstas} />
-      <Metric label="Parcelas vencidas" value={data.parcelas_vencidas} />
-      <Metric label="Total previsto (oficial)" value={data.total_previsto} />
+      <Metric label="Acertos pendentes" value={data.acertos_pendentes} />
+      <Metric label="Ainda na rua" value={data.principal_a_receber} />
       <Metric label="Total realizado (oficial)" value={data.total_realizado} />
       <Metric label="Data de referencia" value={formatDate(data.data_referencia)} />
     </dl>

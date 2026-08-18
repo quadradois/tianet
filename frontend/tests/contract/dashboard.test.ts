@@ -48,7 +48,7 @@ describe("contratos do Dashboard", () => {
   it("mantem strings monetarias e identidade explicita nas respostas", () => {
     const summary = record(schemas.ResumoCarteiraResponse);
     const summaryProperties = record(summary.properties);
-    expect(record(summaryProperties.total_previsto).type).toBe("string");
+    expect(record(summaryProperties.principal_a_receber).type).toBe("string");
     expect(record(summaryProperties.total_realizado).type).toBe("string");
     expect(summary.required).toEqual(expect.arrayContaining(["tenant_id", "carteira_id", "data_referencia"]));
     const collectionItem = record(schemas.CobrancaCasoResponse);

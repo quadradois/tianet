@@ -190,7 +190,7 @@ lugar ao acerto mensal no dia combinado. O lancamento deixou de receber
 a resposta deixou de devolver `quantidade_parcelas` e passou a devolver
 `primeiro_acerto_em`. O snapshot foi regerado: **108 operacoes, 137 schemas**,
 SHA-256
-`ba4342af3a977fe65e0f0af60d7e6fd7cab219b386a4f9c03b9167051a1c02cd`.
+`367381a54d6f4d2430a3be0bc18c39af3ef5a66364daa5f0c95f9dc37d1ec119`.
 
 Diferente das duas anteriores, esta mudanca **nao e aditiva**: campos exigidos
 sairam do contrato. E deliberada e esta na resolucao da DR-004. A contagem de

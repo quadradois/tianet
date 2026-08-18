@@ -37,7 +37,7 @@ function context(mode) {
 }
 
 function summary(referenceDate, empty = false) {
-  return { carteira_id: IDS.wallet, data_referencia: referenceDate, operacoes_ativas: empty ? 0 : 6, operacoes_quitadas: empty ? 0 : 4, parcelas_previstas: empty ? 0 : 18, parcelas_vencidas: empty ? 0 : 3, tenant_id: IDS.tenant, total_operacoes: empty ? 0 : 10, total_previsto: empty ? "0.00" : "98765.43", total_realizado: empty ? "0.00" : "54321.09" };
+  return { carteira_id: IDS.wallet, data_referencia: referenceDate, operacoes_ativas: empty ? 0 : 6, operacoes_quitadas: empty ? 0 : 4, acertos_pendentes: 1, tenant_id: IDS.tenant, total_operacoes: empty ? 0 : 10, principal_a_receber: empty ? "0.00" : "98765.43", total_realizado: empty ? "0.00" : "54321.09" };
 }
 
 function dueDates(referenceDate, empty = false) {

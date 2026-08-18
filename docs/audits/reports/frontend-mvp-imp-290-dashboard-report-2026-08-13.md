@@ -86,7 +86,7 @@ Capturas reais do build de producao, sem indicador de dev:
 
 | Evidencia | Dimensoes | SHA-256 |
 |---|---:|---|
-| Dashboard loaded desktop | 1440x900 | `201ddebf66caee9018faef635da8809b8b615728690a0b99c2de84f159070d97` |
+| Dashboard loaded desktop | 1440x900 | `aaed9825a6ac969c7048e2750e716f6f4b3c8646133b67774b16dab486969b42` |
 | Dashboard loaded mobile | 390x844 | `c15fedcd7c76257c1d5345e31ca647de29b08f098b3c65ccb6715c8ff21ccf95` |
 | Estados desktop (dark) | 1440x900 | `dbbd1fed2fd76e41259b513b56428772d54483599cf25a4f10fc08d658a2e52d` |
 | Estados mobile (dark) | 390x844 | `5f625d9b55cf12c56bf922839189b704156c1fbd5e441a4c55ad58842b527db4` |

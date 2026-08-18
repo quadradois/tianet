@@ -191,9 +191,8 @@ class ResumoCarteiraResponse(BaseModel):
     total_operacoes: int
     operacoes_ativas: int
     operacoes_quitadas: int
-    parcelas_previstas: int
-    parcelas_vencidas: int
-    total_previsto: Decimal
+    acertos_pendentes: int
+    principal_a_receber: Decimal
     total_realizado: Decimal
 
 

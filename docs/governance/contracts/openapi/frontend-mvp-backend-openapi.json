@@ -4276,6 +4276,10 @@
       },
       "ResumoCarteiraResponse": {
         "properties": {
+          "acertos_pendentes": {
+            "title": "Acertos Pendentes",
+            "type": "integer"
+          },
           "carteira_id": {
             "format": "uuid",
             "title": "Carteira Id",
@@ -4294,13 +4298,10 @@
             "title": "Operacoes Quitadas",
             "type": "integer"
           },
-          "parcelas_previstas": {
-            "title": "Parcelas Previstas",
-            "type": "integer"
-          },
-          "parcelas_vencidas": {
-            "title": "Parcelas Vencidas",
-            "type": "integer"
+          "principal_a_receber": {
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Principal A Receber",
+            "type": "string"
           },
           "tenant_id": {
             "format": "uuid",
@@ -4310,11 +4311,6 @@
           "total_operacoes": {
             "title": "Total Operacoes",
             "type": "integer"
-          },
-          "total_previsto": {
-            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
-            "title": "Total Previsto",
-            "type": "string"
           },
           "total_realizado": {
             "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
@@ -4329,9 +4325,8 @@
           "total_operacoes",
           "operacoes_ativas",
           "operacoes_quitadas",
-          "parcelas_previstas",
-          "parcelas_vencidas",
-          "total_previsto",
+          "acertos_pendentes",
+          "principal_a_receber",
           "total_realizado"
         ],
         "title": "ResumoCarteiraResponse",

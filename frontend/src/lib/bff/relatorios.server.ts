@@ -152,8 +152,8 @@ function validSummary(value: unknown, context: OperationalContext, period: Repor
   return strings(value, ["data_referencia"])
     && value.data_referencia === period.referenceDate
     && calendarDate(value.data_referencia)
-    && integers(value, ["total_operacoes", "operacoes_ativas", "operacoes_quitadas", "parcelas_previstas", "parcelas_vencidas"])
-    && decimalStrings(value, ["total_previsto", "total_realizado"]);
+    && integers(value, ["total_operacoes", "operacoes_ativas", "operacoes_quitadas", "acertos_pendentes"])
+    && decimalStrings(value, ["principal_a_receber", "total_realizado"]);
 }
 
 function validDueDates(value: unknown, context: OperationalContext, period: ReportsPeriod): value is DueDatesReport {

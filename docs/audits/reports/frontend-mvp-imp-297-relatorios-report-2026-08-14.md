@@ -70,10 +70,10 @@ de chegar ao browser.
 
 | Evidencia | Dimensao | SHA-256 |
 |---|---:|---|
-| `frontend-mvp-imp-297-relatorios-list-desktop.png` | 1440x900 | `417716d3ba2ec578be26076a5ac0ee62d7d2a52d30440911b88fefa7de79a073` |
-| `frontend-mvp-imp-297-relatorios-list-mobile.png` | 390x844 | `221b086854a636becbbb02e8329c88f3e166b8ec19899285b52753cc0896f853` |
-| `frontend-mvp-imp-297-fluxo-desktop.png` | 1440x900 | `2be37a6999d9ccc5466011d5faadd93327b0854bff2f606aa3486d760936358c` |
-| `frontend-mvp-imp-297-relatorios-states-mobile.png` | 390x844 | `c4b148d55d24a46841fbe2604facb54d23d30f2aa3925ac0fdd43d07a63687c7` |
+| `frontend-mvp-imp-297-relatorios-list-desktop.png` | 1440x900 | `a90f4ad00e50247f5ab1d7b609ad0e03d769a530d3b0c8359a2d3a8da2a9c6d8` |
+| `frontend-mvp-imp-297-relatorios-list-mobile.png` | 390x844 | `011c69ca0f27d30d8ab16aba2afc487b13f4c89a91045f62f8eb21ab16dc3341` |
+| `frontend-mvp-imp-297-fluxo-desktop.png` | 1440x900 | `55ef309b2940065db3eadcd24d26abda7b116f88dd4f554b5e51b9611448af87` |
+| `frontend-mvp-imp-297-relatorios-states-mobile.png` | 390x844 | `a219bc12a8eb2bfbeaa1a6eb94850ae232c1cdf0b1ba203df65d7395b2cc41c0` |
 
 ## 5. Arquivos alterados/criados
 

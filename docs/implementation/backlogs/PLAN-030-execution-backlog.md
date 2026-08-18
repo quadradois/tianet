@@ -2,9 +2,9 @@
 
 **ID:** PLAN-030-EXEC
 
-**Versao:** 1.0.0
+**Versao:** 1.1.0
 
-**Status:** IMP-321..324 concluidos; IMP-325..327 planejados
+**Status:** IMP-321..325 concluidos; IMP-326 e IMP-327 planejados
 
 ---
 
@@ -89,7 +89,23 @@ PLAN-029.
 - **Objetivo:** "acerto vencido" no lugar de "parcela vencida".
 - **Dependencias:** IMP-323, IMP-324.
 - **Risco:** o maior do plano — tres epicos certificados.
-- **Status:** Planejado.
+- **Status:** Concluido no Resumo da Carteira, que alimenta o Inicio e os
+  Relatorios. Fila de Cobranca e Agenda seguem no IMP-326.
+- **Nota de execucao:** `parcelas_previstas` e `parcelas_vencidas` deram lugar a
+  `acertos_pendentes`, e `total_previsto` — que vinha do plano e viraria zero —
+  deu lugar a `principal_a_receber`: o que saiu menos o que ja voltou como
+  amortizacao. Na tela, "Acertos pendentes" e "Ainda na rua".
+- **Nomenclatura deliberada:** o metodo do agregado chama-se
+  `acerto_sem_pagamento_em`, e nao "inadimplente". Julgar se os juros do periodo
+  foram quitados exige o saldo, e saldo e do Motor, que esta camada e proibida
+  de importar. Um pagamento parcial tira o emprestimo da fila — limitacao
+  conhecida, com teste proprio que a documenta. A fila diz **quem** procurar; o
+  valor exato vem do saldo quando o operador abre a operacao.
+- **Defeito encontrado pela jornada real:** o validador de forma dos BFFs de
+  Inicio e Relatorios ainda exigia os campos antigos, e rejeitava o payload
+  inteiro. Unidade, componente e BFF passaram verdes porque seus fixtures foram
+  atualizados junto; quem pegou foi o Playwright contra a stack. Terceira vez
+  neste ciclo que a jornada real encontra o que o mock nao encontra.
 
 ---
 
@@ -121,4 +137,5 @@ PLAN-029.
 
 | Versao | Data | Descricao |
 |---|---|---|
+| 1.1.0 | 2026-08-17 | IMP-325 concluido no Resumo da Carteira: acertos pendentes e principal a receber no lugar dos contadores de parcela. |
 | 1.0.0 | 2026-08-17 | Backlog inicial IMP-321..327; fases A e B concluidas. |

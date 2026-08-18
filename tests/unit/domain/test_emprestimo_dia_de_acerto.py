@@ -82,3 +82,53 @@ def test_parametros_permanecem_protegidos_contra_mutacao_externa() -> None:
     parametros["dia_de_acerto"] = 25
 
     assert emprestimo.dia_de_acerto == 10
+
+
+def test_acerto_sem_pagamento_aparece_a_partir_do_vencimento() -> None:
+    emprestimo = _emprestimo(dia_de_acerto=10)
+
+    # Antes de vencer nao ha nada pendente.
+    assert emprestimo.acerto_sem_pagamento_em(date(2026, 9, 9)) is None
+    # No dia, ja ha — o devedor deveria ter procurado o Credor.
+    assert emprestimo.acerto_sem_pagamento_em(date(2026, 9, 10)) == date(2026, 9, 10)
+    assert emprestimo.dias_sem_pagamento_em(date(2026, 9, 10)) == 0
+    assert emprestimo.dias_sem_pagamento_em(date(2026, 9, 25)) == 15
+
+
+def test_pagamento_no_periodo_tira_o_emprestimo_da_fila() -> None:
+    emprestimo = _emprestimo(dia_de_acerto=10)
+    emprestimo.ultimo_pagamento_em = datetime(2026, 9, 12, tzinfo=UTC)
+
+    assert emprestimo.acerto_sem_pagamento_em(date(2026, 9, 25)) is None
+    assert emprestimo.dias_sem_pagamento_em(date(2026, 9, 25)) == 0
+    # Mas o acerto seguinte volta a pesar quando chega.
+    assert emprestimo.acerto_sem_pagamento_em(date(2026, 10, 10)) == date(2026, 10, 10)
+
+
+def test_pagamento_anterior_ao_acerto_nao_conta_para_o_acerto_novo() -> None:
+    emprestimo = _emprestimo(dia_de_acerto=10)
+    emprestimo.ultimo_pagamento_em = datetime(2026, 9, 12, tzinfo=UTC)
+
+    # O pagamento de setembro nao cobre o acerto de outubro.
+    assert emprestimo.acerto_sem_pagamento_em(date(2026, 10, 20)) == date(2026, 10, 10)
+    assert emprestimo.dias_sem_pagamento_em(date(2026, 10, 20)) == 10
+
+
+def test_pagamento_parcial_tira_da_fila_e_isso_e_deliberado() -> None:
+    """Limitacao documentada: esta camada nao conhece o valor devido.
+
+    Julgar se os juros do periodo foram quitados exige o saldo, e saldo e do
+    Motor — que esta camada e proibida de importar. O metodo se chama
+    `acerto_sem_pagamento_em` justamente para nao afirmar mais do que sabe.
+    """
+    emprestimo = _emprestimo(dia_de_acerto=10)
+    emprestimo.ultimo_pagamento_em = datetime(2026, 9, 10, tzinfo=UTC)
+
+    assert emprestimo.acerto_sem_pagamento_em(date(2026, 9, 30)) is None
+
+
+def test_emprestimo_sem_dia_combinado_nunca_tem_acerto_pendente() -> None:
+    emprestimo = _emprestimo()
+
+    assert emprestimo.acerto_sem_pagamento_em(date(2027, 1, 1)) is None
+    assert emprestimo.dias_sem_pagamento_em(date(2027, 1, 1)) == 0

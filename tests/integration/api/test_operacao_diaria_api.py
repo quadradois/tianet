@@ -130,7 +130,7 @@ def test_api_operacao_diaria_expõe_relatorios_operacionais(client: TestClient) 
     )
 
     assert resumo.status_code == 200
-    assert resumo.json()["total_previsto"] == "100.00"
+    assert resumo.json()["principal_a_receber"] == "100.00"
     assert fluxo.status_code == 200
     assert fluxo.json()["itens"][0]["realizado"] == "50.00"
 
@@ -265,9 +265,8 @@ def _relatorios_service() -> SimpleNamespace:
             total_operacoes=1,
             operacoes_ativas=1,
             operacoes_quitadas=0,
-            parcelas_previstas=1,
-            parcelas_vencidas=0,
-            total_previsto=Decimal("100.00"),
+            acertos_pendentes=0,
+            principal_a_receber=Decimal("100.00"),
             total_realizado=Decimal("50.00"),
         ),
         fluxo_previsto_realizado=lambda **_: SimpleNamespace(

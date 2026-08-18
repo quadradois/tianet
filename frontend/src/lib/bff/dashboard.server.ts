@@ -113,8 +113,8 @@ function validSummary(value: unknown, context: OperationalContext, referenceDate
   return strings(value, ["data_referencia"])
     && uuids(value, ["tenant_id", "carteira_id"])
     && calendarDate(value.data_referencia)
-    && decimalStrings(value, ["total_previsto", "total_realizado"])
-    && integers(value, ["total_operacoes", "operacoes_ativas", "operacoes_quitadas", "parcelas_previstas", "parcelas_vencidas"])
+    && decimalStrings(value, ["principal_a_receber", "total_realizado"])
+    && integers(value, ["total_operacoes", "operacoes_ativas", "operacoes_quitadas", "acertos_pendentes"])
     && value.tenant_id === context.tenant.id && value.carteira_id === context.carteira_padrao.id
     && value.data_referencia === referenceDate;
 }

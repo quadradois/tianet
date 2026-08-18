@@ -24,9 +24,8 @@ class ResumoCarteiraResultado:
     total_operacoes: int
     operacoes_ativas: int
     operacoes_quitadas: int
-    parcelas_previstas: int
-    parcelas_vencidas: int
-    total_previsto: Decimal
+    acertos_pendentes: int
+    principal_a_receber: Decimal
     total_realizado: Decimal
 
 
@@ -112,7 +111,6 @@ class RelatoriosOperacionaisService:
                 tenant_id=tenant_id,
                 carteira_id=carteira_id,
             )
-            parcelas = _parcelas_dos_emprestimos(uow, emprestimos)
             pagamentos = _pagamentos_dos_emprestimos(uow, emprestimos)
             return ResumoCarteiraResultado(
                 tenant_id=tenant_id,
@@ -125,14 +123,24 @@ class RelatoriosOperacionaisService:
                 operacoes_quitadas=sum(
                     1 for item in emprestimos if item.estado is EmprestimoState.QUITADO
                 ),
-                parcelas_previstas=len(parcelas),
-                parcelas_vencidas=sum(
+                # Quem nao apareceu no acerto que ja venceu. Nao se chama
+                # "inadimplentes": saber se os juros do periodo foram quitados
+                # exige o saldo, e saldo e do Motor, que esta camada nao importa.
+                acertos_pendentes=sum(
                     1
-                    for parcela in parcelas
-                    if parcela.vencimento < data_referencia
-                    and parcela.estado not in {ParcelaState.LIQUIDADA, ParcelaState.CANCELADA}
+                    for item in emprestimos
+                    if item.estado is EmprestimoState.ATIVO
+                    and item.acerto_sem_pagamento_em(data_referencia) is not None
                 ),
-                total_previsto=_somar_decimal(parcela.valor_previsto for parcela in parcelas),
+                # Quanto do dinheiro emprestado ainda esta na rua: o que saiu,
+                # menos o que ja voltou como amortizacao. Nao inclui juros
+                # acumulados — isso e saldo, e saldo e do Motor.
+                principal_a_receber=_somar_decimal(item.principal_original for item in emprestimos)
+                - _somar_decimal(
+                    pagamento.valor_amortizacao
+                    for pagamento in pagamentos
+                    if pagamento.estado is not PagamentoState.ESTORNADO
+                ),
                 total_realizado=_somar_decimal(
                     pagamento.valor_recebido
                     for pagamento in pagamentos

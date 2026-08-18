@@ -15,8 +15,8 @@ describe("Dashboard operacional", () => {
   it("apresenta valores oficiais sem derivar indicador", () => {
     render(<SummaryView data={{
       carteira_id: "wallet-1", data_referencia: "2026-08-13", operacoes_ativas: 3,
-      operacoes_quitadas: 5, parcelas_previstas: 11, parcelas_vencidas: 2,
-      tenant_id: "tenant-1", total_operacoes: 8, total_previsto: "9007199254740993.01",
+      operacoes_quitadas: 5, acertos_pendentes: 1,
+      tenant_id: "tenant-1", total_operacoes: 8, principal_a_receber: "9007199254740993.01",
       total_realizado: "123.45",
     }} />);
     expect(screen.getByText("9007199254740993.01")).toBeInTheDocument();

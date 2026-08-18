@@ -200,6 +200,32 @@ class Emprestimo:
         dia = self.dia_de_acerto
         return proximo_acerto(a_partir_de, dia) if dia is not None else None
 
+    def acerto_sem_pagamento_em(self, data_referencia: date) -> date | None:
+        """Acerto ja vencido para o qual nao houve pagamento nenhum.
+
+        O nome diz exatamente o que esta camada consegue saber. Julgar se o
+        devedor **quitou os juros do periodo** exige o saldo, e saldo e do Motor
+        — que Cobranca, Agenda e Relatorios sao proibidos de importar.
+
+        **Limitacao conhecida e deliberada:** um pagamento parcial, menor que os
+        juros devidos, faz este metodo devolver `None`. O devedor pagou algo, e
+        para esta camada isso basta para sair da fila de "ninguem apareceu". O
+        valor exato continua vindo do saldo, quando o operador abrir a operacao.
+        Chamar isto de "inadimplente" seria afirmar mais do que se sabe.
+        """
+        vigente = self.acerto_vigente_em(data_referencia)
+        if vigente is None:
+            return None
+        if self.ultimo_pagamento_em is not None and self.ultimo_pagamento_em.date() >= vigente:
+            return None
+        return vigente
+
+    def dias_sem_pagamento_em(self, data_referencia: date) -> int:
+        """Dias corridos desde o acerto vencido sem pagamento; zero se nao ha."""
+
+        acerto = self.acerto_sem_pagamento_em(data_referencia)
+        return (data_referencia - acerto).days if acerto is not None else 0
+
     def acerto_vigente_em(self, data_referencia: date) -> date | None:
         """Acerto que o devedor ja deveria ter feito em `data_referencia`.
 

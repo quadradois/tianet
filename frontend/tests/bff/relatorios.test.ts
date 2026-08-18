@@ -38,7 +38,7 @@ function dependencies(selected: BffConfig, fetch: FetchLike, timeoutMs = 1_000):
 }
 
 function payload(pathname: string) {
-  if (pathname.endsWith("/resumo")) return { carteira_id: WALLET_ID, data_referencia: period.referenceDate, operacoes_ativas: 2, operacoes_quitadas: 1, parcelas_previstas: 4, parcelas_vencidas: 1, tenant_id: TENANT_ID, total_operacoes: 3, total_previsto: "40.00", total_realizado: "10.00" };
+  if (pathname.endsWith("/resumo")) return { carteira_id: WALLET_ID, data_referencia: period.referenceDate, operacoes_ativas: 2, operacoes_quitadas: 1, acertos_pendentes: 1, tenant_id: TENANT_ID, total_operacoes: 3, principal_a_receber: "40.00", total_realizado: "10.00" };
   if (pathname.endsWith("/vencimentos")) return { carteira_id: WALLET_ID, data_referencia: period.referenceDate, itens: [{ emprestimo_id: LOAN_ID, estado: "vencida", numero: 1, parcela_id: PARCEL_ID, situacao: "inadimplente", valor_liquidado: "0.00", valor_previsto: "10.00", vencimento: "2026-08-10" }], tenant_id: TENANT_ID, total: 1 };
   if (pathname.endsWith("/pagamentos")) return { carteira_id: WALLET_ID, fim: period.endDate, inicio: period.startDate, operacoes_quitadas: [LOAN_ID], pagamentos: [{ emprestimo_id: LOAN_ID, estado: "confirmado", pagamento_id: PAYMENT_ID, recebido_em: "2026-08-12", valor_recebido: "10.00" }], tenant_id: TENANT_ID, total_realizado: "10.00" };
   return { carteira_id: WALLET_ID, fim: period.endDate, inicio: period.startDate, itens: [{ data: "2026-08-12", pagamento_ids: [PAYMENT_ID], parcela_ids: [PARCEL_ID], previsto: "10.00", realizado: "10.00" }], tenant_id: TENANT_ID };
@@ -111,7 +111,7 @@ describe("loader server-only de Relatorios", () => {
     const createdLoads = await beginReportsLoads(await cookieStore(selected), context(["relatorios.operacionais.ler"]), period, dependencies(selected, created));
     await expect(createdLoads.summary).resolves.toMatchObject({ kind: "problem", problem: { status: 502, codigo: "resposta_backend_invalida" } });
 
-    const incomplete: FetchLike = async (request) => Response.json({ ...payload(new URL(request.url).pathname), total_previsto: undefined });
+    const incomplete: FetchLike = async (request) => Response.json({ ...payload(new URL(request.url).pathname), principal_a_receber: undefined });
     const incompleteLoads = await beginReportsLoads(await cookieStore(selected), context(["relatorios.operacionais.ler"]), period, dependencies(selected, incomplete));
     await expect(incompleteLoads.summary).resolves.toMatchObject({ kind: "problem", problem: { status: 502, codigo: "resposta_backend_invalida" } });
 
