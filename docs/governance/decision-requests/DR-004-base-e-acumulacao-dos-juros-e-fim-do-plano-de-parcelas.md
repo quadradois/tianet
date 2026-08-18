@@ -143,18 +143,30 @@ saldo**.
 | Contrato | 1 operacao e 4 schemas saem; o inventario deixa de ser 108/137 |
 | Banco | 4 tabelas com FK para `parcela`: `cobranca_acao`, `comunicacao_registro`, `promessa_pagamento`, `promessa_apropriacao` |
 
-**Sem parcela nao existe "vencimento", e vencimento e o gatilho da operacao
-diaria.** A fila de Cobranca se forma de parcela vencida; Agenda e lembretes
-disparam por data de vencimento; os Relatorios contam `parcelas_previstas` e
-`parcelas_vencidas`; o Inicio lista as parcelas do dia; a Promessa de pagamento
-aponta para a parcela que cobre.
+> **Correcao de 2026-08-18.** O paragrafo original desta secao afirmava que "a
+> fila de Cobranca se forma de parcela vencida" e que "Agenda e lembretes
+> disparam por data de vencimento". **As duas afirmacoes eram falsas**, feitas a
+> partir da contagem de ocorrencias de `parcela` nos arquivos, sem verificar o
+> fluxo. A verificacao no codigo, antes de executar o IMP-326, mostrou outra
+> coisa. O texto corrigido esta abaixo; o erro fica registrado porque ele
+> superdimensionou o risco do plano e poderia ter levado a trabalho
+> desnecessario.
 
-Remover o plano sem substituto deixaria EPIC-008, 009 e 010 sem funcao: o
-sistema continuaria calculando certo e ficaria mudo — incapaz de dizer quem
-esta atrasado.
+Acoplamento real da operacao diaria ao plano de parcelas, verificado no codigo:
 
-**A data de pagamento resolve isso.** Uma data por emprestimo, no lugar de dez
-parcelas fixas, mantem a ancora de que os tres epicos dependem.
+| Modulo | Depende de parcela? |
+|---|---|
+| **Cobranca** | **Nao.** Nao existe caso de uso nem endpoint que crie um caso; nada chama `cobranca_caso.save`. A fila nunca teve alimentador — esta vazia por nunca ter sido construida. O `parcela_id` no caso e referencia opcional. |
+| **Agenda** | **Nao.** Compromissos sao criados pelo operador, com Idempotency-Key, ligados a `emprestimo_id`. |
+| **Relatorios e Inicio** | **Sim.** Contavam `parcelas_previstas` e `parcelas_vencidas`. Convertidos no IMP-325. |
+| **Apropriacao de promessa** | **Sim.** `_parcela_da_apropriacao` resolve a parcela por `pagamento.parcelas_liquidadas`; sem parcelas, o caminho falha. Dependencia pontual, tratada no IMP-326. |
+
+Portanto EPIC-008, 009 e 010 **nao** ficam sem gatilho. O unico acoplamento
+operacional amplo eram os relatorios.
+
+**A data de pagamento continua sendo a decisao certa** — ela e o que da ao
+Credor e ao futuro alimentador da fila um dia para se apoiar. O que muda e o
+tamanho do risco: menor do que o registrado na abertura.
 
 ---
 
@@ -196,5 +208,6 @@ zerado. Ele nao e removido — a estrutura ja o carrega e um encargo futuro
 
 | Versao | Data | Descricao |
 |---------|------|-----------|
+| 1.2.0 | 2026-08-18 | Secao 6 corrigida: Cobranca e Agenda nao dependiam de parcela, ao contrario do afirmado na abertura. |
 | 1.1.0 | 2026-08-17 | Obrigacao na data de acerto e atraso especificados; verificado que a correcao da secao 5 ja os satisfaz. |
 | 1.0.0 | 2026-08-17 | Abertura e resolucao: dois defeitos de juros, adocao do emprestimo livre com data de pagamento e fim do plano de parcelas. |

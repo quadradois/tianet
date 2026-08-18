@@ -26,7 +26,7 @@ minimo os juros —, o sistema separa juros de amortizacao, e assim ate quitar.
 | # | Decisao | Fundamento |
 |---|---|---|
 | 1 | **Juros sobre o saldo devedor, acumulados por trecho** | O plano cobrava 5% sobre a fatia de amortizacao: R$ 474,19 de juros em dez meses de um emprestimo de R$ 10.000 a 5% ao mes. |
-| 2 | **Todo emprestimo tem dia de acerto** | Preserva a ancora de que Cobranca, Agenda, Inicio e Relatorios dependem. Sem ela, os tres epicos ficariam sem gatilho. |
+| 2 | **Todo emprestimo tem dia de acerto** | Da ao Credor um dia para cobrar, e a fila de cobranca uma ancora quando ela existir. Ver a correcao da DR-004 secao 6: Cobranca e Agenda **nao** dependiam de parcela, ao contrario do que a abertura afirmou. |
 | 3 | **A obrigacao no acerto e apenas o juro do periodo** | Amortizar e voluntario; o devedor quita quando e quanto puder. |
 | 4 | **Atraso nao gera multa nem encargo** | Contam-se os dias e aplica-se a fracao da taxa. Atrasar e ter mais tempo de juros, nao uma penalidade. |
 | 5 | **O plano de parcelas sai, sem deixar arquivo legado** | Decisao do Credor. |
@@ -70,9 +70,10 @@ so ocorra quando ninguem mais depender do que sai.
 1. **Motor e dominio** — acumulacao por trecho, regra de calendario do acerto e
    o agregado sabendo o proprio dia.
 2. **Lancamento e wizard** — o emprestimo nasce livre, sem plano.
-3. **Operacao diaria** — Cobranca, Agenda, Inicio e Relatorios trocam "parcela
-   vencida" por "acerto vencido". **Fase de maior risco:** sao tres epicos
-   certificados.
+3. **Operacao diaria** — Inicio e Relatorios trocam "parcela vencida" por
+   "acerto vencido". Cobranca e Agenda nao precisam de mudanca: nao dependiam de
+   parcela (DR-004 secao 6, corrigida). Resta a apropriacao de promessa, que
+   resolve a parcela pelo pagamento.
 4. **Telas do emprestimo** — extrato no lugar da tabela de parcelas.
 5. **Remocao** — plano, agregado, tabela, operacao do contrato e testes.
 
@@ -103,7 +104,7 @@ so ocorra quando ninguem mais depender do que sai.
 
 | Risco | Tratamento |
 |---|---|
-| Operacao diaria ficar sem gatilho | a fase 3 so comeca com o dia de acerto ja gravado e consultavel |
+| Operacao diaria ficar sem gatilho | risco superdimensionado na abertura; a verificacao no codigo mostrou que so os relatorios dependiam de parcela |
 | Emprestimo antigo sem dia de acerto | ausencia e estado legitimo ate a fase 5; nada quebra |
 | Contrato quebrar consumidor | o unico consumidor e o proprio frontend, versionado no mesmo repositorio |
 | Repetir o erro da DR-003 | os testes desta vez conferem o **valor esperado pelo negocio**, e nao apenas a estabilidade do numero |
