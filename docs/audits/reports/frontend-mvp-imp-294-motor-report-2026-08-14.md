@@ -67,8 +67,8 @@ reverter arquivos.
 |---|---:|---|
 | `frontend-mvp-imp-294-motor-list-desktop.png` | 1440x900 | `be04ac5308608f63b86c21b489ad5b79bafeef6ff50f4dd81a82cbc734425bcf` |
 | `frontend-mvp-imp-294-motor-list-mobile.png` | 390x844 | `2c38db4674555f765bd26d9b14bef84c1d5138e01550a716e71f1f788882a431` |
-| `frontend-mvp-imp-294-emprestimo-detail-desktop.png` | 1440x900 | `95634c3f9f49f7662eab43185f37d6d91d5b71e3c876ddc17e99651fefa3203b` |
-| `frontend-mvp-imp-294-pagamento-flow-mobile.png` | 390x844 | `a94449ddfd78b23cd67ebdb5986a561b24f300b81f484548e9c6e46de16bda7b` |
+| `frontend-mvp-imp-294-emprestimo-detail-desktop.png` | 1440x900 | `ef3913cd414e33cd699310e73e408d024561f4f567dbed21aaf0b32496f7ba00` |
+| `frontend-mvp-imp-294-pagamento-flow-mobile.png` | 390x844 | `6696bcf3745ad10c06b50508b57f4e36691a2bbae61e3c77ee951cd00d588b52` |
 
 ---
 

@@ -12,7 +12,6 @@ import { INITIAL_MOTOR_ACTION_STATE, type Balance, type CalculationMemory, type 
 
 import {
   executeSettlementAction,
-  generateInstallmentsAction,
   registerPaymentAction,
   registerRenegotiationAction,
 } from "../actions";
@@ -70,7 +69,6 @@ export default async function MotorDetailRoute({ params, searchParams }: PagePro
     <MotorDetailPage
       balance={balance}
       devedor={devedor.kind === "ready" && "nome" in devedor.data ? devedor.data.nome : undefined}
-      generateInstallmentsAction={generateInstallmentsAction}
       initialState={INITIAL_MOTOR_ACTION_STATE}
       loan={loan}
       memories={memories}

@@ -4,7 +4,6 @@ import { data as formatarData, moeda } from "../../lib/formato/brasileiro";
 
 import {
   INITIAL_MOTOR_ACTION_STATE,
-  MOTOR_INSTALLMENT_CREATE_PERMISSION,
   MOTOR_LOAN_CREATE_PERMISSION,
   MOTOR_PAYMENT_CREATE_PERMISSION,
   MOTOR_RENEGOTIATION_CREATE_PERMISSION,
@@ -43,7 +42,6 @@ type MotorDetailProps = Readonly<{
   balance: MotorReadResult<Balance>;
   /** Nome do Devedor, resolvido no servidor. Ausente sem permissao de leitura. */
   devedor?: string | undefined;
-  generateInstallmentsAction: MotorAction;
   initialState: MotorActionState;
   loan: MotorReadResult<Loan>;
   memories: MotorReadResult<readonly CalculationMemory[]>;
@@ -247,7 +245,6 @@ export function EmprestimosDoDevedor({ recoveryHref, result }: Readonly<{ recove
 }
 
 function DetailCommands({
-  generateInstallmentsAction,
   initialState,
   loanId,
   paymentAction,
@@ -255,7 +252,6 @@ function DetailCommands({
   renegotiationAction,
   settlementAction,
 }: Readonly<{
-  generateInstallmentsAction: MotorAction;
   initialState: MotorActionState;
   loanId: string;
   paymentAction: MotorAction;
@@ -265,9 +261,6 @@ function DetailCommands({
 }>) {
   return (
     <section className="grid gap-4 lg:grid-cols-2">
-      {hasExactPermission(permissions, MOTOR_INSTALLMENT_CREATE_PERMISSION) ? (
-        <MotorCommandForm action={generateInstallmentsAction} command="gerar-parcelas" emprestimoId={loanId} initialState={initialState} />
-      ) : null}
       {hasExactPermission(permissions, MOTOR_PAYMENT_CREATE_PERMISSION) ? (
         <MotorCommandForm action={paymentAction} command="registrar-pagamento" emprestimoId={loanId} initialState={initialState} />
       ) : null}
@@ -375,20 +368,9 @@ function ExtratoDoSaldo({ balance }: Readonly<{ balance: MotorReadResult<Balance
   );
 }
 
-function ReadyAuxiliary({ balance, memories, settlementPreview }: Pick<MotorDetailProps, "balance" | "memories" | "settlementPreview">) {
+function ReadyAuxiliary({ memories, settlementPreview }: Pick<MotorDetailProps, "memories" | "settlementPreview">) {
   return (
     <section className="grid gap-4 lg:grid-cols-2">
-      {balance.kind === "ready" ? (
-        <article className="rounded-2xl border border-border bg-card p-4">
-          <h2 className="font-semibold">Quanto ainda falta</h2>
-          <dl className="mt-3 grid gap-3 sm:grid-cols-2">
-            <RawValue label="Principal" value={moeda(balance.data.principal)} />
-            <RawValue label="Juros" value={moeda(balance.data.juros)} />
-            <RawValue label="Encargos" value={moeda(balance.data.encargos)} />
-            <RawValue label="Total" value={moeda(balance.data.total)} />
-          </dl>
-        </article>
-      ) : null}
       {settlementPreview.kind === "ready" ? (
         <article className="rounded-2xl border border-border bg-card p-4">
           <h2 className="font-semibold">Valor para quitar hoje</h2>
@@ -400,7 +382,7 @@ function ReadyAuxiliary({ balance, memories, settlementPreview }: Pick<MotorDeta
           </dl>
         </article>
       ) : null}
-      {memories.kind === "ready" ? (
+      {memories.kind === "ready" && memories.data.length > 0 ? (
         <article className="rounded-2xl border border-border bg-card p-4">
           <h2 className="font-semibold">Como a conta foi feita</h2>
           <div className="mt-3 space-y-3">
@@ -427,7 +409,6 @@ function ReadyAuxiliary({ balance, memories, settlementPreview }: Pick<MotorDeta
 export function MotorDetailPage({
   balance,
   devedor,
-  generateInstallmentsAction,
   initialState = INITIAL_MOTOR_ACTION_STATE,
   loan,
   memories,
@@ -449,15 +430,13 @@ export function MotorDetailPage({
           {/* As operacoes vem depois do painel: primeiro entender, depois agir.
               Sem nenhuma permissao de comando o bloco nao existe, em vez de
               abrir vazio e sugerir uma acao indisponivel. */}
-          {hasExactPermission(permissions, MOTOR_INSTALLMENT_CREATE_PERMISSION)
-          || hasExactPermission(permissions, MOTOR_PAYMENT_CREATE_PERMISSION)
+          {hasExactPermission(permissions, MOTOR_PAYMENT_CREATE_PERMISSION)
           || hasExactPermission(permissions, MOTOR_SETTLEMENT_EXECUTE_PERMISSION)
           || hasExactPermission(permissions, MOTOR_RENEGOTIATION_CREATE_PERMISSION) ? (
           <details className="rounded-2xl border border-border bg-muted/30 p-4">
             <summary className="cursor-pointer font-semibold">Operacoes deste emprestimo</summary>
             <div className="mt-4">
               <DetailCommands
-                generateInstallmentsAction={generateInstallmentsAction}
                 initialState={initialState}
                 loanId={loan.data.id}
                 paymentAction={paymentAction}
@@ -468,7 +447,7 @@ export function MotorDetailPage({
             </div>
           </details>
           ) : null}
-          <ReadyAuxiliary balance={balance} memories={memories} settlementPreview={settlementPreview} />
+          <ReadyAuxiliary memories={memories} settlementPreview={settlementPreview} />
         </>
       ) : null}
     </main>

@@ -152,7 +152,6 @@ describe("Motor UI", () => {
       <MotorDetailPage
         balance={{ kind: "ready", data: balance }}
         devedor="Maria Souza"
-        generateInstallmentsAction={action}
         initialState={INITIAL_MOTOR_ACTION_STATE}
         loan={{ kind: "ready", data: comAcerto }}
         memories={{ kind: "denied" }}
@@ -204,7 +203,6 @@ describe("Motor UI", () => {
     render(
       <MotorDetailPage
         balance={{ kind: "ready", data: balance }}
-        generateInstallmentsAction={action}
         initialState={INITIAL_MOTOR_ACTION_STATE}
         loan={{ kind: "ready", data: loan }}
         memories={{ kind: "ready", data: [memory] }}
@@ -221,7 +219,11 @@ describe("Motor UI", () => {
     expect(screen.getByText("Deve hoje")).toBeInTheDocument();
     expect(screen.getByText("Proximo acerto")).toBeInTheDocument();
     expect(screen.getByText("Juros do periodo")).toBeInTheDocument();
-    expect(screen.getByText("Quanto ainda falta")).toBeInTheDocument();
+    // O cartao antigo saiu: repetia o extrato. O que resta e o extrato.
+    expect(screen.getByText("Como esta a divida hoje")).toBeInTheDocument();
+    expect(screen.queryByText("Quanto ainda falta")).not.toBeInTheDocument();
+    // Nao ha plano a gerar no emprestimo livre.
+    expect(screen.queryByRole("button", { name: /Gerar parcelas/i })).not.toBeInTheDocument();
     expect(screen.getAllByText("Como a conta foi feita")[0]).toBeInTheDocument();
     expect(screen.getByText(/Pagamento idempotente/i)).toBeInTheDocument();
     expect(screen.getAllByText(/Valor para quitar hoje/i)[0]).toBeInTheDocument();
@@ -235,7 +237,6 @@ describe("Motor UI", () => {
     render(
       <MotorDetailPage
         balance={{ kind: "problem", problem: { codigo: "regra_violada", correlationId: "corr-422", mensagem: "422 regra", status: 422 } }}
-        generateInstallmentsAction={action}
         initialState={INITIAL_MOTOR_ACTION_STATE}
         loan={{ kind: "problem", problem: { codigo: "recurso_indisponivel", correlationId: "corr-404", mensagem: "backend secreto", status: 404 } }}
         memories={{ kind: "denied" }}

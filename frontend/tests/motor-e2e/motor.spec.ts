@@ -103,14 +103,15 @@ test("consulta detalhe, parcelas, saldo, memoria, pagamento e quitacao sem recal
   // O extrato substitui a tabela de parcelas (DR-004).
   await expect(page.getByText("Como esta a divida hoje")).toBeVisible();
   await expect(page.getByText(IDS.loan, { exact: true })).toHaveCount(0);
-  await expect(page.getByText("Quanto ainda falta")).toBeVisible();
+  // O cartao antigo saiu: repetia o extrato.
+  await expect(page.getByText("Quanto ainda falta")).toHaveCount(0);
   await expect(page.getByText("Como a conta foi feita")).toBeVisible();
   await expect(page.getByText("R$ 1.010,00").first()).toBeVisible();
   // As operacoes ficam abaixo do painel e recolhidas: primeiro entender, depois agir.
-  await expect(page.getByRole("button", { name: "Gerar parcelas", exact: true })).toBeHidden();
+  await expect(page.getByRole("button", { name: "Registrar pagamento", exact: true })).toBeHidden();
   await page.getByText("Operacoes deste emprestimo").click();
-  await activateButton(page, "Gerar parcelas");
-  await expect(page.getByText(/Plano de parcelas gerado pelo Motor/)).toBeVisible();
+  // Nao ha plano a gerar no emprestimo livre (DR-004).
+  await expect(page.getByRole("button", { name: "Gerar parcelas", exact: true })).toHaveCount(0);
   await activateButton(page, "Registrar pagamento");
   await page.getByLabel("Valor recebido").fill("100.00");
   await activateButton(page, "Registrar pagamento");
