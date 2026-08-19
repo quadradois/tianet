@@ -68,6 +68,7 @@ export default async function MotorDetailRoute({ params, searchParams }: PagePro
   return (
     <MotorDetailPage
       balance={balance}
+      hoje={selectedDate}
       devedor={devedor.kind === "ready" && "nome" in devedor.data ? devedor.data.nome : undefined}
       initialState={INITIAL_MOTOR_ACTION_STATE}
       loan={loan}

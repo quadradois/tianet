@@ -4,7 +4,7 @@ import type { components } from "../api/openapi.generated";
 import { createBackendClient } from "../api/client.server";
 import {
   formDate,
-  formDateTime,
+  formDataDeRecebimento,
   formMoney,
   formString,
   hasExactPermission,
@@ -467,7 +467,7 @@ export async function createInstallmentPlan(cookies: CookieStore, context: Opera
 
 export async function registerPayment(cookies: CookieStore, context: OperationalContext, loanId: string, formData: FormData, dependencies: BffDependencies): Promise<MotorActionState> {
   const valor = formMoney(formData, "valor");
-  const recebidoEm = formDateTime(formData, "recebido_em");
+  const recebidoEm = formDataDeRecebimento(formData, "recebido_em");
   if (!isUuid(loanId) || !valor || !recebidoEm) return { kind: "problem", message: "Informe pagamento valido.", status: 400, correlationId: correlationId() };
   const body: PaymentCreateRequest = { valor, recebido_em: recebidoEm };
   return executeMutation(cookies, context, dependencies, MOTOR_PAYMENT_CREATE_PERMISSION, 200, (client, _carteiraId, correlation) => client.POST(
@@ -477,7 +477,7 @@ export async function registerPayment(cookies: CookieStore, context: Operational
 }
 
 export async function executeSettlement(cookies: CookieStore, context: OperationalContext, loanId: string, formData: FormData, dependencies: BffDependencies): Promise<MotorActionState> {
-  const recebidoEm = formDateTime(formData, "recebido_em");
+  const recebidoEm = formDataDeRecebimento(formData, "recebido_em");
   if (!isUuid(loanId) || !recebidoEm) return { kind: "problem", message: "Informe data de quitacao valida.", status: 400, correlationId: correlationId() };
   const body: SettlementRequest = { recebido_em: recebidoEm };
   return executeMutation(cookies, context, dependencies, MOTOR_SETTLEMENT_EXECUTE_PERMISSION, 200, (client, _carteiraId, correlation) => client.POST(
@@ -487,7 +487,7 @@ export async function executeSettlement(cookies: CookieStore, context: Operation
 }
 
 export async function registerRenegotiation(cookies: CookieStore, context: OperationalContext, loanId: string, formData: FormData, dependencies: BffDependencies): Promise<MotorActionState> {
-  const renegociadoEm = formDateTime(formData, "renegociado_em");
+  const renegociadoEm = formDataDeRecebimento(formData, "renegociado_em");
   const novosParametros = parseOpaqueRenegotiationParameters(formString(formData, "novos_parametros", 5_000) ?? "");
   if (!isUuid(loanId) || !renegociadoEm || !novosParametros) return { kind: "problem", message: "Informe Renegociacao opaca valida.", status: 400, correlationId: correlationId() };
   const body: RenegotiationRequest = { novos_parametros: novosParametros, renegociado_em: renegociadoEm };

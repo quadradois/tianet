@@ -113,7 +113,7 @@ test("consulta detalhe, parcelas, saldo, memoria, pagamento e quitacao sem recal
   // Nao ha plano a gerar no emprestimo livre (DR-004).
   await expect(page.getByRole("button", { name: "Gerar parcelas", exact: true })).toHaveCount(0);
   await activateButton(page, "Registrar pagamento");
-  await page.getByLabel("Valor recebido").fill("100.00");
+  await page.getByLabel("Quanto o devedor pagou").fill("100.00");
   await activateButton(page, "Registrar pagamento");
   await expect(page.getByText(/Pagamento idempotente registrado pelo Motor/)).toBeVisible();
   await activateButton(page, "Executar quitacao");

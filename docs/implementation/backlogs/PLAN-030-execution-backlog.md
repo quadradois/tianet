@@ -2,9 +2,9 @@
 
 **ID:** PLAN-030-EXEC
 
-**Versao:** 1.2.0
+**Versao:** 1.3.0
 
-**Status:** IMP-321..326 concluidos; IMP-327 planejado
+**Status:** IMP-321..326 concluidos; IMP-327 em execucao (telas feitas; remocao no backend pendente)
 
 ---
 
@@ -144,7 +144,33 @@ PLAN-029.
 - **Criterios de conclusao:** nenhum arquivo legado; o inventario deixa de ser
   108/137 e o novo valor e registrado; `test_motor_juros_base.py` sai junto,
   porque descreve um calculo que deixa de existir.
-- **Status:** Planejado.
+- **Status:** Em execucao. Telas concluidas; remocao no backend pendente.
+- **Feito nas telas:** saiu o cartao "Quanto ainda falta", que repetia o
+  extrato; "Como a conta foi feita" deixou de renderizar vazio; e o comando
+  "Gerar parcelas" saiu das operacoes.
+- **Defeito que bloqueava o produto, encontrado ao exercitar a tela:** o Motor
+  recusava pagamento e quitacao com `plano de parcelas deve ser gerado antes do
+  pagamento`. No emprestimo livre nao ha plano, e o pagamento e justamente o
+  evento que move a divida — a regra impedia o fluxo central. Removida das duas
+  operacoes. **Nenhum teste cobria essa regra**: a suite de 999 seguiu verde
+  com a remocao, o que confirma que ela nunca foi verificada.
+- **Segundo defeito, mesmo caminho:** o campo de valor recusava "500,00". O
+  Credor digita virgula, que e como se escreve dinheiro em portugues. A troca e
+  de pontuacao, feita por texto, e o Motor continua sendo a autoridade sobre o
+  valor.
+- **Formulario de pagamento:** `Recebido em` era texto livre com
+  `2026-08-14T12:00:00Z` fixo no codigo — data de cinco dias antes. Virou campo
+  de data com hoje preenchido, resolvido no servidor. A conversao usa meio-dia
+  UTC, e nao meia-noite: em America/Sao_Paulo `00:00Z` e 21h do dia anterior, e
+  o pagamento mudaria de dia sozinho. `Idempotency-Key` saiu da vista — e
+  protocolo, nao decisao do Credor, e o BFF ja a gera.
+- **Um teste que escrevi pegou defeito meu:** a primeira versao aceitava
+  `2026-13-01` porque validava so o formato. Passou a usar `isDate`, que
+  verifica o calendario.
+- **Verificado contra a stack real:** pagamento de R$ 500,00 digitado com
+  virgula gravou `500.00` recebido, `0.00` de juros e `500.00` de amortizacao. O
+  painel passou a mostrar "Deve hoje R$ 9.500,00". Juros zero esta certo — o
+  emprestimo foi lancado no mesmo dia.
 
 ---
 
@@ -152,6 +178,7 @@ PLAN-029.
 
 | Versao | Data | Descricao |
 |---|---|---|
+| 1.3.0 | 2026-08-19 | IMP-327 nas telas: restos do plano removidos, formulario de pagamento operavel e duas regras que bloqueavam o fluxo central corrigidas. |
 | 1.2.0 | 2026-08-19 | IMP-326 concluido na tela: painel do emprestimo livre e extrato no lugar da tabela de parcelas. |
 | 1.1.0 | 2026-08-17 | IMP-325 concluido no Resumo da Carteira: acertos pendentes e principal a receber no lugar dos contadores de parcela. |
 | 1.0.0 | 2026-08-17 | Backlog inicial IMP-321..327; fases A e B concluidas. |

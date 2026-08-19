@@ -225,8 +225,32 @@ export function formDateTime(formData: FormData, key: string): string | undefine
   return isDateTime(value) ? value : undefined;
 }
 
+/**
+ * Aceita a data que o Credor escolhe no calendario e devolve o instante que o
+ * contrato exige.
+ *
+ * O formulario pedia `2026-08-14T12:00:00Z` digitado a mao. Agora pede uma data,
+ * e o meio-dia UTC entra aqui. Meio-dia, e nao meia-noite: em America/Sao_Paulo
+ * `00:00Z` e 21h do dia anterior, e um pagamento mudaria de dia sozinho.
+ */
+export function formDataDeRecebimento(formData: FormData, key: string): string | undefined {
+  const bruto = formString(formData, key, 40);
+  if (bruto === undefined) return undefined;
+  // `isDate`, e nao so o formato: "2026-13-01" casa com a forma e nao existe.
+  if (isDate(bruto)) return `${bruto}T12:00:00Z`;
+  return isDateTime(bruto) ? bruto : undefined;
+}
+
+/**
+ * Le um valor em dinheiro do formulario, aceitando a virgula decimal.
+ *
+ * O Credor digita "500,00", que e como se escreve dinheiro em portugues, e o
+ * contrato exige "500.00". A troca e de pontuacao, feita por texto — nao ha
+ * conta aqui, e o Motor continua sendo a unica autoridade sobre o valor.
+ */
 export function formMoney(formData: FormData, key: string): string | undefined {
-  const value = formString(formData, key, 40);
+  const bruto = formString(formData, key, 40);
+  const value = bruto === undefined ? undefined : bruto.replace(",", ".");
   return validMoneyInput(value) ? value : undefined;
 }
 

@@ -509,13 +509,10 @@ class PagamentoService:
                 )
             if replay:
                 raise IdempotenciaConflitoError(idempotency_key, "resultado de pagamento ausente")
+            # A exigencia de plano previo caiu com a DR-004: no emprestimo livre
+            # nao ha plano, e o pagamento e justamente o evento que move a
+            # divida. Exigi-lo aqui impedia o fluxo central do produto.
             parcelas = uow.parcela.find_by_emprestimo_id(emprestimo_id)
-            if not parcelas:
-                raise TransicaoEstadoInvalidaError(
-                    emprestimo_id,
-                    "registrar_pagamento",
-                    "plano de parcelas deve ser gerado antes do pagamento",
-                )
             pagamentos = uow.pagamento.find_by_emprestimo_id(emprestimo_id)
             motor = self._motor_factory()
             motor.carregar_historico(
@@ -722,13 +719,9 @@ class QuitacaoRenegociacaoService:
                 )
             if replay:
                 raise IdempotenciaConflitoError(idempotency_key, "resultado de quitacao ausente")
+            # Idem para a quitacao (DR-004): o valor de quitar vem do saldo, e o
+            # saldo existe desde o primeiro dia do emprestimo.
             parcelas = uow.parcela.find_by_emprestimo_id(emprestimo_id)
-            if not parcelas:
-                raise TransicaoEstadoInvalidaError(
-                    emprestimo_id,
-                    "quitar",
-                    "plano de parcelas deve ser gerado antes da quitacao",
-                )
             motor = _motor_com_historico(self._motor_factory(), uow, emprestimo_id)
             try:
                 calculada = motor.calcular_valor_quitacao(

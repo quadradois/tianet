@@ -42,6 +42,8 @@ type MotorDetailProps = Readonly<{
   balance: MotorReadResult<Balance>;
   /** Nome do Devedor, resolvido no servidor. Ausente sem permissao de leitura. */
   devedor?: string | undefined;
+  /** Data de hoje, resolvida no servidor. */
+  hoje: string;
   initialState: MotorActionState;
   loan: MotorReadResult<Loan>;
   memories: MotorReadResult<readonly CalculationMemory[]>;
@@ -245,6 +247,7 @@ export function EmprestimosDoDevedor({ recoveryHref, result }: Readonly<{ recove
 }
 
 function DetailCommands({
+  hoje,
   initialState,
   loanId,
   paymentAction,
@@ -252,6 +255,7 @@ function DetailCommands({
   renegotiationAction,
   settlementAction,
 }: Readonly<{
+  hoje: string;
   initialState: MotorActionState;
   loanId: string;
   paymentAction: MotorAction;
@@ -262,13 +266,13 @@ function DetailCommands({
   return (
     <section className="grid gap-4 lg:grid-cols-2">
       {hasExactPermission(permissions, MOTOR_PAYMENT_CREATE_PERMISSION) ? (
-        <MotorCommandForm action={paymentAction} command="registrar-pagamento" emprestimoId={loanId} initialState={initialState} />
+        <MotorCommandForm action={paymentAction} command="registrar-pagamento" emprestimoId={loanId} hoje={hoje} initialState={initialState} />
       ) : null}
       {hasExactPermission(permissions, MOTOR_SETTLEMENT_EXECUTE_PERMISSION) ? (
-        <MotorCommandForm action={settlementAction} command="executar-quitacao" emprestimoId={loanId} initialState={initialState} />
+        <MotorCommandForm action={settlementAction} command="executar-quitacao" emprestimoId={loanId} hoje={hoje} initialState={initialState} />
       ) : null}
       {hasExactPermission(permissions, MOTOR_RENEGOTIATION_CREATE_PERMISSION) ? (
-        <MotorCommandForm action={renegotiationAction} command="registrar-renegociacao" emprestimoId={loanId} initialState={initialState} />
+        <MotorCommandForm action={renegotiationAction} command="registrar-renegociacao" emprestimoId={loanId} hoje={hoje} initialState={initialState} />
       ) : null}
     </section>
   );
@@ -409,6 +413,7 @@ function ReadyAuxiliary({ memories, settlementPreview }: Pick<MotorDetailProps, 
 export function MotorDetailPage({
   balance,
   devedor,
+  hoje,
   initialState = INITIAL_MOTOR_ACTION_STATE,
   loan,
   memories,
@@ -437,6 +442,7 @@ export function MotorDetailPage({
             <summary className="cursor-pointer font-semibold">Operacoes deste emprestimo</summary>
             <div className="mt-4">
               <DetailCommands
+                hoje={hoje}
                 initialState={initialState}
                 loanId={loan.data.id}
                 paymentAction={paymentAction}

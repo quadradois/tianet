@@ -152,6 +152,7 @@ describe("Motor UI", () => {
       <MotorDetailPage
         balance={{ kind: "ready", data: balance }}
         devedor="Maria Souza"
+        hoje="2026-08-19"
         initialState={INITIAL_MOTOR_ACTION_STATE}
         loan={{ kind: "ready", data: comAcerto }}
         memories={{ kind: "denied" }}
@@ -203,6 +204,7 @@ describe("Motor UI", () => {
     render(
       <MotorDetailPage
         balance={{ kind: "ready", data: balance }}
+        hoje="2026-08-19"
         initialState={INITIAL_MOTOR_ACTION_STATE}
         loan={{ kind: "ready", data: loan }}
         memories={{ kind: "ready", data: [memory] }}
@@ -236,6 +238,7 @@ describe("Motor UI", () => {
   it("mantem 404 neutro, 409, 422 e overflow observaveis", () => {
     render(
       <MotorDetailPage
+        hoje="2026-08-19"
         balance={{ kind: "problem", problem: { codigo: "regra_violada", correlationId: "corr-422", mensagem: "422 regra", status: 422 } }}
         initialState={INITIAL_MOTOR_ACTION_STATE}
         loan={{ kind: "problem", problem: { codigo: "recurso_indisponivel", correlationId: "corr-404", mensagem: "backend secreto", status: 404 } }}
