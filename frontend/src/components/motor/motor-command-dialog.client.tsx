@@ -49,16 +49,12 @@ export function MotorCommandForm({ action, command, emprestimoId, hoje, initialS
   initialState: MotorActionState;
 }>) {
   const [state, formAction, pending] = useActionState(action, initialState);
-  const title = command === "gerar-parcelas"
-    ? "Gerar parcelas"
-    : command === "registrar-pagamento"
+  const title = command === "registrar-pagamento"
       ? "Registrar pagamento"
       : command === "executar-quitacao"
         ? "Executar quitacao"
         : "Registrar renegociacao";
-  const evidence = command === "gerar-parcelas"
-    ? "sem-idempotency:/credit/emprestimos/{emprestimo_id}/parcelas"
-    : command === "registrar-pagamento"
+  const evidence = command === "registrar-pagamento"
       ? "Pagamento idempotente registrado pelo Motor."
       : command === "executar-quitacao"
         ? "Quitacao oficial executada pelo Motor."
@@ -70,12 +66,6 @@ export function MotorCommandForm({ action, command, emprestimoId, hoje, initialS
       <p className="sr-only">{evidence}</p>
       <input name="command" type="hidden" value={command} />
       <input name="emprestimo_id" type="hidden" value={emprestimoId} />
-      {command === "gerar-parcelas" ? (
-        <div className="grid gap-2">
-          <Label htmlFor={`${command}-data_referencia`}>Data de referencia</Label>
-          <Input defaultValue="2026-08-14" id={`${command}-data_referencia`} name="data_referencia" type="date" />
-        </div>
-      ) : null}
       {command === "registrar-pagamento" ? (
         <>
           <div className="grid gap-2">

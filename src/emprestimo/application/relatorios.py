@@ -12,7 +12,7 @@ from emprestimo.application.errors import CarteiraNaoEncontradaError
 from emprestimo.application.ports import UnitOfWork
 from emprestimo.domain.credit.emprestimo import Emprestimo, EmprestimoState
 from emprestimo.domain.credit.pagamento import Pagamento, PagamentoState
-from emprestimo.domain.credit.parcela import Parcela, ParcelaState
+from emprestimo.domain.credit.parcela import Parcela
 from emprestimo.domain.credit.ports import EmprestimoFiltros, Paginacao
 
 
@@ -31,13 +31,20 @@ class ResumoCarteiraResultado:
 
 @dataclass(frozen=True)
 class VencimentoOperacionalResultado:
+    """Um acerto mensal, no lugar de uma parcela (DR-004).
+
+    `situacao` diz o que esta camada consegue afirmar: "pendente" quando o
+    acerto ja venceu e ninguem apareceu, "em dia" caso contrario. Nao diz
+    "inadimplente" — julgar se os juros do periodo foram quitados exige o saldo,
+    e saldo e do Motor, que esta camada nao importa.
+    """
+
     emprestimo_id: uuid.UUID
-    parcela_id: uuid.UUID
-    numero: int
-    vencimento: date
-    valor_previsto: Decimal
-    valor_liquidado: Decimal
-    estado: ParcelaState
+    devedor_id: uuid.UUID
+    dia_de_acerto: int
+    acerto_em: date
+    dias_sem_pagamento: int
+    principal_original: Decimal
     situacao: str
 
 
@@ -162,19 +169,15 @@ class RelatoriosOperacionaisService:
                 tenant_id=tenant_id,
                 carteira_id=carteira_id,
             )
-            parcelas = _parcelas_dos_emprestimos(uow, emprestimos)
             itens = tuple(
-                VencimentoOperacionalResultado(
-                    emprestimo_id=parcela.emprestimo_id,
-                    parcela_id=parcela.id,
-                    numero=parcela.numero,
-                    vencimento=parcela.vencimento,
-                    valor_previsto=parcela.valor_previsto,
-                    valor_liquidado=parcela.valor_liquidado,
-                    estado=parcela.estado,
-                    situacao=_situacao_parcela(parcela, data_referencia),
+                sorted(
+                    (
+                        _vencimento_resultado(item, data_referencia)
+                        for item in emprestimos
+                        if item.estado is EmprestimoState.ATIVO and item.dia_de_acerto is not None
+                    ),
+                    key=lambda resultado: (resultado.acerto_em, resultado.emprestimo_id),
                 )
-                for parcela in sorted(parcelas, key=lambda item: (item.vencimento, item.id))
             )
             return VencimentosInadimplenciaResultado(
                 tenant_id=tenant_id,
@@ -341,14 +344,23 @@ def _pagamentos_dos_emprestimos(
     )
 
 
-def _situacao_parcela(parcela: Parcela, data_referencia: date) -> str:
-    if parcela.estado is ParcelaState.CANCELADA:
-        return "cancelada"
-    if parcela.estado is ParcelaState.LIQUIDADA:
-        return "regularizada"
-    if parcela.vencimento < data_referencia:
-        return "vencida"
-    return "futura"
+def _vencimento_resultado(
+    emprestimo: Emprestimo, data_referencia: date
+) -> VencimentoOperacionalResultado:
+    pendente = emprestimo.acerto_sem_pagamento_em(data_referencia)
+    proximo = emprestimo.proximo_acerto_em(data_referencia)
+    dia = emprestimo.dia_de_acerto
+    assert dia is not None  # filtrado por quem chama
+    return VencimentoOperacionalResultado(
+        emprestimo_id=emprestimo.id,
+        devedor_id=emprestimo.devedor_id,
+        dia_de_acerto=dia,
+        # Pendente mostra o acerto que ja venceu; em dia, o proximo que vem.
+        acerto_em=pendente or proximo or data_referencia,
+        dias_sem_pagamento=emprestimo.dias_sem_pagamento_em(data_referencia),
+        principal_original=emprestimo.principal_original,
+        situacao="pendente" if pendente is not None else "em dia",
+    )
 
 
 def _pagamento_resultado(pagamento: Pagamento) -> PagamentoOperacionalResultado:

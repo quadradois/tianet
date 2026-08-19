@@ -323,4 +323,3 @@ def test_schemas_openapi_incluem_estados_operacionais() -> None:
     assert "EstadoLembrete" in schema["components"]["schemas"]
     assert "PromessaPagamentoState" in schema["components"]["schemas"]
     assert "PagamentoState" in schema["components"]["schemas"]
-    assert "ParcelaState" in schema["components"]["schemas"]

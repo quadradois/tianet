@@ -3256,83 +3256,6 @@
         "title": "ParametroFinanceiroRequest",
         "type": "object"
       },
-      "ParcelaResponse": {
-        "properties": {
-          "emprestimo_id": {
-            "format": "uuid",
-            "title": "Emprestimo Id",
-            "type": "string"
-          },
-          "encargos": {
-            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
-            "title": "Encargos",
-            "type": "string"
-          },
-          "estado": {
-            "$ref": "#/components/schemas/ParcelaState"
-          },
-          "id": {
-            "format": "uuid",
-            "title": "Id",
-            "type": "string"
-          },
-          "juros": {
-            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
-            "title": "Juros",
-            "type": "string"
-          },
-          "numero": {
-            "title": "Numero",
-            "type": "integer"
-          },
-          "principal": {
-            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
-            "title": "Principal",
-            "type": "string"
-          },
-          "valor_liquidado": {
-            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
-            "title": "Valor Liquidado",
-            "type": "string"
-          },
-          "valor_previsto": {
-            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
-            "title": "Valor Previsto",
-            "type": "string"
-          },
-          "vencimento": {
-            "format": "date",
-            "title": "Vencimento",
-            "type": "string"
-          }
-        },
-        "required": [
-          "id",
-          "emprestimo_id",
-          "numero",
-          "vencimento",
-          "valor_previsto",
-          "principal",
-          "juros",
-          "encargos",
-          "valor_liquidado",
-          "estado"
-        ],
-        "title": "ParcelaResponse",
-        "type": "object"
-      },
-      "ParcelaState": {
-        "description": "Estados da obrigacao financeira prevista.",
-        "enum": [
-          "prevista",
-          "vencida",
-          "parcialmente_liquidada",
-          "liquidada",
-          "cancelada"
-        ],
-        "title": "ParcelaState",
-        "type": "string"
-      },
       "PassoCalculoResponse": {
         "properties": {
           "arredondamento": {
@@ -3537,59 +3460,6 @@
           "permissoes"
         ],
         "title": "PermissoesEfetivasResponse",
-        "type": "object"
-      },
-      "PlanoParcelasRequest": {
-        "additionalProperties": false,
-        "properties": {
-          "data_referencia": {
-            "format": "date",
-            "title": "Data Referencia",
-            "type": "string"
-          }
-        },
-        "required": [
-          "data_referencia"
-        ],
-        "title": "PlanoParcelasRequest",
-        "type": "object"
-      },
-      "PlanoParcelasResponse": {
-        "properties": {
-          "emprestimo_id": {
-            "format": "uuid",
-            "title": "Emprestimo Id",
-            "type": "string"
-          },
-          "memoria": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/MemoriaCalculoResponse"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "parcelas": {
-            "items": {
-              "$ref": "#/components/schemas/ParcelaResponse"
-            },
-            "title": "Parcelas",
-            "type": "array"
-          },
-          "tenant_id": {
-            "format": "uuid",
-            "title": "Tenant Id",
-            "type": "string"
-          }
-        },
-        "required": [
-          "emprestimo_id",
-          "tenant_id",
-          "parcelas"
-        ],
-        "title": "PlanoParcelasResponse",
         "type": "object"
       },
       "PoliticaArredondamentoRequest": {
@@ -5005,51 +4875,46 @@
       },
       "VencimentoOperacionalResponse": {
         "properties": {
+          "acerto_em": {
+            "format": "date",
+            "title": "Acerto Em",
+            "type": "string"
+          },
+          "devedor_id": {
+            "format": "uuid",
+            "title": "Devedor Id",
+            "type": "string"
+          },
+          "dia_de_acerto": {
+            "title": "Dia De Acerto",
+            "type": "integer"
+          },
+          "dias_sem_pagamento": {
+            "title": "Dias Sem Pagamento",
+            "type": "integer"
+          },
           "emprestimo_id": {
             "format": "uuid",
             "title": "Emprestimo Id",
             "type": "string"
           },
-          "estado": {
-            "$ref": "#/components/schemas/ParcelaState"
-          },
-          "numero": {
-            "title": "Numero",
-            "type": "integer"
-          },
-          "parcela_id": {
-            "format": "uuid",
-            "title": "Parcela Id",
+          "principal_original": {
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Principal Original",
             "type": "string"
           },
           "situacao": {
             "title": "Situacao",
             "type": "string"
-          },
-          "valor_liquidado": {
-            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
-            "title": "Valor Liquidado",
-            "type": "string"
-          },
-          "valor_previsto": {
-            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
-            "title": "Valor Previsto",
-            "type": "string"
-          },
-          "vencimento": {
-            "format": "date",
-            "title": "Vencimento",
-            "type": "string"
           }
         },
         "required": [
           "emprestimo_id",
-          "parcela_id",
-          "numero",
-          "vencimento",
-          "valor_previsto",
-          "valor_liquidado",
-          "estado",
+          "devedor_id",
+          "dia_de_acerto",
+          "acerto_em",
+          "dias_sem_pagamento",
+          "principal_original",
           "situacao"
         ],
         "title": "VencimentoOperacionalResponse",
@@ -16335,324 +16200,6 @@
           }
         ],
         "summary": "Registrar pagamento no Motor Financeiro",
-        "tags": [
-          "financial-engine"
-        ]
-      }
-    },
-    "/credit/emprestimos/{emprestimo_id}/parcelas": {
-      "get": {
-        "operationId": "consultar_parcelas_credit_emprestimos__emprestimo_id__parcelas_get",
-        "parameters": [
-          {
-            "in": "path",
-            "name": "emprestimo_id",
-            "required": true,
-            "schema": {
-              "format": "uuid",
-              "title": "Emprestimo Id",
-              "type": "string"
-            }
-          },
-          {
-            "description": "Identificador tecnico de correlacao aceito ou gerado pela API.",
-            "in": "header",
-            "name": "X-Correlation-ID",
-            "required": false,
-            "schema": {
-              "maxLength": 128,
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/PlanoParcelasResponse"
-                }
-              }
-            },
-            "description": "Successful Response",
-            "headers": {
-              "X-Correlation-ID": {
-                "description": "Identificador tecnico de correlacao da requisicao.",
-                "schema": {
-                  "type": "string"
-                }
-              }
-            }
-          },
-          "400": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErroResponse"
-                }
-              }
-            },
-            "description": "Payload, parametros ou headers invalidos para a operacao.",
-            "headers": {
-              "X-Correlation-ID": {
-                "description": "Identificador tecnico de correlacao da requisicao.",
-                "schema": {
-                  "type": "string"
-                }
-              }
-            }
-          },
-          "401": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErroResponse"
-                }
-              }
-            },
-            "description": "Autenticacao recusada por token ausente, invalido ou expirado.",
-            "headers": {
-              "X-Correlation-ID": {
-                "description": "Identificador tecnico de correlacao da requisicao.",
-                "schema": {
-                  "type": "string"
-                }
-              }
-            }
-          },
-          "403": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErroResponse"
-                }
-              }
-            },
-            "description": "Principal autenticado nao possui permissao para a operacao.",
-            "headers": {
-              "X-Correlation-ID": {
-                "description": "Identificador tecnico de correlacao da requisicao.",
-                "schema": {
-                  "type": "string"
-                }
-              }
-            }
-          },
-          "404": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErroResponse"
-                }
-              }
-            },
-            "description": "Recurso inexistente ou indisponivel para o Tenant autenticado.",
-            "headers": {
-              "X-Correlation-ID": {
-                "description": "Identificador tecnico de correlacao da requisicao.",
-                "schema": {
-                  "type": "string"
-                }
-              }
-            }
-          },
-          "500": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErroResponse"
-                }
-              }
-            },
-            "description": "Erro tecnico inesperado com resposta segura e correlacionavel.",
-            "headers": {
-              "X-Correlation-ID": {
-                "description": "Identificador tecnico de correlacao da requisicao.",
-                "schema": {
-                  "type": "string"
-                }
-              }
-            }
-          }
-        },
-        "security": [
-          {
-            "BearerAuth": []
-          }
-        ],
-        "summary": "Consultar parcelas do emprestimo",
-        "tags": [
-          "financial-engine"
-        ]
-      },
-      "post": {
-        "operationId": "criar_plano_parcelas_credit_emprestimos__emprestimo_id__parcelas_post",
-        "parameters": [
-          {
-            "in": "path",
-            "name": "emprestimo_id",
-            "required": true,
-            "schema": {
-              "format": "uuid",
-              "title": "Emprestimo Id",
-              "type": "string"
-            }
-          },
-          {
-            "description": "Identificador tecnico de correlacao aceito ou gerado pela API.",
-            "in": "header",
-            "name": "X-Correlation-ID",
-            "required": false,
-            "schema": {
-              "maxLength": 128,
-              "type": "string"
-            }
-          }
-        ],
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/PlanoParcelasRequest"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/PlanoParcelasResponse"
-                }
-              }
-            },
-            "description": "Successful Response",
-            "headers": {
-              "X-Correlation-ID": {
-                "description": "Identificador tecnico de correlacao da requisicao.",
-                "schema": {
-                  "type": "string"
-                }
-              }
-            }
-          },
-          "400": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErroResponse"
-                }
-              }
-            },
-            "description": "Payload, parametros ou headers invalidos para a operacao.",
-            "headers": {
-              "X-Correlation-ID": {
-                "description": "Identificador tecnico de correlacao da requisicao.",
-                "schema": {
-                  "type": "string"
-                }
-              }
-            }
-          },
-          "401": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErroResponse"
-                }
-              }
-            },
-            "description": "Autenticacao recusada por token ausente, invalido ou expirado.",
-            "headers": {
-              "X-Correlation-ID": {
-                "description": "Identificador tecnico de correlacao da requisicao.",
-                "schema": {
-                  "type": "string"
-                }
-              }
-            }
-          },
-          "403": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErroResponse"
-                }
-              }
-            },
-            "description": "Principal autenticado nao possui permissao para a operacao.",
-            "headers": {
-              "X-Correlation-ID": {
-                "description": "Identificador tecnico de correlacao da requisicao.",
-                "schema": {
-                  "type": "string"
-                }
-              }
-            }
-          },
-          "404": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErroResponse"
-                }
-              }
-            },
-            "description": "Recurso inexistente ou indisponivel para o Tenant autenticado.",
-            "headers": {
-              "X-Correlation-ID": {
-                "description": "Identificador tecnico de correlacao da requisicao.",
-                "schema": {
-                  "type": "string"
-                }
-              }
-            }
-          },
-          "409": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErroResponse"
-                }
-              }
-            },
-            "description": "Transicao de estado invalida para o recurso atual.",
-            "headers": {
-              "X-Correlation-ID": {
-                "description": "Identificador tecnico de correlacao da requisicao.",
-                "schema": {
-                  "type": "string"
-                }
-              }
-            }
-          },
-          "500": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErroResponse"
-                }
-              }
-            },
-            "description": "Erro tecnico inesperado com resposta segura e correlacionavel.",
-            "headers": {
-              "X-Correlation-ID": {
-                "description": "Identificador tecnico de correlacao da requisicao.",
-                "schema": {
-                  "type": "string"
-                }
-              }
-            }
-          }
-        },
-        "security": [
-          {
-            "BearerAuth": []
-          }
-        ],
-        "summary": "Gerar plano de parcelas do emprestimo",
         "tags": [
           "financial-engine"
         ]

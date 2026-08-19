@@ -24,11 +24,11 @@ function header(operation: { parameters?: { in: string; name: string; required?:
 }
 
 describe("Cobranca OpenAPI consumida pelo frontend", () => {
-  it("preserva snapshot oficial 108/137 e SHA governado", () => {
+  it("preserva snapshot oficial 106/133 e SHA governado", () => {
     const operationCount = Object.values(spec.paths).flatMap((item) => Object.keys(item).filter((method) => ["get", "post", "patch", "put", "delete"].includes(method))).length;
-    expect(operationCount).toBe(108);
-    expect(Object.keys(spec.components.schemas)).toHaveLength(137);
-    expect(createHash("sha256").update(raw).digest("hex")).toBe("6b24001ab24f9e4c47764d93fa8c640115dedd2f77bbc0df290d4145934b953d");
+    expect(operationCount).toBe(106);
+    expect(Object.keys(spec.components.schemas)).toHaveLength(133);
+    expect(createHash("sha256").update(raw).digest("hex")).toBe("9f4c9d224a95c146c5950820f5d055001e7091e3e1f14f778425def99c913a35");
   });
 
   it("certifica as 4 operacoes oficiais de Cobranca e Idempotency-Key exata", () => {

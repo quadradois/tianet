@@ -168,7 +168,7 @@ def test_imp_258_e2e_cadastro_comercial_contratos(
 def test_imp_259_e2e_contratos_motor_financeiro(
     ambiente_mvp: AmbienteMVP,
 ) -> None:
-    contexto = _emprestimo_com_parcelas(ambiente_mvp)
+    contexto = _emprestimo_com_pagamento(ambiente_mvp)
 
     saldo = ambiente_mvp.client.get(
         f"/credit/emprestimos/{contexto['emprestimo_id']}/saldo",
@@ -198,7 +198,7 @@ def test_imp_260_e2e_motor_operacao_diaria(
     ambiente_mvp: AmbienteMVP,
     session: Session,
 ) -> None:
-    contexto = _emprestimo_com_parcelas(ambiente_mvp)
+    contexto = _emprestimo_com_pagamento(ambiente_mvp)
     caso = CobrancaCaso(
         tenant_id=ambiente_mvp.tenant_id,
         carteira_id=ambiente_mvp.carteira_id,
@@ -263,7 +263,7 @@ def test_imp_261_e2e_agenda_scheduler_notification(
     ambiente_mvp: AmbienteMVP,
     session_factory: sessionmaker[Session],
 ) -> None:
-    contexto = _emprestimo_com_parcelas(ambiente_mvp)
+    contexto = _emprestimo_com_pagamento(ambiente_mvp)
     template = _criar_template_ativo(ambiente_mvp)
 
     compromisso = ambiente_mvp.client.post(
@@ -403,7 +403,7 @@ def _contrato_liberado(ambiente: AmbienteMVP, proposta_id: str) -> dict[str, Any
     return dict(consulta.json())
 
 
-def _emprestimo_com_parcelas(ambiente: AmbienteMVP) -> dict[str, str]:
+def _emprestimo_com_pagamento(ambiente: AmbienteMVP) -> dict[str, str]:
     devedor = _criar_devedor(ambiente)
     proposta = _proposta_aprovada(ambiente, devedor["id"])
     contrato = _contrato_liberado(ambiente, proposta["id"])
@@ -414,18 +414,13 @@ def _emprestimo_com_parcelas(ambiente: AmbienteMVP) -> dict[str, str]:
     )
     assert emprestimo.status_code == 201
 
-    parcelas = ambiente.client.post(
-        f"/credit/emprestimos/{emprestimo.json()['id']}/parcelas",
-        json={"data_referencia": "2026-08-10"},
-        headers=ambiente.headers,
-    )
-    assert parcelas.status_code == 200
-    primeira_parcela = parcelas.json()["parcelas"][0]
-
+    # Sem plano de parcelas (DR-004): o pagamento e o proprio evento que move a
+    # divida, e o valor devido vem do saldo no dia do acerto.
+    valor_pago = "1000.00"
     pagamento_key = f"plan020-pagamento-{uuid.uuid4()}"
     pagamento = ambiente.client.post(
         f"/credit/emprestimos/{emprestimo.json()['id']}/pagamentos",
-        json={"valor": primeira_parcela["valor_previsto"], "recebido_em": "2026-09-10T12:00:00Z"},
+        json={"valor": valor_pago, "recebido_em": "2026-09-10T12:00:00Z"},
         headers={**ambiente.headers, "Idempotency-Key": pagamento_key},
     )
     assert pagamento.status_code == 200
@@ -433,9 +428,8 @@ def _emprestimo_com_parcelas(ambiente: AmbienteMVP) -> dict[str, str]:
         "devedor_id": devedor["id"],
         "contrato_id": contrato["id"],
         "emprestimo_id": emprestimo.json()["id"],
-        "parcela_id": primeira_parcela["id"],
         "pagamento_id": pagamento.json()["id"],
-        "pagamento_valor": primeira_parcela["valor_previsto"],
+        "pagamento_valor": valor_pago,
         "pagamento_key": pagamento_key,
     }
 
@@ -472,8 +466,7 @@ def _criar_template_ativo(ambiente: AmbienteMVP) -> dict[str, Any]:
 def _parametros_financeiros() -> dict[str, str | int]:
     return {
         "valor_contratado": "10000.00",
-        "quantidade_parcelas": 2,
-        "primeiro_vencimento": "2026-09-10",
+        "dia_de_acerto": 10,
         "taxa_juros_mensal": "0.0200",
         "moeda": "BRL",
     }

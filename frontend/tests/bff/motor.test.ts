@@ -4,13 +4,11 @@ import { describe, expect, it, vi } from "vitest";
 
 import { RefreshCoordinator, type BffDependencies, type FetchLike } from "@/lib/bff/backend.server";
 import {
-  createInstallmentPlan,
   createLoanFromContract,
   createRenegotiation,
   executeSettlement,
   getBalance,
   getCalculationMemory,
-  getInstallments,
   getLoan,
   getSettlementQuote,
   listLoans,
@@ -63,9 +61,6 @@ function loan(carteira_id = WALLET_ID) {
   return { carteira_id, contrato_id: CONTRACT_ID, criado_em: "2026-08-14T10:00:00Z", devedor_id: DEBTOR_ID, estado: "ativo", id: LOAN_ID, moeda: "BRL", parametros_financeiros: { origem: "contrato" }, principal_original: "1000.00", tenant_id: TENANT_ID };
 }
 
-function installment() {
-  return { encargos: "0.00", emprestimo_id: LOAN_ID, estado: "prevista", id: "00000000-0000-4000-8000-000000000060", juros: "10.00", numero: 1, principal: "100.00", valor_liquidado: "0.00", valor_previsto: "110.00", vencimento: "2026-09-14" };
-}
 
 function payment() {
   return { chave_idempotencia: "payment-key", emprestimo_id: LOAN_ID, estado: "processado", id: "00000000-0000-4000-8000-000000000070", memoria: memory(), parcelas_liquidadas: [], recebido_em: "2026-08-14T12:00:00Z", tenant_id: TENANT_ID, valor_amortizacao: "90.00", valor_encargos: "0.00", valor_juros: "10.00", valor_recebido: "100.00" };
@@ -105,26 +100,23 @@ describe("BFF Motor", () => {
     expect(cross).toMatchObject({ kind: "problem", problem: { status: 502, codigo: "resposta_backend_invalida" } });
   });
 
-  it("consulta detalhe, parcelas, saldo, memoria e quitacao pelos endpoints oficiais", async () => {
+  it("consulta detalhe, saldo, memoria e quitacao pelos endpoints oficiais", async () => {
     const selected = config();
     const paths: string[] = [];
     const backend: FetchLike = async (request) => {
       const url = new URL(request.url);
       paths.push(`${request.method} ${url.pathname}`);
-      if (url.pathname.endsWith("/parcelas")) return Response.json({ emprestimo_id: LOAN_ID, memoria: memory(), parcelas: [installment()], tenant_id: TENANT_ID });
       if (url.pathname.endsWith("/saldo")) return Response.json({ data_referencia: "2026-08-14", emprestimo_id: LOAN_ID, encargos: "0.00", juros: "10.00", memoria: memory(), principal: "1000.00", tenant_id: TENANT_ID, total: "1010.00" });
       if (url.pathname.endsWith("/memoria-calculo")) return Response.json([memory()]);
       if (url.pathname.endsWith("/quitacao")) return Response.json({ emprestimo_id: LOAN_ID, memoria: memory(), tenant_id: TENANT_ID, valor_quitacao: { componentes: {}, data_referencia: "2026-08-14", moeda: "BRL", valor_total: "1010.00" } });
       return Response.json(loan());
     };
     await expect(getLoan(await cookieStore(selected), context(["motor.emprestimo.ler"]), LOAN_ID, dependencies(selected, backend))).resolves.toMatchObject({ kind: "ready" });
-    await expect(getInstallments(await cookieStore(selected), context(["motor.parcela.ler"]), LOAN_ID, dependencies(selected, backend))).resolves.toMatchObject({ kind: "ready" });
     await expect(getBalance(await cookieStore(selected), context(["motor.saldo.ler"]), LOAN_ID, "2026-08-14", dependencies(selected, backend))).resolves.toMatchObject({ kind: "ready" });
     await expect(getCalculationMemory(await cookieStore(selected), context(["motor.memoria.ler"]), LOAN_ID, dependencies(selected, backend))).resolves.toMatchObject({ kind: "ready" });
     await expect(getSettlementQuote(await cookieStore(selected), context(["motor.quitacao.executar"]), LOAN_ID, "2026-08-14", dependencies(selected, backend))).resolves.toMatchObject({ kind: "ready" });
     expect(paths).toEqual([
       `GET /credit/emprestimos/${LOAN_ID}`,
-      `GET /credit/emprestimos/${LOAN_ID}/parcelas`,
       `GET /credit/emprestimos/${LOAN_ID}/saldo`,
       `GET /credit/emprestimos/${LOAN_ID}/memoria-calculo`,
       `GET /credit/emprestimos/${LOAN_ID}/quitacao`,
@@ -137,7 +129,6 @@ describe("BFF Motor", () => {
     const backend: FetchLike = async (request) => {
       const url = new URL(request.url);
       keys.push([url.pathname, request.headers.has("Idempotency-Key")]);
-      if (url.pathname.endsWith("/parcelas")) return Response.json({ emprestimo_id: LOAN_ID, memoria: memory(), parcelas: [installment()], tenant_id: TENANT_ID });
       if (url.pathname.endsWith("/pagamentos")) return Response.json(payment());
       if (url.pathname.endsWith("/quitacao")) return Response.json({ emprestimo_id: LOAN_ID, estado: "quitado", memoria_quitacao: memory(), pagamento: payment(), tenant_id: TENANT_ID });
       if (url.pathname.endsWith("/renegociacoes")) return Response.json({ emprestimo_id: LOAN_ID, memoria: memory(), novos_parametros: { origem: "atendimento" }, tenant_id: TENANT_ID });
@@ -148,7 +139,6 @@ describe("BFF Motor", () => {
     await expect(createLoanFromContract(await cookieStore(selected), context(["motor.emprestimo.criar"]), createForm, dependencies(selected, backend))).resolves.toMatchObject({ kind: "success" });
     const installmentForm = new FormData();
     installmentForm.set("data_referencia", "2026-08-14");
-    await expect(createInstallmentPlan(await cookieStore(selected), context(["motor.parcela.gerar"]), LOAN_ID, installmentForm, dependencies(selected, backend))).resolves.toMatchObject({ kind: "success" });
     const paymentForm = new FormData();
     paymentForm.set("valor", "100.00");
     paymentForm.set("recebido_em", "2026-08-14T12:00:00Z");
@@ -162,7 +152,6 @@ describe("BFF Motor", () => {
     await expect(createRenegotiation(await cookieStore(selected), context(["motor.renegociacao.criar"]), LOAN_ID, renegotiationForm, dependencies(selected, backend))).resolves.toMatchObject({ kind: "success" });
     expect(keys).toEqual([
       [`/credit/contratos/${CONTRACT_ID}/emprestimos`, true],
-      [`/credit/emprestimos/${LOAN_ID}/parcelas`, false],
       [`/credit/emprestimos/${LOAN_ID}/pagamentos`, true],
       [`/credit/emprestimos/${LOAN_ID}/quitacao`, true],
       [`/credit/emprestimos/${LOAN_ID}/renegociacoes`, true],

@@ -123,7 +123,7 @@ class ApropriacaoPagamentoResultado:
     apropriacao_id: uuid.UUID
     promessa_id: uuid.UUID
     pagamento_id: uuid.UUID
-    parcela_id: uuid.UUID
+    parcela_id: uuid.UUID | None
     valor: Decimal
     realizado_em: datetime
     estado_promessa: PromessaPagamentoState
@@ -1402,19 +1402,21 @@ def _parcela_da_apropriacao(
     promessa: PromessaPagamento,
     pagamento: Pagamento,
     parcela_id: uuid.UUID | None,
-) -> uuid.UUID:
+) -> uuid.UUID | None:
+    """Parcela a que a apropriacao se refere, quando houver uma.
+
+    Deixou de ser obrigatoria com a DR-004: no emprestimo livre nao existe
+    parcela, e a apropriacao liga um pagamento a uma promessa — o vinculo que
+    importa. Antes, a ausencia derrubava a operacao com "parcela oficial da
+    apropriacao nao encontrada", o que impediria apropriar qualquer pagamento.
+    A entidade sempre aceitou o campo nulo; era este resolvedor que exigia.
+    """
     if parcela_id is not None:
         return parcela_id
     parcelas_liquidadas: tuple[uuid.UUID, ...] = pagamento.parcelas_liquidadas
     if parcelas_liquidadas:
         return parcelas_liquidadas[0]
-    if promessa.parcela_id is not None:
-        return promessa.parcela_id
-    raise TransicaoEstadoInvalidaError(
-        promessa.id,
-        "apropriar_pagamento",
-        "parcela oficial da apropriacao nao encontrada",
-    )
+    return promessa.parcela_id
 
 
 def _caso_resultado(caso: CobrancaCaso) -> CobrancaCasoResultado:

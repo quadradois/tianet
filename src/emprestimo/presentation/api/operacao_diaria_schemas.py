@@ -16,7 +16,6 @@ from emprestimo.domain.credit.operacao_diaria import (
     TipoAcaoCobranca,
 )
 from emprestimo.domain.credit.pagamento import PagamentoState
-from emprestimo.domain.credit.parcela import ParcelaState
 from emprestimo.domain.credit.promessa import PromessaPagamentoState
 
 
@@ -198,12 +197,11 @@ class ResumoCarteiraResponse(BaseModel):
 
 class VencimentoOperacionalResponse(BaseModel):
     emprestimo_id: uuid.UUID
-    parcela_id: uuid.UUID
-    numero: int
-    vencimento: date
-    valor_previsto: Decimal
-    valor_liquidado: Decimal
-    estado: ParcelaState
+    devedor_id: uuid.UUID
+    dia_de_acerto: int
+    acerto_em: date
+    dias_sem_pagamento: int
+    principal_original: Decimal
     situacao: str
 
 

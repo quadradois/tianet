@@ -32,6 +32,7 @@ minimo os juros —, o sistema separa juros de amortizacao, e assim ate quitar.
 | 5 | **O plano de parcelas sai, sem deixar arquivo legado** | Decisao do Credor. |
 | 6 | **O operacional primeiro, a remocao por ultimo** | A correcao do calculo nao depende de remover nada, e e ela que torna o modelo correto. |
 | 7 | **`encargos` permanece no saldo, sempre zerado** | Um encargo negociado caso a caso caberia ali sem alteracao de contrato. |
+| 8 | **A tabela `parcela` e removida, e nao deixada orfa** | Ver §5.1. |
 
 ---
 
@@ -57,8 +58,36 @@ resolucao da DR-004.
 - na ultima fase, `GET/POST /credit/emprestimos/{id}/parcelas` e os quatro
   schemas de parcela saem, e o inventario deixa de ser 108/137.
 
-Ate la a contagem permanece em **108 operacoes e 137 schemas**: a alteracao
-desta fase e de campo, nao de superficie.
+**Executado.** O inventario passou de **108 operacoes e 137 schemas** para
+**106 e 133**.
+
+**Aviso transitorio esperado.** `docs:validate` reporta que
+`POST/GET /credit/emprestimos/{}/parcelas` esta "planejado e ainda nao
+implementado" em `PLAN-013` e neste plano, elevando a baseline de 29 para 31
+avisos. O aviso e verdadeiro e descreve o estado real: os documentos citam
+endpoints que deixaram de existir. Suprimi-lo apagaria o registro de que eles
+um dia existiram — o `PLAN-013` e a historia do EPIC-005, e reescreve-lo seria
+falsificar o passado.
+
+---
+
+# 5.1 Remocao da tabela: por que `DROP`, e nao orfa
+
+A regra deste repositorio e "migrations aditivas apenas". A excecao esta
+autorizada pela DR-004 e se sustenta em tres pontos:
+
+1. **O raio de estrago e zero.** A regra existe para proteger dado em producao.
+   Nao ha producao: o sistema nunca foi implantado e o dado local e de teste.
+   Uma regra que protege algo inexistente nao deve bloquear a limpeza pedida.
+2. **Tabela orfa e exatamente o legado que a decisao mandou nao deixar.** Uma
+   tabela vazia sem codigo que a use sobrevive como armadilha: alguem a encontra
+   depois, presume proposito e reintroduz o conceito.
+3. **Quatro tabelas tem coluna `parcela_id`** — cobranca, comunicacao, promessa
+   e apropriacao. Mantendo a tabela, essas colunas continuam parecendo
+   significativas quando ja nao sao. Saem junto.
+
+A migracao tem downgrade escrito, o que a torna reversivel em estrutura. O que
+nao volta e dado, e nao ha dado a perder.
 
 ---
 

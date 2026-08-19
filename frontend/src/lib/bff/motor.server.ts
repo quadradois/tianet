@@ -3,7 +3,6 @@ import "server-only";
 import type { components } from "../api/openapi.generated";
 import { createBackendClient } from "../api/client.server";
 import {
-  formDate,
   formDataDeRecebimento,
   formMoney,
   formString,
@@ -11,8 +10,6 @@ import {
   isDate,
   isUuid,
   MOTOR_BALANCE_READ_PERMISSION,
-  MOTOR_INSTALLMENT_CREATE_PERMISSION,
-  MOTOR_INSTALLMENT_READ_PERMISSION,
   MOTOR_LOAN_CREATE_PERMISSION,
   MOTOR_LOAN_READ_PERMISSION,
   MOTOR_MEMORY_READ_PERMISSION,
@@ -22,7 +19,6 @@ import {
   parseOpaqueRenegotiationParameters,
   type Balance,
   type CalculationMemory,
-  type InstallmentPlan,
   type Loan,
   type LoanList,
   type MotorActionState,
@@ -41,18 +37,15 @@ import { sessionCookieName, type CookieStore, unsealSession } from "./session.se
 type ReadonlyCookieStore = Pick<CookieStore, "get">;
 type TypedClient = ReturnType<typeof createBackendClient>;
 type PaymentCreateRequest = components["schemas"]["PagamentoCreateRequest"];
-type PlanRequest = components["schemas"]["PlanoParcelasRequest"];
 type SettlementRequest = components["schemas"]["QuitacaoRequest"];
 type RenegotiationRequest = components["schemas"]["RenegociacaoCreateRequest"];
 
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const PAYMENT_STATES = new Set(["recebido", "processado", "confirmado", "estornado"]);
 const DATE_TIME_PATTERN = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})(?:\.\d+)?(?:Z|([+-])(\d{2}):(\d{2}))$/;
 const DECIMAL_PATTERN = /^(?!^[-+.]*$)[+-]?0*\d*\.?\d*$/;
 const CORRELATION_PATTERN = /^[A-Za-z0-9._:-]{1,128}$/;
 const LOAN_STATES = new Set(["ativo", "quitado", "cancelado"]);
-const INSTALLMENT_STATES = new Set(["prevista", "vencida", "parcialmente_liquidada", "liquidada", "cancelada"]);
-const PAYMENT_STATES = new Set(["recebido", "processado", "confirmado", "estornado"]);
-
 type HeadersByPath = Readonly<{ path: string; idempotent: boolean }>;
 const MOTOR_HEADER_CONTRACT: readonly HeadersByPath[] = [
   { path: "/credit/contratos/{contrato_id}/emprestimos", idempotent: true },
@@ -211,31 +204,7 @@ function validLoanList(value: unknown, context: OperationalContext): value is Lo
     && value.items.every((item) => validLoan(item, context));
 }
 
-function validInstallment(value: unknown, loanId: string): boolean {
-  return isRecord(value)
-    && strings(value, ["id", "emprestimo_id", "vencimento", "valor_previsto", "principal", "juros", "encargos", "valor_liquidado", "estado"])
-    && uuids(value, ["id", "emprestimo_id"])
-    && value.emprestimo_id === loanId
-    && Number.isInteger(value.numero)
-    && isDate(value.vencimento)
-    && decimal(value.valor_previsto)
-    && decimal(value.principal)
-    && decimal(value.juros)
-    && decimal(value.encargos)
-    && decimal(value.valor_liquidado)
-    && typeof value.estado === "string"
-    && INSTALLMENT_STATES.has(value.estado);
-}
 
-function validInstallmentPlan(value: unknown, context: OperationalContext, loanId: string): value is InstallmentPlan {
-  return isRecord(value)
-    && strings(value, ["emprestimo_id", "tenant_id"])
-    && value.emprestimo_id === loanId
-    && value.tenant_id === context.tenant.id
-    && Array.isArray(value.parcelas)
-    && value.parcelas.every((item) => validInstallment(item, loanId))
-    && (!Object.hasOwn(value, "memoria") || value.memoria === null || validMemory(value.memoria));
-}
 
 function validPayment(value: unknown, context: OperationalContext, loanId: string): value is Payment {
   return isRecord(value)
@@ -411,13 +380,6 @@ export async function getLoan(cookies: ReadonlyCookieStore, context: Operational
   ), (value): value is Loan => validLoan(value, context, loanId));
 }
 
-export async function getInstallments(cookies: ReadonlyCookieStore, context: OperationalContext, loanId: string, dependencies: BffDependencies): Promise<MotorReadResult<InstallmentPlan>> {
-  if (!isUuid(loanId)) return { kind: "problem", problem: new ApiProblem({ status: 400, codigo: "parametro_invalido", mensagem: "Identificador do Emprestimo invalido.", correlationId: correlationId() }) };
-  return executeRead(cookies, context, dependencies, MOTOR_INSTALLMENT_READ_PERMISSION, (client, _carteiraId, correlation, signal) => client.GET(
-    "/credit/emprestimos/{emprestimo_id}/parcelas",
-    { params: { path: { emprestimo_id: loanId }, header: { "X-Correlation-ID": correlation } }, signal },
-  ), (value): value is InstallmentPlan => validInstallmentPlan(value, context, loanId));
-}
 
 export async function getBalance(cookies: ReadonlyCookieStore, context: OperationalContext, loanId: string, referenceDate: string, dependencies: BffDependencies): Promise<MotorReadResult<Balance>> {
   if (!isUuid(loanId) || !isDate(referenceDate)) return { kind: "problem", problem: new ApiProblem({ status: 400, codigo: "parametro_invalido", mensagem: "Parametros do saldo invalidos.", correlationId: correlationId() }) };
@@ -455,15 +417,6 @@ export async function createLoanFromContract(cookies: CookieStore, context: Oper
   ), (value): value is Loan => validLoan(value, context), "Emprestimo criado pelo Motor.", (value) => value.id);
 }
 
-export async function createInstallmentPlan(cookies: CookieStore, context: OperationalContext, loanId: string, formData: FormData, dependencies: BffDependencies): Promise<MotorActionState> {
-  const referenceDate = formDate(formData, "data_referencia");
-  if (!isUuid(loanId) || !referenceDate) return { kind: "problem", message: "Informe data de referencia valida.", status: 400, correlationId: correlationId() };
-  const body: PlanRequest = { data_referencia: referenceDate };
-  return executeMutation(cookies, context, dependencies, MOTOR_INSTALLMENT_CREATE_PERMISSION, 200, (client, _carteiraId, correlation) => client.POST(
-    "/credit/emprestimos/{emprestimo_id}/parcelas",
-    { body, params: { path: { emprestimo_id: loanId }, header: { "X-Correlation-ID": correlation } } },
-  ), (value): value is InstallmentPlan => validInstallmentPlan(value, context, loanId), "Plano de parcelas gerado pelo Motor.");
-}
 
 export async function registerPayment(cookies: CookieStore, context: OperationalContext, loanId: string, formData: FormData, dependencies: BffDependencies): Promise<MotorActionState> {
   const valor = formMoney(formData, "valor");

@@ -18,7 +18,6 @@ from emprestimo.presentation.api.dependencies import (
     get_consulta_saldo_service,
     get_criacao_emprestimo_service,
     get_pagamento_service,
-    get_plano_parcelas_service,
     get_principal_atual,
     get_quitacao_renegociacao_service,
 )
@@ -28,10 +27,7 @@ from emprestimo.presentation.api.motor_schemas import (
     MemoriaCalculoResponse,
     PagamentoCreateRequest,
     PagamentoResponse,
-    ParcelaResponse,
     PassoCalculoResponse,
-    PlanoParcelasRequest,
-    PlanoParcelasResponse,
     QuitacaoCalculadaResponse,
     QuitacaoRequest,
     QuitacaoResponse,
@@ -131,40 +127,6 @@ def listar_emprestimos(
         size=resultado.tamanho,
         pages=resultado.paginas,
     )
-
-
-@router.post(
-    "/emprestimos/{emprestimo_id}/parcelas",
-    response_model=PlanoParcelasResponse,
-    summary="Gerar plano de parcelas do emprestimo",
-    responses=combinar_respostas(RESPOSTA_CONFLITO_ESTADO),
-)
-def criar_plano_parcelas(
-    emprestimo_id: uuid.UUID,
-    payload: PlanoParcelasRequest,
-    principal: Principal = Depends(exigir_permissao(PERMISSAO_PARCELA_GERAR)),
-    service: Any = Depends(get_plano_parcelas_service),
-) -> PlanoParcelasResponse:
-    resultado = service.gerar(
-        emprestimo_id=emprestimo_id,
-        tenant_id=principal.tenant_id,
-        data_referencia=payload.data_referencia,
-    )
-    return _plano_response(resultado)
-
-
-@router.get(
-    "/emprestimos/{emprestimo_id}/parcelas",
-    response_model=PlanoParcelasResponse,
-    summary="Consultar parcelas do emprestimo",
-)
-def consultar_parcelas(
-    emprestimo_id: uuid.UUID,
-    principal: Principal = Depends(exigir_permissao(PERMISSAO_PARCELA_LER)),
-    service: Any = Depends(get_plano_parcelas_service),
-) -> PlanoParcelasResponse:
-    resultado = service.consultar(emprestimo_id=emprestimo_id, tenant_id=principal.tenant_id)
-    return _plano_response(resultado)
 
 
 @router.post(
@@ -350,29 +312,6 @@ def _emprestimo_response(resultado: Any) -> EmprestimoResponse:
         dia_de_acerto=resultado.dia_de_acerto,
         proximo_acerto_em=resultado.proximo_acerto_em,
         acerto_pendente_desde=resultado.acerto_pendente_desde,
-    )
-
-
-def _plano_response(resultado: Any) -> PlanoParcelasResponse:
-    return PlanoParcelasResponse(
-        emprestimo_id=resultado.emprestimo_id,
-        tenant_id=resultado.tenant_id,
-        parcelas=[
-            ParcelaResponse(
-                id=parcela.parcela_id,
-                emprestimo_id=parcela.emprestimo_id,
-                numero=parcela.numero,
-                vencimento=parcela.vencimento,
-                valor_previsto=parcela.valor_previsto,
-                principal=parcela.principal,
-                juros=parcela.juros,
-                encargos=parcela.encargos,
-                valor_liquidado=parcela.valor_liquidado,
-                estado=parcela.estado,
-            )
-            for parcela in resultado.parcelas
-        ],
-        memoria=_memoria_response(resultado.memoria) if resultado.memoria else None,
     )
 
 

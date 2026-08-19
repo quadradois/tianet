@@ -26,7 +26,6 @@ export type MotorPermission =
 
 export type Loan = components["schemas"]["EmprestimoResponse"];
 export type LoanList = components["schemas"]["EmprestimoListagemResponse"];
-export type InstallmentPlan = components["schemas"]["PlanoParcelasResponse"];
 export type Balance = components["schemas"]["SaldoResponse"];
 export type CalculationMemory = components["schemas"]["MemoriaCalculoResponse"];
 export type PayoffQuote = components["schemas"]["QuitacaoCalculadaResponse"];
@@ -51,7 +50,7 @@ export type LoanFilters = Readonly<{
 }>;
 
 export const LOAN_STATES: readonly LoanState[] = ["ativo", "quitado", "cancelado"];
-export const MOTOR_COMMANDS = ["criar-emprestimo", "gerar-parcelas", "registrar-pagamento", "executar-quitacao", "registrar-renegociacao"] as const;
+export const MOTOR_COMMANDS = ["criar-emprestimo", "registrar-pagamento", "executar-quitacao", "registrar-renegociacao"] as const;
 export type MotorCommand = typeof MOTOR_COMMANDS[number];
 
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -159,24 +158,6 @@ export function agruparPorSituacao(loans: readonly Loan[]): readonly (Situacao &
   }));
 }
 
-/**
- * Como cada estado de parcela e dito ao Credor.
- *
- * O estado vem do backend; aqui so se troca o rotulo. "liquidada" e termo de
- * contabilidade, "Paga" e o que a pessoa entende.
- */
-const ROTULO_PARCELA: Readonly<Record<string, string>> = {
-  prevista: "A vencer",
-  vencida: "Vencida",
-  parcialmente_liquidada: "Paga em parte",
-  liquidada: "Paga",
-  cancelada: "Cancelada",
-};
-
-export function rotuloParcela(estado: string): string {
-  return ROTULO_PARCELA[estado] ?? estado;
-}
-
 /** Tipo da memoria de calculo, dito ao Credor em vez de `geracao_parcelas`. */
 const ROTULO_MEMORIA: Readonly<Record<string, string>> = {
   geracao_parcelas: "Geracao das parcelas",
@@ -190,15 +171,9 @@ export function rotuloMemoria(tipo: string): string {
   return ROTULO_MEMORIA[tipo] ?? tipo;
 }
 
-/** Parcela ja encerrada: nao entra em "proxima" nem conta como pendente. */
-export function parcelaEncerrada(estado: string): boolean {
-  return estado === "liquidada" || estado === "cancelada";
-}
-
 export function allowedMotorCommands(loan: Pick<Loan, "estado">, permissions: readonly string[]): readonly MotorCommand[] {
   if (loan.estado !== "ativo") return [];
   const commands: MotorCommand[] = [];
-  if (hasExactPermission(permissions, MOTOR_INSTALLMENT_GENERATE_PERMISSION)) commands.push("gerar-parcelas");
   if (hasExactPermission(permissions, MOTOR_PAYMENT_REGISTER_PERMISSION)) commands.push("registrar-pagamento");
   if (hasExactPermission(permissions, MOTOR_PAYOFF_EXECUTE_PERMISSION)) commands.push("executar-quitacao");
   if (hasExactPermission(permissions, MOTOR_RENEGOTIATION_CREATE_PERMISSION)) commands.push("registrar-renegociacao");

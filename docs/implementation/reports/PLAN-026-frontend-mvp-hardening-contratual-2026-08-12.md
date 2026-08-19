@@ -190,7 +190,7 @@ lugar ao acerto mensal no dia combinado. O lancamento deixou de receber
 a resposta deixou de devolver `quantidade_parcelas` e passou a devolver
 `primeiro_acerto_em`. O snapshot foi regerado: **108 operacoes, 137 schemas**,
 SHA-256
-`6b24001ab24f9e4c47764d93fa8c640115dedd2f77bbc0df290d4145934b953d`.
+`9f4c9d224a95c146c5950820f5d055001e7091e3e1f14f778425def99c913a35`.
 
 Em 2026-08-19 o IMP-326 acrescentou `dia_de_acerto`, `proximo_acerto_em` e
 `acerto_pendente_desde` a `EmprestimoResponse`, para que a tela do emprestimo

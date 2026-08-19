@@ -155,30 +155,26 @@ def test_resumo_carteira_percorre_todas_as_paginas_de_emprestimos() -> None:
     assert uow.emprestimo.paginas_consultadas == [1, 2]
 
 
-def test_vencimentos_inadimplencia_classifica_situacoes_oficiais() -> None:
-    emprestimo = _emprestimo(id=EMPRESTIMO_ID)
-    uow = _FakeUoW(
-        emprestimos=[emprestimo],
-        parcelas=[
-            _parcela(emprestimo.id, numero=1, vencimento=date(2026, 8, 1), valor="100.00"),
-            _parcela(emprestimo.id, numero=2, vencimento=date(2026, 9, 1), valor="120.00"),
-            _parcela(
-                emprestimo.id,
-                numero=3,
-                vencimento=date(2026, 7, 1),
-                valor="80.00",
-                estado=ParcelaState.LIQUIDADA,
-                valor_liquidado="80.00",
-            ),
-            _parcela(
-                emprestimo.id,
-                numero=4,
-                vencimento=date(2026, 7, 5),
-                valor="40.00",
-                estado=ParcelaState.CANCELADA,
-            ),
-        ],
+def test_vencimentos_lista_acertos_e_separa_pendente_de_em_dia() -> None:
+    """Substitui a classificacao por parcela (DR-004).
+
+    A situacao diz "pendente" ou "em dia", nunca "inadimplente": julgar se os
+    juros do periodo foram quitados exige o saldo, e saldo e do Motor, que esta
+    camada nao importa.
+    """
+    venceu_e_ninguem_apareceu = _emprestimo(
+        id=EMPRESTIMO_ID,
+        dia_de_acerto=5,
+        criado_em=datetime(2026, 7, 20, tzinfo=UTC),
     )
+    venceu_e_pagou = _emprestimo(
+        id=uuid.UUID("77000000-0000-0000-0000-0000000000a2"),
+        dia_de_acerto=5,
+        ultimo_pagamento_em=datetime(2026, 8, 6, tzinfo=UTC),
+        criado_em=datetime(2026, 7, 20, tzinfo=UTC),
+    )
+    sem_dia_combinado = _emprestimo(id=uuid.UUID("77000000-0000-0000-0000-0000000000a3"))
+    uow = _FakeUoW(emprestimos=[venceu_e_ninguem_apareceu, venceu_e_pagou, sem_dia_combinado])
 
     resultado = RelatoriosOperacionaisService(_uow_factory(uow)).vencimentos_inadimplencia(
         tenant_id=TENANT_ID,
@@ -186,13 +182,13 @@ def test_vencimentos_inadimplencia_classifica_situacoes_oficiais() -> None:
         data_referencia=date(2026, 8, 10),
     )
 
-    assert [item.situacao for item in resultado.itens] == [
-        "regularizada",
-        "cancelada",
-        "vencida",
-        "futura",
-    ]
-    assert resultado.total == 4
+    # O sem dia combinado nao entra: nao ha acerto a cobrar dele.
+    assert [item.situacao for item in resultado.itens] == ["pendente", "em dia"]
+    assert resultado.itens[0].acerto_em == date(2026, 8, 5)
+    assert resultado.itens[0].dias_sem_pagamento == 5
+    assert resultado.itens[0].dia_de_acerto == 5
+    assert resultado.itens[1].dias_sem_pagamento == 0
+    assert resultado.total == 2
 
 
 def test_pagamentos_encerramentos_filtra_periodo_e_ignora_estorno_no_total() -> None:
