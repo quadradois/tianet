@@ -36,7 +36,7 @@ describe("contrato OpenAPI de Relatorios", () => {
     const schemas = record(record(record(snapshot).components).schemas);
     expect(allOperations).toHaveLength(108);
     expect(Object.keys(schemas)).toHaveLength(137);
-    expect(snapshotHash).toBe("367381a54d6f4d2430a3be0bc18c39af3ef5a66364daa5f0c95f9dc37d1ec119");
+    expect(snapshotHash).toBe("6b24001ab24f9e4c47764d93fa8c640115dedd2f77bbc0df290d4145934b953d");
     for (const path of REPORT_PATHS) {
       const operation = allOperations.find((item) => item.path === path && item.method === "get");
       expect(operation, `${path} deve ser GET`).toBeTruthy();

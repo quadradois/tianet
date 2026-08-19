@@ -37,12 +37,15 @@ async function prepareEvidenceScreenshot(page: Page) {
     // porque a regiao continua ocupando layout e glifos diferentes quebram a
     // linha em pontos diferentes, deslocando tudo abaixo. A substituicao mantem
     // os mesmos 36 caracteres.
-    const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    // Substitui o UUID **dentro** do texto, e nao apenas o no que seja so o
+    // UUID: neste modulo o identificador vem concatenado na mesma string da
+    // mensagem, e a versao anterior desta regra nao o alcancava.
+    const UUID = /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/gi;
     const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
     for (let node = walker.nextNode(); node; node = walker.nextNode()) {
-      const value = node.nodeValue?.trim() ?? "";
-      if (UUID.test(value) && (node.parentElement?.textContent ?? "").includes("Correlation ID")) {
-        node.nodeValue = "00000000-0000-4000-8000-00000000evid";
+      const value = node.nodeValue ?? "";
+      if (value.includes("Correlation ID") || UUID.test(value)) {
+        node.nodeValue = value.replace(UUID, "00000000-0000-4000-8000-00000000evid");
       }
     }
   });
@@ -95,7 +98,10 @@ test("consulta detalhe, parcelas, saldo, memoria, pagamento e quitacao sem recal
   await page.goto(`/app/motor/${IDS.loan}`);
   // O painel abre dizendo de quem e o emprestimo, e nao qual e o identificador.
   await expect(page.getByRole("heading", { name: "Maria Souza" })).toBeVisible();
-  await expect(page.getByText("Ainda falta receber")).toBeVisible();
+  await expect(page.getByText("Deve hoje")).toBeVisible();
+  await expect(page.getByText("Proximo acerto")).toBeVisible();
+  // O extrato substitui a tabela de parcelas (DR-004).
+  await expect(page.getByText("Como esta a divida hoje")).toBeVisible();
   await expect(page.getByText(IDS.loan, { exact: true })).toHaveCount(0);
   await expect(page.getByText("Quanto ainda falta")).toBeVisible();
   await expect(page.getByText("Como a conta foi feita")).toBeVisible();

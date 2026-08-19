@@ -68,6 +68,9 @@ class EmprestimoResponse(BaseModel):
     moeda: str
     parametros_financeiros: dict[str, object]
     criado_em: datetime
+    dia_de_acerto: int | None = None
+    proximo_acerto_em: date | None = None
+    acerto_pendente_desde: date | None = None
 
 
 class EmprestimoListagemResponse(BaseModel):

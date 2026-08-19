@@ -67,8 +67,8 @@ reverter arquivos.
 |---|---:|---|
 | `frontend-mvp-imp-294-motor-list-desktop.png` | 1440x900 | `be04ac5308608f63b86c21b489ad5b79bafeef6ff50f4dd81a82cbc734425bcf` |
 | `frontend-mvp-imp-294-motor-list-mobile.png` | 390x844 | `2c38db4674555f765bd26d9b14bef84c1d5138e01550a716e71f1f788882a431` |
-| `frontend-mvp-imp-294-emprestimo-detail-desktop.png` | 1440x900 | `51785bc72845264fb3fda73a2485fc6ee407a8d33bbe6a5a1d69ac0a4141d796` |
-| `frontend-mvp-imp-294-pagamento-flow-mobile.png` | 390x844 | `750fdd46508028c1e1ba942a64e9b84bb99afa98c954e96eea2035e64ccacefc` |
+| `frontend-mvp-imp-294-emprestimo-detail-desktop.png` | 1440x900 | `95634c3f9f49f7662eab43185f37d6d91d5b71e3c876ddc17e99651fefa3203b` |
+| `frontend-mvp-imp-294-pagamento-flow-mobile.png` | 390x844 | `a94449ddfd78b23cd67ebdb5986a561b24f300b81f484548e9c6e46de16bda7b` |
 
 ---
 
@@ -77,6 +77,27 @@ reverter arquivos.
 > as capturas mudaram porque a tela mudou. Verificadas estaveis em quatro
 > execucoes consecutivas do `npm run test:motor`.
 >
+> **Atualizacao do IMP-326.** A tela de detalhe deixou de mostrar a tabela de
+> parcelas e passou a mostrar o painel do emprestimo livre e o extrato do saldo
+> (DR-004). Os quatro pinos foram avancados.
+>
+> Nova causa de instabilidade encontrada e corrigida: neste modulo o Correlation
+> ID vem **concatenado na mesma string** da mensagem, e o congelador do IMP-310
+> so alcancava no de texto que fosse exclusivamente o UUID. Passou a substituir
+> dentro do texto. Com isso `pagamento-flow-mobile` tornou-se deterministica.
+>
+> `emprestimo-detail-desktop` **continua instavel** entre execucoes, agora com a
+> divergencia concentrada na coluna de conteudo, com o texto pintado identico. A
+> decisao mudou em relacao ao IMP-310: antes o pino ficava nos bytes versionados
+> para nao registrar ruido; agora ele avanca para os bytes atuais, porque a
+> alternativa passou a ser pior — a imagem versionada mostrava uma tabela de
+> parcelas que o produto nao tem mais. Evidencia desatualizada engana mais do
+> que evidencia que precisa ser repinada.
+>
+> Consequencia pratica inalterada: rodar `npm run test:motor` localmente deixa
+> essa evidencia divergente do relatorio. Em CI nao ocorre, porque a
+> certificacao roda antes do E2E regenerar os PNGs.
+
 > **Causa da irreprodutibilidade isolada e corrigida no IMP-310.** As capturas de
 > detalhe variavam entre execucoes identicas: 34% dos pixels diferiam, em toda a
 > area da imagem. A causa e o Correlation ID — um UUID novo a cada requisicao.

@@ -2,9 +2,9 @@
 
 **ID:** PLAN-030-EXEC
 
-**Versao:** 1.1.0
+**Versao:** 1.2.0
 
-**Status:** IMP-321..325 concluidos; IMP-326 e IMP-327 planejados
+**Status:** IMP-321..326 concluidos; IMP-327 planejado
 
 ---
 
@@ -116,7 +116,22 @@ PLAN-029.
 - **Objetivo:** a tela do emprestimo mostra saldo de hoje, juros do periodo, o
   que ja foi pago e quanto falta.
 - **Dependencias:** IMP-325.
-- **Status:** Planejado.
+- **Status:** Concluido na tela do emprestimo. A apropriacao de promessa segue
+  no IMP-327, junto com a remocao.
+- **Nota de execucao:** o painel deixou de falar em parcela. Mostra Emprestado,
+  **Deve hoje**, **Juros do periodo** — o minimo do acerto — e **Proximo
+  acerto**, com o dia combinado. Atraso aparece no lugar da situacao, em
+  destaque, e nao escondido numa coluna. A tabela de parcelas deu lugar ao
+  extrato: quanto ainda esta emprestado, quanto de juros correu e o total.
+- **Contrato:** `EmprestimoResponse` ganhou `dia_de_acerto`,
+  `proximo_acerto_em` e `acerto_pendente_desde`. Aditivo; 108 operacoes e 137
+  schemas inalterados. Os tres sao **derivados na leitura**, nao colunas: o
+  proximo acerto anda com o calendario, e uma coluna gravada envelheceria em
+  silencio a cada mes. No replay de idempotencia sao recalculados pelo mesmo
+  motivo — gravar congelaria a data no dia em que a chave foi usada.
+- **Decisao de projeto:** a data do acerto vem do backend em vez de ser
+  calculada no navegador. Calcular calendario no frontend duplicaria uma regra
+  de dominio, com dois lugares para divergir.
 
 ---
 
@@ -137,5 +152,6 @@ PLAN-029.
 
 | Versao | Data | Descricao |
 |---|---|---|
+| 1.2.0 | 2026-08-19 | IMP-326 concluido na tela: painel do emprestimo livre e extrato no lugar da tabela de parcelas. |
 | 1.1.0 | 2026-08-17 | IMP-325 concluido no Resumo da Carteira: acertos pendentes e principal a receber no lugar dos contadores de parcela. |
 | 1.0.0 | 2026-08-17 | Backlog inicial IMP-321..327; fases A e B concluidas. |

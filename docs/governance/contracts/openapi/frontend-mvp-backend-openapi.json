@@ -2020,6 +2020,18 @@
       },
       "EmprestimoResponse": {
         "properties": {
+          "acerto_pendente_desde": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Acerto Pendente Desde"
+          },
           "carteira_id": {
             "format": "uuid",
             "title": "Carteira Id",
@@ -2039,6 +2051,17 @@
             "format": "uuid",
             "title": "Devedor Id",
             "type": "string"
+          },
+          "dia_de_acerto": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Dia De Acerto"
           },
           "estado": {
             "$ref": "#/components/schemas/EmprestimoState"
@@ -2061,6 +2084,18 @@
             "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
             "title": "Principal Original",
             "type": "string"
+          },
+          "proximo_acerto_em": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Proximo Acerto Em"
           },
           "tenant_id": {
             "format": "uuid",

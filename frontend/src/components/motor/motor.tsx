@@ -12,12 +12,9 @@ import {
   SITUACOES,
   agruparPorSituacao,
   hasExactPermission,
-  parcelaEncerrada,
   rotuloMemoria,
-  rotuloParcela,
   type Balance,
   type CalculationMemory,
-  type InstallmentPlan,
   type Loan,
   type LoanFilters,
   type LoanList,
@@ -48,7 +45,6 @@ type MotorDetailProps = Readonly<{
   devedor?: string | undefined;
   generateInstallmentsAction: MotorAction;
   initialState: MotorActionState;
-  installments: MotorReadResult<InstallmentPlan>;
   loan: MotorReadResult<Loan>;
   memories: MotorReadResult<readonly CalculationMemory[]>;
   paymentAction: MotorAction;
@@ -304,24 +300,32 @@ function Indicador({ destaque, detalhe, rotulo, valor }: Readonly<{ destaque?: b
  * devolveu, a proxima parcela e a primeira ainda em aberto na ordem recebida, e
  * a contagem e o tamanho da lista.
  */
+/**
+ * Painel do emprestimo livre: o que o Credor precisa saber sem rolar nem clicar.
+ *
+ * Quanto emprestou, quanto ainda deve, quanto de juros correu e quando e o
+ * proximo acerto. Nada e calculado aqui: os valores vem do saldo que o backend
+ * devolveu, e a data do acerto vem do proprio emprestimo — calcular calendario
+ * no navegador duplicaria uma regra de dominio.
+ */
 function PainelDoEmprestimo({
   balance,
   devedor,
-  installments,
   loan,
-}: Readonly<{ balance: MotorReadResult<Balance>; devedor: string | undefined; installments: MotorReadResult<InstallmentPlan>; loan: Loan }>) {
-  const parcelas = installments.kind === "ready" ? installments.data.parcelas : [];
-  const emAberto = parcelas.filter((item) => !parcelaEncerrada(item.estado));
-  const proxima = emAberto[0];
-  const pagas = parcelas.filter((item) => item.estado === "liquidada");
+}: Readonly<{ balance: MotorReadResult<Balance>; devedor: string | undefined; loan: Loan }>) {
   const situacao = SITUACOES.find((item) => item.estado === loan.estado);
+  const pendente = loan.acerto_pendente_desde ?? undefined;
 
   return (
     <section className="space-y-4">
       <div className="flex flex-wrap items-baseline justify-between gap-3">
         <h1 className="text-3xl font-semibold tracking-tight">{devedor ?? "Emprestimo"}</h1>
-        <span className="rounded-full bg-secondary px-3 py-1 text-sm font-semibold text-secondary-foreground">
-          {situacao?.titulo ?? loan.estado}
+        <span
+          className={`rounded-full px-3 py-1 text-sm font-semibold ${
+            pendente ? "bg-destructive/15 text-destructive" : "bg-secondary text-secondary-foreground"
+          }`}
+        >
+          {pendente ? `Acerto em atraso desde ${formatarData(pendente)}` : (situacao?.titulo ?? loan.estado)}
         </span>
       </div>
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
@@ -329,48 +333,44 @@ function PainelDoEmprestimo({
         <Indicador
           destaque
           detalhe={balance.kind === "ready" ? `em ${formatarData(balance.data.data_referencia)}` : "indisponivel agora"}
-          rotulo="Ainda falta receber"
+          rotulo="Deve hoje"
           valor={balance.kind === "ready" ? moeda(balance.data.total) : "--"}
         />
         <Indicador
-          detalhe={proxima ? `parcela ${proxima.numero} · ${rotuloParcela(proxima.estado)}` : "nenhuma em aberto"}
-          rotulo="Proximo vencimento"
-          valor={proxima ? formatarData(proxima.vencimento) : "--"}
+          detalhe="minimo a receber no acerto"
+          rotulo="Juros do periodo"
+          valor={balance.kind === "ready" ? moeda(balance.data.juros) : "--"}
         />
         <Indicador
-          detalhe={proxima ? `valor de ${moeda(proxima.valor_previsto)}` : "todas encerradas"}
-          rotulo="Parcelas pagas"
-          valor={parcelas.length ? `${pagas.length} de ${parcelas.length}` : "--"}
+          detalhe={loan.dia_de_acerto ? `todo dia ${loan.dia_de_acerto}` : "sem dia combinado"}
+          rotulo="Proximo acerto"
+          valor={loan.proximo_acerto_em ? formatarData(loan.proximo_acerto_em) : "--"}
         />
       </div>
     </section>
   );
 }
 
-/** Parcelas em quatro colunas, na ordem em que o Credor pergunta. */
-function TabelaDeParcelas({ installments }: Readonly<{ installments: MotorReadResult<InstallmentPlan> }>) {
-  if (installments.kind !== "ready") return null;
+/**
+ * Extrato: como o total devido hoje se reparte.
+ *
+ * Substitui a tabela de parcelas, que deixou de existir com o emprestimo livre
+ * (DR-004). O que o devedor deve nao esta congelado num plano — muda a cada dia
+ * que passa e a cada amortizacao.
+ */
+function ExtratoDoSaldo({ balance }: Readonly<{ balance: MotorReadResult<Balance> }>) {
+  if (balance.kind !== "ready") return null;
   return (
     <article className="rounded-2xl border border-border bg-card p-4">
-      <h2 className="font-semibold">Parcelas</h2>
-      <div className="mt-3 overflow-auto" data-state="overflow">
-        <table className="w-full min-w-[420px] text-left text-sm">
-          <caption className="sr-only">Parcelas do emprestimo com vencimento, valor e situacao</caption>
-          <thead className="text-xs uppercase text-muted-foreground">
-            <tr><th className="py-2">Parcela</th><th>Vence em</th><th>Valor</th><th>Situacao</th></tr>
-          </thead>
-          <tbody>
-            {installments.data.parcelas.map((item) => (
-              <tr className="border-t border-border" key={item.id}>
-                <td className="py-2">{item.numero}</td>
-                <td>{formatarData(item.vencimento)}</td>
-                <td className="tabular-nums">{moeda(item.valor_previsto)}</td>
-                <td>{rotuloParcela(item.estado)}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+      <h2 className="font-semibold">Como esta a divida hoje</h2>
+      <dl className="mt-3 grid gap-3 sm:grid-cols-3">
+        <RawValue label="Ainda emprestado" value={moeda(balance.data.principal)} />
+        <RawValue label="Juros corridos" value={moeda(balance.data.juros)} />
+        <RawValue label="Total" value={moeda(balance.data.total)} />
+      </dl>
+      <p className="mt-3 text-sm text-muted-foreground">
+        No acerto o devedor deve, no minimo, os juros. O que pagar alem disso abate o valor emprestado.
+      </p>
     </article>
   );
 }
@@ -429,7 +429,6 @@ export function MotorDetailPage({
   devedor,
   generateInstallmentsAction,
   initialState = INITIAL_MOTOR_ACTION_STATE,
-  installments,
   loan,
   memories,
   paymentAction,
@@ -445,8 +444,8 @@ export function MotorDetailPage({
       {loan.kind === "problem" ? <ProblemPanel problem={loan.problem} recoveryHref={recoveryHref} /> : null}
       {loan.kind === "ready" ? (
         <>
-          <PainelDoEmprestimo balance={balance} devedor={devedor} installments={installments} loan={loan.data} />
-          <TabelaDeParcelas installments={installments} />
+          <PainelDoEmprestimo balance={balance} devedor={devedor} loan={loan.data} />
+          <ExtratoDoSaldo balance={balance} />
           {/* As operacoes vem depois do painel: primeiro entender, depois agir.
               Sem nenhuma permissao de comando o bloco nao existe, em vez de
               abrir vazio e sugerir uma acao indisponivel. */}

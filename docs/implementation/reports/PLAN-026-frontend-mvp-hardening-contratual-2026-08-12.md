@@ -190,9 +190,16 @@ lugar ao acerto mensal no dia combinado. O lancamento deixou de receber
 a resposta deixou de devolver `quantidade_parcelas` e passou a devolver
 `primeiro_acerto_em`. O snapshot foi regerado: **108 operacoes, 137 schemas**,
 SHA-256
-`367381a54d6f4d2430a3be0bc18c39af3ef5a66364daa5f0c95f9dc37d1ec119`.
+`6b24001ab24f9e4c47764d93fa8c640115dedd2f77bbc0df290d4145934b953d`.
 
-Diferente das duas anteriores, esta mudanca **nao e aditiva**: campos exigidos
+Em 2026-08-19 o IMP-326 acrescentou `dia_de_acerto`, `proximo_acerto_em` e
+`acerto_pendente_desde` a `EmprestimoResponse`, para que a tela do emprestimo
+nao precise recalcular calendario no navegador. Mudanca **aditiva**; contagem
+inalterada em 108 operacoes e 137 schemas.
+
+A regeracao de 2026-08-17 e a de 2026-08-18 estao registradas acima; o hash
+vigente e o desta ultima. Diferente das duas primeiras, a mudanca do IMP-324
+**nao foi aditiva**: campos exigidos
 sairam do contrato. E deliberada e esta na resolucao da DR-004. A contagem de
 operacoes e de schemas nao muda porque a alteracao e de campo, nao de
 superficie. Nada do hardening foi desfeito.

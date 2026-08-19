@@ -2,7 +2,7 @@ import { render, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
 import { EmprestimosDoDevedor, MotorDetailPage, MotorPage } from "../../src/components/motor/motor";
-import { INITIAL_MOTOR_ACTION_STATE, type Balance, type CalculationMemory, type InstallmentPlan, type Loan, type LoanList, type SettlementPreview } from "../../src/lib/motor/motor-policy";
+import { INITIAL_MOTOR_ACTION_STATE, type Balance, type CalculationMemory, type Loan, type LoanList, type SettlementPreview } from "../../src/lib/motor/motor-policy";
 
 const permissions = [
   "motor.emprestimo.criar",
@@ -41,23 +41,6 @@ const memory: CalculationMemory = {
   tipo: "Memoria de calculo oficial",
 };
 
-const installments: InstallmentPlan = {
-  emprestimo_id: loan.id,
-  memoria: memory,
-  parcelas: [{
-    encargos: "0.00",
-    emprestimo_id: loan.id,
-    estado: "prevista",
-    id: "00000000-0000-4000-8000-000000000060",
-    juros: "10.00",
-    numero: 1,
-    principal: "1000.00",
-    valor_liquidado: "0.00",
-    valor_previsto: "1010.00",
-    vencimento: "2026-09-14",
-  }],
-  tenant_id: loan.tenant_id,
-};
 
 const balance: Balance = {
   data_referencia: "2026-08-14",
@@ -158,14 +141,12 @@ describe("Motor UI", () => {
     expect(screen.queryByRole("heading", { name: /Em andamento/i })).not.toBeInTheDocument();
   });
 
-  it("painel responde quanto falta, qual a proxima parcela e quantas foram pagas", () => {
-    const plano: InstallmentPlan = {
-      ...installments,
-      parcelas: [
-        { ...installments.parcelas[0]!, estado: "liquidada", id: "00000000-0000-4000-8000-000000000061", numero: 1, valor_previsto: "1030.00", vencimento: "2026-09-01" },
-        { ...installments.parcelas[0]!, estado: "prevista", id: "00000000-0000-4000-8000-000000000062", numero: 2, valor_previsto: "1058.06", vencimento: "2026-10-01" },
-        { ...installments.parcelas[0]!, estado: "prevista", id: "00000000-0000-4000-8000-000000000063", numero: 3, valor_previsto: "1062.00", vencimento: "2026-11-01" },
-      ],
+  it("painel responde de quem e, quanto deve hoje, os juros do periodo e o proximo acerto", () => {
+    const comAcerto: Loan = {
+      ...loan,
+      acerto_pendente_desde: "2026-09-10",
+      dia_de_acerto: 10,
+      proximo_acerto_em: "2026-10-10",
     };
     render(
       <MotorDetailPage
@@ -173,8 +154,7 @@ describe("Motor UI", () => {
         devedor="Maria Souza"
         generateInstallmentsAction={action}
         initialState={INITIAL_MOTOR_ACTION_STATE}
-        installments={{ kind: "ready", data: plano }}
-        loan={{ kind: "ready", data: loan }}
+        loan={{ kind: "ready", data: comAcerto }}
         memories={{ kind: "denied" }}
         paymentAction={action}
         permissions={permissions}
@@ -187,15 +167,20 @@ describe("Motor UI", () => {
 
     // Quem, antes de qualquer numero.
     expect(screen.getByRole("heading", { name: "Maria Souza" })).toBeInTheDocument();
-    // A proxima e a primeira ainda em aberto, nao a primeira da lista.
-    // Aparece no indicador e na tabela; ambos devem dizer a mesma data.
-    expect(screen.getAllByText("01/10/2026")).toHaveLength(2);
-    expect(screen.getByText(/parcela 2/)).toBeInTheDocument();
-    expect(screen.getByText("1 de 3")).toBeInTheDocument();
-    // "liquidada" e termo de contabilidade; o Credor le "Paga".
-    expect(screen.getAllByText("Paga")[0]).toBeInTheDocument();
-    expect(screen.getAllByText("A vencer")[0]).toBeInTheDocument();
-    expect(screen.queryByText("liquidada")).not.toBeInTheDocument();
+    expect(screen.getByText("Emprestado")).toBeInTheDocument();
+    expect(screen.getByText("Deve hoje")).toBeInTheDocument();
+    expect(screen.getByText("Juros do periodo")).toBeInTheDocument();
+    expect(screen.getByText("Proximo acerto")).toBeInTheDocument();
+    expect(screen.getByText("10/10/2026")).toBeInTheDocument();
+    expect(screen.getByText("todo dia 10")).toBeInTheDocument();
+    // Atraso aparece no lugar da situacao, e nao escondido numa coluna.
+    expect(screen.getByText(/Acerto em atraso desde 10\/09\/2026/)).toBeInTheDocument();
+    // O extrato substitui a tabela de parcelas.
+    expect(screen.getByText("Como esta a divida hoje")).toBeInTheDocument();
+    // A tabela de parcelas saiu; o comando "Gerar parcelas" ainda existe e sai
+    // com o endpoint no IMP-327.
+    expect(screen.queryByRole("columnheader", { name: /Vence em|Situacao/i })).not.toBeInTheDocument();
+    expect(screen.queryByText(/A vencer|liquidada/i)).not.toBeInTheDocument();
   });
 
   it("nega acesso em linguagem comum, sem fallback permissivo", () => {
@@ -215,13 +200,12 @@ describe("Motor UI", () => {
     expect(screen.queryByText(/denied|Modulo Motor/i)).not.toBeInTheDocument();
   });
 
-  it("apresenta saldo, parcelas, memoria, pagamento idempotente, quitacao e renegociacao opaca", () => {
+  it("apresenta saldo, extrato, memoria, pagamento idempotente, quitacao e renegociacao opaca", () => {
     render(
       <MotorDetailPage
         balance={{ kind: "ready", data: balance }}
         generateInstallmentsAction={action}
         initialState={INITIAL_MOTOR_ACTION_STATE}
-        installments={{ kind: "ready", data: installments }}
         loan={{ kind: "ready", data: loan }}
         memories={{ kind: "ready", data: [memory] }}
         paymentAction={action}
@@ -234,9 +218,9 @@ describe("Motor UI", () => {
     );
     // O painel responde as quatro perguntas antes de qualquer rolagem.
     expect(screen.getByText("Emprestado")).toBeInTheDocument();
-    expect(screen.getByText("Ainda falta receber")).toBeInTheDocument();
-    expect(screen.getByText("Proximo vencimento")).toBeInTheDocument();
-    expect(screen.getByText("Parcelas pagas")).toBeInTheDocument();
+    expect(screen.getByText("Deve hoje")).toBeInTheDocument();
+    expect(screen.getByText("Proximo acerto")).toBeInTheDocument();
+    expect(screen.getByText("Juros do periodo")).toBeInTheDocument();
     expect(screen.getByText("Quanto ainda falta")).toBeInTheDocument();
     expect(screen.getAllByText("Como a conta foi feita")[0]).toBeInTheDocument();
     expect(screen.getByText(/Pagamento idempotente/i)).toBeInTheDocument();
@@ -253,7 +237,6 @@ describe("Motor UI", () => {
         balance={{ kind: "problem", problem: { codigo: "regra_violada", correlationId: "corr-422", mensagem: "422 regra", status: 422 } }}
         generateInstallmentsAction={action}
         initialState={INITIAL_MOTOR_ACTION_STATE}
-        installments={{ kind: "problem", problem: { codigo: "conflito_estado", correlationId: "corr-409", mensagem: "409 conflito", status: 409 } }}
         loan={{ kind: "problem", problem: { codigo: "recurso_indisponivel", correlationId: "corr-404", mensagem: "backend secreto", status: 404 } }}
         memories={{ kind: "denied" }}
         paymentAction={action}

@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import openapi from "../../../docs/governance/contracts/openapi/frontend-mvp-backend-openapi.json" with { type: "json" };
 
-const SNAPSHOT_SHA = "367381a54d6f4d2430a3be0bc18c39af3ef5a66364daa5f0c95f9dc37d1ec119";
+const SNAPSHOT_SHA = "6b24001ab24f9e4c47764d93fa8c640115dedd2f77bbc0df290d4145934b953d";
 const CONFIG_PATHS = [
   "/credit/configuracoes-financeiras",
   "/credit/configuracoes-financeiras/{configuracao_id}",

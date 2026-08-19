@@ -19,6 +19,7 @@ from emprestimo.application.errors import (
 )
 from emprestimo.application.ports import AuditoriaRegistro, UnitOfWork
 from emprestimo.domain.common.errors import ViolacaoInvarianteError
+from emprestimo.domain.credit.dia_de_acerto import proximo_acerto, validar_dia_de_acerto
 from emprestimo.domain.credit.emprestimo import Emprestimo, EmprestimoState
 from emprestimo.domain.credit.eventos_financeiros import EventoFinanceiro
 from emprestimo.domain.credit.financeiro import ValorQuitacao
@@ -55,6 +56,11 @@ class EmprestimoCriadoResultado:
     moeda: str
     parametros_financeiros: dict[str, object]
     criado_em: datetime
+    # Acerto mensal (DR-004). `None` nos emprestimos anteriores a decisao, que
+    # nasceram com plano de parcelas e nao tem dia combinado.
+    dia_de_acerto: int | None
+    proximo_acerto_em: date | None
+    acerto_pendente_desde: date | None
 
 
 @dataclass(frozen=True)
@@ -923,6 +929,7 @@ def _motor_com_historico(
 
 
 def _emprestimo_resultado(emprestimo: Emprestimo) -> EmprestimoCriadoResultado:
+    hoje = datetime.now(UTC).date()
     return EmprestimoCriadoResultado(
         emprestimo_id=emprestimo.id,
         contrato_id=emprestimo.contrato_id,
@@ -934,6 +941,12 @@ def _emprestimo_resultado(emprestimo: Emprestimo) -> EmprestimoCriadoResultado:
         moeda=emprestimo.moeda,
         parametros_financeiros=emprestimo.parametros_financeiros,
         criado_em=emprestimo.criado_em,
+        dia_de_acerto=emprestimo.dia_de_acerto,
+        # Calculado na leitura, e nao lido de coluna: o proximo acerto anda
+        # sozinho com o calendario, e uma coluna gravada envelheceria em
+        # silencio a cada mes que passa.
+        proximo_acerto_em=emprestimo.proximo_acerto_em(hoje),
+        acerto_pendente_desde=emprestimo.acerto_sem_pagamento_em(hoje),
     )
 
 
@@ -1109,6 +1122,8 @@ def _desserializar_resultado(conteudo: str | None) -> EmprestimoCriadoResultado:
     if not conteudo:
         raise IdempotenciaConflitoError("?", "resultado ausente no registro")
     dados = json.loads(conteudo)
+    bruto = dict(dados["parametros_financeiros"]).get("dia_de_acerto")
+    dia_de_acerto = validar_dia_de_acerto(bruto) if bruto is not None else None
     return EmprestimoCriadoResultado(
         emprestimo_id=uuid.UUID(dados["emprestimo_id"]),
         contrato_id=uuid.UUID(dados["contrato_id"]),
@@ -1120,6 +1135,17 @@ def _desserializar_resultado(conteudo: str | None) -> EmprestimoCriadoResultado:
         moeda=dados["moeda"],
         parametros_financeiros=dict(dados["parametros_financeiros"]),
         criado_em=datetime.fromisoformat(dados["criado_em"]),
+        # Derivados do calendario, e por isso recalculados no replay em vez de
+        # lidos do registro: gravar o proximo acerto o congelaria na data em que
+        # a chave foi usada, e um replay meses depois devolveria uma data que ja
+        # passou. Nada pendente aqui — este e o resultado de uma criacao.
+        dia_de_acerto=dia_de_acerto,
+        proximo_acerto_em=(
+            proximo_acerto(datetime.now(UTC).date(), dia_de_acerto)
+            if dia_de_acerto is not None
+            else None
+        ),
+        acerto_pendente_desde=None,
     )
 
 

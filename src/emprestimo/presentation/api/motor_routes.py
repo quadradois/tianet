@@ -347,6 +347,9 @@ def _emprestimo_response(resultado: Any) -> EmprestimoResponse:
         moeda=resultado.moeda,
         parametros_financeiros=resultado.parametros_financeiros,
         criado_em=resultado.criado_em,
+        dia_de_acerto=resultado.dia_de_acerto,
+        proximo_acerto_em=resultado.proximo_acerto_em,
+        acerto_pendente_desde=resultado.acerto_pendente_desde,
     )
 
 

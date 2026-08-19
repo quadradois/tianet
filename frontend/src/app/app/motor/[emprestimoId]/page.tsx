@@ -7,8 +7,8 @@ import { createRuntimeDependencies } from "@/lib/bff/backend.server";
 import { recoveryAttemptCookieName } from "@/lib/bff/context.server";
 import { currentOperationalContext } from "@/lib/bff/current-context.server";
 import { getDevedor } from "@/lib/bff/devedores.server";
-import { getBalance, getInstallments, getLoan, getMemories, getSettlementPreview } from "@/lib/bff/motor.server";
-import { INITIAL_MOTOR_ACTION_STATE, type Balance, type CalculationMemory, type InstallmentPlan, type MotorReadResult, type SettlementPreview } from "@/lib/motor/motor-policy";
+import { getBalance, getLoan, getMemories, getSettlementPreview } from "@/lib/bff/motor.server";
+import { INITIAL_MOTOR_ACTION_STATE, type Balance, type CalculationMemory, type MotorReadResult, type SettlementPreview } from "@/lib/motor/motor-policy";
 
 import {
   executeSettlementAction,
@@ -50,22 +50,20 @@ export default async function MotorDetailRoute({ params, searchParams }: PagePro
   const selectedDate = referenceDate(query);
   // O nome do Devedor e o titulo do painel: sem ele a pagina abriria sem dizer
   // de quem e o emprestimo. Falta de permissao degrada o titulo, nunca a pagina.
-  const [installments, balance, memories, settlement, devedor] = loan.kind === "ready"
+  const [balance, memories, settlement, devedor] = loan.kind === "ready"
     ? await Promise.all([
-      getInstallments(cookieStore, context, emprestimoId, dependencies),
       getBalance(cookieStore, context, emprestimoId, selectedDate, dependencies),
       getMemories(cookieStore, context, emprestimoId, dependencies),
       getSettlementPreview(cookieStore, context, emprestimoId, selectedDate, dependencies),
       getDevedor(cookieStore, context, loan.data.devedor_id, dependencies),
     ])
     : [
-      denied<InstallmentPlan>(),
       denied<Balance>(),
       denied<readonly CalculationMemory[]>(),
       denied<SettlementPreview>(),
       denied<never>(),
     ];
-  for (const result of [installments, balance, memories, settlement]) {
+  for (const result of [balance, memories, settlement]) {
     if (result.kind === "problem" && result.problem.status === 401) redirect(recoveryHref);
   }
   return (
@@ -74,7 +72,6 @@ export default async function MotorDetailRoute({ params, searchParams }: PagePro
       devedor={devedor.kind === "ready" && "nome" in devedor.data ? devedor.data.nome : undefined}
       generateInstallmentsAction={generateInstallmentsAction}
       initialState={INITIAL_MOTOR_ACTION_STATE}
-      installments={installments}
       loan={loan}
       memories={memories}
       paymentAction={registerPaymentAction}

@@ -11,7 +11,7 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 describe("contrato do bootstrap de sessao", () => {
   it("consome o snapshot governado e somente os status certificados do contexto", async () => {
     const bytes = await readFile(resolve(import.meta.dirname, "../../../docs/governance/contracts/openapi/frontend-mvp-backend-openapi.json"));
-    expect(createHash("sha256").update(bytes).digest("hex")).toBe("367381a54d6f4d2430a3be0bc18c39af3ef5a66364daa5f0c95f9dc37d1ec119");
+    expect(createHash("sha256").update(bytes).digest("hex")).toBe("6b24001ab24f9e4c47764d93fa8c640115dedd2f77bbc0df290d4145934b953d");
     const document: unknown = JSON.parse(bytes.toString("utf8"));
     expect(isRecord(document)).toBe(true);
     if (!isRecord(document) || !isRecord(document.paths)) throw new Error("OpenAPI invalido");

@@ -7,7 +7,7 @@ import type { components, paths } from "../../src/lib/api/openapi.generated";
 
 const HTTP_METHODS = new Set(["get", "post", "put", "patch", "delete"]);
 const ERROR_STATUSES = new Set(["400", "401", "403", "404", "409", "422", "500", "503"]);
-const SNAPSHOT_SHA256 = "367381a54d6f4d2430a3be0bc18c39af3ef5a66364daa5f0c95f9dc37d1ec119";
+const SNAPSHOT_SHA256 = "6b24001ab24f9e4c47764d93fa8c640115dedd2f77bbc0df290d4145934b953d";
 const snapshotUrl = new URL(
   "../../../docs/governance/contracts/openapi/frontend-mvp-backend-openapi.json",
   import.meta.url,

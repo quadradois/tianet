@@ -37,7 +37,7 @@ describe("Agenda/Comunicacao OpenAPI consumida pelo frontend", () => {
     const operationCount = Object.values(spec.paths).flatMap((item) => Object.keys(item).filter((method) => ["get", "post", "patch", "put", "delete"].includes(method))).length;
     expect(operationCount).toBe(108);
     expect(Object.keys(spec.components.schemas)).toHaveLength(137);
-    expect(createHash("sha256").update(raw).digest("hex")).toBe("367381a54d6f4d2430a3be0bc18c39af3ef5a66364daa5f0c95f9dc37d1ec119");
+    expect(createHash("sha256").update(raw).digest("hex")).toBe("6b24001ab24f9e4c47764d93fa8c640115dedd2f77bbc0df290d4145934b953d");
   });
 
   it("certifica as 12 operacoes oficiais e Idempotency-Key exata", () => {
