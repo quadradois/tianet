@@ -2409,7 +2409,7 @@ const contracts = {
     assert.doesNotMatch(source.loader + source.policy + source.component, /\.reduce\(|parseFloat\(|parseInt\(|Math\.(?:round|floor|ceil)|Intl\.NumberFormat|toFixed\(|\+\s*(?:saldo|total|valor|previsto|realizado)|(?:saldo|total|valor|previsto|realizado)\s*\+/, 'Relatorios nao calcula financeiro localmente');
     assert.doesNotMatch(source.component, /\.(?:operacoes_quitadas|parcela_ids|pagamento_ids)\.length\b/, 'Relatorios nao deriva contagens locais de arrays oficiais');
     assert.doesNotMatch(source.component + source.page + source.loader, /\/app\/(?:configuracoes|iam|automacao)\b|\/credit\/(?:configuracoes-financeiras|automacao|notificacoes\/templates)\b/i, 'Relatorios nao antecipa Configuracoes/IAM/Automacao');
-    for (const marker of ['loading', 'empty', 'denied', '400', '403', '404', '500', 'overflow', 'Resumo oficial', 'Pagamentos oficiais', 'Fluxo previsto e realizado']) {
+    for (const marker of ['loading', 'empty', 'denied', '400', '403', '404', '500', 'overflow', 'Resumo oficial', 'Pagamentos oficiais', 'Acertos e recebimentos por dia']) {
       assertText(source.component + source.componentTest + source.e2eTest + source.loading, marker, `estado Relatorios ${marker}`);
     }
     assertText(source.component, 'Dados de relatorio nao encontrados ou indisponiveis.', 'UI Relatorios preserva 404 neutro');

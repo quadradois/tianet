@@ -3,7 +3,7 @@ import { createServer } from "node:http";
 const argument = process.argv.indexOf("--port");
 const port = argument >= 0 ? Number(process.argv[argument + 1]) : 3202;
 const id = (value) => `00000000-0000-4000-8000-${String(value).padStart(12, "0")}`;
-const IDS = { tenant: id(1), user: id(2), wallet: id(3), profile: id(4), loan1: id(5), loan2: id(6), installment1: id(7), installment2: id(8), agenda: id(9), debtor: id(10), reminder: id(11) };
+const IDS = { tenant: id(1), user: id(2), wallet: id(3), profile: id(4), loan1: id(5), loan2: id(6), debtor1: id(7), debtor2: id(8), agenda: id(9), debtor: id(10), reminder: id(11) };
 
 function send(response, status, body, correlation = "corr-dashboard-290") {
   response.writeHead(status, { "Cache-Control": "no-store", "Content-Type": "application/json", "X-Correlation-ID": correlation });
@@ -43,8 +43,8 @@ function summary(referenceDate, empty = false) {
 
 function dueDates(referenceDate, empty = false) {
   return { carteira_id: IDS.wallet, data_referencia: referenceDate, tenant_id: IDS.tenant, total: empty ? 0 : 2, itens: empty ? [] : [
-    { emprestimo_id: IDS.loan1, estado: "vencida", numero: 1, parcela_id: IDS.installment1, situacao: "vencida", valor_liquidado: "0.00", valor_previsto: "500.00", vencimento: "2026-08-10" },
-    { emprestimo_id: IDS.loan2, estado: "prevista", numero: 2, parcela_id: IDS.installment2, situacao: "futura", valor_liquidado: "0.00", valor_previsto: "700.00", vencimento: "2026-08-20" },
+    { acerto_em: "2026-08-10", devedor_id: IDS.debtor1, dia_de_acerto: 10, dias_sem_pagamento: 4, emprestimo_id: IDS.loan1, principal_original: "500.00", situacao: "pendente" },
+    { acerto_em: "2026-08-20", devedor_id: IDS.debtor2, dia_de_acerto: 20, dias_sem_pagamento: 0, emprestimo_id: IDS.loan2, principal_original: "700.00", situacao: "em dia" },
   ] };
 }
 

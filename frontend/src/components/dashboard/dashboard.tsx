@@ -163,7 +163,7 @@ async function SummarySection({ result, recoveryHref }: Readonly<{ result: Dashb
 }
 
 async function DueDatesSection({ result, recoveryHref }: Readonly<{ result: DashboardProps["dueDates"]; recoveryHref: string }>) {
-  return <SectionCard title="Vencimentos" description="Parcelas e suas situacoes na data escolhida."><SectionResult result={await result} recoveryHref={recoveryHref}>{(data) => <DueDatesView data={data} />}</SectionResult></SectionCard>;
+  return <SectionCard title="Acertos do dia" description="Quem tem acerto marcado e quem ainda nao apareceu."><SectionResult result={await result} recoveryHref={recoveryHref}>{(data) => <DueDatesView data={data} />}</SectionResult></SectionCard>;
 }
 
 async function AgendaSection({ result, recoveryHref }: Readonly<{ result: DashboardProps["agenda"]; recoveryHref: string }>) {
@@ -191,7 +191,7 @@ export function Dashboard({ period, recoveryHref, summary, dueDates, agenda, col
       <p className="text-xs text-muted-foreground"></p>
       <div className="grid min-w-0 gap-5 xl:grid-cols-2">
         <Suspense fallback={<DashboardLoadingState title="Resumo da Carteira" />}><SummarySection recoveryHref={recoveryHref} result={summary} /></Suspense>
-        <Suspense fallback={<DashboardLoadingState title="Vencimentos" />}><DueDatesSection recoveryHref={recoveryHref} result={dueDates} /></Suspense>
+        <Suspense fallback={<DashboardLoadingState title="Acertos do dia" />}><DueDatesSection recoveryHref={recoveryHref} result={dueDates} /></Suspense>
         <Suspense fallback={<DashboardLoadingState title="Agenda do dia" />}><AgendaSection recoveryHref={recoveryHref} result={agenda} /></Suspense>
         <Suspense fallback={<DashboardLoadingState title="Fila de cobranca" />}><CollectionSection recoveryHref={recoveryHref} result={collection} /></Suspense>
       </div>

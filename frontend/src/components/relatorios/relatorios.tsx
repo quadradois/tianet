@@ -197,7 +197,7 @@ async function SummarySection({ result, recoveryHref }: Readonly<{ result: NonNu
 }
 
 async function DueDatesSection({ result, recoveryHref }: Readonly<{ result: NonNullable<ReportsProps["dueDates"]>; recoveryHref: string }>) {
-  return <SectionCard title="Vencimentos oficiais" description="Parcelas e situacoes oficiais na data de referencia."><SectionResult result={await result} recoveryHref={recoveryHref}>{(data) => <DueDatesReportView data={data} />}</SectionResult></SectionCard>;
+  return <SectionCard title="Acertos oficiais" description="Acertos e situacoes oficiais na data de referencia."><SectionResult result={await result} recoveryHref={recoveryHref}>{(data) => <DueDatesReportView data={data} />}</SectionResult></SectionCard>;
 }
 
 async function PaymentsSection({ result, recoveryHref }: Readonly<{ result: NonNullable<ReportsProps["payments"]>; recoveryHref: string }>) {
@@ -205,7 +205,7 @@ async function PaymentsSection({ result, recoveryHref }: Readonly<{ result: NonN
 }
 
 async function CashFlowSection({ result, recoveryHref }: Readonly<{ result: NonNullable<ReportsProps["cashFlow"]>; recoveryHref: string }>) {
-  return <SectionCard title="Fluxo previsto e realizado" description="Fluxo diario oficial retornado pelo backend."><SectionResult result={await result} recoveryHref={recoveryHref}>{(data) => <CashFlowReportView data={data} />}</SectionResult></SectionCard>;
+  return <SectionCard title="Acertos e recebimentos por dia" description="Fluxo diario oficial retornado pelo backend."><SectionResult result={await result} recoveryHref={recoveryHref}>{(data) => <CashFlowReportView data={data} />}</SectionResult></SectionCard>;
 }
 
 function Filters({ period }: Readonly<{ period?: ReportsPeriod }>) {
@@ -246,9 +246,9 @@ export function Relatorios({ periodState, recoveryHref, summary, dueDates, payme
       {ready && summary && dueDates && payments && cashFlow && (
         <div className="grid min-w-0 gap-5 xl:grid-cols-2">
           <Suspense fallback={<ReportsLoadingState title="Resumo oficial" />}><SummarySection recoveryHref={recoveryHref} result={summary} /></Suspense>
-          <Suspense fallback={<ReportsLoadingState title="Vencimentos oficiais" />}><DueDatesSection recoveryHref={recoveryHref} result={dueDates} /></Suspense>
+          <Suspense fallback={<ReportsLoadingState title="Acertos oficiais" />}><DueDatesSection recoveryHref={recoveryHref} result={dueDates} /></Suspense>
           <Suspense fallback={<ReportsLoadingState title="Pagamentos oficiais" />}><PaymentsSection recoveryHref={recoveryHref} result={payments} /></Suspense>
-          <Suspense fallback={<ReportsLoadingState title="Fluxo previsto e realizado" />}><CashFlowSection recoveryHref={recoveryHref} result={cashFlow} /></Suspense>
+          <Suspense fallback={<ReportsLoadingState title="Acertos e recebimentos por dia" />}><CashFlowSection recoveryHref={recoveryHref} result={cashFlow} /></Suspense>
         </div>
       )}
     </div>
