@@ -494,42 +494,6 @@ class EmprestimoORM(Base):
     quitado_em: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
 
-class ParcelaORM(Base):
-    """Tabela `parcela` - obrigacao prevista do Emprestimo."""
-
-    __tablename__ = "parcela"
-    __table_args__ = (
-        UniqueConstraint("emprestimo_id", "numero", name="uq_parcela_emprestimo_numero"),
-        CheckConstraint("numero > 0", name="ck_parcela_numero_positivo"),
-        CheckConstraint("valor_previsto > 0", name="ck_parcela_valor_previsto_positivo"),
-        CheckConstraint("principal >= 0", name="ck_parcela_principal_nao_negativo"),
-        CheckConstraint("juros >= 0", name="ck_parcela_juros_nao_negativo"),
-        CheckConstraint("encargos >= 0", name="ck_parcela_encargos_nao_negativo"),
-        CheckConstraint(
-            "valor_liquidado >= 0",
-            name="ck_parcela_valor_liquidado_nao_negativo",
-        ),
-    )
-
-    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True)
-    emprestimo_id: Mapped[uuid.UUID] = mapped_column(
-        Uuid, ForeignKey("emprestimo.id"), nullable=False, index=True
-    )
-    numero: Mapped[int] = mapped_column(Integer, nullable=False)
-    vencimento: Mapped[date] = mapped_column(Date, nullable=False, index=True)
-    valor_previsto: Mapped[Decimal] = mapped_column(Numeric(18, 2), nullable=False)
-    principal: Mapped[Decimal] = mapped_column(Numeric(18, 2), nullable=False)
-    juros: Mapped[Decimal] = mapped_column(Numeric(18, 2), nullable=False)
-    encargos: Mapped[Decimal] = mapped_column(Numeric(18, 2), nullable=False)
-    valor_liquidado: Mapped[Decimal] = mapped_column(Numeric(18, 2), nullable=False)
-    periodo: Mapped[dict[str, object] | None] = mapped_column(JSON, nullable=True)
-    estado: Mapped[str] = mapped_column(String(30), nullable=False, index=True)
-    criada_em: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), server_default=func.now(), nullable=False
-    )
-    atualizada_em: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
-
-
 class PagamentoORM(Base):
     """Tabela `pagamento` - fato financeiro processado pelo Motor."""
 
@@ -693,9 +657,6 @@ class AcaoCobrancaORM(Base):
     )
     tipo: Mapped[str] = mapped_column(String(50), nullable=False)
     resultado: Mapped[str] = mapped_column(Text, nullable=False)
-    parcela_id: Mapped[uuid.UUID | None] = mapped_column(
-        Uuid, ForeignKey("parcela.id"), nullable=True, index=True
-    )
     estado: Mapped[str] = mapped_column(String(30), nullable=False, index=True)
     registrada_em: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
@@ -726,9 +687,6 @@ class PromessaPagamentoORM(Base):
     data_promessa: Mapped[date] = mapped_column(Date, nullable=False)
     estado: Mapped[str] = mapped_column(String(30), nullable=False)
     observacao: Mapped[str | None] = mapped_column(Text, nullable=True)
-    parcela_id: Mapped[uuid.UUID | None] = mapped_column(
-        Uuid, ForeignKey("parcela.id"), nullable=True, index=True
-    )
     criado_por_usuario_id: Mapped[uuid.UUID] = mapped_column(
         Uuid, ForeignKey("usuario.id"), nullable=False
     )
@@ -756,9 +714,6 @@ class ApropriacaoPagamentoORM(Base):
     )
     valor: Mapped[Decimal] = mapped_column(Numeric(18, 2), nullable=False)
     realizado_em: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
-    parcela_id: Mapped[uuid.UUID] = mapped_column(
-        Uuid, ForeignKey("parcela.id"), nullable=False, index=True
-    )
     criada_em: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )
@@ -863,9 +818,6 @@ class RegistroComunicacaoORM(Base):
     resumo: Mapped[str] = mapped_column(String(500), nullable=False)
     resultado: Mapped[str] = mapped_column(Text, nullable=False)
     ocorrido_em: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
-    parcela_id: Mapped[uuid.UUID | None] = mapped_column(
-        Uuid, ForeignKey("parcela.id"), nullable=True, index=True
-    )
     cobranca_acao_id: Mapped[uuid.UUID | None] = mapped_column(
         Uuid, ForeignKey("cobranca_acao.id"), nullable=True, index=True
     )

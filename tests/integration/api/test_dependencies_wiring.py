@@ -32,7 +32,6 @@ from emprestimo.application.motor_financeiro import (
     ConsultaSaldoService,
     CriacaoEmprestimoService,
     PagamentoService,
-    PlanoParcelasService,
     QuitacaoRenegociacaoService,
 )
 from emprestimo.application.provisioning import TenantProvisioningService
@@ -99,7 +98,6 @@ def test_providers_do_motor_financeiro_montam_os_servicos(sessao: Session) -> No
         dependencies.get_criacao_emprestimo_service(sessao),
         CriacaoEmprestimoService,
     )
-    assert isinstance(dependencies.get_plano_parcelas_service(sessao), PlanoParcelasService)
     assert isinstance(dependencies.get_pagamento_service(sessao), PagamentoService)
     assert isinstance(dependencies.get_consulta_saldo_service(sessao), ConsultaSaldoService)
     assert isinstance(

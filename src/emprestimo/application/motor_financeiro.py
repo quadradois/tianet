@@ -26,7 +26,6 @@ from emprestimo.domain.credit.financeiro import ValorQuitacao
 from emprestimo.domain.credit.memoria_calculo import MemoriaCalculo
 from emprestimo.domain.credit.motor_financeiro import MotorFinanceiro
 from emprestimo.domain.credit.pagamento import Pagamento, PagamentoState
-from emprestimo.domain.credit.parcela import Parcela, ParcelaState
 from emprestimo.domain.credit.ports import EmprestimoFiltros, Paginacao
 
 ESCOPO_IDEMPOTENCIA = "motor-criacao-emprestimo"
@@ -72,32 +71,6 @@ class EmprestimoListagemResultado:
     pagina: int
     tamanho: int
     paginas: int
-
-
-@dataclass(frozen=True)
-class ParcelaResultado:
-    """Parcela prevista exposta pela camada de aplicacao."""
-
-    parcela_id: uuid.UUID
-    emprestimo_id: uuid.UUID
-    numero: int
-    vencimento: date
-    valor_previsto: Decimal
-    principal: Decimal
-    juros: Decimal
-    encargos: Decimal
-    valor_liquidado: Decimal
-    estado: ParcelaState
-
-
-@dataclass(frozen=True)
-class PlanoParcelasResultado:
-    """Resultado da geracao ou consulta do plano de parcelas."""
-
-    emprestimo_id: uuid.UUID
-    tenant_id: uuid.UUID
-    parcelas: tuple[ParcelaResultado, ...]
-    memoria: MemoriaCalculo | None
 
 
 @dataclass(frozen=True)
@@ -371,73 +344,6 @@ class CriacaoEmprestimoService:
         return _desserializar_resultado(existente["resultado"])
 
 
-class PlanoParcelasService:
-    """Gera e consulta parcelas previstas de um Emprestimo."""
-
-    def __init__(
-        self,
-        uow_factory: Callable[[], UnitOfWork],
-        motor_factory: Callable[[], MotorFinanceiro] = MotorFinanceiro,
-    ) -> None:
-        self._uow_factory = uow_factory
-        self._motor_factory = motor_factory
-
-    def gerar(
-        self,
-        *,
-        emprestimo_id: uuid.UUID,
-        tenant_id: uuid.UUID,
-        data_referencia: date,
-    ) -> PlanoParcelasResultado:
-        with self._uow_factory() as uow:
-            emprestimo = _emprestimo_do_tenant(
-                uow,
-                emprestimo_id=emprestimo_id,
-                tenant_id=tenant_id,
-            )
-            parcelas_existentes = uow.parcela.find_by_emprestimo_id(emprestimo_id)
-            if parcelas_existentes:
-                return _plano_resultado(
-                    emprestimo,
-                    parcelas_existentes,
-                    _memoria_plano_existente(uow, emprestimo_id),
-                )
-            try:
-                plano = self._motor_factory().gerar_plano_parcelas(
-                    emprestimo=emprestimo,
-                    data_referencia=data_referencia,
-                )
-            except ViolacaoInvarianteError as exc:
-                raise TransicaoEstadoInvalidaError(
-                    emprestimo_id,
-                    "gerar_plano_parcelas",
-                    str(exc),
-                ) from exc
-            uow.emprestimo.save(emprestimo)
-            uow.parcela.save_many(plano.parcelas)
-            uow.memoria_calculo.save(plano.memoria, emprestimo.id)
-            uow.commit()
-            return _plano_resultado(emprestimo, plano.parcelas, plano.memoria)
-
-    def consultar(
-        self,
-        *,
-        emprestimo_id: uuid.UUID,
-        tenant_id: uuid.UUID,
-    ) -> PlanoParcelasResultado:
-        with self._uow_factory() as uow:
-            emprestimo = _emprestimo_do_tenant(
-                uow,
-                emprestimo_id=emprestimo_id,
-                tenant_id=tenant_id,
-            )
-            return _plano_resultado(
-                emprestimo,
-                uow.parcela.find_by_emprestimo_id(emprestimo_id),
-                _memoria_plano_existente(uow, emprestimo_id),
-            )
-
-
 class PagamentoService:
     """Registra pagamentos usando a distribuicao oficial do Motor Financeiro."""
 
@@ -509,15 +415,10 @@ class PagamentoService:
                 )
             if replay:
                 raise IdempotenciaConflitoError(idempotency_key, "resultado de pagamento ausente")
-            # A exigencia de plano previo caiu com a DR-004: no emprestimo livre
-            # nao ha plano, e o pagamento e justamente o evento que move a
-            # divida. Exigi-lo aqui impedia o fluxo central do produto.
-            parcelas = uow.parcela.find_by_emprestimo_id(emprestimo_id)
             pagamentos = uow.pagamento.find_by_emprestimo_id(emprestimo_id)
             motor = self._motor_factory()
             motor.carregar_historico(
                 emprestimo_id=emprestimo_id,
-                parcelas=parcelas,
                 pagamentos=pagamentos,
             )
             try:
@@ -535,7 +436,6 @@ class PagamentoService:
                     str(exc),
                 ) from exc
             uow.emprestimo.save(emprestimo)
-            uow.parcela.save_many(tuple(parcelas))
             uow.pagamento.save(processado.pagamento)
             uow.memoria_calculo.save(
                 processado.memoria,
@@ -583,7 +483,6 @@ class ConsultaSaldoService:
             motor = self._motor_factory()
             motor.carregar_historico(
                 emprestimo_id=emprestimo_id,
-                parcelas=uow.parcela.find_by_emprestimo_id(emprestimo_id),
                 pagamentos=uow.pagamento.find_by_emprestimo_id(emprestimo_id),
             )
             try:
@@ -721,7 +620,6 @@ class QuitacaoRenegociacaoService:
                 raise IdempotenciaConflitoError(idempotency_key, "resultado de quitacao ausente")
             # Idem para a quitacao (DR-004): o valor de quitar vem do saldo, e o
             # saldo existe desde o primeiro dia do emprestimo.
-            parcelas = uow.parcela.find_by_emprestimo_id(emprestimo_id)
             motor = _motor_com_historico(self._motor_factory(), uow, emprestimo_id)
             try:
                 calculada = motor.calcular_valor_quitacao(
@@ -742,7 +640,6 @@ class QuitacaoRenegociacaoService:
                     str(exc),
                 ) from exc
             uow.emprestimo.save(emprestimo)
-            uow.parcela.save_many(tuple(parcelas))
             uow.pagamento.save(resultado.pagamento)
             uow.memoria_calculo.save(calculada.memoria, emprestimo.id)
             uow.memoria_calculo.save(resultado.memoria, emprestimo.id, resultado.pagamento.id)
@@ -915,7 +812,6 @@ def _motor_com_historico(
 ) -> MotorFinanceiro:
     motor.carregar_historico(
         emprestimo_id=emprestimo_id,
-        parcelas=uow.parcela.find_by_emprestimo_id(emprestimo_id),
         pagamentos=uow.pagamento.find_by_emprestimo_id(emprestimo_id),
     )
     return motor
@@ -943,34 +839,6 @@ def _emprestimo_resultado(emprestimo: Emprestimo) -> EmprestimoCriadoResultado:
     )
 
 
-def _plano_resultado(
-    emprestimo: Emprestimo,
-    parcelas: tuple[Parcela, ...] | list[Parcela],
-    memoria: MemoriaCalculo | None,
-) -> PlanoParcelasResultado:
-    return PlanoParcelasResultado(
-        emprestimo_id=emprestimo.id,
-        tenant_id=emprestimo.tenant_id,
-        parcelas=tuple(_parcela_resultado(parcela) for parcela in parcelas),
-        memoria=memoria,
-    )
-
-
-def _parcela_resultado(parcela: Parcela) -> ParcelaResultado:
-    return ParcelaResultado(
-        parcela_id=parcela.id,
-        emprestimo_id=parcela.emprestimo_id,
-        numero=parcela.numero,
-        vencimento=parcela.vencimento,
-        valor_previsto=parcela.valor_previsto,
-        principal=parcela.principal,
-        juros=parcela.juros,
-        encargos=parcela.encargos,
-        valor_liquidado=parcela.valor_liquidado,
-        estado=parcela.estado,
-    )
-
-
 def _pagamento_resultado(
     emprestimo: Emprestimo,
     pagamento: Pagamento,
@@ -990,18 +858,6 @@ def _pagamento_resultado(
         parcelas_liquidadas=pagamento.parcelas_liquidadas,
         memoria=memoria,
     )
-
-
-def _memoria_plano_existente(
-    uow: UnitOfWork,
-    emprestimo_id: uuid.UUID,
-) -> MemoriaCalculo | None:
-    memorias = [
-        memoria
-        for memoria in uow.memoria_calculo.find_by_emprestimo_id(emprestimo_id)
-        if memoria.tipo == "geracao_parcelas"
-    ]
-    return memorias[-1] if memorias else None
 
 
 def _memoria_pagamento_existente(
@@ -1143,10 +999,11 @@ def _desserializar_resultado(conteudo: str | None) -> EmprestimoCriadoResultado:
 
 
 @dataclass(frozen=True)
-class EmprestimoComPlano:
+class EmprestimoCriadoNoLancamento:
     """Saida do Motor para um lancamento composto (IMP-305, PLAN-027).
 
-    O nome permanece ate o plano de parcelas ser removido no fim do PLAN-030.
+    O nome e historico: o plano de parcelas saiu no PLAN-030 e o que sobra e a
+    criacao do Emprestimo com a data do primeiro acerto.
     """
 
     emprestimo_id: uuid.UUID
@@ -1159,7 +1016,7 @@ def criar_emprestimo_e_plano_em(
     saida_logica: object,
     data_referencia: date,
     motor_factory: Callable[[], MotorFinanceiro] = MotorFinanceiro,
-) -> EmprestimoComPlano:
+) -> EmprestimoCriadoNoLancamento:
     """Cria o Emprestimo e gera o plano dentro de um UnitOfWork ja aberto.
 
     Existe para que o lancamento composto possa participar da mesma transacao
@@ -1190,4 +1047,7 @@ def criar_emprestimo_e_plano_em(
         primeiro_acerto, datetime.min.time(), tzinfo=UTC
     )
     uow.emprestimo.save(emprestimo)
-    return EmprestimoComPlano(emprestimo_id=emprestimo.id, primeiro_acerto_em=primeiro_acerto)
+    return EmprestimoCriadoNoLancamento(
+        emprestimo_id=emprestimo.id,
+        primeiro_acerto_em=primeiro_acerto,
+    )

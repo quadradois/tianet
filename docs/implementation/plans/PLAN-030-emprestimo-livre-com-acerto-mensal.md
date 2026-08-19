@@ -2,9 +2,9 @@
 
 **ID:** PLAN-030
 
-**Versao:** 1.0.0
+**Versao:** 1.1.0
 
-**Status:** Em execucao
+**Status:** Concluido — IMP-321..327 executados
 
 **Decisao de origem:** `docs/governance/decision-requests/DR-004-base-e-acumulacao-dos-juros-e-fim-do-plano-de-parcelas.md`
 
@@ -144,4 +144,5 @@ so ocorra quando ninguem mais depender do que sai.
 
 | Versao | Data | Descricao |
 |---|---|---|
+| 1.1.0 | 2026-08-19 | Plano encerrado: IMP-321..327 executados. O plano de parcelas saiu do dominio, do banco, do contrato (106 operacoes e 133 schemas) e dos relatorios; juros passaram a correr sobre o saldo por trecho, com acerto mensal no dia combinado. |
 | 1.0.0 | 2026-08-17 | Plano do emprestimo livre: juros sobre saldo por trecho, acerto mensal no dia combinado e fim do plano de parcelas. |

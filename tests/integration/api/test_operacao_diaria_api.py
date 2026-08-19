@@ -277,9 +277,8 @@ def _relatorios_service() -> SimpleNamespace:
             itens=(
                 SimpleNamespace(
                     data=date(2026, 9, 10),
-                    previsto=Decimal("100.00"),
                     realizado=Decimal("50.00"),
-                    parcela_ids=(uuid.uuid4(),),
+                    acertos=1,
                     pagamento_ids=(PAGAMENTO_ID,),
                 ),
             ),

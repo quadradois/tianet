@@ -27,7 +27,6 @@ from emprestimo.application.motor_financeiro import (
     ConsultaSaldoService,
     CriacaoEmprestimoService,
     PagamentoService,
-    PlanoParcelasService,
     QuitacaoRenegociacaoService,
 )
 from emprestimo.domain.credit.contato import Contato, TipoContato
@@ -42,7 +41,6 @@ from emprestimo.infrastructure.db.orm import (
     IdempotencyKeyORM,
     MemoriaCalculoORM,
     PagamentoORM,
-    ParcelaORM,
 )
 from emprestimo.infrastructure.repositories import (
     SqlAlchemyCarteiraRepository,
@@ -205,65 +203,6 @@ def test_criacao_emprestimo_chave_divergente_responde_409(
         )
 
 
-def test_plano_parcelas_gera_persiste_memoria_e_reconsulta_sem_duplicar(
-    session_factory: sessionmaker[Session],
-) -> None:
-    ambiente = _ambiente(session_factory)
-    contrato_id = _contrato_liberado(session_factory, ambiente)
-    emprestimo = _service(session_factory).criar_de_contrato(
-        contrato_id=contrato_id,
-        tenant_id=ambiente.tenant_id,
-        usuario_id=ambiente.usuario_id,
-        idempotency_key="emp-com-plano",
-    )
-    planos = PlanoParcelasService(lambda: SqlAlchemyUnitOfWork(session_factory))
-
-    gerado = planos.gerar(
-        emprestimo_id=emprestimo.emprestimo_id,
-        tenant_id=ambiente.tenant_id,
-        data_referencia=date(2026, 8, 10),
-    )
-    consultado = planos.consultar(
-        emprestimo_id=emprestimo.emprestimo_id,
-        tenant_id=ambiente.tenant_id,
-    )
-    regerado = planos.gerar(
-        emprestimo_id=emprestimo.emprestimo_id,
-        tenant_id=ambiente.tenant_id,
-        data_referencia=date(2026, 8, 10),
-    )
-
-    assert len(gerado.parcelas) == 2
-    assert gerado.memoria is not None
-    assert gerado.memoria.tipo == "geracao_parcelas"
-    assert [parcela.parcela_id for parcela in consultado.parcelas] == [
-        parcela.parcela_id for parcela in gerado.parcelas
-    ]
-    assert [parcela.parcela_id for parcela in regerado.parcelas] == [
-        parcela.parcela_id for parcela in gerado.parcelas
-    ]
-    with session_factory() as session:
-        total_parcelas = session.scalar(
-            select(func.count())
-            .select_from(ParcelaORM)
-            .where(ParcelaORM.emprestimo_id == emprestimo.emprestimo_id)
-        )
-        total_memorias = session.scalar(
-            select(func.count())
-            .select_from(MemoriaCalculoORM)
-            .where(
-                MemoriaCalculoORM.emprestimo_id == emprestimo.emprestimo_id,
-                MemoriaCalculoORM.tipo == "geracao_parcelas",
-            )
-        )
-        emprestimo_row = session.get(EmprestimoORM, emprestimo.emprestimo_id)
-        assert total_parcelas == 2
-        assert total_memorias == 1
-        assert emprestimo_row is not None
-        assert emprestimo_row.proximo_vencimento_em is not None
-        assert emprestimo_row.ultimo_processamento_em is not None
-
-
 def test_pagamento_registra_distribuicao_memoria_evento_e_replay(
     session_factory: sessionmaker[Session],
 ) -> None:
@@ -275,18 +214,13 @@ def test_pagamento_registra_distribuicao_memoria_evento_e_replay(
         usuario_id=ambiente.usuario_id,
         idempotency_key="emp-para-pagamento",
     )
-    plano = PlanoParcelasService(lambda: SqlAlchemyUnitOfWork(session_factory)).gerar(
-        emprestimo_id=emprestimo.emprestimo_id,
-        tenant_id=ambiente.tenant_id,
-        data_referencia=date(2026, 8, 10),
-    )
     pagamentos = PagamentoService(lambda: SqlAlchemyUnitOfWork(session_factory))
 
     primeiro = pagamentos.registrar(
         emprestimo_id=emprestimo.emprestimo_id,
         tenant_id=ambiente.tenant_id,
         usuario_id=ambiente.usuario_id,
-        valor=plano.parcelas[0].valor_previsto,
+        valor=Decimal("1000.00"),
         recebido_em=datetime(2026, 9, 10, 12, 0, tzinfo=UTC),
         idempotency_key="pag-integracao-1",
     )
@@ -294,7 +228,7 @@ def test_pagamento_registra_distribuicao_memoria_evento_e_replay(
         emprestimo_id=emprestimo.emprestimo_id,
         tenant_id=ambiente.tenant_id,
         usuario_id=ambiente.usuario_id,
-        valor=plano.parcelas[0].valor_previsto,
+        valor=Decimal("1000.00"),
         recebido_em=datetime(2026, 9, 10, 12, 0, tzinfo=UTC),
         idempotency_key="pag-integracao-1",
     )
@@ -325,15 +259,10 @@ def test_pagamento_registra_distribuicao_memoria_evento_e_replay(
                 EventoFinanceiroORM.tipo == "pagamento_registrado",
             )
         )
-        parcela_liquidada = session.scalar(
-            select(ParcelaORM).where(ParcelaORM.id == plano.parcelas[0].parcela_id)
-        )
         emprestimo_row = session.get(EmprestimoORM, emprestimo.emprestimo_id)
         assert total_pagamentos == 1
         assert total_memorias_pagamento == 1
         assert total_eventos == 1
-        assert parcela_liquidada is not None
-        assert parcela_liquidada.valor_liquidado == plano.parcelas[0].valor_previsto
         assert emprestimo_row is not None
         assert emprestimo_row.ultimo_pagamento_em is not None
 
@@ -348,11 +277,6 @@ def test_pagamento_valor_invalido_nao_persiste_fatos(
         tenant_id=ambiente.tenant_id,
         usuario_id=ambiente.usuario_id,
         idempotency_key="emp-valor-invalido",
-    )
-    PlanoParcelasService(lambda: SqlAlchemyUnitOfWork(session_factory)).gerar(
-        emprestimo_id=emprestimo.emprestimo_id,
-        tenant_id=ambiente.tenant_id,
-        data_referencia=date(2026, 8, 10),
     )
 
     with pytest.raises(TransicaoEstadoInvalidaError):
@@ -385,16 +309,11 @@ def test_consulta_saldo_retorna_componentes_memoria_e_nao_persiste_consulta(
         usuario_id=ambiente.usuario_id,
         idempotency_key="emp-para-saldo",
     )
-    plano = PlanoParcelasService(lambda: SqlAlchemyUnitOfWork(session_factory)).gerar(
-        emprestimo_id=emprestimo.emprestimo_id,
-        tenant_id=ambiente.tenant_id,
-        data_referencia=date(2026, 8, 10),
-    )
     PagamentoService(lambda: SqlAlchemyUnitOfWork(session_factory)).registrar(
         emprestimo_id=emprestimo.emprestimo_id,
         tenant_id=ambiente.tenant_id,
         usuario_id=ambiente.usuario_id,
-        valor=plano.parcelas[0].principal,
+        valor=Decimal("1000.00"),
         recebido_em=datetime(2026, 9, 10, 12, 0, tzinfo=UTC),
         idempotency_key="pag-antes-consulta-saldo",
     )
@@ -436,11 +355,6 @@ def test_quitacao_quita_emprestimo_e_preserva_memorias_eventos(
         tenant_id=ambiente.tenant_id,
         usuario_id=ambiente.usuario_id,
         idempotency_key="emp-para-quitacao",
-    )
-    PlanoParcelasService(lambda: SqlAlchemyUnitOfWork(session_factory)).gerar(
-        emprestimo_id=emprestimo.emprestimo_id,
-        tenant_id=ambiente.tenant_id,
-        data_referencia=date(2026, 8, 10),
     )
     service = QuitacaoRenegociacaoService(lambda: SqlAlchemyUnitOfWork(session_factory))
 
@@ -486,7 +400,7 @@ def test_quitacao_quita_emprestimo_e_preserva_memorias_eventos(
         assert emprestimo_row is not None
         assert emprestimo_row.estado == "quitado"
         assert total_pagamentos == 1
-        assert {"geracao_parcelas", "quitacao", "pagamento"} <= tipos_memoria
+        assert {"quitacao", "pagamento"} <= tipos_memoria
         assert {"pagamento_registrado", "emprestimo_quitado"} <= tipos_evento
 
 
@@ -500,11 +414,6 @@ def test_renegociacao_registra_memoria_evento_e_preserva_estado_ativo(
         tenant_id=ambiente.tenant_id,
         usuario_id=ambiente.usuario_id,
         idempotency_key="emp-para-renegociacao",
-    )
-    PlanoParcelasService(lambda: SqlAlchemyUnitOfWork(session_factory)).gerar(
-        emprestimo_id=emprestimo.emprestimo_id,
-        tenant_id=ambiente.tenant_id,
-        data_referencia=date(2026, 8, 10),
     )
 
     resultado = QuitacaoRenegociacaoService(

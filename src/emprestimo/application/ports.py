@@ -39,7 +39,6 @@ from emprestimo.domain.credit.ports import (
     MemoriaCalculoRepository,
     ModalidadeFinanceiraRepository,
     PagamentoRepository,
-    ParcelaRepository,
     PromessaPagamentoRepository,
     PropostaComercialRepository,
     RegistroComunicacaoRepository,
@@ -170,7 +169,6 @@ class UnitOfWork(ABC):
     proposta_comercial: PropostaComercialRepository
     contrato_credito: ContratoCreditoRepository
     emprestimo: EmprestimoRepository
-    parcela: ParcelaRepository
     pagamento: PagamentoRepository
     memoria_calculo: MemoriaCalculoRepository
     evento_financeiro: EventoFinanceiroRepository

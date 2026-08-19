@@ -2329,6 +2329,10 @@
       },
       "FluxoDiaResponse": {
         "properties": {
+          "acertos": {
+            "title": "Acertos",
+            "type": "integer"
+          },
           "data": {
             "format": "date",
             "title": "Data",
@@ -2342,19 +2346,6 @@
             "title": "Pagamento Ids",
             "type": "array"
           },
-          "parcela_ids": {
-            "items": {
-              "format": "uuid",
-              "type": "string"
-            },
-            "title": "Parcela Ids",
-            "type": "array"
-          },
-          "previsto": {
-            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
-            "title": "Previsto",
-            "type": "string"
-          },
           "realizado": {
             "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
             "title": "Realizado",
@@ -2363,9 +2354,8 @@
         },
         "required": [
           "data",
-          "previsto",
           "realizado",
-          "parcela_ids",
+          "acertos",
           "pagamento_ids"
         ],
         "title": "FluxoDiaResponse",

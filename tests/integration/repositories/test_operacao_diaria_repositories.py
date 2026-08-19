@@ -51,7 +51,6 @@ from emprestimo.infrastructure.repositories import (
     SqlAlchemyEmprestimoRepository,
     SqlAlchemyLembreteRepository,
     SqlAlchemyPagamentoRepository,
-    SqlAlchemyParcelaRepository,
     SqlAlchemyPromessaPagamentoRepository,
     SqlAlchemyPropostaComercialRepository,
     SqlAlchemyRegistroComunicacaoRepository,
@@ -100,7 +99,6 @@ def test_repositories_de_operacao_diaria_expoem_roundtrip(session: Session) -> N
         valor_declarado=Decimal("100.00"),
         data_promessa=date(2026, 9, 10),
         criado_por_usuario_id=contexto.usuario_id,
-        parcela_id=contexto.parcela_id,
     )
     promessa_repo.save(promessa)
 
@@ -249,7 +247,6 @@ def test_apropriacao_pagamento_roundtrip(session: Session) -> None:
         valor_declarado=Decimal("1200.00"),
         data_promessa=date(2026, 9, 10),
         criado_por_usuario_id=contexto.usuario_id,
-        parcela_id=contexto.parcela_id,
     )
     promessa_repo.save(promessa)
     session.commit()
@@ -257,7 +254,6 @@ def test_apropriacao_pagamento_roundtrip(session: Session) -> None:
     apropriacao = ApropriacaoPagamento(
         promessa_id=promessa.id,
         pagamento_id=contexto.pagamento_id,
-        parcela_id=contexto.parcela_id,
         valor=Decimal("100.00"),
         realizado_em=datetime(2026, 9, 15, 12, 30, tzinfo=UTC),
     )
@@ -295,7 +291,6 @@ class _ContextoOperacao:
         devedor_id: uuid.UUID,
         usuario_id: uuid.UUID,
         emprestimo_id: uuid.UUID,
-        parcela_id: uuid.UUID,
         pagamento_id: uuid.UUID,
     ) -> None:
         self.tenant_id = tenant_id
@@ -303,7 +298,6 @@ class _ContextoOperacao:
         self.devedor_id = devedor_id
         self.usuario_id = usuario_id
         self.emprestimo_id = emprestimo_id
-        self.parcela_id = parcela_id
         self.pagamento_id = pagamento_id
 
 
@@ -337,7 +331,7 @@ def _contexto_operacao(session: Session) -> _ContextoOperacao:
         criada_por_usuario_id=usuario.id,
         parametros={
             "valor_contratado": "1200.00",
-            "quantidade_parcelas": 2,
+            "dia_de_acerto": 10,
         },
     )
     proposta.enviar_para_analise(usuario_id=usuario.id)
@@ -356,7 +350,7 @@ def _contexto_operacao(session: Session) -> _ContextoOperacao:
                     "valor_contratado": "1200.00",
                     "moeda": "BRL",
                     "taxa_juros_mensal": "0.0200",
-                    "quantidade_parcelas": 2,
+                    "dia_de_acerto": 10,
                     "primeiro_vencimento": "2026-09-11",
                     "regra_calculo": "juros_simples_periodo_real",
                 },
@@ -379,15 +373,10 @@ def _contexto_operacao(session: Session) -> _ContextoOperacao:
     SqlAlchemyEmprestimoRepository(session).save(emprestimo)
 
     motor = MotorFinanceiro()
-    plano = motor.gerar_plano_parcelas(
-        emprestimo=emprestimo,
-        data_referencia=date(2026, 9, 10),
-    )
-    SqlAlchemyParcelaRepository(session).save_many(plano.parcelas)
 
     pagamento = motor.registrar_pagamento(
         emprestimo=emprestimo,
-        valor=plano.parcelas[0].valor_previsto,
+        valor=Decimal("1000.00"),
         recebido_em=datetime(2026, 10, 1, 12, 0, tzinfo=UTC),
         chave_idempotencia="op-001",
         usuario_id=usuario.id,
@@ -402,6 +391,5 @@ def _contexto_operacao(session: Session) -> _ContextoOperacao:
         devedor_id=devedor.id,
         usuario_id=usuario.id,
         emprestimo_id=emprestimo.id,
-        parcela_id=plano.parcelas[0].id,
         pagamento_id=pagamento.pagamento.id,
     )

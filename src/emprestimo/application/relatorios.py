@@ -12,7 +12,6 @@ from emprestimo.application.errors import CarteiraNaoEncontradaError
 from emprestimo.application.ports import UnitOfWork
 from emprestimo.domain.credit.emprestimo import Emprestimo, EmprestimoState
 from emprestimo.domain.credit.pagamento import Pagamento, PagamentoState
-from emprestimo.domain.credit.parcela import Parcela
 from emprestimo.domain.credit.ports import EmprestimoFiltros, Paginacao
 
 
@@ -82,10 +81,19 @@ class PagamentosEncerramentosResultado:
 
 @dataclass(frozen=True)
 class FluxoDiaResultado:
+    """Dinheiro que entrou no dia, e quantos acertos caem nele (DR-004).
+
+    `previsto` saiu junto com o plano de parcelas. Nao ha valor agendado no
+    emprestimo livre: o que o devedor deve em cada acerto e calculado no dia,
+    sobre o saldo daquele momento, e so o Motor sabe fazer essa conta. Manter um
+    campo `previsto` alimentado por nada devolveria 0,00 em silencio — mentira
+    num relatorio financeiro. Ficam os acertos que vencem no dia, que esta
+    camada consegue afirmar.
+    """
+
     data: date
-    previsto: Decimal
     realizado: Decimal
-    parcela_ids: tuple[uuid.UUID, ...]
+    acertos: int
     pagamento_ids: tuple[uuid.UUID, ...]
 
 
@@ -243,19 +251,24 @@ class RelatoriosOperacionaisService:
                 tenant_id=tenant_id,
                 carteira_id=carteira_id,
             )
-            parcelas = [
-                parcela
-                for parcela in _parcelas_dos_emprestimos(uow, emprestimos)
-                if inicio <= parcela.vencimento <= fim
-            ]
+            acertos_por_dia: dict[date, int] = {}
+            for item in emprestimos:
+                if item.estado is not EmprestimoState.ATIVO or item.dia_de_acerto is None:
+                    continue
+                cursor = inicio
+                while True:
+                    acerto = item.proximo_acerto_em(cursor)
+                    if acerto is None or acerto > fim:
+                        break
+                    acertos_por_dia[acerto] = acertos_por_dia.get(acerto, 0) + 1
+                    cursor = acerto
             pagamentos = [
                 pagamento
                 for pagamento in _pagamentos_dos_emprestimos(uow, emprestimos)
                 if inicio <= pagamento.recebido_em.date() <= fim
             ]
             datas = sorted(
-                {parcela.vencimento for parcela in parcelas}
-                | {pagamento.recebido_em.date() for pagamento in pagamentos}
+                set(acertos_por_dia) | {pagamento.recebido_em.date() for pagamento in pagamentos}
             )
             return FluxoPrevistoRealizadoResultado(
                 tenant_id=tenant_id,
@@ -265,20 +278,13 @@ class RelatoriosOperacionaisService:
                 itens=tuple(
                     FluxoDiaResultado(
                         data=dia,
-                        previsto=_somar_decimal(
-                            parcela.valor_previsto
-                            for parcela in parcelas
-                            if parcela.vencimento == dia
-                        ),
                         realizado=_somar_decimal(
                             pagamento.valor_recebido
                             for pagamento in pagamentos
                             if pagamento.recebido_em.date() == dia
                             and pagamento.estado is not PagamentoState.ESTORNADO
                         ),
-                        parcela_ids=tuple(
-                            parcela.id for parcela in parcelas if parcela.vencimento == dia
-                        ),
+                        acertos=acertos_por_dia.get(dia, 0),
                         pagamento_ids=tuple(
                             pagamento.id
                             for pagamento in pagamentos
@@ -320,17 +326,6 @@ def _emprestimos_da_carteira(
         if len(emprestimos) >= resultado.total or not resultado.items:
             return tuple(emprestimos)
         pagina += 1
-
-
-def _parcelas_dos_emprestimos(
-    uow: UnitOfWork,
-    emprestimos: tuple[Emprestimo, ...],
-) -> tuple[Parcela, ...]:
-    return tuple(
-        parcela
-        for emprestimo in emprestimos
-        for parcela in uow.parcela.find_by_emprestimo_id(emprestimo.id)
-    )
 
 
 def _pagamentos_dos_emprestimos(

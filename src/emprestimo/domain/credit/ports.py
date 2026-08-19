@@ -44,7 +44,6 @@ if TYPE_CHECKING:
         EstadoCobranca as CobrancaCasoState,
     )
     from emprestimo.domain.credit.pagamento import Pagamento
-    from emprestimo.domain.credit.parcela import Parcela
     from emprestimo.domain.credit.promessa import (
         ApropriacaoPagamento,
         PromessaPagamento,
@@ -514,16 +513,6 @@ class EmprestimoRepository(ABC):
         filtros: EmprestimoFiltros,
         paginacao: Paginacao,
     ) -> EmprestimoResultadoPaginado: ...
-
-
-class ParcelaRepository(ABC):
-    """Contrato de persistencia das Parcelas do Emprestimo."""
-
-    @abstractmethod
-    def save_many(self, parcelas: Sequence[Parcela]) -> None: ...
-
-    @abstractmethod
-    def find_by_emprestimo_id(self, emprestimo_id: uuid.UUID) -> list[Parcela]: ...
 
 
 class PagamentoRepository(ABC):

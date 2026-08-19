@@ -97,15 +97,13 @@ def test_lancamento_cria_devedor_e_toda_a_cadeia_em_uma_transacao(
         proposta = uow.proposta_comercial.find_by_id(resultado.proposta_id)
         contrato = uow.contrato_credito.find_by_id(resultado.contrato_id)
         emprestimo = uow.emprestimo.find_by_id(resultado.emprestimo_id)
-        parcelas = uow.parcela.find_by_emprestimo_id(resultado.emprestimo_id)
 
     assert proposta is not None and proposta.estado is PropostaComercialState.APROVADA
     assert contrato is not None
     assert contrato.estado is ContratoCreditoState.LIBERADO_PARA_MOTOR
     assert emprestimo is not None
-    # Emprestimo livre: nao ha plano de parcelas a gerar (DR-004). O que o
-    # devedor deve em cada acerto e calculado na consulta, sobre o saldo do dia.
-    assert parcelas == []
+    # Emprestimo livre (DR-004): o que o devedor deve em cada acerto e calculado
+    # na consulta, sobre o saldo do dia. Nao ha plano a persistir.
     assert emprestimo.dia_de_acerto == 10
     assert emprestimo.proximo_vencimento_em is not None
     assert resultado.devedor_id is not None

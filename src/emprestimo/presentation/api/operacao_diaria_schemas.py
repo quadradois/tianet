@@ -233,9 +233,8 @@ class PagamentosEncerramentosResponse(BaseModel):
 
 class FluxoDiaResponse(BaseModel):
     data: date
-    previsto: Decimal
     realizado: Decimal
-    parcela_ids: list[uuid.UUID]
+    acertos: int
     pagamento_ids: list[uuid.UUID]
 
 

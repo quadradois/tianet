@@ -118,15 +118,15 @@ export function SummaryView({ data }: Readonly<{ data: Summary }>) {
 }
 
 export function DueDatesView({ data }: Readonly<{ data: DueDates }>) {
-  if (data.itens.length === 0) return <p role="status">Nenhum vencimento retornado para a data selecionada.</p>;
+  if (data.itens.length === 0) return <p role="status">Nenhum acerto retornado para a data selecionada.</p>;
   return (
     <>
-      <ul className="grid gap-2 sm:hidden" aria-label="Vencimentos retornados">{data.itens.map((item) => <li className="rounded-md border p-3" key={item.parcela_id}><strong>Parcela {item.numero}</strong><dl className="mt-2 grid grid-cols-2 gap-2 text-sm"><div><dt className="text-muted-foreground">Vencimento</dt><dd><time dateTime={item.vencimento}>{formatDate(item.vencimento)}</time></dd></div><div><dt className="text-muted-foreground">Situacao</dt><dd>{item.situacao}</dd></div><div><dt className="text-muted-foreground">Previsto</dt><dd className="tabular-nums">{item.valor_previsto}</dd></div><div><dt className="text-muted-foreground">Liquidado</dt><dd className="tabular-nums">{item.valor_liquidado}</dd></div></dl></li>)}</ul>
-      <div aria-label="Vencimentos retornados" className="hidden overflow-x-auto rounded-md border sm:block" role="region" tabIndex={0}>
+      <ul className="grid gap-2 sm:hidden" aria-label="Acertos retornados">{data.itens.map((item) => <li className="rounded-md border p-3" key={item.emprestimo_id}><strong><time dateTime={item.acerto_em}>{formatDate(item.acerto_em)}</time></strong><dl className="mt-2 grid grid-cols-2 gap-2 text-sm"><div><dt className="text-muted-foreground">Situacao</dt><dd>{item.situacao}</dd></div><div><dt className="text-muted-foreground">Dia combinado</dt><dd className="tabular-nums">{item.dia_de_acerto}</dd></div><div><dt className="text-muted-foreground">Dias sem pagamento</dt><dd className="tabular-nums">{item.dias_sem_pagamento}</dd></div><div><dt className="text-muted-foreground">Emprestado</dt><dd className="tabular-nums">{item.principal_original}</dd></div></dl></li>)}</ul>
+      <div aria-label="Acertos retornados" className="hidden overflow-x-auto rounded-md border sm:block" role="region" tabIndex={0}>
         <table className="w-full table-fixed text-left text-xs">
-          <caption className="sr-only">Parcelas e situacoes oficiais retornadas pelo backend</caption>
-          <thead className="bg-muted"><tr><th className="p-2">Parcela</th><th className="p-2">Vencimento</th><th className="p-2">Situacao</th><th className="p-2">Previsto</th><th className="p-2">Liquidado</th></tr></thead>
-          <tbody>{data.itens.map((item) => <tr className="border-t" key={item.parcela_id}><td className="break-words p-2 tabular-nums">{item.numero}</td><td className="break-words p-2"><time dateTime={item.vencimento}>{formatDate(item.vencimento)}</time></td><td className="break-words p-2">{item.situacao}</td><td className="break-words p-2 tabular-nums">{item.valor_previsto}</td><td className="break-words p-2 tabular-nums">{item.valor_liquidado}</td></tr>)}</tbody>
+          <caption className="sr-only">Acertos e situacoes oficiais retornados pelo backend</caption>
+          <thead className="bg-muted"><tr><th className="p-2">Acerto em</th><th className="p-2">Situacao</th><th className="p-2">Dia combinado</th><th className="p-2">Dias sem pagamento</th><th className="p-2">Emprestado</th></tr></thead>
+          <tbody>{data.itens.map((item) => <tr className="border-t" key={item.emprestimo_id}><td className="break-words p-2"><time dateTime={item.acerto_em}>{formatDate(item.acerto_em)}</time></td><td className="break-words p-2">{item.situacao}</td><td className="break-words p-2 tabular-nums">{item.dia_de_acerto}</td><td className="break-words p-2 tabular-nums">{item.dias_sem_pagamento}</td><td className="break-words p-2 tabular-nums">{item.principal_original}</td></tr>)}</tbody>
         </table>
       </div>
     </>

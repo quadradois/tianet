@@ -1,6 +1,6 @@
 """Lancamento composto de emprestimo em transacao unica (IMP-305, PLAN-027).
 
-O Credor individual decide devedor, valor, taxa, parcelas e vencimento de uma
+O Credor individual decide devedor, valor, taxa e dia de acerto de uma
 vez so. A cadeia Proposta -> Contrato -> Emprestimo -> Parcelas continua sendo
 percorrida integralmente pelos metodos de agregado, com registro de decisao a
 cada transicao: as invariantes sao executadas, nunca contornadas. O que
@@ -58,7 +58,7 @@ class CriadorDeEmprestimo(Protocol):
     """Porta para a etapa financeira do lancamento.
 
     O lancamento orquestra Cadastro, Comercial e Contratos, e delega a criacao
-    do Emprestimo e do plano de parcelas. Recebe a operacao por injecao para nao
+    do Emprestimo. Recebe a operacao por injecao para nao
     importar o Motor: o calculo permanece exclusivo dele, e o guardrail de
     exclusividade continua valendo sem excecao para este modulo.
     """

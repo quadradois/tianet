@@ -137,23 +137,23 @@ export function SummaryReportView({ data }: Readonly<{ data: SummaryReport }>) {
 }
 
 export function DueDatesReportView({ data }: Readonly<{ data: DueDatesReport }>) {
-  if (data.itens.length === 0) return <p role="status">empty: nenhum vencimento retornado para a data selecionada.</p>;
+  if (data.itens.length === 0) return <p role="status">empty: nenhum acerto retornado para a data selecionada.</p>;
   return (
-    <div aria-label="Vencimentos oficiais" className="overflow-x-auto rounded-md border" role="region" tabIndex={0}>
+    <div aria-label="Acertos oficiais" className="overflow-x-auto rounded-md border" role="region" tabIndex={0}>
       <table className="w-full min-w-[720px] text-left text-xs">
-        <caption className="sr-only">Vencimentos oficiais retornados pelo backend</caption>
+        <caption className="sr-only">Acertos oficiais retornados pelo backend</caption>
         <thead className="bg-muted">
-          <tr><th className="p-2">Parcela</th><th className="p-2">Vencimento</th><th className="p-2">Situacao</th><th className="p-2">Estado</th><th className="p-2">Previsto</th><th className="p-2">Liquidado</th></tr>
+          <tr><th className="p-2">Acerto em</th><th className="p-2">Situacao</th><th className="p-2">Dia combinado</th><th className="p-2">Dias sem pagamento</th><th className="p-2">Emprestado</th><th className="p-2">Devedor</th></tr>
         </thead>
         <tbody>
           {data.itens.map((item) => (
-            <tr className="border-t" key={item.parcela_id}>
-              <td className="p-2 tabular-nums">{item.numero}</td>
-              <td className="p-2"><time dateTime={item.vencimento}>{formatDate(item.vencimento)}</time></td>
+            <tr className="border-t" key={item.emprestimo_id}>
+              <td className="p-2"><time dateTime={item.acerto_em}>{formatDate(item.acerto_em)}</time></td>
               <td className="break-words p-2">{item.situacao}</td>
-              <td className="break-words p-2">{item.estado}</td>
-              <td className="p-2 tabular-nums">{item.valor_previsto}</td>
-              <td className="p-2 tabular-nums">{item.valor_liquidado}</td>
+              <td className="p-2 tabular-nums">{item.dia_de_acerto}</td>
+              <td className="p-2 tabular-nums">{item.dias_sem_pagamento}</td>
+              <td className="p-2 tabular-nums">{item.principal_original}</td>
+              <td className="break-all p-2">{item.devedor_id}</td>
             </tr>
           ))}
         </tbody>
@@ -180,13 +180,13 @@ export function PaymentsReportView({ data }: Readonly<{ data: PaymentsReport }>)
 }
 
 export function CashFlowReportView({ data }: Readonly<{ data: CashFlowReport }>) {
-  if (data.itens.length === 0) return <p role="status">empty: nenhum fluxo retornado para o periodo.</p>;
+  if (data.itens.length === 0) return <p role="status">empty: nenhum acerto ou recebimento retornado para o periodo.</p>;
   return (
-    <div aria-label="Fluxo previsto e realizado" className="max-h-96 overflow-auto rounded-md border" role="region" tabIndex={0}>
+    <div aria-label="Acertos e recebimentos por dia" className="max-h-96 overflow-auto rounded-md border" role="region" tabIndex={0}>
       <table className="w-full min-w-[720px] text-left text-xs">
-        <caption className="sr-only">Fluxo previsto e realizado retornado pelo backend</caption>
-        <thead className="bg-muted"><tr><th className="p-2">Data</th><th className="p-2">Previsto</th><th className="p-2">Realizado</th><th className="p-2">Parcelas retornadas</th><th className="p-2">Pagamentos retornados</th></tr></thead>
-        <tbody>{data.itens.map((item) => <tr className="border-t" key={item.data}><td className="p-2"><time dateTime={item.data}>{formatDate(item.data)}</time></td><td className="p-2 tabular-nums">{item.previsto}</td><td className="p-2 tabular-nums">{item.realizado}</td><td className="break-all p-2">{officialIds(item.parcela_ids)}</td><td className="break-all p-2">{officialIds(item.pagamento_ids)}</td></tr>)}</tbody>
+        <caption className="sr-only">Acertos e recebimentos diarios retornados pelo backend</caption>
+        <thead className="bg-muted"><tr><th className="p-2">Data</th><th className="p-2">Acertos no dia</th><th className="p-2">Realizado</th><th className="p-2">Pagamentos retornados</th></tr></thead>
+        <tbody>{data.itens.map((item) => <tr className="border-t" key={item.data}><td className="p-2"><time dateTime={item.data}>{formatDate(item.data)}</time></td><td className="p-2 tabular-nums">{item.acertos}</td><td className="p-2 tabular-nums">{item.realizado}</td><td className="break-all p-2">{officialIds(item.pagamento_ids)}</td></tr>)}</tbody>
       </table>
     </div>
   );

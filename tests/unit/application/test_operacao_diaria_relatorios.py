@@ -17,7 +17,6 @@ from emprestimo.application.relatorios import RelatoriosOperacionaisService
 from emprestimo.domain.credit.carteira import Carteira
 from emprestimo.domain.credit.emprestimo import Emprestimo, EmprestimoState
 from emprestimo.domain.credit.pagamento import Pagamento, PagamentoState
-from emprestimo.domain.credit.parcela import Parcela, ParcelaState
 from emprestimo.domain.credit.ports import EmprestimoResultadoPaginado
 
 TENANT_ID = uuid.UUID("77000000-0000-0000-0000-000000000001")
@@ -37,23 +36,6 @@ def test_resumo_carteira_agrega_fatos_oficiais_sem_commit() -> None:
     )
     uow = _FakeUoW(
         emprestimos=[ativo, quitado],
-        parcelas=[
-            _parcela(ativo.id, numero=1, vencimento=date(2026, 8, 1), valor="100.00"),
-            _parcela(
-                ativo.id,
-                numero=2,
-                vencimento=date(2026, 9, 1),
-                valor="120.00",
-            ),
-            _parcela(
-                quitado.id,
-                numero=1,
-                vencimento=date(2026, 7, 1),
-                valor="80.00",
-                estado=ParcelaState.LIQUIDADA,
-                valor_liquidado="80.00",
-            ),
-        ],
         pagamentos=[
             _pagamento(ativo.id, valor="50.00", recebido_em=datetime(2026, 8, 2, tzinfo=UTC)),
             _pagamento(
@@ -230,14 +212,20 @@ def test_pagamentos_encerramentos_filtra_periodo_e_ignora_estorno_no_total() -> 
     assert resultado.total_realizado == Decimal("80.00")
 
 
-def test_fluxo_previsto_realizado_agrupa_por_dia() -> None:
-    emprestimo = _emprestimo(id=EMPRESTIMO_ID)
+def test_fluxo_agrupa_por_dia_o_que_entrou_e_os_acertos_que_vencem() -> None:
+    """`previsto` saiu com o plano (DR-004).
+
+    Nao ha valor agendado no emprestimo livre: o que o devedor deve em cada
+    acerto e calculado no dia, sobre o saldo daquele momento, e so o Motor sabe
+    faze-lo. Ficam o realizado, que e fato, e quantos acertos caem no dia.
+    """
+    emprestimo = _emprestimo(
+        id=EMPRESTIMO_ID,
+        dia_de_acerto=11,
+        criado_em=datetime(2026, 7, 20, tzinfo=UTC),
+    )
     uow = _FakeUoW(
         emprestimos=[emprestimo],
-        parcelas=[
-            _parcela(emprestimo.id, numero=1, vencimento=date(2026, 8, 10), valor="100.00"),
-            _parcela(emprestimo.id, numero=2, vencimento=date(2026, 8, 11), valor="120.00"),
-        ],
         pagamentos=[
             _pagamento(emprestimo.id, valor="40.00", recebido_em=datetime(2026, 8, 10, tzinfo=UTC)),
             _pagamento(emprestimo.id, valor="60.00", recebido_em=datetime(2026, 8, 12, tzinfo=UTC)),
@@ -251,10 +239,10 @@ def test_fluxo_previsto_realizado_agrupa_por_dia() -> None:
         fim=date(2026, 8, 12),
     )
 
-    assert [(item.data, item.previsto, item.realizado) for item in resultado.itens] == [
-        (date(2026, 8, 10), Decimal("100.00"), Decimal("40.00")),
-        (date(2026, 8, 11), Decimal("120.00"), Decimal("0.00")),
-        (date(2026, 8, 12), Decimal("0.00"), Decimal("60.00")),
+    assert [(item.data, item.realizado, item.acertos) for item in resultado.itens] == [
+        (date(2026, 8, 10), Decimal("40.00"), 0),
+        (date(2026, 8, 11), Decimal("0.00"), 1),
+        (date(2026, 8, 12), Decimal("60.00"), 0),
     ]
 
 
@@ -302,25 +290,6 @@ def _emprestimo(
     if criado_em is not None:
         emprestimo.criado_em = criado_em
     return emprestimo
-
-
-def _parcela(
-    emprestimo_id: uuid.UUID,
-    *,
-    numero: int,
-    vencimento: date,
-    valor: str,
-    estado: ParcelaState = ParcelaState.PREVISTA,
-    valor_liquidado: str = "0.00",
-) -> Parcela:
-    return Parcela(
-        emprestimo_id=emprestimo_id,
-        numero=numero,
-        vencimento=vencimento,
-        valor_previsto=Decimal(valor),
-        valor_liquidado=Decimal(valor_liquidado),
-        estado=estado,
-    )
 
 
 def _pagamento(
@@ -372,14 +341,6 @@ class _EmprestimoFakeRepository:
 
 
 @dataclass
-class _ParcelaFakeRepository:
-    parcelas: Sequence[Parcela]
-
-    def find_by_emprestimo_id(self, emprestimo_id: uuid.UUID) -> list[Parcela]:
-        return [item for item in self.parcelas if item.emprestimo_id == emprestimo_id]
-
-
-@dataclass
 class _PagamentoFakeRepository:
     pagamentos: Sequence[Pagamento]
 
@@ -393,14 +354,12 @@ class _FakeUoW:
         *,
         carteira: Carteira | None = None,
         emprestimos: Sequence[Emprestimo] = (),
-        parcelas: Sequence[Parcela] = (),
         pagamentos: Sequence[Pagamento] = (),
     ) -> None:
         self.carteira = _CarteiraFakeRepository(
             carteira or Carteira(id=CARTEIRA_ID, tenant_id=TENANT_ID, nome="Carteira")
         )
         self.emprestimo = _EmprestimoFakeRepository(emprestimos)
-        self.parcela = _ParcelaFakeRepository(parcelas)
         self.pagamento = _PagamentoFakeRepository(pagamentos)
         self.commits = 0
 

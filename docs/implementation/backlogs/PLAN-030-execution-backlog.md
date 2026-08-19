@@ -2,9 +2,9 @@
 
 **ID:** PLAN-030-EXEC
 
-**Versao:** 1.3.0
+**Versao:** 1.4.0
 
-**Status:** IMP-321..326 concluidos; IMP-327 em execucao (telas feitas; remocao no backend pendente)
+**Status:** IMP-321..327 concluidos; PLAN-030 encerrado
 
 ---
 
@@ -144,7 +144,7 @@ PLAN-029.
 - **Criterios de conclusao:** nenhum arquivo legado; o inventario deixa de ser
   108/137 e o novo valor e registrado; `test_motor_juros_base.py` sai junto,
   porque descreve um calculo que deixa de existir.
-- **Status:** Em execucao. Telas concluidas; remocao no backend pendente.
+- **Status:** Concluido.
 - **Feito nas telas:** saiu o cartao "Quanto ainda falta", que repetia o
   extrato; "Como a conta foi feita" deixou de renderizar vazio; e o comando
   "Gerar parcelas" saiu das operacoes.
@@ -171,6 +171,28 @@ PLAN-029.
   virgula gravou `500.00` recebido, `0.00` de juros e `500.00` de amortizacao. O
   painel passou a mostrar "Deve hoje R$ 9.500,00". Juros zero esta certo — o
   emprestimo foi lancado no mesmo dia.
+- **Remocao no backend:** sairam o agregado `Parcela`, o ORM, o repositorio, o
+  porto, `gerar_plano_parcelas`, `_liquidar_parcelas`, `_memoria_plano` e as
+  duas operacoes `POST, GET /credit/emprestimos/{emprestimo_id}/parcelas`. A
+  migracao `0017_remove_plano_de_parcelas` derruba a tabela `parcela`, as quatro
+  FKs que apontavam para ela e as permissoes `motor.parcela.gerar` e
+  `motor.parcela.ler`, com downgrade reversivel.
+- **Inventario novo, registrado:** 106 operacoes e 133 schemas (era 108/137),
+  SHA-256 do snapshot
+  `75a15e1f119a0fe01cbf3401a202680b0bb812f191fd1c00e5d3c9fcef123d34`; catalogo
+  de permissoes 53 (era 55) e endpoints protegidos 63 (era 65). A matriz de
+  rastreabilidade foi para 3.4.0: Motor de 11 para 9 operacoes, total
+  certificado de 107 para 105.
+- **Ultimo resto encontrado no fim:** os relatorios de vencimento do Inicio e de
+  Relatorios ainda liam `parcela_id`, `numero`, `valor_previsto` e
+  `valor_liquidado` — colunas de um objeto que nao existe mais. Passaram a
+  mostrar acerto, situacao, dia combinado, dias sem pagamento e o emprestado. No
+  fluxo diario, `previsto` — que so podia vir do plano — deu lugar a contagem de
+  acertos do dia: um `previsto` alimentado por nada devolveria 0,00 em silencio,
+  que num relatorio financeiro e mentira, nao lacuna.
+- **Gates:** 983 testes Python, 309 testes frontend (unit/component/bff/contract),
+  `ruff`/`black`/`mypy` limpos, `docs:validate` com 0 erros e o gate governado em
+  173/173.
 
 ---
 
@@ -178,6 +200,7 @@ PLAN-029.
 
 | Versao | Data | Descricao |
 |---|---|---|
+| 1.4.0 | 2026-08-19 | IMP-327 concluido: plano de parcelas removido do dominio, do banco, do contrato e dos relatorios; inventario novo 106/133 registrado e matriz em 3.4.0. PLAN-030 encerrado. |
 | 1.3.0 | 2026-08-19 | IMP-327 nas telas: restos do plano removidos, formulario de pagamento operavel e duas regras que bloqueavam o fluxo central corrigidas. |
 | 1.2.0 | 2026-08-19 | IMP-326 concluido na tela: painel do emprestimo livre e extrato no lugar da tabela de parcelas. |
 | 1.1.0 | 2026-08-17 | IMP-325 concluido no Resumo da Carteira: acertos pendentes e principal a receber no lugar dos contadores de parcela. |

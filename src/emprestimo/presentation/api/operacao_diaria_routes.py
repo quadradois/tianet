@@ -603,9 +603,8 @@ def relatorio_fluxo(
         itens=[
             FluxoDiaResponse(
                 data=item.data,
-                previsto=item.previsto,
                 realizado=item.realizado,
-                parcela_ids=list(item.parcela_ids),
+                acertos=item.acertos,
                 pagamento_ids=list(item.pagamento_ids),
             )
             for item in resultado.itens

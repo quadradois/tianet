@@ -935,12 +935,6 @@ class RegistrarComunicacaoManual:
                     carteira_id=carteira_id,
                     devedor_id=devedor_id,
                 )
-            if parcela_id is not None:
-                _validar_parcela_do_emprestimo(
-                    uow,
-                    parcela_id=parcela_id,
-                    emprestimo_id=emprestimo_id,
-                )
             if cobranca_acao_id is not None:
                 _validar_acao_cobranca_da_cadeia(
                     uow,
@@ -1145,27 +1139,6 @@ def _validar_emprestimo_da_cadeia(
         or emprestimo.devedor_id != devedor_id
     ):
         raise EmprestimoNaoEncontradoError(emprestimo_id)
-
-
-def _validar_parcela_do_emprestimo(
-    uow: UnitOfWork,
-    *,
-    parcela_id: uuid.UUID,
-    emprestimo_id: uuid.UUID | None,
-) -> None:
-    if emprestimo_id is None:
-        raise TransicaoEstadoInvalidaError(
-            parcela_id,
-            "validar_parcela_comunicacao",
-            "parcela exige emprestimo_id na cadeia",
-        )
-    parcelas = uow.parcela.find_by_emprestimo_id(emprestimo_id)
-    if not any(parcela.id == parcela_id for parcela in parcelas):
-        raise TransicaoEstadoInvalidaError(
-            parcela_id,
-            "validar_parcela_comunicacao",
-            "parcela nao pertence ao emprestimo informado",
-        )
 
 
 def _validar_acao_cobranca_da_cadeia(
@@ -1467,12 +1440,7 @@ def _apropriacao_resultado(
     apropriacao: ApropriacaoPagamento,
     promessa: PromessaPagamento,
 ) -> ApropriacaoPagamentoResultado:
-    if apropriacao.parcela_id is None:
-        raise TransicaoEstadoInvalidaError(
-            promessa.id,
-            "apropriar_pagamento",
-            "parcela oficial da apropriacao nao encontrada",
-        )
+    # Sem exigir parcela (DR-004): o vinculo que importa e pagamento-promessa.
     return ApropriacaoPagamentoResultado(
         apropriacao_id=apropriacao.id,
         promessa_id=apropriacao.promessa_id,

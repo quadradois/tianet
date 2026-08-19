@@ -428,14 +428,6 @@ def get_consulta_emprestimo_service(
     return service_cls(uow_factory=lambda: SqlAlchemyUnitOfWork(session_factory))
 
 
-def get_plano_parcelas_service(
-    session: Session = Depends(_get_session),
-) -> Any:
-    session_factory = get_session_factory()
-    service_cls = _motor_service_class("PlanoParcelasService")
-    return service_cls(uow_factory=lambda: SqlAlchemyUnitOfWork(session_factory))
-
-
 def get_pagamento_service(
     session: Session = Depends(_get_session),
 ) -> Any:

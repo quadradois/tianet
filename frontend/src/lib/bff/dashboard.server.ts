@@ -38,7 +38,7 @@ const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{
 const DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
 const DATE_TIME_PATTERN = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})(?:\.\d+)?(?:Z|([+-])(\d{2}):(\d{2}))$/;
 const DECIMAL_PATTERN = /^-?(?:0|[1-9]\d*)(?:\.\d+)?$/;
-const PARCELA_STATES = new Set(["prevista", "vencida", "parcialmente_liquidada", "liquidada", "cancelada"]);
+const SITUACOES_DE_ACERTO = new Set(["pendente", "em dia"]);
 const AGENDA_STATES = new Set(["aberto", "reagendado", "concluido", "cancelado"]);
 const REMINDER_STATES = new Set(["programa", "enviado", "concluido", "cancelado"]);
 const COLLECTION_STATES = new Set(["pendente", "em_andamento", "encerrado"]);
@@ -127,12 +127,12 @@ function validDueDates(value: unknown, context: OperationalContext, referenceDat
     && value.tenant_id === context.tenant.id && value.carteira_id === context.carteira_padrao.id
     && value.data_referencia === referenceDate
     && value.itens.every((item: unknown) => isRecord(item)
-      && uuids(item, ["emprestimo_id", "parcela_id"])
-      && calendarDate(item.vencimento)
-      && decimalStrings(item, ["valor_previsto", "valor_liquidado"])
-      && typeof item.estado === "string" && PARCELA_STATES.has(item.estado)
-      && typeof item.situacao === "string"
-      && Number.isInteger(item.numero));
+      && uuids(item, ["emprestimo_id", "devedor_id"])
+      && calendarDate(item.acerto_em)
+      && decimalStrings(item, ["principal_original"])
+      && typeof item.situacao === "string" && SITUACOES_DE_ACERTO.has(item.situacao)
+      && Number.isInteger(item.dia_de_acerto)
+      && Number.isInteger(item.dias_sem_pagamento));
 }
 
 function matchesItemIdentity(value: unknown, context: OperationalContext): boolean {
