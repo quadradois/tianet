@@ -1,12 +1,12 @@
 import { describe, expect, it } from "vitest";
 
-import { visibleNavigationItems, type NavigationDestination } from "../../src/lib/shell/navigation-policy";
+import { navigationByGroup, visibleNavigationItems, type NavigationDestination } from "../../src/lib/shell/navigation-policy";
 
 const destinations: readonly NavigationDestination[] = [
-  { href: "/app", label: "Inicio" },
-  { href: "/alpha", label: "Alpha", requiredPermission: "permission.alpha" },
-  { href: "/beta", label: "Beta", requiredPermission: "permission.beta" },
-  { href: "/dashboard", label: "Dashboard", requiredAnyPermission: ["report.read", "agenda.read"] },
+  { grupo: "principal", href: "/app", label: "Inicio" },
+  { grupo: "principal", href: "/alpha", label: "Alpha", requiredPermission: "permission.alpha" },
+  { grupo: "administracao", href: "/beta", label: "Beta", requiredPermission: "permission.beta" },
+  { grupo: "administracao", href: "/dashboard", label: "Dashboard", requiredAnyPermission: ["report.read", "agenda.read"] },
 ];
 
 describe("politica de navegacao", () => {
@@ -73,5 +73,14 @@ describe("politica de navegacao", () => {
     expect(visibleNavigationItems(SHELL_NAVIGATION, ["automacao.job.consultar"]).map((item) => item.href)).toContain("/app/automacao");
     expect(visibleNavigationItems(SHELL_NAVIGATION, ["notificacao.template.gerir"]).map((item) => item.href)).toContain("/app/automacao");
     expect(visibleNavigationItems(SHELL_NAVIGATION, ["automacao.*", "notificacao"]).map((item) => item.href)).not.toContain("/app/automacao");
+  });
+
+  it("separa o dia a dia da administracao sem esconder destino permitido", () => {
+    const permitidos = visibleNavigationItems(destinations, ["permission.alpha", "permission.beta"]);
+    // Agrupar e so ordenar a vista: a soma dos dois grupos e o conjunto inteiro.
+    expect(navigationByGroup(permitidos, "principal").map((item) => item.href)).toEqual(["/app", "/alpha"]);
+    expect(navigationByGroup(permitidos, "administracao").map((item) => item.href)).toEqual(["/beta"]);
+    expect(navigationByGroup(permitidos, "principal").length + navigationByGroup(permitidos, "administracao").length)
+      .toBe(permitidos.length);
   });
 });

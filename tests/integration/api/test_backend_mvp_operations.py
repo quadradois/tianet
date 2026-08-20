@@ -48,7 +48,7 @@ def test_imp_266_quality_migrations_gate_e_unico_head_alembic() -> None:
     assert "npm run quality:migrations" in workflow
     assert "DROP SCHEMA IF EXISTS public CASCADE" in validator
     assert "Refusing to run destructive migration validation" in validator
-    assert script.get_current_head() == "0016_automacao_permissoes"
+    assert script.get_current_head() == "0017_remove_plano_de_parcelas"
 
 
 def test_imp_267_health_correlation_e_erro_tecnico_sem_vazamento(

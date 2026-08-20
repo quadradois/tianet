@@ -4,18 +4,6 @@
       "AcaoCobrancaCreateRequest": {
         "additionalProperties": false,
         "properties": {
-          "parcela_id": {
-            "anyOf": [
-              {
-                "format": "uuid",
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Parcela Id"
-          },
           "resultado": {
             "minLength": 1,
             "title": "Resultado",
@@ -252,18 +240,6 @@
             "format": "uuid",
             "title": "Pagamento Id",
             "type": "string"
-          },
-          "parcela_id": {
-            "anyOf": [
-              {
-                "format": "uuid",
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Parcela Id"
           }
         },
         "required": [
@@ -287,11 +263,6 @@
             "title": "Pagamento Id",
             "type": "string"
           },
-          "parcela_id": {
-            "format": "uuid",
-            "title": "Parcela Id",
-            "type": "string"
-          },
           "promessa_id": {
             "format": "uuid",
             "title": "Promessa Id",
@@ -312,7 +283,6 @@
           "apropriacao_id",
           "promessa_id",
           "pagamento_id",
-          "parcela_id",
           "valor",
           "realizado_em",
           "estado_promessa"
@@ -771,18 +741,6 @@
             "title": "Ocorrido Em",
             "type": "string"
           },
-          "parcela_id": {
-            "anyOf": [
-              {
-                "format": "uuid",
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Parcela Id"
-          },
           "resultado": {
             "minLength": 1,
             "title": "Resultado",
@@ -857,25 +815,20 @@
       },
       "CondicoesLancamentoRequest": {
         "additionalProperties": false,
-        "description": "Os quatro parametros digitados pelo Credor no ato.\n\nCampos tipados, nao JSON opaco: aqui o vocabulario do Motor e explicito e o\nerro aparece na entrada, nao tres telas adiante.",
+        "description": "Os tres parametros digitados pelo Credor no ato (DR-004).\n\nCampos tipados, nao JSON opaco: aqui o vocabulario do Motor e explicito e o\nerro aparece na entrada, nao tres telas adiante.\n\n`quantidade_parcelas` e `primeiro_vencimento` sairam: o emprestimo deixou de\nser um plano de parcelas e passou a ser livre, com acerto mensal no dia\ncombinado. O devedor deve, no minimo, os juros do periodo; amortizar e\nvoluntario.",
         "properties": {
+          "dia_de_acerto": {
+            "maximum": 31.0,
+            "minimum": 1.0,
+            "title": "Dia De Acerto",
+            "type": "integer"
+          },
           "moeda": {
             "default": "BRL",
             "maxLength": 3,
             "minLength": 3,
             "title": "Moeda",
             "type": "string"
-          },
-          "primeiro_vencimento": {
-            "format": "date",
-            "title": "Primeiro Vencimento",
-            "type": "string"
-          },
-          "quantidade_parcelas": {
-            "maximum": 360.0,
-            "minimum": 1.0,
-            "title": "Quantidade Parcelas",
-            "type": "integer"
           },
           "taxa_juros_mensal": {
             "maxLength": 32,
@@ -893,8 +846,7 @@
         "required": [
           "valor_contratado",
           "taxa_juros_mensal",
-          "quantidade_parcelas",
-          "primeiro_vencimento"
+          "dia_de_acerto"
         ],
         "title": "CondicoesLancamentoRequest",
         "type": "object"
@@ -2026,6 +1978,18 @@
       },
       "EmprestimoResponse": {
         "properties": {
+          "acerto_pendente_desde": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Acerto Pendente Desde"
+          },
           "carteira_id": {
             "format": "uuid",
             "title": "Carteira Id",
@@ -2045,6 +2009,17 @@
             "format": "uuid",
             "title": "Devedor Id",
             "type": "string"
+          },
+          "dia_de_acerto": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Dia De Acerto"
           },
           "estado": {
             "$ref": "#/components/schemas/EmprestimoState"
@@ -2067,6 +2042,18 @@
             "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
             "title": "Principal Original",
             "type": "string"
+          },
+          "proximo_acerto_em": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Proximo Acerto Em"
           },
           "tenant_id": {
             "format": "uuid",
@@ -2300,6 +2287,10 @@
       },
       "FluxoDiaResponse": {
         "properties": {
+          "acertos": {
+            "title": "Acertos",
+            "type": "integer"
+          },
           "data": {
             "format": "date",
             "title": "Data",
@@ -2313,19 +2304,6 @@
             "title": "Pagamento Ids",
             "type": "array"
           },
-          "parcela_ids": {
-            "items": {
-              "format": "uuid",
-              "type": "string"
-            },
-            "title": "Parcela Ids",
-            "type": "array"
-          },
-          "previsto": {
-            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
-            "title": "Previsto",
-            "type": "string"
-          },
           "realizado": {
             "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
             "title": "Realizado",
@@ -2334,9 +2312,8 @@
         },
         "required": [
           "data",
-          "previsto",
           "realizado",
-          "parcela_ids",
+          "acertos",
           "pagamento_ids"
         ],
         "title": "FluxoDiaResponse",
@@ -2614,14 +2591,15 @@
             "title": "Emprestimo Id",
             "type": "string"
           },
+          "primeiro_acerto_em": {
+            "format": "date",
+            "title": "Primeiro Acerto Em",
+            "type": "string"
+          },
           "proposta_id": {
             "format": "uuid",
             "title": "Proposta Id",
             "type": "string"
-          },
-          "quantidade_parcelas": {
-            "title": "Quantidade Parcelas",
-            "type": "integer"
           }
         },
         "required": [
@@ -2629,7 +2607,7 @@
           "proposta_id",
           "contrato_id",
           "emprestimo_id",
-          "quantidade_parcelas"
+          "primeiro_acerto_em"
         ],
         "title": "LancamentoResponse",
         "type": "object"
@@ -3226,83 +3204,6 @@
         "title": "ParametroFinanceiroRequest",
         "type": "object"
       },
-      "ParcelaResponse": {
-        "properties": {
-          "emprestimo_id": {
-            "format": "uuid",
-            "title": "Emprestimo Id",
-            "type": "string"
-          },
-          "encargos": {
-            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
-            "title": "Encargos",
-            "type": "string"
-          },
-          "estado": {
-            "$ref": "#/components/schemas/ParcelaState"
-          },
-          "id": {
-            "format": "uuid",
-            "title": "Id",
-            "type": "string"
-          },
-          "juros": {
-            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
-            "title": "Juros",
-            "type": "string"
-          },
-          "numero": {
-            "title": "Numero",
-            "type": "integer"
-          },
-          "principal": {
-            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
-            "title": "Principal",
-            "type": "string"
-          },
-          "valor_liquidado": {
-            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
-            "title": "Valor Liquidado",
-            "type": "string"
-          },
-          "valor_previsto": {
-            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
-            "title": "Valor Previsto",
-            "type": "string"
-          },
-          "vencimento": {
-            "format": "date",
-            "title": "Vencimento",
-            "type": "string"
-          }
-        },
-        "required": [
-          "id",
-          "emprestimo_id",
-          "numero",
-          "vencimento",
-          "valor_previsto",
-          "principal",
-          "juros",
-          "encargos",
-          "valor_liquidado",
-          "estado"
-        ],
-        "title": "ParcelaResponse",
-        "type": "object"
-      },
-      "ParcelaState": {
-        "description": "Estados da obrigacao financeira prevista.",
-        "enum": [
-          "prevista",
-          "vencida",
-          "parcialmente_liquidada",
-          "liquidada",
-          "cancelada"
-        ],
-        "title": "ParcelaState",
-        "type": "string"
-      },
       "PassoCalculoResponse": {
         "properties": {
           "arredondamento": {
@@ -3509,59 +3410,6 @@
         "title": "PermissoesEfetivasResponse",
         "type": "object"
       },
-      "PlanoParcelasRequest": {
-        "additionalProperties": false,
-        "properties": {
-          "data_referencia": {
-            "format": "date",
-            "title": "Data Referencia",
-            "type": "string"
-          }
-        },
-        "required": [
-          "data_referencia"
-        ],
-        "title": "PlanoParcelasRequest",
-        "type": "object"
-      },
-      "PlanoParcelasResponse": {
-        "properties": {
-          "emprestimo_id": {
-            "format": "uuid",
-            "title": "Emprestimo Id",
-            "type": "string"
-          },
-          "memoria": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/MemoriaCalculoResponse"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "parcelas": {
-            "items": {
-              "$ref": "#/components/schemas/ParcelaResponse"
-            },
-            "title": "Parcelas",
-            "type": "array"
-          },
-          "tenant_id": {
-            "format": "uuid",
-            "title": "Tenant Id",
-            "type": "string"
-          }
-        },
-        "required": [
-          "emprestimo_id",
-          "tenant_id",
-          "parcelas"
-        ],
-        "title": "PlanoParcelasResponse",
-        "type": "object"
-      },
       "PoliticaArredondamentoRequest": {
         "additionalProperties": false,
         "properties": {
@@ -3637,18 +3485,6 @@
             "title": "Pagamento Informado",
             "type": "boolean"
           },
-          "parcela_id": {
-            "anyOf": [
-              {
-                "format": "uuid",
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Parcela Id"
-          },
           "valor_declarado": {
             "anyOf": [
               {
@@ -3695,18 +3531,6 @@
           "estado": {
             "$ref": "#/components/schemas/PromessaPagamentoState"
           },
-          "parcela_id": {
-            "anyOf": [
-              {
-                "format": "uuid",
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Parcela Id"
-          },
           "promessa_id": {
             "format": "uuid",
             "title": "Promessa Id",
@@ -3731,8 +3555,7 @@
           "emprestimo_id",
           "valor_declarado",
           "data_promessa",
-          "estado",
-          "parcela_id"
+          "estado"
         ],
         "title": "PromessaPagamentoResponse",
         "type": "object"
@@ -4166,18 +3989,6 @@
             "title": "Ocorrido Em",
             "type": "string"
           },
-          "parcela_id": {
-            "anyOf": [
-              {
-                "format": "uuid",
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Parcela Id"
-          },
           "registro_id": {
             "format": "uuid",
             "title": "Registro Id",
@@ -4220,7 +4031,6 @@
           "resultado",
           "devedor_id",
           "emprestimo_id",
-          "parcela_id",
           "cobranca_acao_id",
           "agenda_item_id"
         ],
@@ -4281,6 +4091,10 @@
       },
       "ResumoCarteiraResponse": {
         "properties": {
+          "acertos_pendentes": {
+            "title": "Acertos Pendentes",
+            "type": "integer"
+          },
           "carteira_id": {
             "format": "uuid",
             "title": "Carteira Id",
@@ -4299,13 +4113,10 @@
             "title": "Operacoes Quitadas",
             "type": "integer"
           },
-          "parcelas_previstas": {
-            "title": "Parcelas Previstas",
-            "type": "integer"
-          },
-          "parcelas_vencidas": {
-            "title": "Parcelas Vencidas",
-            "type": "integer"
+          "principal_a_receber": {
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Principal A Receber",
+            "type": "string"
           },
           "tenant_id": {
             "format": "uuid",
@@ -4315,11 +4126,6 @@
           "total_operacoes": {
             "title": "Total Operacoes",
             "type": "integer"
-          },
-          "total_previsto": {
-            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
-            "title": "Total Previsto",
-            "type": "string"
           },
           "total_realizado": {
             "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
@@ -4334,9 +4140,8 @@
           "total_operacoes",
           "operacoes_ativas",
           "operacoes_quitadas",
-          "parcelas_previstas",
-          "parcelas_vencidas",
-          "total_previsto",
+          "acertos_pendentes",
+          "principal_a_receber",
           "total_realizado"
         ],
         "title": "ResumoCarteiraResponse",
@@ -4980,51 +4785,46 @@
       },
       "VencimentoOperacionalResponse": {
         "properties": {
+          "acerto_em": {
+            "format": "date",
+            "title": "Acerto Em",
+            "type": "string"
+          },
+          "devedor_id": {
+            "format": "uuid",
+            "title": "Devedor Id",
+            "type": "string"
+          },
+          "dia_de_acerto": {
+            "title": "Dia De Acerto",
+            "type": "integer"
+          },
+          "dias_sem_pagamento": {
+            "title": "Dias Sem Pagamento",
+            "type": "integer"
+          },
           "emprestimo_id": {
             "format": "uuid",
             "title": "Emprestimo Id",
             "type": "string"
           },
-          "estado": {
-            "$ref": "#/components/schemas/ParcelaState"
-          },
-          "numero": {
-            "title": "Numero",
-            "type": "integer"
-          },
-          "parcela_id": {
-            "format": "uuid",
-            "title": "Parcela Id",
+          "principal_original": {
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Principal Original",
             "type": "string"
           },
           "situacao": {
             "title": "Situacao",
             "type": "string"
-          },
-          "valor_liquidado": {
-            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
-            "title": "Valor Liquidado",
-            "type": "string"
-          },
-          "valor_previsto": {
-            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
-            "title": "Valor Previsto",
-            "type": "string"
-          },
-          "vencimento": {
-            "format": "date",
-            "title": "Vencimento",
-            "type": "string"
           }
         },
         "required": [
           "emprestimo_id",
-          "parcela_id",
-          "numero",
-          "vencimento",
-          "valor_previsto",
-          "valor_liquidado",
-          "estado",
+          "devedor_id",
+          "dia_de_acerto",
+          "acerto_em",
+          "dias_sem_pagamento",
+          "principal_original",
           "situacao"
         ],
         "title": "VencimentoOperacionalResponse",
@@ -16310,324 +16110,6 @@
           }
         ],
         "summary": "Registrar pagamento no Motor Financeiro",
-        "tags": [
-          "financial-engine"
-        ]
-      }
-    },
-    "/credit/emprestimos/{emprestimo_id}/parcelas": {
-      "get": {
-        "operationId": "consultar_parcelas_credit_emprestimos__emprestimo_id__parcelas_get",
-        "parameters": [
-          {
-            "in": "path",
-            "name": "emprestimo_id",
-            "required": true,
-            "schema": {
-              "format": "uuid",
-              "title": "Emprestimo Id",
-              "type": "string"
-            }
-          },
-          {
-            "description": "Identificador tecnico de correlacao aceito ou gerado pela API.",
-            "in": "header",
-            "name": "X-Correlation-ID",
-            "required": false,
-            "schema": {
-              "maxLength": 128,
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/PlanoParcelasResponse"
-                }
-              }
-            },
-            "description": "Successful Response",
-            "headers": {
-              "X-Correlation-ID": {
-                "description": "Identificador tecnico de correlacao da requisicao.",
-                "schema": {
-                  "type": "string"
-                }
-              }
-            }
-          },
-          "400": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErroResponse"
-                }
-              }
-            },
-            "description": "Payload, parametros ou headers invalidos para a operacao.",
-            "headers": {
-              "X-Correlation-ID": {
-                "description": "Identificador tecnico de correlacao da requisicao.",
-                "schema": {
-                  "type": "string"
-                }
-              }
-            }
-          },
-          "401": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErroResponse"
-                }
-              }
-            },
-            "description": "Autenticacao recusada por token ausente, invalido ou expirado.",
-            "headers": {
-              "X-Correlation-ID": {
-                "description": "Identificador tecnico de correlacao da requisicao.",
-                "schema": {
-                  "type": "string"
-                }
-              }
-            }
-          },
-          "403": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErroResponse"
-                }
-              }
-            },
-            "description": "Principal autenticado nao possui permissao para a operacao.",
-            "headers": {
-              "X-Correlation-ID": {
-                "description": "Identificador tecnico de correlacao da requisicao.",
-                "schema": {
-                  "type": "string"
-                }
-              }
-            }
-          },
-          "404": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErroResponse"
-                }
-              }
-            },
-            "description": "Recurso inexistente ou indisponivel para o Tenant autenticado.",
-            "headers": {
-              "X-Correlation-ID": {
-                "description": "Identificador tecnico de correlacao da requisicao.",
-                "schema": {
-                  "type": "string"
-                }
-              }
-            }
-          },
-          "500": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErroResponse"
-                }
-              }
-            },
-            "description": "Erro tecnico inesperado com resposta segura e correlacionavel.",
-            "headers": {
-              "X-Correlation-ID": {
-                "description": "Identificador tecnico de correlacao da requisicao.",
-                "schema": {
-                  "type": "string"
-                }
-              }
-            }
-          }
-        },
-        "security": [
-          {
-            "BearerAuth": []
-          }
-        ],
-        "summary": "Consultar parcelas do emprestimo",
-        "tags": [
-          "financial-engine"
-        ]
-      },
-      "post": {
-        "operationId": "criar_plano_parcelas_credit_emprestimos__emprestimo_id__parcelas_post",
-        "parameters": [
-          {
-            "in": "path",
-            "name": "emprestimo_id",
-            "required": true,
-            "schema": {
-              "format": "uuid",
-              "title": "Emprestimo Id",
-              "type": "string"
-            }
-          },
-          {
-            "description": "Identificador tecnico de correlacao aceito ou gerado pela API.",
-            "in": "header",
-            "name": "X-Correlation-ID",
-            "required": false,
-            "schema": {
-              "maxLength": 128,
-              "type": "string"
-            }
-          }
-        ],
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/PlanoParcelasRequest"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/PlanoParcelasResponse"
-                }
-              }
-            },
-            "description": "Successful Response",
-            "headers": {
-              "X-Correlation-ID": {
-                "description": "Identificador tecnico de correlacao da requisicao.",
-                "schema": {
-                  "type": "string"
-                }
-              }
-            }
-          },
-          "400": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErroResponse"
-                }
-              }
-            },
-            "description": "Payload, parametros ou headers invalidos para a operacao.",
-            "headers": {
-              "X-Correlation-ID": {
-                "description": "Identificador tecnico de correlacao da requisicao.",
-                "schema": {
-                  "type": "string"
-                }
-              }
-            }
-          },
-          "401": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErroResponse"
-                }
-              }
-            },
-            "description": "Autenticacao recusada por token ausente, invalido ou expirado.",
-            "headers": {
-              "X-Correlation-ID": {
-                "description": "Identificador tecnico de correlacao da requisicao.",
-                "schema": {
-                  "type": "string"
-                }
-              }
-            }
-          },
-          "403": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErroResponse"
-                }
-              }
-            },
-            "description": "Principal autenticado nao possui permissao para a operacao.",
-            "headers": {
-              "X-Correlation-ID": {
-                "description": "Identificador tecnico de correlacao da requisicao.",
-                "schema": {
-                  "type": "string"
-                }
-              }
-            }
-          },
-          "404": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErroResponse"
-                }
-              }
-            },
-            "description": "Recurso inexistente ou indisponivel para o Tenant autenticado.",
-            "headers": {
-              "X-Correlation-ID": {
-                "description": "Identificador tecnico de correlacao da requisicao.",
-                "schema": {
-                  "type": "string"
-                }
-              }
-            }
-          },
-          "409": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErroResponse"
-                }
-              }
-            },
-            "description": "Transicao de estado invalida para o recurso atual.",
-            "headers": {
-              "X-Correlation-ID": {
-                "description": "Identificador tecnico de correlacao da requisicao.",
-                "schema": {
-                  "type": "string"
-                }
-              }
-            }
-          },
-          "500": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErroResponse"
-                }
-              }
-            },
-            "description": "Erro tecnico inesperado com resposta segura e correlacionavel.",
-            "headers": {
-              "X-Correlation-ID": {
-                "description": "Identificador tecnico de correlacao da requisicao.",
-                "schema": {
-                  "type": "string"
-                }
-              }
-            }
-          }
-        },
-        "security": [
-          {
-            "BearerAuth": []
-          }
-        ],
-        "summary": "Gerar plano de parcelas do emprestimo",
         "tags": [
           "financial-engine"
         ]

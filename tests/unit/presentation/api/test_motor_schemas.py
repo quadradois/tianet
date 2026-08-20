@@ -11,7 +11,6 @@ from pydantic import ValidationError
 from emprestimo.presentation.api.motor_schemas import (
     ConsultaDataReferenciaRequest,
     PagamentoCreateRequest,
-    PlanoParcelasRequest,
     RenegociacaoCreateRequest,
 )
 
@@ -66,9 +65,6 @@ def test_renegociacao_aceita_parametros_operacionais_sem_calculo_definitivo() ->
 
 
 def test_requests_de_data_referencia_sao_restritos() -> None:
-    assert PlanoParcelasRequest(data_referencia=date(2026, 8, 9)).data_referencia == date(
-        2026, 8, 9
-    )
     assert ConsultaDataReferenciaRequest(data_referencia=date(2026, 8, 9)).data_referencia == date(
         2026, 8, 9
     )

@@ -1,6 +1,6 @@
 """Lancamento composto de emprestimo em transacao unica (IMP-305, PLAN-027).
 
-O Credor individual decide devedor, valor, taxa, parcelas e vencimento de uma
+O Credor individual decide devedor, valor, taxa e dia de acerto de uma
 vez so. A cadeia Proposta -> Contrato -> Emprestimo -> Parcelas continua sendo
 percorrida integralmente pelos metodos de agregado, com registro de decisao a
 cada transicao: as invariantes sao executadas, nunca contornadas. O que
@@ -51,14 +51,14 @@ class ResultadoFinanceiro(Protocol):
     def emprestimo_id(self) -> uuid.UUID: ...
 
     @property
-    def quantidade_parcelas(self) -> int: ...
+    def primeiro_acerto_em(self) -> date: ...
 
 
 class CriadorDeEmprestimo(Protocol):
     """Porta para a etapa financeira do lancamento.
 
     O lancamento orquestra Cadastro, Comercial e Contratos, e delega a criacao
-    do Emprestimo e do plano de parcelas. Recebe a operacao por injecao para nao
+    do Emprestimo. Recebe a operacao por injecao para nao
     importar o Motor: o calculo permanece exclusivo dele, e o guardrail de
     exclusividade continua valendo sem excecao para este modulo.
     """
@@ -79,7 +79,7 @@ class DevedorNovo:
 
 @dataclass(frozen=True)
 class CondicoesLancamento:
-    """Os quatro parametros que o Credor digita no ato.
+    """Os tres parametros que o Credor digita no ato (DR-004).
 
     Sao repassados ao Motor exatamente como recebidos. Nenhum valor padrao e
     inventado aqui: o Credor define cada um deles.
@@ -87,16 +87,14 @@ class CondicoesLancamento:
 
     valor_contratado: str
     taxa_juros_mensal: str
-    quantidade_parcelas: int
-    primeiro_vencimento: date
+    dia_de_acerto: int
     moeda: str = "BRL"
 
     def como_parametros(self) -> Mapping[str, object]:
         return {
             "valor_contratado": self.valor_contratado,
             "taxa_juros_mensal": self.taxa_juros_mensal,
-            "quantidade_parcelas": self.quantidade_parcelas,
-            "primeiro_vencimento": self.primeiro_vencimento.isoformat(),
+            "dia_de_acerto": self.dia_de_acerto,
             "moeda": self.moeda,
         }
 
@@ -109,7 +107,7 @@ class LancamentoResultado:
     proposta_id: uuid.UUID
     contrato_id: uuid.UUID
     emprestimo_id: uuid.UUID
-    quantidade_parcelas: int
+    primeiro_acerto_em: date
 
 
 class LancamentoService:
@@ -182,7 +180,7 @@ class LancamentoService:
                 proposta_id=proposta.id,
                 contrato_id=contrato.id,
                 emprestimo_id=financeiro.emprestimo_id,
-                quantidade_parcelas=financeiro.quantidade_parcelas,
+                primeiro_acerto_em=financeiro.primeiro_acerto_em,
             )
             uow.idempotencia.concluir(idempotency_key, ESCOPO_IDEMPOTENCIA, _serializar(resultado))
             uow.commit()
@@ -333,7 +331,7 @@ def _serializar(resultado: LancamentoResultado) -> str:
             "proposta_id": str(resultado.proposta_id),
             "contrato_id": str(resultado.contrato_id),
             "emprestimo_id": str(resultado.emprestimo_id),
-            "quantidade_parcelas": resultado.quantidade_parcelas,
+            "primeiro_acerto_em": resultado.primeiro_acerto_em.isoformat(),
         },
         sort_keys=True,
     )
@@ -348,5 +346,5 @@ def _desserializar(conteudo: str | None) -> LancamentoResultado:
         proposta_id=uuid.UUID(dados["proposta_id"]),
         contrato_id=uuid.UUID(dados["contrato_id"]),
         emprestimo_id=uuid.UUID(dados["emprestimo_id"]),
-        quantidade_parcelas=int(dados["quantidade_parcelas"]),
+        primeiro_acerto_em=date.fromisoformat(str(dados["primeiro_acerto_em"])),
     )

@@ -1,0 +1,21 @@
+- generic [active] [ref=f1e1]:
+  - link "Pular para o conteudo" [ref=f1e2] [cursor=pointer]:
+    - /url: "#conteudo-principal"
+  - main [ref=f1e3]:
+    - generic [ref=f1e4]:
+      - generic [ref=f1e5]:
+        - paragraph [ref=f1e6]: Frontend MVP
+        - heading "Acesse sua operacao" [level=2] [ref=f1e7]
+        - paragraph [ref=f1e8]: Use as credenciais institucionais. Tenant e Carteira serao definidos pelo backend.
+      - generic [ref=f1e10]:
+        - generic [ref=f1e11]:
+          - generic [ref=f1e12]: Instituicao
+          - textbox "Instituicao" [ref=f1e13]
+        - generic [ref=f1e14]:
+          - generic [ref=f1e15]: E-mail
+          - textbox "E-mail" [ref=f1e16]: admin@local.test
+        - generic [ref=f1e17]:
+          - generic [ref=f1e18]: Senha
+          - textbox "Senha" [ref=f1e19]: oPoy24xWnyA6S4m6BvXvnuHdoFzrn54L
+        - button "Entrar" [ref=f1e20]
+  - alert [ref=f1e21]

@@ -46,6 +46,9 @@ test("lista contratos e formaliza Proposta aprovada sem enviar Carteira do brows
   await login(page);
   await page.goto(`/app/contratos?proposta_id=${IDS.proposal}&tenant_id=hostil&carteira_id=hostil`);
   await expect(page.getByRole("heading", { name: "Contratos de Credito" })).toBeVisible();
+  // IMP-318 recolheu Contratos no grupo Administracao: o destino continua no
+  // menu, mas so fica visivel com o grupo aberto.
+  await page.locator("summary", { hasText: "Administracao" }).click();
   await expect(page.getByRole("link", { name: "Contratos" })).toHaveAttribute("href", "/app/contratos");
   await expect(page.getByRole("region", { name: "Tabela de contratos com overflow" })).toBeVisible();
   await expect(page.getByRole("textbox", { name: "Proposta aprovada" })).toHaveValue(IDS.proposal);

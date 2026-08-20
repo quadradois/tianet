@@ -11,14 +11,7 @@ from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from emprestimo.domain.credit.emprestimo import EmprestimoState
 from emprestimo.domain.credit.pagamento import PagamentoState
-from emprestimo.domain.credit.parcela import ParcelaState
 from emprestimo.presentation.api.financial_guardrails import chaves_financeiras_livres
-
-
-class PlanoParcelasRequest(BaseModel):
-    model_config = ConfigDict(extra="forbid")
-
-    data_referencia: date
 
 
 class PagamentoCreateRequest(BaseModel):
@@ -68,6 +61,9 @@ class EmprestimoResponse(BaseModel):
     moeda: str
     parametros_financeiros: dict[str, object]
     criado_em: datetime
+    dia_de_acerto: int | None = None
+    proximo_acerto_em: date | None = None
+    acerto_pendente_desde: date | None = None
 
 
 class EmprestimoListagemResponse(BaseModel):
@@ -76,19 +72,6 @@ class EmprestimoListagemResponse(BaseModel):
     page: int
     size: int
     pages: int
-
-
-class ParcelaResponse(BaseModel):
-    id: uuid.UUID
-    emprestimo_id: uuid.UUID
-    numero: int
-    vencimento: date
-    valor_previsto: Decimal
-    principal: Decimal
-    juros: Decimal
-    encargos: Decimal
-    valor_liquidado: Decimal
-    estado: ParcelaState
 
 
 class PassoCalculoResponse(BaseModel):
@@ -108,13 +91,6 @@ class MemoriaCalculoResponse(BaseModel):
     arredondamentos: list[str]
     resultados: dict[str, object]
     criado_em: datetime
-
-
-class PlanoParcelasResponse(BaseModel):
-    emprestimo_id: uuid.UUID
-    tenant_id: uuid.UUID
-    parcelas: list[ParcelaResponse]
-    memoria: MemoriaCalculoResponse | None = None
 
 
 class PagamentoResponse(BaseModel):

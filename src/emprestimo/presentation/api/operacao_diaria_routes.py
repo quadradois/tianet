@@ -130,7 +130,6 @@ def registrar_acao_cobranca(
         usuario_id=principal.usuario_id,
         tipo=payload.tipo,
         resultado=payload.resultado,
-        parcela_id=payload.parcela_id,
         idempotency_key=_exigir_idempotency_key(idempotency_key),
     )
     return _acao_response(resultado)
@@ -155,7 +154,6 @@ def registrar_promessa(
         usuario_id=principal.usuario_id,
         valor_declarado=payload.valor_declarado,
         data_promessa=payload.data_promessa,
-        parcela_id=payload.parcela_id,
         observacao=payload.observacao,
         pagamento_informado=payload.pagamento_informado,
         idempotency_key=_exigir_idempotency_key(idempotency_key),
@@ -181,7 +179,6 @@ def apropriar_promessa(
         promessa_id=promessa_id,
         pagamento_id=payload.pagamento_id,
         usuario_id=principal.usuario_id,
-        parcela_id=payload.parcela_id,
         data_referencia=payload.data_referencia,
         idempotency_key=_exigir_idempotency_key(idempotency_key),
     )
@@ -466,7 +463,6 @@ def registrar_comunicacao(
         resumo=payload.resumo,
         resultado=payload.resultado,
         emprestimo_id=payload.emprestimo_id,
-        parcela_id=payload.parcela_id,
         cobranca_acao_id=payload.cobranca_acao_id,
         agenda_item_id=payload.agenda_item_id,
         idempotency_key=_exigir_idempotency_key(idempotency_key),
@@ -603,9 +599,8 @@ def relatorio_fluxo(
         itens=[
             FluxoDiaResponse(
                 data=item.data,
-                previsto=item.previsto,
                 realizado=item.realizado,
-                parcela_ids=list(item.parcela_ids),
+                acertos=item.acertos,
                 pagamento_ids=list(item.pagamento_ids),
             )
             for item in resultado.itens

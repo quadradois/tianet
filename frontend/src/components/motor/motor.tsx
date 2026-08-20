@@ -1,16 +1,19 @@
 import Link from "next/link";
 
+import { data as formatarData, moeda } from "../../lib/formato/brasileiro";
+
 import {
   INITIAL_MOTOR_ACTION_STATE,
-  MOTOR_INSTALLMENT_CREATE_PERMISSION,
   MOTOR_LOAN_CREATE_PERMISSION,
   MOTOR_PAYMENT_CREATE_PERMISSION,
   MOTOR_RENEGOTIATION_CREATE_PERMISSION,
   MOTOR_SETTLEMENT_EXECUTE_PERMISSION,
+  SITUACOES,
+  agruparPorSituacao,
   hasExactPermission,
+  rotuloMemoria,
   type Balance,
   type CalculationMemory,
-  type InstallmentPlan,
   type Loan,
   type LoanFilters,
   type LoanList,
@@ -25,6 +28,8 @@ type MotorAction = (state: MotorActionState, formData: FormData) => Promise<Moto
 
 type MotorPageProps = Readonly<{
   createAction: MotorAction;
+  /** devedor_id -> nome, resolvido no servidor. Vazio quando falta permissao de leitura de Devedor. */
+  devedores: ReadonlyMap<string, string>;
   filters: LoanFilters;
   initialContractId?: string | undefined;
   initialState: MotorActionState;
@@ -35,9 +40,11 @@ type MotorPageProps = Readonly<{
 
 type MotorDetailProps = Readonly<{
   balance: MotorReadResult<Balance>;
-  generateInstallmentsAction: MotorAction;
+  /** Nome do Devedor, resolvido no servidor. Ausente sem permissao de leitura. */
+  devedor?: string | undefined;
+  /** Data de hoje, resolvida no servidor. */
+  hoje: string;
   initialState: MotorActionState;
-  installments: MotorReadResult<InstallmentPlan>;
   loan: MotorReadResult<Loan>;
   memories: MotorReadResult<readonly CalculationMemory[]>;
   paymentAction: MotorAction;
@@ -63,8 +70,8 @@ function ProblemPanel({ problem, recoveryHref }: { problem: { correlationId: str
 function DeniedPanel() {
   return (
     <section className="rounded-2xl border border-border bg-muted p-4 text-sm text-muted-foreground">
-      <p className="font-semibold text-foreground">denied</p>
-      <p>Modulo Motor indisponivel para as permissoes efetivas atuais.</p>
+      <p className="font-semibold text-foreground">Sem permissao</p>
+      <p>Seu acesso atual nao permite ver os emprestimos.</p>
     </section>
   );
 }
@@ -89,67 +96,158 @@ function JsonBlock({ label, value }: { label: string; value: unknown }) {
   );
 }
 
-function LoanCard({ loan }: { loan: Loan }) {
+/**
+ * Linha da lista operacional: quem, quanto e desde quando.
+ *
+ * O identificador do Emprestimo deixa de ser o titulo. Um UUID nao diz nada a
+ * quem emprestou o proprio dinheiro; o nome do Devedor diz. O identificador
+ * continua acessivel no destino do link, para suporte e auditoria.
+ */
+function LoanRow({ devedor, loan }: { devedor: string | undefined; loan: Loan }) {
   return (
-    <article className="rounded-2xl border border-border bg-card p-4 shadow-sm">
+    <li className="rounded-2xl border border-border bg-card p-4 shadow-sm">
       <div className="flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <h2 className="text-lg font-semibold">Emprestimo {loan.id}</h2>
-          <p className="text-sm text-muted-foreground">Contrato {loan.contrato_id}</p>
+        <div className="min-w-0">
+          <h3 className="truncate text-lg font-semibold">{devedor ?? "Devedor nao identificado"}</h3>
+          <p className="text-sm text-muted-foreground">
+            {moeda(loan.principal_original)} · desde {formatarData(loan.criado_em)}
+          </p>
         </div>
-        <span className="rounded-full bg-secondary px-3 py-1 text-xs font-semibold text-secondary-foreground">{loan.estado}</span>
-      </div>
-      <dl className="mt-4 grid gap-3 sm:grid-cols-3">
-        <RawValue label="Principal oficial" value={loan.principal_original} />
-        <RawValue label="Moeda" value={loan.moeda} />
-        <RawValue label="Criado em" value={loan.criado_em} />
-      </dl>
-      <div className="mt-4">
-        <Link className="text-sm font-semibold text-primary underline-offset-4 hover:underline" href={`/app/motor/${loan.id}`}>
-          Abrir Motor
+        <Link
+          className="shrink-0 rounded-xl border border-border px-3 py-2 text-sm font-semibold text-primary underline-offset-4 hover:underline"
+          href={`/app/motor/${loan.id}`}
+        >
+          Mais informacoes
         </Link>
       </div>
-    </article>
+    </li>
   );
 }
 
-export function MotorPage({ createAction, filters, initialContractId, initialState, permissions, recoveryHref, result }: MotorPageProps) {
+function SituacaoSection({
+  devedores,
+  emprestimos,
+  titulo,
+  vazio,
+}: Readonly<{ devedores: ReadonlyMap<string, string>; emprestimos: readonly Loan[]; titulo: string; vazio: string }>) {
   return (
-    <main className="space-y-6 p-6">
-      <span className="sr-only">loading empty denied 404 409 422 overflow</span>
+    <section className="space-y-3">
+      <h2 className="text-xl font-semibold">
+        {titulo} <span className="text-base font-normal text-muted-foreground">({emprestimos.length})</span>
+      </h2>
+      {emprestimos.length === 0 ? (
+        <p className="rounded-2xl border border-dashed border-border p-6 text-sm text-muted-foreground">{vazio}</p>
+      ) : (
+        <ul className="grid list-none gap-3 p-0">
+          {emprestimos.map((loan) => (
+            <LoanRow devedor={devedores.get(loan.devedor_id)} key={loan.id} loan={loan} />
+          ))}
+        </ul>
+      )}
+    </section>
+  );
+}
+
+export function MotorPage({ createAction, devedores, filters, initialContractId, initialState, permissions, recoveryHref, result }: MotorPageProps) {
+  return (
+    <main className="space-y-8 p-6">
       <header className="space-y-2">
-        <p className="text-sm font-medium text-muted-foreground">Motor Financeiro</p>
-        <h1 className="text-3xl font-semibold tracking-tight">Emprestimos e pagamentos</h1>
+        <h1 className="text-3xl font-semibold tracking-tight">Meus emprestimos</h1>
         <p className="max-w-3xl text-sm text-muted-foreground">
-          Crie Emprestimo a partir de Contrato liberado, consulte parcelas, saldo, memoria e quitacao sem recalculo local.
+          Separados pela situacao registrada em cada operacao. Abra um emprestimo para ver o extrato e registrar pagamento.
         </p>
       </header>
       {hasExactPermission(permissions, MOTOR_LOAN_CREATE_PERMISSION) ? (
-        <CreateLoanForm action={createAction} initialContractId={initialContractId} initialState={initialState} />
+        // O caminho de lancar emprestimo e o wizard em /app/lancamentos. Pedir
+        // UUID de Contrato ao Credor e o oposto do que o PLAN-027 decidiu; a
+        // criacao por Contrato existente segue possivel, mas recolhida.
+        <details className="rounded-2xl border border-border bg-muted/30 p-4">
+          <summary className="cursor-pointer text-sm font-semibold">Criar a partir de um contrato ja existente</summary>
+          <div className="mt-4">
+            <CreateLoanForm action={createAction} initialContractId={initialContractId} initialState={initialState} />
+          </div>
+        </details>
       ) : null}
       {result.kind === "denied" ? <DeniedPanel /> : null}
       {result.kind === "problem" ? <ProblemPanel problem={result.problem} recoveryHref={recoveryHref} /> : null}
       {result.kind === "ready" ? (
-        <section className="space-y-4">
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <h2 className="text-xl font-semibold">Carteira propria</h2>
-            <p className="text-sm text-muted-foreground">Pagina {filters.page} / tamanho {filters.size}</p>
-          </div>
-          {result.data.items.length === 0 ? (
-            <div className="rounded-2xl border border-dashed border-border p-6 text-sm text-muted-foreground">empty: nenhum Emprestimo oficial retornado.</div>
-          ) : (
-            <div className="grid gap-4">
-              {result.data.items.map((loan) => <LoanCard key={loan.id} loan={loan} />)}
-            </div>
-          )}
-        </section>
+        <div className="space-y-8">
+          {agruparPorSituacao(result.data.items).map((grupo) => (
+            <SituacaoSection
+              devedores={devedores}
+              emprestimos={grupo.emprestimos}
+              key={grupo.chave}
+              titulo={grupo.titulo}
+              vazio={grupo.vazio}
+            />
+          ))}
+          <p className="text-sm text-muted-foreground">
+            Pagina {filters.page} de {result.data.pages} · {result.data.total} emprestimos no total
+          </p>
+        </div>
       ) : null}
     </main>
   );
 }
 
+/**
+ * Emprestimos de um Devedor, para embutir na pagina de detalhe dele.
+ *
+ * Vive no modulo Motor de proposito. O Devedores e proibido por gate de nomear
+ * regra financeira, e a proibicao esta certa: quem apresenta Emprestimo e o
+ * Motor. A pagina de Devedor apenas embute este bloco, entao o gate continua
+ * valendo integralmente em `components/devedores/`.
+ *
+ * Somente leitura, e somente valores que o backend devolveu. Os grupos vazios
+ * sao omitidos: na pagina de um Devedor especifico eles seriam ruido, e a
+ * ausencia total ja tem mensagem propria.
+ */
+export function EmprestimosDoDevedor({ recoveryHref, result }: Readonly<{ recoveryHref: string; result: MotorReadResult<LoanList> }>) {
+  return (
+    <section className="space-y-4">
+      <h2 className="text-2xl font-semibold tracking-tight">Emprestimos deste devedor</h2>
+      {result.kind === "denied" ? <DeniedPanel /> : null}
+      {result.kind === "problem" ? <ProblemPanel problem={result.problem} recoveryHref={recoveryHref} /> : null}
+      {result.kind === "ready" && result.data.items.length === 0 ? (
+        <p className="rounded-2xl border border-dashed border-border p-6 text-sm text-muted-foreground">
+          Este devedor ainda nao tem nenhum emprestimo.
+        </p>
+      ) : null}
+      {result.kind === "ready"
+        ? agruparPorSituacao(result.data.items)
+            .filter((grupo) => grupo.emprestimos.length > 0)
+            .map((grupo) => (
+              <div className="space-y-3" key={grupo.chave}>
+                <h3 className="text-lg font-semibold">
+                  {grupo.titulo} <span className="text-base font-normal text-muted-foreground">({grupo.emprestimos.length})</span>
+                </h3>
+                <ul className="grid list-none gap-3 p-0">
+                  {grupo.emprestimos.map((loan) => (
+                    <li className="rounded-2xl border border-border bg-card p-4 shadow-sm" key={loan.id}>
+                      <div className="flex flex-wrap items-center justify-between gap-3">
+                        <p className="text-sm">
+                          <span className="text-lg font-semibold">{moeda(loan.principal_original)}</span>
+                          <span className="text-muted-foreground"> · desde {formatarData(loan.criado_em)}</span>
+                        </p>
+                        <Link
+                          className="shrink-0 rounded-xl border border-border px-3 py-2 text-sm font-semibold text-primary underline-offset-4 hover:underline"
+                          href={`/app/motor/${loan.id}`}
+                        >
+                          Mais informacoes
+                        </Link>
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ))
+        : null}
+    </section>
+  );
+}
+
 function DetailCommands({
-  generateInstallmentsAction,
+  hoje,
   initialState,
   loanId,
   paymentAction,
@@ -157,7 +255,7 @@ function DetailCommands({
   renegotiationAction,
   settlementAction,
 }: Readonly<{
-  generateInstallmentsAction: MotorAction;
+  hoje: string;
   initialState: MotorActionState;
   loanId: string;
   paymentAction: MotorAction;
@@ -167,72 +265,144 @@ function DetailCommands({
 }>) {
   return (
     <section className="grid gap-4 lg:grid-cols-2">
-      {hasExactPermission(permissions, MOTOR_INSTALLMENT_CREATE_PERMISSION) ? (
-        <MotorCommandForm action={generateInstallmentsAction} command="gerar-parcelas" emprestimoId={loanId} initialState={initialState} />
-      ) : null}
       {hasExactPermission(permissions, MOTOR_PAYMENT_CREATE_PERMISSION) ? (
-        <MotorCommandForm action={paymentAction} command="registrar-pagamento" emprestimoId={loanId} initialState={initialState} />
+        <MotorCommandForm action={paymentAction} command="registrar-pagamento" emprestimoId={loanId} hoje={hoje} initialState={initialState} />
       ) : null}
       {hasExactPermission(permissions, MOTOR_SETTLEMENT_EXECUTE_PERMISSION) ? (
-        <MotorCommandForm action={settlementAction} command="executar-quitacao" emprestimoId={loanId} initialState={initialState} />
+        <MotorCommandForm action={settlementAction} command="executar-quitacao" emprestimoId={loanId} hoje={hoje} initialState={initialState} />
       ) : null}
       {hasExactPermission(permissions, MOTOR_RENEGOTIATION_CREATE_PERMISSION) ? (
-        <MotorCommandForm action={renegotiationAction} command="registrar-renegociacao" emprestimoId={loanId} initialState={initialState} />
+        <MotorCommandForm action={renegotiationAction} command="registrar-renegociacao" emprestimoId={loanId} hoje={hoje} initialState={initialState} />
       ) : null}
     </section>
   );
 }
 
-function ReadyAuxiliary({ balance, installments, memories, settlementPreview }: Pick<MotorDetailProps, "balance" | "installments" | "memories" | "settlementPreview">) {
+/** Numero grande com rotulo curto: a unidade de leitura do painel. */
+function Indicador({ destaque, detalhe, rotulo, valor }: Readonly<{ destaque?: boolean; detalhe?: string; rotulo: string; valor: string }>) {
+  return (
+    <div className={`rounded-2xl border p-4 ${destaque ? "border-primary/40 bg-primary/5" : "border-border bg-card"}`}>
+      <p className="text-xs uppercase tracking-wide text-muted-foreground">{rotulo}</p>
+      <p className="mt-1 text-2xl font-semibold tabular-nums">{valor}</p>
+      {detalhe ? <p className="text-sm text-muted-foreground">{detalhe}</p> : null}
+    </div>
+  );
+}
+
+/**
+ * Painel do emprestimo: o que o Credor precisa saber sem rolar nem clicar.
+ *
+ * Quanto emprestou, quanto ainda falta, qual e a proxima parcela e quantas ja
+ * foram pagas. Nada aqui e calculado: os valores vem do saldo que o backend
+ * devolveu, a proxima parcela e a primeira ainda em aberto na ordem recebida, e
+ * a contagem e o tamanho da lista.
+ */
+/**
+ * Painel do emprestimo livre: o que o Credor precisa saber sem rolar nem clicar.
+ *
+ * Quanto emprestou, quanto ainda deve, quanto de juros correu e quando e o
+ * proximo acerto. Nada e calculado aqui: os valores vem do saldo que o backend
+ * devolveu, e a data do acerto vem do proprio emprestimo — calcular calendario
+ * no navegador duplicaria uma regra de dominio.
+ */
+function PainelDoEmprestimo({
+  balance,
+  devedor,
+  loan,
+}: Readonly<{ balance: MotorReadResult<Balance>; devedor: string | undefined; loan: Loan }>) {
+  const situacao = SITUACOES.find((item) => item.estado === loan.estado);
+  const pendente = loan.acerto_pendente_desde ?? undefined;
+
+  return (
+    <section className="space-y-4">
+      <div className="flex flex-wrap items-baseline justify-between gap-3">
+        <h1 className="text-3xl font-semibold tracking-tight">{devedor ?? "Emprestimo"}</h1>
+        <span
+          className={`rounded-full px-3 py-1 text-sm font-semibold ${
+            pendente ? "bg-destructive/15 text-destructive" : "bg-secondary text-secondary-foreground"
+          }`}
+        >
+          {pendente ? `Acerto em atraso desde ${formatarData(pendente)}` : (situacao?.titulo ?? loan.estado)}
+        </span>
+      </div>
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        <Indicador detalhe={`em ${formatarData(loan.criado_em)}`} rotulo="Emprestado" valor={moeda(loan.principal_original)} />
+        <Indicador
+          destaque
+          detalhe={balance.kind === "ready" ? `em ${formatarData(balance.data.data_referencia)}` : "indisponivel agora"}
+          rotulo="Deve hoje"
+          valor={balance.kind === "ready" ? moeda(balance.data.total) : "--"}
+        />
+        <Indicador
+          detalhe="minimo a receber no acerto"
+          rotulo="Juros do periodo"
+          valor={balance.kind === "ready" ? moeda(balance.data.juros) : "--"}
+        />
+        <Indicador
+          detalhe={loan.dia_de_acerto ? `todo dia ${loan.dia_de_acerto}` : "sem dia combinado"}
+          rotulo="Proximo acerto"
+          valor={loan.proximo_acerto_em ? formatarData(loan.proximo_acerto_em) : "--"}
+        />
+      </div>
+    </section>
+  );
+}
+
+/**
+ * Extrato: como o total devido hoje se reparte.
+ *
+ * Substitui a tabela de parcelas, que deixou de existir com o emprestimo livre
+ * (DR-004). O que o devedor deve nao esta congelado num plano — muda a cada dia
+ * que passa e a cada amortizacao.
+ */
+function ExtratoDoSaldo({ balance }: Readonly<{ balance: MotorReadResult<Balance> }>) {
+  if (balance.kind !== "ready") return null;
+  return (
+    <article className="rounded-2xl border border-border bg-card p-4">
+      <h2 className="font-semibold">Como esta a divida hoje</h2>
+      <dl className="mt-3 grid gap-3 sm:grid-cols-3">
+        <RawValue label="Ainda emprestado" value={moeda(balance.data.principal)} />
+        <RawValue label="Juros corridos" value={moeda(balance.data.juros)} />
+        <RawValue label="Total" value={moeda(balance.data.total)} />
+      </dl>
+      <p className="mt-3 text-sm text-muted-foreground">
+        No acerto o devedor deve, no minimo, os juros. O que pagar alem disso abate o valor emprestado.
+      </p>
+    </article>
+  );
+}
+
+function ReadyAuxiliary({ memories, settlementPreview }: Pick<MotorDetailProps, "memories" | "settlementPreview">) {
   return (
     <section className="grid gap-4 lg:grid-cols-2">
-      {balance.kind === "ready" ? (
+      {settlementPreview.kind === "ready" ? (
         <article className="rounded-2xl border border-border bg-card p-4">
-          <h2 className="font-semibold">Saldo oficial</h2>
-          <dl className="mt-3 grid gap-3 sm:grid-cols-2">
-            <RawValue label="Principal" value={balance.data.principal} />
-            <RawValue label="Juros" value={balance.data.juros} />
-            <RawValue label="Encargos" value={balance.data.encargos} />
-            <RawValue label="Total" value={balance.data.total} />
+          <h2 className="font-semibold">Valor para quitar hoje</h2>
+          <p className="mt-2 text-2xl font-semibold tabular-nums">{moeda(settlementPreview.data.valor_quitacao.valor_total)}</p>
+          <dl className="mt-3 grid gap-3 sm:grid-cols-3">
+            <RawValue label="Principal" value={moeda(settlementPreview.data.valor_quitacao.componentes.principal)} />
+            <RawValue label="Juros" value={moeda(settlementPreview.data.valor_quitacao.componentes.juros)} />
+            <RawValue label="Encargos" value={moeda(settlementPreview.data.valor_quitacao.componentes.encargos)} />
           </dl>
         </article>
       ) : null}
-      {settlementPreview.kind === "ready" ? (
+      {memories.kind === "ready" && memories.data.length > 0 ? (
         <article className="rounded-2xl border border-border bg-card p-4">
-          <h2 className="font-semibold">Quitacao oficial</h2>
-          <JsonBlock label="Valor de quitacao retornado" value={settlementPreview.data.valor_quitacao} />
-        </article>
-      ) : null}
-      {installments.kind === "ready" ? (
-        <article className="rounded-2xl border border-border bg-card p-4">
-          <h2 className="font-semibold">Parcelas oficiais</h2>
-          <div className="mt-3 overflow-auto">
-            <table className="w-full min-w-[720px] text-left text-sm">
-              <thead className="text-xs uppercase text-muted-foreground">
-                <tr><th>Numero</th><th>Vencimento</th><th>Valor previsto</th><th>Principal</th><th>Juros</th><th>Encargos</th><th>Estado</th></tr>
-              </thead>
-              <tbody>
-                {installments.data.parcelas.map((item) => (
-                  <tr className="border-t border-border" key={item.id}>
-                    <td>{item.numero}</td>
-                    <td>{item.vencimento}</td>
-                    <td>{item.valor_previsto}</td>
-                    <td>{item.principal}</td>
-                    <td>{item.juros}</td>
-                    <td>{item.encargos}</td>
-                    <td>{item.estado}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </article>
-      ) : null}
-      {memories.kind === "ready" ? (
-        <article className="rounded-2xl border border-border bg-card p-4">
-          <h2 className="font-semibold">Memoria de calculo oficial</h2>
+          <h2 className="font-semibold">Como a conta foi feita</h2>
           <div className="mt-3 space-y-3">
-            {memories.data.map((memory) => <JsonBlock key={memory.id} label={memory.tipo} value={memory} />)}
+            {memories.data.map((memory) => (
+              <details className="rounded-xl border border-border bg-muted/30 p-3" key={memory.id}>
+                <summary className="cursor-pointer text-sm font-semibold">{rotuloMemoria(memory.tipo)}</summary>
+                <ol className="mt-3 space-y-2 pl-5 text-sm">
+                  {memory.passos.map((passo, indice) => (
+                    <li key={`${memory.id}-${indice}`}>{passo.nome}</li>
+                  ))}
+                </ol>
+                {/* O detalhe tecnico continua acessivel para suporte e auditoria,
+                    porem fechado: quem opera nao precisa dele para decidir. */}
+                <JsonBlock label="Detalhe tecnico" value={memory} />
+              </details>
+            ))}
           </div>
         </article>
       ) : null}
@@ -242,9 +412,9 @@ function ReadyAuxiliary({ balance, installments, memories, settlementPreview }: 
 
 export function MotorDetailPage({
   balance,
-  generateInstallmentsAction,
+  devedor,
+  hoje,
   initialState = INITIAL_MOTOR_ACTION_STATE,
-  installments,
   loan,
   memories,
   paymentAction,
@@ -256,22 +426,34 @@ export function MotorDetailPage({
 }: MotorDetailProps) {
   return (
     <main className="space-y-6 p-6">
-      <span className="sr-only">loading empty denied 404 409 422 overflow</span>
       {loan.kind === "denied" ? <DeniedPanel /> : null}
       {loan.kind === "problem" ? <ProblemPanel problem={loan.problem} recoveryHref={recoveryHref} /> : null}
       {loan.kind === "ready" ? (
         <>
-          <LoanCard loan={loan.data} />
-          <DetailCommands
-            generateInstallmentsAction={generateInstallmentsAction}
-            initialState={initialState}
-            loanId={loan.data.id}
-            paymentAction={paymentAction}
-            permissions={permissions}
-            renegotiationAction={renegotiationAction}
-            settlementAction={settlementAction}
-          />
-          <ReadyAuxiliary balance={balance} installments={installments} memories={memories} settlementPreview={settlementPreview} />
+          <PainelDoEmprestimo balance={balance} devedor={devedor} loan={loan.data} />
+          <ExtratoDoSaldo balance={balance} />
+          {/* As operacoes vem depois do painel: primeiro entender, depois agir.
+              Sem nenhuma permissao de comando o bloco nao existe, em vez de
+              abrir vazio e sugerir uma acao indisponivel. */}
+          {hasExactPermission(permissions, MOTOR_PAYMENT_CREATE_PERMISSION)
+          || hasExactPermission(permissions, MOTOR_SETTLEMENT_EXECUTE_PERMISSION)
+          || hasExactPermission(permissions, MOTOR_RENEGOTIATION_CREATE_PERMISSION) ? (
+          <details className="rounded-2xl border border-border bg-muted/30 p-4">
+            <summary className="cursor-pointer font-semibold">Operacoes deste emprestimo</summary>
+            <div className="mt-4">
+              <DetailCommands
+                hoje={hoje}
+                initialState={initialState}
+                loanId={loan.data.id}
+                paymentAction={paymentAction}
+                permissions={permissions}
+                renegotiationAction={renegotiationAction}
+                settlementAction={settlementAction}
+              />
+            </div>
+          </details>
+          ) : null}
+          <ReadyAuxiliary memories={memories} settlementPreview={settlementPreview} />
         </>
       ) : null}
     </main>

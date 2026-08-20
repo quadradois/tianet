@@ -29,7 +29,6 @@ CARTEIRA_ID = uuid.UUID("22222222-2222-2222-2222-222222222222")
 DEVEDOR_ID = uuid.UUID("33333333-3333-3333-3333-333333333333")
 EMPRESTIMO_ID = uuid.UUID("44444444-4444-4444-4444-444444444444")
 USUARIO_ID = uuid.UUID("55555555-5555-5555-5555-555555555555")
-PARCELA_ID = uuid.UUID("66666666-6666-6666-6666-666666666666")
 Lembrete_ID = uuid.UUID("77777777-7777-7777-7777-777777777777")
 
 
@@ -43,7 +42,6 @@ def test_acoes_cobranca_validam_contratos_basicos() -> None:
         tipo=TipoAcaoCobranca.TELEFONE,
         resultado="ligacao realizada",
         devedor_id=DEVEDOR_ID,
-        parcela_id=PARCELA_ID,
     )
 
     assert acao.tipo.value == "telefone"
@@ -148,7 +146,6 @@ def test_promessa_cria_em_pendente_e_transiciona_para_pagamento_informado() -> N
         criado_por_usuario_id=USUARIO_ID,
         valor_declarado=Decimal("100.00"),
         data_promessa=(datetime.now(UTC).date() + timedelta(days=3)),
-        parcela_id=PARCELA_ID,
     )
     assert promessa.estado is PromessaPagamentoState.PENDENTE
 

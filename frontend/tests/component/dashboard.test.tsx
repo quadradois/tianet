@@ -15,8 +15,8 @@ describe("Dashboard operacional", () => {
   it("apresenta valores oficiais sem derivar indicador", () => {
     render(<SummaryView data={{
       carteira_id: "wallet-1", data_referencia: "2026-08-13", operacoes_ativas: 3,
-      operacoes_quitadas: 5, parcelas_previstas: 11, parcelas_vencidas: 2,
-      tenant_id: "tenant-1", total_operacoes: 8, total_previsto: "9007199254740993.01",
+      operacoes_quitadas: 5, acertos_pendentes: 1,
+      tenant_id: "tenant-1", total_operacoes: 8, principal_a_receber: "9007199254740993.01",
       total_realizado: "123.45",
     }} />);
     expect(screen.getByText("9007199254740993.01")).toBeInTheDocument();
@@ -25,8 +25,8 @@ describe("Dashboard operacional", () => {
   });
 
   it("mantem situacao e valores de vencimento retornados pelo backend", async () => {
-    render(<DueDatesView data={{ carteira_id: "wallet-1", data_referencia: "2026-08-13", tenant_id: "tenant-1", total: 1, itens: [{ emprestimo_id: "loan-1", estado: "vencida", numero: 7, parcela_id: "installment-1", situacao: "situacao-oficial-longa", valor_liquidado: "1.11", valor_previsto: "999.99", vencimento: "2026-08-13" }] }} />);
-    const region = screen.getByRole("region", { name: "Vencimentos retornados" });
+    render(<DueDatesView data={{ carteira_id: "wallet-1", data_referencia: "2026-08-13", tenant_id: "tenant-1", total: 1, itens: [{ acerto_em: "2026-08-13", devedor_id: "debtor-1", dia_de_acerto: 13, dias_sem_pagamento: 0, emprestimo_id: "loan-1", principal_original: "999.99", situacao: "situacao-oficial-longa" }] }} />);
+    const region = screen.getByRole("region", { name: "Acertos retornados" });
     expect(region).toHaveAttribute("tabindex", "0");
     await userEvent.tab();
     expect(region).toHaveFocus();
@@ -35,7 +35,7 @@ describe("Dashboard operacional", () => {
 
   it("distingue empty de loading e periodo invalido", () => {
     const { rerender } = render(<DueDatesView data={{ carteira_id: "wallet-1", data_referencia: "2026-08-13", tenant_id: "tenant-1", total: 0, itens: [] }} />);
-    expect(screen.getByRole("status")).toHaveTextContent("Nenhum vencimento");
+    expect(screen.getByRole("status")).toHaveTextContent("Nenhum acerto");
     rerender(<DashboardLoadingState title="Agenda do dia" />);
     expect(screen.getByRole("status", { name: "Carregando Agenda do dia" })).toBeInTheDocument();
     rerender(<InvalidPeriodState />);

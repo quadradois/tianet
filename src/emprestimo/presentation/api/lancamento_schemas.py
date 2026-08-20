@@ -23,18 +23,22 @@ class DevedorNovoRequest(BaseModel):
 
 
 class CondicoesLancamentoRequest(BaseModel):
-    """Os quatro parametros digitados pelo Credor no ato.
+    """Os tres parametros digitados pelo Credor no ato (DR-004).
 
     Campos tipados, nao JSON opaco: aqui o vocabulario do Motor e explicito e o
     erro aparece na entrada, nao tres telas adiante.
+
+    `quantidade_parcelas` e `primeiro_vencimento` sairam: o emprestimo deixou de
+    ser um plano de parcelas e passou a ser livre, com acerto mensal no dia
+    combinado. O devedor deve, no minimo, os juros do periodo; amortizar e
+    voluntario.
     """
 
     model_config = ConfigDict(extra="forbid")
 
     valor_contratado: str = Field(min_length=1, max_length=32)
     taxa_juros_mensal: str = Field(min_length=1, max_length=32)
-    quantidade_parcelas: int = Field(ge=1, le=360)
-    primeiro_vencimento: date
+    dia_de_acerto: int = Field(ge=1, le=31)
     moeda: str = Field(default="BRL", min_length=3, max_length=3)
 
 
@@ -60,4 +64,4 @@ class LancamentoResponse(BaseModel):
     proposta_id: uuid.UUID
     contrato_id: uuid.UUID
     emprestimo_id: uuid.UUID
-    quantidade_parcelas: int
+    primeiro_acerto_em: date

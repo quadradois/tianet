@@ -97,24 +97,11 @@ def test_api_motor_fluxo_financeiro_completo(client: TestClient, contexto: tuple
     assert listagem.json()["total"] == 1
     assert listagem.json()["items"][0]["id"] == emprestimo_id
 
-    plano = client.post(
-        f"/credit/emprestimos/{emprestimo_id}/parcelas",
-        json={"data_referencia": "2026-08-10"},
-    )
-    parcelas = client.get(f"/credit/emprestimos/{emprestimo_id}/parcelas")
-
-    assert plano.status_code == 200
-    assert len(plano.json()["parcelas"]) == 2
-    assert plano.json()["memoria"]["tipo"] == "geracao_parcelas"
-    assert parcelas.status_code == 200
-    assert parcelas.json()["parcelas"][0]["id"] == plano.json()["parcelas"][0]["id"]
-
+    # Sem plano de parcelas (DR-004): o pagamento move a divida diretamente, e o
+    # que o devedor deve em cada acerto vem do saldo daquele dia.
     pagamento = client.post(
         f"/credit/emprestimos/{emprestimo_id}/pagamentos",
-        json={
-            "valor": plano.json()["parcelas"][0]["valor_previsto"],
-            "recebido_em": "2026-09-10T12:00:00Z",
-        },
+        json={"valor": "1000.00", "recebido_em": "2026-09-10T12:00:00Z"},
         headers={"Idempotency-Key": "api-motor-pagamento-1"},
     )
     saldo = client.get(f"/credit/emprestimos/{emprestimo_id}/saldo?data_referencia=2026-10-10")
@@ -136,7 +123,7 @@ def test_api_motor_fluxo_financeiro_completo(client: TestClient, contexto: tuple
     assert saldo.status_code == 200
     assert saldo.json()["memoria"]["tipo"] == "saldo"
     assert memorias.status_code == 200
-    assert {"geracao_parcelas", "pagamento"} <= {item["tipo"] for item in memorias.json()}
+    assert {"pagamento"} <= {item["tipo"] for item in memorias.json()}
     assert consulta_quitacao.status_code == 200
     assert Decimal(consulta_quitacao.json()["valor_quitacao"]["valor_total"]) > Decimal("0.00")
     assert renegociacao.status_code == 200
@@ -145,7 +132,7 @@ def test_api_motor_fluxo_financeiro_completo(client: TestClient, contexto: tuple
 
 def test_api_motor_quitacao_executa_e_replay(client: TestClient, contexto: tuple[str, str]) -> None:
     carteira_id, devedor_id = contexto
-    emprestimo_id = _emprestimo_com_parcelas(client, carteira_id, devedor_id)
+    emprestimo_id = _emprestimo_ativo(client, carteira_id, devedor_id)
 
     quitacao = client.post(
         f"/credit/emprestimos/{emprestimo_id}/quitacao",
@@ -168,7 +155,7 @@ def test_api_motor_rejeita_payload_financeiro_arbitrario(
     client: TestClient, contexto: tuple[str, str]
 ) -> None:
     carteira_id, devedor_id = contexto
-    emprestimo_id = _emprestimo_com_parcelas(client, carteira_id, devedor_id)
+    emprestimo_id = _emprestimo_ativo(client, carteira_id, devedor_id)
 
     resposta = client.post(
         f"/credit/emprestimos/{emprestimo_id}/renegociacoes",
@@ -200,7 +187,7 @@ def test_api_motor_conflito_idempotencia_payload_divergente(
     client: TestClient, contexto: tuple[str, str]
 ) -> None:
     carteira_id, devedor_id = contexto
-    emprestimo_id = _emprestimo_com_parcelas(client, carteira_id, devedor_id)
+    emprestimo_id = _emprestimo_ativo(client, carteira_id, devedor_id)
 
     primeiro = client.post(
         f"/credit/emprestimos/{emprestimo_id}/pagamentos",
@@ -222,7 +209,7 @@ def test_api_motor_renegociacao_idempotente_e_exige_chave(
     client: TestClient, contexto: tuple[str, str]
 ) -> None:
     carteira_id, devedor_id = contexto
-    emprestimo_id = _emprestimo_com_parcelas(client, carteira_id, devedor_id)
+    emprestimo_id = _emprestimo_ativo(client, carteira_id, devedor_id)
     payload = {
         "novos_parametros": {"taxa_juros_mensal": "0.0150"},
         "renegociado_em": "2026-10-10T12:00:00Z",
@@ -312,20 +299,14 @@ def test_api_motor_openapi_publica_respostas_protegidas(client: TestClient) -> N
     assert {"400", "401", "403", "404", "409"} <= set(quitacao["responses"])
 
 
-def _emprestimo_com_parcelas(client: TestClient, carteira_id: str, devedor_id: str) -> str:
+def _emprestimo_ativo(client: TestClient, carteira_id: str, devedor_id: str) -> str:
     contrato_id = _contrato_liberado(client, carteira_id, devedor_id)
     emprestimo = client.post(
         f"/credit/contratos/{contrato_id}/emprestimos",
         headers={"Idempotency-Key": f"api-motor-emp-{uuid.uuid4()}"},
     )
     assert emprestimo.status_code == 201
-    emprestimo_id = emprestimo.json()["id"]
-    plano = client.post(
-        f"/credit/emprestimos/{emprestimo_id}/parcelas",
-        json={"data_referencia": "2026-08-10"},
-    )
-    assert plano.status_code == 200
-    return str(emprestimo_id)
+    return str(emprestimo.json()["id"])
 
 
 def _contrato_liberado(client: TestClient, carteira_id: str, devedor_id: str) -> str:
@@ -334,7 +315,7 @@ def _contrato_liberado(client: TestClient, carteira_id: str, devedor_id: str) ->
         json={
             "parametros": {
                 "valor_contratado": "10000.00",
-                "quantidade_parcelas": 2,
+                "dia_de_acerto": 10,
                 "primeiro_vencimento": "2026-09-10",
                 "taxa_juros_mensal": "0.0200",
                 "moeda": "BRL",

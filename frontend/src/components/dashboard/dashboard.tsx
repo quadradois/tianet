@@ -109,9 +109,8 @@ export function SummaryView({ data }: Readonly<{ data: Summary }>) {
       <Metric label="Operacoes" value={data.total_operacoes} />
       <Metric label="Ativas" value={data.operacoes_ativas} />
       <Metric label="Quitadas" value={data.operacoes_quitadas} />
-      <Metric label="Parcelas previstas" value={data.parcelas_previstas} />
-      <Metric label="Parcelas vencidas" value={data.parcelas_vencidas} />
-      <Metric label="Total previsto (oficial)" value={data.total_previsto} />
+      <Metric label="Acertos pendentes" value={data.acertos_pendentes} />
+      <Metric label="Ainda na rua" value={data.principal_a_receber} />
       <Metric label="Total realizado (oficial)" value={data.total_realizado} />
       <Metric label="Data de referencia" value={formatDate(data.data_referencia)} />
     </dl>
@@ -119,15 +118,15 @@ export function SummaryView({ data }: Readonly<{ data: Summary }>) {
 }
 
 export function DueDatesView({ data }: Readonly<{ data: DueDates }>) {
-  if (data.itens.length === 0) return <p role="status">Nenhum vencimento retornado para a data selecionada.</p>;
+  if (data.itens.length === 0) return <p role="status">Nenhum acerto retornado para a data selecionada.</p>;
   return (
     <>
-      <ul className="grid gap-2 sm:hidden" aria-label="Vencimentos retornados">{data.itens.map((item) => <li className="rounded-md border p-3" key={item.parcela_id}><strong>Parcela {item.numero}</strong><dl className="mt-2 grid grid-cols-2 gap-2 text-sm"><div><dt className="text-muted-foreground">Vencimento</dt><dd><time dateTime={item.vencimento}>{formatDate(item.vencimento)}</time></dd></div><div><dt className="text-muted-foreground">Situacao</dt><dd>{item.situacao}</dd></div><div><dt className="text-muted-foreground">Previsto</dt><dd className="tabular-nums">{item.valor_previsto}</dd></div><div><dt className="text-muted-foreground">Liquidado</dt><dd className="tabular-nums">{item.valor_liquidado}</dd></div></dl></li>)}</ul>
-      <div aria-label="Vencimentos retornados" className="hidden overflow-x-auto rounded-md border sm:block" role="region" tabIndex={0}>
+      <ul className="grid gap-2 sm:hidden" aria-label="Acertos retornados">{data.itens.map((item) => <li className="rounded-md border p-3" key={item.emprestimo_id}><strong><time dateTime={item.acerto_em}>{formatDate(item.acerto_em)}</time></strong><dl className="mt-2 grid grid-cols-2 gap-2 text-sm"><div><dt className="text-muted-foreground">Situacao</dt><dd>{item.situacao}</dd></div><div><dt className="text-muted-foreground">Dia combinado</dt><dd className="tabular-nums">{item.dia_de_acerto}</dd></div><div><dt className="text-muted-foreground">Dias sem pagamento</dt><dd className="tabular-nums">{item.dias_sem_pagamento}</dd></div><div><dt className="text-muted-foreground">Emprestado</dt><dd className="tabular-nums">{item.principal_original}</dd></div></dl></li>)}</ul>
+      <div aria-label="Acertos retornados" className="hidden overflow-x-auto rounded-md border sm:block" role="region" tabIndex={0}>
         <table className="w-full table-fixed text-left text-xs">
-          <caption className="sr-only">Parcelas e situacoes oficiais retornadas pelo backend</caption>
-          <thead className="bg-muted"><tr><th className="p-2">Parcela</th><th className="p-2">Vencimento</th><th className="p-2">Situacao</th><th className="p-2">Previsto</th><th className="p-2">Liquidado</th></tr></thead>
-          <tbody>{data.itens.map((item) => <tr className="border-t" key={item.parcela_id}><td className="break-words p-2 tabular-nums">{item.numero}</td><td className="break-words p-2"><time dateTime={item.vencimento}>{formatDate(item.vencimento)}</time></td><td className="break-words p-2">{item.situacao}</td><td className="break-words p-2 tabular-nums">{item.valor_previsto}</td><td className="break-words p-2 tabular-nums">{item.valor_liquidado}</td></tr>)}</tbody>
+          <caption className="sr-only">Acertos e situacoes oficiais retornados pelo backend</caption>
+          <thead className="bg-muted"><tr><th className="p-2">Acerto em</th><th className="p-2">Situacao</th><th className="p-2">Dia combinado</th><th className="p-2">Dias sem pagamento</th><th className="p-2">Emprestado</th></tr></thead>
+          <tbody>{data.itens.map((item) => <tr className="border-t" key={item.emprestimo_id}><td className="break-words p-2"><time dateTime={item.acerto_em}>{formatDate(item.acerto_em)}</time></td><td className="break-words p-2">{item.situacao}</td><td className="break-words p-2 tabular-nums">{item.dia_de_acerto}</td><td className="break-words p-2 tabular-nums">{item.dias_sem_pagamento}</td><td className="break-words p-2 tabular-nums">{item.principal_original}</td></tr>)}</tbody>
         </table>
       </div>
     </>
@@ -160,11 +159,11 @@ export function CollectionView({ data }: Readonly<{ data: CollectionQueue }>) {
 }
 
 async function SummarySection({ result, recoveryHref }: Readonly<{ result: DashboardProps["summary"]; recoveryHref: string }>) {
-  return <SectionCard title="Resumo da Carteira" description="Contagens e totais apresentados exatamente como recebidos."><SectionResult result={await result} recoveryHref={recoveryHref}>{(data) => <SummaryView data={data} />}</SectionResult></SectionCard>;
+  return <SectionCard title="Resumo da Carteira" description="Resumo da sua carteira."><SectionResult result={await result} recoveryHref={recoveryHref}>{(data) => <SummaryView data={data} />}</SectionResult></SectionCard>;
 }
 
 async function DueDatesSection({ result, recoveryHref }: Readonly<{ result: DashboardProps["dueDates"]; recoveryHref: string }>) {
-  return <SectionCard title="Vencimentos" description="Situacoes oficiais na data de referencia; nenhuma classificacao e calculada aqui."><SectionResult result={await result} recoveryHref={recoveryHref}>{(data) => <DueDatesView data={data} />}</SectionResult></SectionCard>;
+  return <SectionCard title="Acertos do dia" description="Quem tem acerto marcado e quem ainda nao apareceu."><SectionResult result={await result} recoveryHref={recoveryHref}>{(data) => <DueDatesView data={data} />}</SectionResult></SectionCard>;
 }
 
 async function AgendaSection({ result, recoveryHref }: Readonly<{ result: DashboardProps["agenda"]; recoveryHref: string }>) {
@@ -183,16 +182,16 @@ export function Dashboard({ period, recoveryHref, summary, dueDates, agenda, col
   return (
     <div className="grid min-w-0 gap-6">
       <header className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
-        <div><p className="text-xs font-semibold uppercase tracking-[0.12em] text-muted-foreground">Operacao diaria</p><h1 className="text-balance text-3xl font-bold tracking-tight">Dashboard</h1><p className="mt-2 max-w-3xl text-sm text-muted-foreground">Snapshot contratual da Carteira ativa. O backend permanece autoridade de todos os valores e estados.</p></div>
+        <div><h1 className="text-balance text-3xl font-bold tracking-tight">Inicio</h1><p className="mt-2 max-w-3xl text-sm text-muted-foreground">Como esta a sua operacao hoje. Situacao da sua carteira na data escolhida.</p></div>
         <form className="flex flex-col gap-2 sm:flex-row sm:items-end" method="get">
           <div className="grid gap-1"><Label htmlFor="data_referencia">Data de referencia</Label><Input autoComplete="off" defaultValue={period.referenceDate} id="data_referencia" max={MAX_REFERENCE_DATE} min={MIN_REFERENCE_DATE} name="data_referencia" required type="date" /></div>
           <button className="min-h-(--size-control) rounded-md bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground transition-colors hover:bg-primary/90" type="submit">Atualizar</button>
         </form>
       </header>
-      <p className="text-xs text-muted-foreground">Timezone governado: America/Sao_Paulo. A janela usa os limites civis e o offset vigente na data selecionada.</p>
+      <p className="text-xs text-muted-foreground"></p>
       <div className="grid min-w-0 gap-5 xl:grid-cols-2">
         <Suspense fallback={<DashboardLoadingState title="Resumo da Carteira" />}><SummarySection recoveryHref={recoveryHref} result={summary} /></Suspense>
-        <Suspense fallback={<DashboardLoadingState title="Vencimentos" />}><DueDatesSection recoveryHref={recoveryHref} result={dueDates} /></Suspense>
+        <Suspense fallback={<DashboardLoadingState title="Acertos do dia" />}><DueDatesSection recoveryHref={recoveryHref} result={dueDates} /></Suspense>
         <Suspense fallback={<DashboardLoadingState title="Agenda do dia" />}><AgendaSection recoveryHref={recoveryHref} result={agenda} /></Suspense>
         <Suspense fallback={<DashboardLoadingState title="Fila de cobranca" />}><CollectionSection recoveryHref={recoveryHref} result={collection} /></Suspense>
       </div>

@@ -49,10 +49,6 @@ export function CobrancaActionForm({ action, caseItem, initialState }: Readonly<
         <Label htmlFor={`${caseItem.caso_id}-resultado`}>Resultado</Label>
         <textarea className="min-h-20 rounded-md border bg-background p-3 text-sm" id={`${caseItem.caso_id}-resultado`} name="resultado" placeholder="Descreva o resultado operacional" />
       </div>
-      <div className="grid gap-2">
-        <Label htmlFor={`${caseItem.caso_id}-parcela`}>Parcela relacionada (opcional)</Label>
-        <Input id={`${caseItem.caso_id}-parcela`} name="parcela_id" placeholder="UUID da parcela, se aplicavel" />
-      </div>
       <IdempotencyField id={`${caseItem.caso_id}-acao-idempotency`} />
       <Status state={state} />
       <Button disabled={pending} type="submit">Acao idempotente</Button>
@@ -79,10 +75,6 @@ export function PromiseForm({ action, caseItem, initialState }: Readonly<{
       <div className="grid gap-2">
         <Label htmlFor={`${caseItem.caso_id}-data-promessa`}>Data da promessa</Label>
         <Input id={`${caseItem.caso_id}-data-promessa`} name="data_promessa" type="date" />
-      </div>
-      <div className="grid gap-2">
-        <Label htmlFor={`${caseItem.caso_id}-promessa-parcela`}>Parcela relacionada (opcional)</Label>
-        <Input id={`${caseItem.caso_id}-promessa-parcela`} name="parcela_id" placeholder="UUID da parcela, se aplicavel" />
       </div>
       <label className="flex items-center gap-2 text-sm">
         <input name="pagamento_informado" type="checkbox" />
@@ -117,10 +109,6 @@ export function AppropriationForm({ action, caseItem, initialState }: Readonly<{
       <div className="grid gap-2">
         <Label htmlFor={`${caseItem.caso_id}-pagamento-id`}>Pagamento oficial</Label>
         <Input id={`${caseItem.caso_id}-pagamento-id`} name="pagamento_id" placeholder="UUID do pagamento oficial" />
-      </div>
-      <div className="grid gap-2">
-        <Label htmlFor={`${caseItem.caso_id}-apropriacao-parcela`}>Parcela relacionada (opcional)</Label>
-        <Input id={`${caseItem.caso_id}-apropriacao-parcela`} name="parcela_id" placeholder="UUID da parcela, se aplicavel" />
       </div>
       <div className="grid gap-2">
         <Label htmlFor={`${caseItem.caso_id}-data-referencia`}>Data de referencia (opcional)</Label>

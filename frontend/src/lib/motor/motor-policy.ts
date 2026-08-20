@@ -26,7 +26,6 @@ export type MotorPermission =
 
 export type Loan = components["schemas"]["EmprestimoResponse"];
 export type LoanList = components["schemas"]["EmprestimoListagemResponse"];
-export type InstallmentPlan = components["schemas"]["PlanoParcelasResponse"];
 export type Balance = components["schemas"]["SaldoResponse"];
 export type CalculationMemory = components["schemas"]["MemoriaCalculoResponse"];
 export type PayoffQuote = components["schemas"]["QuitacaoCalculadaResponse"];
@@ -51,7 +50,7 @@ export type LoanFilters = Readonly<{
 }>;
 
 export const LOAN_STATES: readonly LoanState[] = ["ativo", "quitado", "cancelado"];
-export const MOTOR_COMMANDS = ["criar-emprestimo", "gerar-parcelas", "registrar-pagamento", "executar-quitacao", "registrar-renegociacao"] as const;
+export const MOTOR_COMMANDS = ["criar-emprestimo", "registrar-pagamento", "executar-quitacao", "registrar-renegociacao"] as const;
 export type MotorCommand = typeof MOTOR_COMMANDS[number];
 
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -123,10 +122,58 @@ export function resolveLoanFilters(query: Record<string, string | string[] | und
   };
 }
 
+/**
+ * Os tres grupos que o Credor pediu, cada um amarrado a um estado que o backend
+ * retorna. Nao ha derivacao: "quitado" e o estado oficial do Emprestimo, nunca
+ * uma conclusao tirada de datas ou de saldo no browser.
+ */
+export const SITUACOES = [
+  {
+    chave: "em-andamento",
+    estado: "ativo",
+    titulo: "Em andamento",
+    vazio: "Nenhum emprestimo em andamento.",
+  },
+  {
+    chave: "quitados",
+    estado: "quitado",
+    titulo: "Quitados",
+    vazio: "Nenhum emprestimo quitado ainda.",
+  },
+  {
+    chave: "encerrados",
+    estado: "cancelado",
+    titulo: "Encerrados",
+    vazio: "Nenhum emprestimo encerrado.",
+  },
+] as const satisfies readonly { chave: string; estado: LoanState; titulo: string; vazio: string }[];
+
+export type Situacao = (typeof SITUACOES)[number];
+
+/** Separa a pagina retornada nos tres grupos, comparando o estado literalmente. */
+export function agruparPorSituacao(loans: readonly Loan[]): readonly (Situacao & { emprestimos: readonly Loan[] })[] {
+  return SITUACOES.map((situacao) => ({
+    ...situacao,
+    emprestimos: loans.filter((loan) => loan.estado === situacao.estado),
+  }));
+}
+
+/** Tipo da memoria de calculo, dito ao Credor em vez de `geracao_parcelas`. */
+const ROTULO_MEMORIA: Readonly<Record<string, string>> = {
+  geracao_parcelas: "Geracao das parcelas",
+  saldo: "Calculo do saldo",
+  pagamento: "Aplicacao do pagamento",
+  quitacao: "Calculo da quitacao",
+  renegociacao: "Renegociacao",
+};
+
+export function rotuloMemoria(tipo: string): string {
+  return ROTULO_MEMORIA[tipo] ?? tipo;
+}
+
 export function allowedMotorCommands(loan: Pick<Loan, "estado">, permissions: readonly string[]): readonly MotorCommand[] {
   if (loan.estado !== "ativo") return [];
   const commands: MotorCommand[] = [];
-  if (hasExactPermission(permissions, MOTOR_INSTALLMENT_GENERATE_PERMISSION)) commands.push("gerar-parcelas");
   if (hasExactPermission(permissions, MOTOR_PAYMENT_REGISTER_PERMISSION)) commands.push("registrar-pagamento");
   if (hasExactPermission(permissions, MOTOR_PAYOFF_EXECUTE_PERMISSION)) commands.push("executar-quitacao");
   if (hasExactPermission(permissions, MOTOR_RENEGOTIATION_CREATE_PERMISSION)) commands.push("registrar-renegociacao");
@@ -153,8 +200,32 @@ export function formDateTime(formData: FormData, key: string): string | undefine
   return isDateTime(value) ? value : undefined;
 }
 
+/**
+ * Aceita a data que o Credor escolhe no calendario e devolve o instante que o
+ * contrato exige.
+ *
+ * O formulario pedia `2026-08-14T12:00:00Z` digitado a mao. Agora pede uma data,
+ * e o meio-dia UTC entra aqui. Meio-dia, e nao meia-noite: em America/Sao_Paulo
+ * `00:00Z` e 21h do dia anterior, e um pagamento mudaria de dia sozinho.
+ */
+export function formDataDeRecebimento(formData: FormData, key: string): string | undefined {
+  const bruto = formString(formData, key, 40);
+  if (bruto === undefined) return undefined;
+  // `isDate`, e nao so o formato: "2026-13-01" casa com a forma e nao existe.
+  if (isDate(bruto)) return `${bruto}T12:00:00Z`;
+  return isDateTime(bruto) ? bruto : undefined;
+}
+
+/**
+ * Le um valor em dinheiro do formulario, aceitando a virgula decimal.
+ *
+ * O Credor digita "500,00", que e como se escreve dinheiro em portugues, e o
+ * contrato exige "500.00". A troca e de pontuacao, feita por texto — nao ha
+ * conta aqui, e o Motor continua sendo a unica autoridade sobre o valor.
+ */
 export function formMoney(formData: FormData, key: string): string | undefined {
-  const value = formString(formData, key, 40);
+  const bruto = formString(formData, key, 40);
+  const value = bruto === undefined ? undefined : bruto.replace(",", ".");
   return validMoneyInput(value) ? value : undefined;
 }
 

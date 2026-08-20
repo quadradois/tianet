@@ -16,7 +16,6 @@ from emprestimo.domain.credit.operacao_diaria import (
     TipoAcaoCobranca,
 )
 from emprestimo.domain.credit.pagamento import PagamentoState
-from emprestimo.domain.credit.parcela import ParcelaState
 from emprestimo.domain.credit.promessa import PromessaPagamentoState
 
 
@@ -25,7 +24,6 @@ class AcaoCobrancaCreateRequest(BaseModel):
 
     tipo: TipoAcaoCobranca
     resultado: str = Field(min_length=1)
-    parcela_id: uuid.UUID | None = None
 
 
 class PromessaPagamentoCreateRequest(BaseModel):
@@ -33,7 +31,6 @@ class PromessaPagamentoCreateRequest(BaseModel):
 
     valor_declarado: Decimal = Field(gt=Decimal("0.00"), decimal_places=2)
     data_promessa: date
-    parcela_id: uuid.UUID | None = None
     observacao: str | None = None
     pagamento_informado: bool = False
 
@@ -42,7 +39,6 @@ class ApropriacaoPagamentoCreateRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     pagamento_id: uuid.UUID
-    parcela_id: uuid.UUID | None = None
     data_referencia: date | None = None
 
 
@@ -75,7 +71,6 @@ class ComunicacaoManualCreateRequest(BaseModel):
     resumo: str = Field(min_length=1)
     resultado: str = Field(min_length=1)
     emprestimo_id: uuid.UUID | None = None
-    parcela_id: uuid.UUID | None = None
     cobranca_acao_id: uuid.UUID | None = None
     agenda_item_id: uuid.UUID | None = None
 
@@ -120,14 +115,12 @@ class PromessaPagamentoResponse(BaseModel):
     valor_declarado: Decimal
     data_promessa: date
     estado: PromessaPagamentoState
-    parcela_id: uuid.UUID | None
 
 
 class ApropriacaoPagamentoResponse(BaseModel):
     apropriacao_id: uuid.UUID
     promessa_id: uuid.UUID
     pagamento_id: uuid.UUID
-    parcela_id: uuid.UUID
     valor: Decimal
     realizado_em: datetime
     estado_promessa: PromessaPagamentoState
@@ -174,7 +167,6 @@ class RegistroComunicacaoResponse(BaseModel):
     resultado: str
     devedor_id: uuid.UUID | None
     emprestimo_id: uuid.UUID | None
-    parcela_id: uuid.UUID | None
     cobranca_acao_id: uuid.UUID | None
     agenda_item_id: uuid.UUID | None
 
@@ -191,20 +183,18 @@ class ResumoCarteiraResponse(BaseModel):
     total_operacoes: int
     operacoes_ativas: int
     operacoes_quitadas: int
-    parcelas_previstas: int
-    parcelas_vencidas: int
-    total_previsto: Decimal
+    acertos_pendentes: int
+    principal_a_receber: Decimal
     total_realizado: Decimal
 
 
 class VencimentoOperacionalResponse(BaseModel):
     emprestimo_id: uuid.UUID
-    parcela_id: uuid.UUID
-    numero: int
-    vencimento: date
-    valor_previsto: Decimal
-    valor_liquidado: Decimal
-    estado: ParcelaState
+    devedor_id: uuid.UUID
+    dia_de_acerto: int
+    acerto_em: date
+    dias_sem_pagamento: int
+    principal_original: Decimal
     situacao: str
 
 
@@ -236,9 +226,8 @@ class PagamentosEncerramentosResponse(BaseModel):
 
 class FluxoDiaResponse(BaseModel):
     data: date
-    previsto: Decimal
     realizado: Decimal
-    parcela_ids: list[uuid.UUID]
+    acertos: int
     pagamento_ids: list[uuid.UUID]
 
 

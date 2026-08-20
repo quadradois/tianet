@@ -19,7 +19,6 @@ import { sessionCookieName, type CookieStore, unsealSession } from "./session.se
 type TypedClient = ReturnType<typeof createBackendClient>;
 type ReadonlyCookieStore = Pick<CookieStore, "get">;
 type PaymentState = components["schemas"]["PagamentoState"];
-type ParcelState = components["schemas"]["ParcelaState"];
 
 export type ReportsSectionResult<T> =
   | Readonly<{ kind: "ready"; data: T }>
@@ -37,7 +36,7 @@ const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{
 const DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
 const DECIMAL_PATTERN = /^-?(?:0|[1-9]\d*)(?:\.\d+)?$/;
 const CORRELATION_PATTERN = /^[A-Za-z0-9._:-]{1,128}$/;
-const PARCELA_STATES: ReadonlySet<string> = new Set<ParcelState>(["prevista", "vencida", "parcialmente_liquidada", "liquidada", "cancelada"]);
+const SITUACOES_DE_ACERTO: ReadonlySet<string> = new Set(["pendente", "em dia"]);
 const PAYMENT_STATES: ReadonlySet<string> = new Set<PaymentState>(["recebido", "processado", "confirmado", "estornado"]);
 
 const RELATORIOS_HEADER_CONTRACT = [
@@ -152,8 +151,8 @@ function validSummary(value: unknown, context: OperationalContext, period: Repor
   return strings(value, ["data_referencia"])
     && value.data_referencia === period.referenceDate
     && calendarDate(value.data_referencia)
-    && integers(value, ["total_operacoes", "operacoes_ativas", "operacoes_quitadas", "parcelas_previstas", "parcelas_vencidas"])
-    && decimalStrings(value, ["total_previsto", "total_realizado"]);
+    && integers(value, ["total_operacoes", "operacoes_ativas", "operacoes_quitadas", "acertos_pendentes"])
+    && decimalStrings(value, ["principal_a_receber", "total_realizado"]);
 }
 
 function validDueDates(value: unknown, context: OperationalContext, period: ReportsPeriod): value is DueDatesReport {
@@ -163,12 +162,12 @@ function validDueDates(value: unknown, context: OperationalContext, period: Repo
     && Number.isInteger(value.total)
     && Array.isArray(value.itens)
     && value.itens.every((item) => isRecord(item)
-      && uuids(item, ["emprestimo_id", "parcela_id"])
-      && Number.isInteger(item.numero)
-      && calendarDate(item.vencimento)
-      && decimalStrings(item, ["valor_previsto", "valor_liquidado"])
-      && typeof item.estado === "string" && PARCELA_STATES.has(item.estado)
-      && typeof item.situacao === "string");
+      && uuids(item, ["emprestimo_id", "devedor_id"])
+      && Number.isInteger(item.dia_de_acerto)
+      && Number.isInteger(item.dias_sem_pagamento)
+      && calendarDate(item.acerto_em)
+      && decimalStrings(item, ["principal_original"])
+      && typeof item.situacao === "string" && SITUACOES_DE_ACERTO.has(item.situacao));
 }
 
 function validPayments(value: unknown, context: OperationalContext, period: ReportsPeriod): value is PaymentsReport {
@@ -197,8 +196,8 @@ function validCashFlow(value: unknown, context: OperationalContext, period: Repo
     && Array.isArray(value.itens)
     && value.itens.every((item) => isRecord(item)
       && calendarDate(item.data)
-      && decimalStrings(item, ["previsto", "realizado"])
-      && Array.isArray(item.parcela_ids) && item.parcela_ids.every(uuid)
+      && decimalStrings(item, ["realizado"])
+      && Number.isInteger(item.acertos)
       && Array.isArray(item.pagamento_ids) && item.pagamento_ids.every(uuid));
 }
 

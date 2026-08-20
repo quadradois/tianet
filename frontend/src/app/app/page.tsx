@@ -18,7 +18,7 @@ export default async function AppHomePage({ searchParams }: PageProps<"/app">) {
   const decision = resolveDashboardPeriod(query.data_referencia);
   if (decision.kind === "canonical") redirect(`/app?data_referencia=${decision.referenceDate}`);
   if (decision.kind === "invalid") {
-    return <div className="grid gap-5"><h1 className="text-3xl font-bold tracking-tight">Dashboard</h1><InvalidPeriodState /></div>;
+    return <div className="grid gap-5"><h1 className="text-3xl font-bold tracking-tight">Inicio</h1><InvalidPeriodState /></div>;
   }
   const cookieStore = await cookies();
   const dependencies = createRuntimeDependencies();

@@ -6,12 +6,13 @@ import copy
 import uuid
 from collections.abc import Mapping
 from dataclasses import dataclass, field
-from datetime import UTC, datetime
+from datetime import UTC, date, datetime
 from decimal import Decimal, InvalidOperation
 from enum import Enum
 
 from emprestimo.domain.common.errors import ViolacaoInvarianteError
 from emprestimo.domain.credit.contrato_liberado import ContratoLiberadoLogico
+from emprestimo.domain.credit.dia_de_acerto import proximo_acerto, validar_dia_de_acerto
 
 __all__ = [
     "Emprestimo",
@@ -181,6 +182,69 @@ class Emprestimo:
         """Parametros congelados do contrato, protegidos contra mutacao externa."""
 
         return copy.deepcopy(self._parametros_financeiros)
+
+    @property
+    def dia_de_acerto(self) -> int | None:
+        """Dia do mes combinado para o acerto, quando houver (DR-004).
+
+        `None` nos emprestimos anteriores a esta decisao, que nasceram com plano
+        de parcelas. Enquanto os dois modelos convivem, a ausencia e um estado
+        legitimo e nao um erro.
+        """
+        bruto = self._parametros_financeiros.get("dia_de_acerto")
+        return validar_dia_de_acerto(bruto) if bruto is not None else None  # type: ignore[arg-type]
+
+    def proximo_acerto_em(self, a_partir_de: date) -> date | None:
+        """Proxima data de acerto depois de `a_partir_de`."""
+
+        dia = self.dia_de_acerto
+        return proximo_acerto(a_partir_de, dia) if dia is not None else None
+
+    def acerto_sem_pagamento_em(self, data_referencia: date) -> date | None:
+        """Acerto ja vencido para o qual nao houve pagamento nenhum.
+
+        O nome diz exatamente o que esta camada consegue saber. Julgar se o
+        devedor **quitou os juros do periodo** exige o saldo, e saldo e do Motor
+        — que Cobranca, Agenda e Relatorios sao proibidos de importar.
+
+        **Limitacao conhecida e deliberada:** um pagamento parcial, menor que os
+        juros devidos, faz este metodo devolver `None`. O devedor pagou algo, e
+        para esta camada isso basta para sair da fila de "ninguem apareceu". O
+        valor exato continua vindo do saldo, quando o operador abrir a operacao.
+        Chamar isto de "inadimplente" seria afirmar mais do que se sabe.
+        """
+        vigente = self.acerto_vigente_em(data_referencia)
+        if vigente is None:
+            return None
+        if self.ultimo_pagamento_em is not None and self.ultimo_pagamento_em.date() >= vigente:
+            return None
+        return vigente
+
+    def dias_sem_pagamento_em(self, data_referencia: date) -> int:
+        """Dias corridos desde o acerto vencido sem pagamento; zero se nao ha."""
+
+        acerto = self.acerto_sem_pagamento_em(data_referencia)
+        return (data_referencia - acerto).days if acerto is not None else 0
+
+    def acerto_vigente_em(self, data_referencia: date) -> date | None:
+        """Acerto que o devedor ja deveria ter feito em `data_referencia`.
+
+        E a ultima ocorrencia do dia combinado que nao esta no futuro. Serve a
+        Cobranca e a Agenda: se existe acerto vigente e o periodo dele nao foi
+        quitado, o devedor esta em atraso.
+        """
+        dia = self.dia_de_acerto
+        if dia is None:
+            return None
+        origem = self.criado_em.date()
+        anterior = None
+        cursor = origem
+        while True:
+            seguinte = proximo_acerto(cursor, dia)
+            if seguinte > data_referencia:
+                return anterior
+            anterior = seguinte
+            cursor = seguinte
 
     @property
     def eventos(self) -> tuple[EmprestimoEvento, ...]:

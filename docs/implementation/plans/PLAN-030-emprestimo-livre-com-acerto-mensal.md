@@ -1,0 +1,148 @@
+# PLAN-030 — Emprestimo Livre com Acerto Mensal
+
+**ID:** PLAN-030
+
+**Versao:** 1.1.0
+
+**Status:** Concluido — IMP-321..327 executados
+
+**Decisao de origem:** `docs/governance/decision-requests/DR-004-base-e-acumulacao-dos-juros-e-fim-do-plano-de-parcelas.md`
+
+---
+
+# 1. Objetivo
+
+Trocar o modelo do produto: o emprestimo deixa de ser um plano de parcelas e
+passa a ser livre, com acerto mensal no dia combinado.
+
+O devedor toma o valor. Na data de acerto pede a atualizacao; o sistema calcula
+os juros do periodo sobre o saldo devedor. O devedor paga o quanto puder — no
+minimo os juros —, o sistema separa juros de amortizacao, e assim ate quitar.
+
+---
+
+# 2. Decisoes formais
+
+| # | Decisao | Fundamento |
+|---|---|---|
+| 1 | **Juros sobre o saldo devedor, acumulados por trecho** | O plano cobrava 5% sobre a fatia de amortizacao: R$ 474,19 de juros em dez meses de um emprestimo de R$ 10.000 a 5% ao mes. |
+| 2 | **Todo emprestimo tem dia de acerto** | Da ao Credor um dia para cobrar, e a fila de cobranca uma ancora quando ela existir. Ver a correcao da DR-004 secao 6: Cobranca e Agenda **nao** dependiam de parcela, ao contrario do que a abertura afirmou. |
+| 3 | **A obrigacao no acerto e apenas o juro do periodo** | Amortizar e voluntario; o devedor quita quando e quanto puder. |
+| 4 | **Atraso nao gera multa nem encargo** | Contam-se os dias e aplica-se a fracao da taxa. Atrasar e ter mais tempo de juros, nao uma penalidade. |
+| 5 | **O plano de parcelas sai, sem deixar arquivo legado** | Decisao do Credor. |
+| 6 | **O operacional primeiro, a remocao por ultimo** | A correcao do calculo nao depende de remover nada, e e ela que torna o modelo correto. |
+| 7 | **`encargos` permanece no saldo, sempre zerado** | Um encargo negociado caso a caso caberia ali sem alteracao de contrato. |
+| 8 | **A tabela `parcela` e removida, e nao deixada orfa** | Ver §5.1. |
+
+---
+
+# 3. Escopo mapeado
+
+| Camada | Alcance |
+|---|---|
+| Backend | 24 arquivos, 528 ocorrencias de `parcela` |
+| Testes backend | 95 arquivos |
+| Frontend | 25 arquivos |
+| Banco | 4 tabelas com FK para `parcela` |
+
+---
+
+# 4. API
+
+O contrato **muda de forma nao aditiva**, o que e deliberado e consta da
+resolucao da DR-004.
+
+- `CondicoesLancamentoRequest` perde `quantidade_parcelas` e
+  `primeiro_vencimento`, e ganha `dia_de_acerto`;
+- `LancamentoResponse` troca `quantidade_parcelas` por `primeiro_acerto_em`;
+- na ultima fase, `GET/POST /credit/emprestimos/{id}/parcelas` e os quatro
+  schemas de parcela saem, e o inventario deixa de ser 108/137.
+
+**Executado.** O inventario passou de **108 operacoes e 137 schemas** para
+**106 e 133**.
+
+**Aviso transitorio esperado.** `docs:validate` reporta que
+`POST/GET /credit/emprestimos/{}/parcelas` esta "planejado e ainda nao
+implementado" em `PLAN-013` e neste plano, elevando a baseline de 29 para 31
+avisos. O aviso e verdadeiro e descreve o estado real: os documentos citam
+endpoints que deixaram de existir. Suprimi-lo apagaria o registro de que eles
+um dia existiram — o `PLAN-013` e a historia do EPIC-005, e reescreve-lo seria
+falsificar o passado.
+
+---
+
+# 5.1 Remocao da tabela: por que `DROP`, e nao orfa
+
+A regra deste repositorio e "migrations aditivas apenas". A excecao esta
+autorizada pela DR-004 e se sustenta em tres pontos:
+
+1. **O raio de estrago e zero.** A regra existe para proteger dado em producao.
+   Nao ha producao: o sistema nunca foi implantado e o dado local e de teste.
+   Uma regra que protege algo inexistente nao deve bloquear a limpeza pedida.
+2. **Tabela orfa e exatamente o legado que a decisao mandou nao deixar.** Uma
+   tabela vazia sem codigo que a use sobrevive como armadilha: alguem a encontra
+   depois, presume proposito e reintroduz o conceito.
+3. **Quatro tabelas tem coluna `parcela_id`** — cobranca, comunicacao, promessa
+   e apropriacao. Mantendo a tabela, essas colunas continuam parecendo
+   significativas quando ja nao sao. Saem junto.
+
+A migracao tem downgrade escrito, o que a torna reversivel em estrutura. O que
+nao volta e dado, e nao ha dado a perder.
+
+---
+
+# 5. Fases
+
+A ordem existe para que o sistema fique verde entre elas, e para que a remocao
+so ocorra quando ninguem mais depender do que sai.
+
+1. **Motor e dominio** — acumulacao por trecho, regra de calendario do acerto e
+   o agregado sabendo o proprio dia.
+2. **Lancamento e wizard** — o emprestimo nasce livre, sem plano.
+3. **Operacao diaria** — Inicio e Relatorios trocam "parcela vencida" por
+   "acerto vencido". Cobranca e Agenda nao precisam de mudanca: nao dependiam de
+   parcela (DR-004 secao 6, corrigida). Resta a apropriacao de promessa, que
+   resolve a parcela pelo pagamento.
+4. **Telas do emprestimo** — extrato no lugar da tabela de parcelas.
+5. **Remocao** — plano, agregado, tabela, operacao do contrato e testes.
+
+---
+
+# 6. Fora de escopo
+
+- **Recalculo de emprestimos existentes.** O sistema nao esta implantado e os
+  dados locais sao de teste, como na DR-003.
+- **Multa e mora.** Decisao 4.
+- **Polimento visual com design system.** O Credor reservou esse trabalho para
+  si.
+
+---
+
+# 7. Gates
+
+- `uv run pytest -q`, `ruff`, `black --check`, `mypy src tests`;
+- `npm run docs:validate` com 0 erros;
+- frontend: typecheck, lint, unit, component, contract, BFF e build;
+- `node scripts/tests/test-plan-025-contracts.js`;
+- Playwright das jornadas afetadas contra stack real;
+- `git diff --check`.
+
+---
+
+# 8. Riscos
+
+| Risco | Tratamento |
+|---|---|
+| Operacao diaria ficar sem gatilho | risco superdimensionado na abertura; a verificacao no codigo mostrou que so os relatorios dependiam de parcela |
+| Emprestimo antigo sem dia de acerto | ausencia e estado legitimo ate a fase 5; nada quebra |
+| Contrato quebrar consumidor | o unico consumidor e o proprio frontend, versionado no mesmo repositorio |
+| Repetir o erro da DR-003 | os testes desta vez conferem o **valor esperado pelo negocio**, e nao apenas a estabilidade do numero |
+
+---
+
+# 9. Historico de Versoes
+
+| Versao | Data | Descricao |
+|---|---|---|
+| 1.1.0 | 2026-08-19 | Plano encerrado: IMP-321..327 executados. O plano de parcelas saiu do dominio, do banco, do contrato (106 operacoes e 133 schemas) e dos relatorios; juros passaram a correr sobre o saldo por trecho, com acerto mensal no dia combinado. |
+| 1.0.0 | 2026-08-17 | Plano do emprestimo livre: juros sobre saldo por trecho, acerto mensal no dia combinado e fim do plano de parcelas. |

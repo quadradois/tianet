@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import uuid
-from datetime import UTC, date, datetime
+from datetime import UTC, datetime
 from decimal import Decimal
 from typing import Any, cast
 
@@ -29,7 +29,6 @@ from emprestimo.infrastructure.repositories import (
     SqlAlchemyEventoFinanceiroRepository,
     SqlAlchemyMemoriaCalculoRepository,
     SqlAlchemyPagamentoRepository,
-    SqlAlchemyParcelaRepository,
     SqlAlchemyPropostaComercialRepository,
     SqlAlchemyTenantRepository,
     SqlAlchemyUsuarioRepository,
@@ -44,29 +43,22 @@ def test_motor_financeiro_repositories_round_trip_com_trilha_completa(
     contrato = _contrato_liberado(contexto)
     emprestimo = Emprestimo.criar_de_contrato_liberado(contrato)
     motor = _motor()
-    plano = motor.gerar_plano_parcelas(
-        emprestimo=emprestimo,
-        data_referencia=date(2026, 8, 10),
-    )
     pagamento = motor.registrar_pagamento(
         emprestimo=emprestimo,
-        valor=plano.parcelas[0].valor_previsto,
+        valor=Decimal("1000.00"),
         recebido_em=datetime(2026, 9, 10, 12, 0, tzinfo=UTC),
         chave_idempotencia="pag-001",
         usuario_id=contexto.usuario_id,
     )
 
     SqlAlchemyEmprestimoRepository(session).save(emprestimo)
-    SqlAlchemyParcelaRepository(session).save_many(plano.parcelas)
     SqlAlchemyPagamentoRepository(session).save(pagamento.pagamento)
     memoria_repo = SqlAlchemyMemoriaCalculoRepository(session)
-    memoria_repo.save(plano.memoria, emprestimo.id)
     memoria_repo.save(pagamento.memoria, emprestimo.id, pagamento.pagamento.id)
     SqlAlchemyEventoFinanceiroRepository(session).save(pagamento.evento)
     session.commit()
 
     emprestimo_carregado = SqlAlchemyEmprestimoRepository(session).find_by_id(emprestimo.id)
-    parcelas = SqlAlchemyParcelaRepository(session).find_by_emprestimo_id(emprestimo.id)
     pagamentos = SqlAlchemyPagamentoRepository(session).find_by_emprestimo_id(emprestimo.id)
     memorias = memoria_repo.find_by_emprestimo_id(emprestimo.id)
     eventos = SqlAlchemyEventoFinanceiroRepository(session).find_by_emprestimo_id(emprestimo.id)
@@ -74,12 +66,8 @@ def test_motor_financeiro_repositories_round_trip_com_trilha_completa(
     assert emprestimo_carregado is not None
     assert emprestimo_carregado.principal_original == emprestimo.principal_original
     assert emprestimo_carregado.parametros_financeiros["valor_contratado"] == "10000.00"
-    assert len(parcelas) == 2
-    assert parcelas[0].periodo is not None
-    assert parcelas[0].periodo.data_inicio == date(2026, 8, 10)
     assert pagamentos[0].chave_idempotencia == "pag-001"
     memorias_por_tipo = {memoria.tipo: memoria for memoria in memorias}
-    assert memorias_por_tipo["geracao_parcelas"].passos[0].nome == "calcular_parcela_1"
     assert memorias_por_tipo["pagamento"].passos[0].nome == "distribuir_juros"
     assert eventos[0].tipo == "pagamento_registrado"
     assert eventos[0].memoria_calculo_id == pagamento.memoria.id
@@ -121,7 +109,6 @@ def test_pagamento_repository_busca_por_chave_idempotencia(session: Session) -> 
     contexto = _contexto_persistido(session)
     emprestimo = Emprestimo.criar_de_contrato_liberado(_contrato_liberado(contexto))
     motor = _motor()
-    motor.gerar_plano_parcelas(emprestimo=emprestimo, data_referencia=date(2026, 8, 10))
     resultado = motor.registrar_pagamento(
         emprestimo=emprestimo,
         valor=Decimal("1000.00"),
@@ -153,7 +140,6 @@ def test_unit_of_work_expoe_repositories_motor_e_preserva_transacao(
         SqlAlchemyUnitOfWork(session_factory) as uow,
     ):
         assert isinstance(uow.emprestimo, SqlAlchemyEmprestimoRepository)
-        assert isinstance(uow.parcela, SqlAlchemyParcelaRepository)
         assert isinstance(uow.pagamento, SqlAlchemyPagamentoRepository)
         assert isinstance(uow.memoria_calculo, SqlAlchemyMemoriaCalculoRepository)
         assert isinstance(uow.evento_financeiro, SqlAlchemyEventoFinanceiroRepository)
@@ -163,27 +149,16 @@ def test_unit_of_work_expoe_repositories_motor_e_preserva_transacao(
     assert SqlAlchemyEmprestimoRepository(session).find_by_id(emprestimo_sem_commit.id) is None
 
     emprestimo_commitado = Emprestimo.criar_de_contrato_liberado(contrato)
-    motor = _motor()
-    plano = motor.gerar_plano_parcelas(
-        emprestimo=emprestimo_commitado,
-        data_referencia=date(2026, 8, 10),
-    )
 
     with SqlAlchemyUnitOfWork(session_factory) as uow:
         uow.emprestimo.save(emprestimo_commitado)
-        uow.parcela.save_many(plano.parcelas)
-        uow.memoria_calculo.save(plano.memoria, emprestimo_commitado.id)
         uow.commit()
 
     carregado = SqlAlchemyEmprestimoRepository(session).find_by_id(emprestimo_commitado.id)
-    parcelas = SqlAlchemyParcelaRepository(session).find_by_emprestimo_id(emprestimo_commitado.id)
-    memorias = SqlAlchemyMemoriaCalculoRepository(session).find_by_emprestimo_id(
-        emprestimo_commitado.id
-    )
 
+    # O commit atravessa; o rollback acima nao deixou rastro. E o que este teste
+    # verifica — a memoria de calculo vinha da geracao de plano, que nao existe.
     assert carregado is not None
-    assert len(parcelas) == 2
-    assert memorias[0].tipo == "geracao_parcelas"
 
 
 class _ContextoMotor:
@@ -246,7 +221,7 @@ def _contexto_persistido(session: Session) -> _ContextoMotor:
                 "valor_contratado": "10000.00",
                 "moeda": "BRL",
                 "taxa_juros_mensal": "0.0200",
-                "quantidade_parcelas": 2,
+                "dia_de_acerto": 10,
                 "primeiro_vencimento": "2026-09-10",
                 "regra_calculo": "juros_simples_periodo_real",
             },
@@ -281,7 +256,7 @@ def _contrato_liberado(contexto: _ContextoMotor) -> ContratoLiberadoLogico:
             "valor_contratado": "10000.00",
             "moeda": "BRL",
             "taxa_juros_mensal": "0.0200",
-            "quantidade_parcelas": 2,
+            "dia_de_acerto": 10,
             "primeiro_vencimento": "2026-09-10",
             "regra_calculo": "juros_simples_periodo_real",
         },

@@ -65,10 +65,56 @@ reverter arquivos.
 
 | Evidencia | Dimensao | SHA-256 |
 |---|---:|---|
-| `frontend-mvp-imp-294-motor-list-desktop.png` | 1440x900 | `b172f7f17a3160830412e8d7f7971aefcbf6c8ecc42234144561af6476e0bcf8` |
-| `frontend-mvp-imp-294-motor-list-mobile.png` | 390x844 | `0d053a899cfbeeb8ae51049d6d292ef7c21d1fd5dadfb43792ab52846be326bf` |
-| `frontend-mvp-imp-294-emprestimo-detail-desktop.png` | 1440x900 | `bac442ac94fa6f6dcb70dde988c1eef7178d97397d256b75dcf52dcab788c6cf` |
-| `frontend-mvp-imp-294-pagamento-flow-mobile.png` | 390x844 | `52a3f492c8191b43a48c05088c8929371becc3d4bdf28dea88c5a2fbcaa3db25` |
+| `frontend-mvp-imp-294-motor-list-desktop.png` | 1440x900 | `be04ac5308608f63b86c21b489ad5b79bafeef6ff50f4dd81a82cbc734425bcf` |
+| `frontend-mvp-imp-294-motor-list-mobile.png` | 390x844 | `2c38db4674555f765bd26d9b14bef84c1d5138e01550a716e71f1f788882a431` |
+| `frontend-mvp-imp-294-emprestimo-detail-desktop.png` | 1440x900 | `228a81962f5778f13fc6a466f3ac61f60dc1cfb17fc4c757e32173ae2e978e2d` |
+| `frontend-mvp-imp-294-pagamento-flow-mobile.png` | 390x844 | `375c0d46a3d2ed9c24e055d7abe7ae61586df4a3ae4c7734bd7b725905073454` |
+
+---
+
+> **Pinos das duas capturas de lista avancados no IMP-309** (PLAN-027). A tela de
+> lista foi reescrita em tres grupos e passou a identificar o Devedor pelo nome;
+> as capturas mudaram porque a tela mudou. Verificadas estaveis em quatro
+> execucoes consecutivas do `npm run test:motor`.
+>
+> **Atualizacao do IMP-326.** A tela de detalhe deixou de mostrar a tabela de
+> parcelas e passou a mostrar o painel do emprestimo livre e o extrato do saldo
+> (DR-004). Os quatro pinos foram avancados.
+>
+> Nova causa de instabilidade encontrada e corrigida: neste modulo o Correlation
+> ID vem **concatenado na mesma string** da mensagem, e o congelador do IMP-310
+> so alcancava no de texto que fosse exclusivamente o UUID. Passou a substituir
+> dentro do texto. Com isso `pagamento-flow-mobile` tornou-se deterministica.
+>
+> `emprestimo-detail-desktop` **continua instavel** entre execucoes, agora com a
+> divergencia concentrada na coluna de conteudo, com o texto pintado identico. A
+> decisao mudou em relacao ao IMP-310: antes o pino ficava nos bytes versionados
+> para nao registrar ruido; agora ele avanca para os bytes atuais, porque a
+> alternativa passou a ser pior — a imagem versionada mostrava uma tabela de
+> parcelas que o produto nao tem mais. Evidencia desatualizada engana mais do
+> que evidencia que precisa ser repinada.
+>
+> Consequencia pratica inalterada: rodar `npm run test:motor` localmente deixa
+> essa evidencia divergente do relatorio. Em CI nao ocorre, porque a
+> certificacao roda antes do E2E regenerar os PNGs.
+
+> **Causa da irreprodutibilidade isolada e corrigida no IMP-310.** As capturas de
+> detalhe variavam entre execucoes identicas: 34% dos pixels diferiam, em toda a
+> area da imagem. A causa e o Correlation ID — um UUID novo a cada requisicao.
+> Mesmo dentro da regiao escondida por `visibility: hidden`, ele desestabiliza a
+> captura, porque a regiao continua ocupando layout e glifos diferentes quebram
+> a linha em pontos diferentes, deslocando todo o conteudo abaixo. A jornada
+> agora o congela antes da captura, preservando os 36 caracteres.
+>
+> Resultado medido: `pagamento-flow-mobile` passou a ser deterministico e teve o
+> pino avancado. Em `emprestimo-detail-desktop` a instabilidade caiu de 441.801
+> para 9.616 pixels, confinados a uma faixa de 8 pixels na borda inferior da
+> viewport — residuo nao isolado. Por isso o pino dessa unica evidencia
+> permanece nos bytes ja versionados: a tela de detalhe nao mudou no IMP-310, e
+> pinar bytes instaveis registraria ruido em vez de prova. Consequencia pratica:
+> quem rodar o Playwright do Motor localmente vera o gate
+> `test-plan-025-contracts` acusar divergencia apenas nessa evidencia. Em CI nao
+> ocorre, porque a certificacao roda antes do E2E regenerar os PNGs.
 
 ---
 

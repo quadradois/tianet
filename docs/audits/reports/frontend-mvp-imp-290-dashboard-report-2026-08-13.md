@@ -86,10 +86,10 @@ Capturas reais do build de producao, sem indicador de dev:
 
 | Evidencia | Dimensoes | SHA-256 |
 |---|---:|---|
-| Dashboard loaded desktop | 1440x900 | `2f39876d383747981c0cf7ed4161b90f9512682992e0a15e1ef9a7bcaef63080` |
-| Dashboard loaded mobile | 390x844 | `9da95ae2e7c8b1631223fd0318f4075faaca106cec90286129e778af0a279f26` |
-| Estados desktop (dark) | 1440x900 | `dbbd1fed2fd76e41259b513b56428772d54483599cf25a4f10fc08d658a2e52d` |
-| Estados mobile (dark) | 390x844 | `86d061ba1ef863bbc6293009ded0debfd37124dd01216a28ddd4577af7026f59` |
+| Dashboard loaded desktop | 1440x900 | `392606692c261a05bd76c08b2eef712c316b6f2fc608f019f9bd326c3235c243` |
+| Dashboard loaded mobile | 390x844 | `e8a5b67e6e51393adf5ced0d75e52b0e72cbdf0564d6b9c71dcaa4c8c00bf7bb` |
+| Estados desktop (dark) | 1440x900 | `242ae052ad2708901a3c2b86ea36f7affdc842da82b0ea446ae75059f0c7bea3` |
+| Estados mobile (dark) | 390x844 | `f9cdb1898f5f48f0c15abd85e570b94d2c7d263a615d15d2b85ef3a75d76e266` |
 
 O fluxo suporta o objetivo do operador: contexto Tenant/Carteira visivel,
 seletor temporal canonico, hierarquia das quatro secoes e falha parcial sem
@@ -182,3 +182,17 @@ cliente gerado, dependencia ou lockfile foi alterado pelo IMP-290.
 O IMP-290 esta tecnicamente concluido, mas **o IMP-291 continua bloqueado**.
 Executar `$fable:fable-judge` focal sobre este pacote antes de autorizar
 Devedores.
+
+---
+
+## 9. Repino de evidencia visual (IMP-327, DR-004)
+
+As quatro capturas do Inicio foram regravadas em 2026-08-19. O plano de parcelas saiu do
+contrato pela DR-004 e o cartao de vencimentos do Inicio passou a mostrar o acerto: data do
+acerto, situacao, dia combinado, dias sem pagamento e o emprestado. O fluxo
+diario trocou `previsto` — que so podia vir do plano — pela contagem de acertos
+do dia.
+
+Os SHA-256 publicados acima acompanham os bytes vigentes. Manter os hashes
+antigos preservaria imagens de colunas que nao existem mais, e uma evidencia que
+mostra tela removida engana mais do que um pino que precisou ser refeito.

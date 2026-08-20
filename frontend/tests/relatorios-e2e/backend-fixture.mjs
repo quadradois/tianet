@@ -3,7 +3,7 @@ import { createServer } from "node:http";
 const argument = process.argv.indexOf("--port");
 const port = argument >= 0 ? Number(process.argv[argument + 1]) : 3209;
 const id = (value) => `00000000-0000-4000-8000-${String(value).padStart(12, "0")}`;
-const IDS = { installment: id(11), loan: id(10), payment: id(12), profile: id(4), tenant: id(1), user: id(2), wallet: id(3) };
+const IDS = { loan: id(10), payment: id(12), profile: id(4), tenant: id(1), user: id(2), wallet: id(3) };
 
 function send(response, status, body, correlation = "corr-relatorios-297") {
   response.writeHead(status, { "Cache-Control": "no-store", "Content-Type": "application/json", "X-Correlation-ID": correlation });
@@ -37,11 +37,11 @@ function context(mode) {
 }
 
 function summary(referenceDate, empty = false) {
-  return { carteira_id: IDS.wallet, data_referencia: referenceDate, operacoes_ativas: empty ? 0 : 6, operacoes_quitadas: empty ? 0 : 4, parcelas_previstas: empty ? 0 : 18, parcelas_vencidas: empty ? 0 : 3, tenant_id: IDS.tenant, total_operacoes: empty ? 0 : 10, total_previsto: empty ? "0.00" : "98765.43", total_realizado: empty ? "0.00" : "54321.09" };
+  return { carteira_id: IDS.wallet, data_referencia: referenceDate, operacoes_ativas: empty ? 0 : 6, operacoes_quitadas: empty ? 0 : 4, acertos_pendentes: 1, tenant_id: IDS.tenant, total_operacoes: empty ? 0 : 10, principal_a_receber: empty ? "0.00" : "98765.43", total_realizado: empty ? "0.00" : "54321.09" };
 }
 
 function dueDates(referenceDate, empty = false) {
-  return { carteira_id: IDS.wallet, data_referencia: referenceDate, itens: empty ? [] : Array.from({ length: 14 }, (_, index) => ({ emprestimo_id: id(100 + index), estado: index % 2 ? "prevista" : "vencida", numero: index + 1, parcela_id: id(200 + index), situacao: index % 2 ? "futura" : "inadimplente", valor_liquidado: "0.00", valor_previsto: `${index + 1}00.00`, vencimento: `2026-08-${String(10 + index).padStart(2, "0")}` })), tenant_id: IDS.tenant, total: empty ? 0 : 14 };
+  return { carteira_id: IDS.wallet, data_referencia: referenceDate, itens: empty ? [] : Array.from({ length: 14 }, (_, index) => ({ acerto_em: `2026-08-${String(10 + index).padStart(2, "0")}`, devedor_id: id(200 + index), dia_de_acerto: 10 + index, dias_sem_pagamento: index % 2 ? 0 : index + 1, emprestimo_id: id(100 + index), principal_original: `${index + 1}00.00`, situacao: index % 2 ? "em dia" : "pendente" })), tenant_id: IDS.tenant, total: empty ? 0 : 14 };
 }
 
 function payments(empty = false) {
@@ -49,7 +49,7 @@ function payments(empty = false) {
 }
 
 function cashFlow(empty = false) {
-  return { carteira_id: IDS.wallet, fim: "2026-08-31", inicio: "2026-08-01", itens: empty ? [] : Array.from({ length: 12 }, (_, index) => ({ data: `2026-08-${String(index + 1).padStart(2, "0")}`, pagamento_ids: index % 2 ? [IDS.payment] : [], parcela_ids: [id(300 + index)], previsto: `${index + 2}00.00`, realizado: `${index + 1}00.00` })), tenant_id: IDS.tenant };
+  return { carteira_id: IDS.wallet, fim: "2026-08-31", inicio: "2026-08-01", itens: empty ? [] : Array.from({ length: 12 }, (_, index) => ({ acertos: index % 3, data: `2026-08-${String(index + 1).padStart(2, "0")}`, pagamento_ids: index % 2 ? [IDS.payment] : [], realizado: `${index + 1}00.00` })), tenant_id: IDS.tenant };
 }
 
 const server = createServer(async (request, response) => {

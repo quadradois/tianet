@@ -60,8 +60,7 @@ def _condicoes(**overrides: object) -> CondicoesLancamento:
     base: dict[str, object] = {
         "valor_contratado": "6000.00",
         "taxa_juros_mensal": "0.0300",
-        "quantidade_parcelas": 3,
-        "primeiro_vencimento": date(2026, 9, 20),
+        "dia_de_acerto": 10,
     }
     base.update(overrides)
     return CondicoesLancamento(**base)  # type: ignore[arg-type]
@@ -98,13 +97,15 @@ def test_lancamento_cria_devedor_e_toda_a_cadeia_em_uma_transacao(
         proposta = uow.proposta_comercial.find_by_id(resultado.proposta_id)
         contrato = uow.contrato_credito.find_by_id(resultado.contrato_id)
         emprestimo = uow.emprestimo.find_by_id(resultado.emprestimo_id)
-        parcelas = uow.parcela.find_by_emprestimo_id(resultado.emprestimo_id)
 
     assert proposta is not None and proposta.estado is PropostaComercialState.APROVADA
     assert contrato is not None
     assert contrato.estado is ContratoCreditoState.LIBERADO_PARA_MOTOR
     assert emprestimo is not None
-    assert len(parcelas) == 3
+    # Emprestimo livre (DR-004): o que o devedor deve em cada acerto e calculado
+    # na consulta, sobre o saldo do dia. Nao ha plano a persistir.
+    assert emprestimo.dia_de_acerto == 10
+    assert emprestimo.proximo_vencimento_em is not None
     assert resultado.devedor_id is not None
 
 
@@ -130,7 +131,7 @@ def test_lancamento_reutiliza_devedor_existente(
         carteira_id=ambiente.carteira_id,
         usuario_id=ambiente.usuario_id,
         devedor_id=primeiro.devedor_id,
-        condicoes=_condicoes(valor_contratado="1500.00", quantidade_parcelas=2),
+        condicoes=_condicoes(valor_contratado="1500.00", dia_de_acerto=20),
         data_referencia=date(2026, 8, 16),
         idempotency_key=str(uuid.uuid4()),
     )
@@ -160,8 +161,8 @@ def test_falha_no_motor_desfaz_o_devedor_criado_na_mesma_transacao(
                 nome="Nao Deve Persistir",
                 contato_whatsapp="(11) 96666-5544",
             ),
-            # quantidade_parcelas invalida derruba o Motor no ultimo passo
-            condicoes=_condicoes(quantidade_parcelas=0),
+            # dia_de_acerto invalido derruba o Motor no ultimo passo
+            condicoes=_condicoes(dia_de_acerto=0),
             data_referencia=date(2026, 8, 16),
             idempotency_key=str(uuid.uuid4()),
         )

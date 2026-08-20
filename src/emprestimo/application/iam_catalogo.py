@@ -27,8 +27,6 @@ CATALOGO_PERMISSOES = (
     Permissao("contratos.contrato.encerrar", "Cancelar ou encerrar contratos"),
     Permissao("motor.emprestimo.criar", "Criar emprestimos no Motor Financeiro"),
     Permissao("motor.emprestimo.ler", "Consultar emprestimos no Motor Financeiro"),
-    Permissao("motor.parcela.gerar", "Gerar plano de parcelas no Motor Financeiro"),
-    Permissao("motor.parcela.ler", "Consultar parcelas no Motor Financeiro"),
     Permissao("motor.pagamento.registrar", "Registrar pagamentos no Motor Financeiro"),
     Permissao("motor.saldo.ler", "Consultar saldo financeiro"),
     Permissao("motor.memoria.ler", "Consultar memoria de calculo financeira"),

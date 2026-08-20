@@ -62,7 +62,7 @@ function reminder(carteira_id = WALLET_ID) {
 }
 
 function communication(carteira_id = WALLET_ID) {
-  return { agenda_item_id: COMMITMENT_ID, canal: "telefone", carteira_id, cobranca_acao_id: null, devedor_id: DEBTOR_ID, emprestimo_id: LOAN_ID, ocorrido_em: "2026-08-14T16:00:00Z", parcela_id: null, registro_id: COMMUNICATION_ID, responsavel_id: USER_ID, resultado: "Retorno agendado", resumo: "Contato realizado", tenant_id: TENANT_ID };
+  return { agenda_item_id: COMMITMENT_ID, canal: "telefone", carteira_id, cobranca_acao_id: null, devedor_id: DEBTOR_ID, emprestimo_id: LOAN_ID, ocorrido_em: "2026-08-14T16:00:00Z", registro_id: COMMUNICATION_ID, responsavel_id: USER_ID, resultado: "Retorno agendado", resumo: "Contato realizado", tenant_id: TENANT_ID };
 }
 
 function notification() {

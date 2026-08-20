@@ -23,7 +23,6 @@ from emprestimo.application.motor_financeiro import (
     CriacaoEmprestimoService,
     PagamentoResultado,
     PagamentoService,
-    PlanoParcelasService,
 )
 from emprestimo.application.operacao_diaria import (
     ApropriarPagamentoPromessa,
@@ -84,7 +83,6 @@ class _Ambiente:
 class _ContextoMotor:
     ambiente: _Ambiente
     emprestimo_id: uuid.UUID
-    parcela_id: uuid.UUID
     pagamento: PagamentoResultado
 
 
@@ -108,7 +106,6 @@ def test_cobranca_manual_registra_acao_promessa_apropriacao_e_replay(
         tipo=TipoAcaoCobranca.TELEFONE,
         resultado="cliente prometeu pagar",
         idempotency_key="od-acao-1",
-        parcela_id=contexto.parcela_id,
     )
     replay_acao = acoes.registrar(
         tenant_id=contexto.ambiente.tenant_id,
@@ -117,7 +114,6 @@ def test_cobranca_manual_registra_acao_promessa_apropriacao_e_replay(
         tipo=TipoAcaoCobranca.TELEFONE,
         resultado="cliente prometeu pagar",
         idempotency_key="od-acao-1",
-        parcela_id=contexto.parcela_id,
     )
 
     promessas = RegistrarPromessa(lambda: SqlAlchemyUnitOfWork(session_factory))
@@ -128,7 +124,6 @@ def test_cobranca_manual_registra_acao_promessa_apropriacao_e_replay(
         valor_declarado=Decimal("100.00"),
         data_promessa=date(2026, 9, 10),
         idempotency_key="od-promessa-1",
-        parcela_id=contexto.parcela_id,
         pagamento_informado=True,
     )
     apropriacao = ApropriarPagamentoPromessa(
@@ -285,7 +280,6 @@ def test_comunicacao_manual_registra_replay_e_consulta_historico(
         resultado="Cliente pediu segunda via",
         idempotency_key="od-comunicacao-1",
         emprestimo_id=contexto.emprestimo_id,
-        parcela_id=contexto.parcela_id,
     )
     replay = comunicacoes.registrar(
         tenant_id=contexto.ambiente.tenant_id,
@@ -298,7 +292,6 @@ def test_comunicacao_manual_registra_replay_e_consulta_historico(
         resultado="Cliente pediu segunda via",
         idempotency_key="od-comunicacao-1",
         emprestimo_id=contexto.emprestimo_id,
-        parcela_id=contexto.parcela_id,
     )
     historico = ConsultarHistoricoComunicacao(lambda: SqlAlchemyUnitOfWork(session_factory)).listar(
         tenant_id=contexto.ambiente.tenant_id,
@@ -358,23 +351,17 @@ def _contexto_motor(session_factory: sessionmaker[Session]) -> _ContextoMotor:
         usuario_id=ambiente.usuario_id,
         idempotency_key=f"od-emp-{uuid.uuid4()}",
     )
-    plano = PlanoParcelasService(lambda: SqlAlchemyUnitOfWork(session_factory)).gerar(
-        emprestimo_id=emprestimo.emprestimo_id,
-        tenant_id=ambiente.tenant_id,
-        data_referencia=date(2026, 8, 10),
-    )
     pagamento = PagamentoService(lambda: SqlAlchemyUnitOfWork(session_factory)).registrar(
         emprestimo_id=emprestimo.emprestimo_id,
         tenant_id=ambiente.tenant_id,
         usuario_id=ambiente.usuario_id,
-        valor=plano.parcelas[0].valor_previsto,
+        valor=Decimal("1000.00"),
         recebido_em=datetime(2026, 9, 10, 12, 0, tzinfo=UTC),
         idempotency_key=f"od-pag-{uuid.uuid4()}",
     )
     return _ContextoMotor(
         ambiente=ambiente,
         emprestimo_id=emprestimo.emprestimo_id,
-        parcela_id=plano.parcelas[0].parcela_id,
         pagamento=pagamento,
     )
 
@@ -389,7 +376,7 @@ def _caso_cobranca(
             carteira_id=contexto.ambiente.carteira_id,
             devedor_id=contexto.ambiente.devedor_id,
             emprestimo_id=contexto.emprestimo_id,
-            titulo="Cobranca de parcela",
+            titulo="Cobranca do acerto",
             origem="teste_integracao",
             estado=EstadoCobranca.PENDENTE,
         )
@@ -410,7 +397,7 @@ def _contrato_liberado(
         parametros={
             "valor_contratado": "10000.00",
             "prazo_meses": 10,
-            "quantidade_parcelas": 2,
+            "dia_de_acerto": 10,
             "primeiro_vencimento": "2026-09-10",
             "taxa_juros_mensal": "0.0200",
         },

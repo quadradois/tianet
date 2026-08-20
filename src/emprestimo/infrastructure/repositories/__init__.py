@@ -7,7 +7,6 @@ transacional pertencem ao Unit of Work da fase de Aplicação (IMP-014).
 from __future__ import annotations
 
 import uuid
-from collections.abc import Sequence
 from datetime import date
 from math import ceil
 
@@ -39,7 +38,6 @@ from emprestimo.domain.credit.eventos_financeiros import (
 from emprestimo.domain.credit.financeiro import PeriodoFinanceiro
 from emprestimo.domain.credit.memoria_calculo import MemoriaCalculo, PassoCalculo
 from emprestimo.domain.credit.pagamento import Pagamento, PagamentoState
-from emprestimo.domain.credit.parcela import Parcela, ParcelaState
 from emprestimo.domain.credit.ports import (
     CarteiraRepository,
     ContatoRepository,
@@ -57,7 +55,6 @@ from emprestimo.domain.credit.ports import (
     MemoriaCalculoRepository,
     PagamentoRepository,
     Paginacao,
-    ParcelaRepository,
     PropostaComercialFiltros,
     PropostaComercialRepository,
     PropostaComercialResultadoPaginado,
@@ -100,7 +97,6 @@ from emprestimo.infrastructure.db.orm import (
     EventoFinanceiroORM,
     MemoriaCalculoORM,
     PagamentoORM,
-    ParcelaORM,
     PerfilAcessoORM,
     PerfilPermissaoORM,
     PermissaoORM,
@@ -962,26 +958,6 @@ class SqlAlchemyEmprestimoRepository(EmprestimoRepository):
         return por_emprestimo
 
 
-class SqlAlchemyParcelaRepository(ParcelaRepository):
-    """Implementacao SQLAlchemy do ParcelaRepository (IMP-156)."""
-
-    def __init__(self, session: Session) -> None:
-        self._session = session
-
-    def save_many(self, parcelas: Sequence[Parcela]) -> None:
-        for parcela in parcelas:
-            self._session.merge(_to_parcela_orm(parcela))
-        self._session.flush()
-
-    def find_by_emprestimo_id(self, emprestimo_id: uuid.UUID) -> list[Parcela]:
-        rows = self._session.scalars(
-            select(ParcelaORM)
-            .where(ParcelaORM.emprestimo_id == emprestimo_id)
-            .order_by(ParcelaORM.numero, ParcelaORM.id)
-        ).all()
-        return [_to_parcela(row) for row in rows]
-
-
 class SqlAlchemyPagamentoRepository(PagamentoRepository):
     """Implementacao SQLAlchemy do PagamentoRepository (IMP-156)."""
 
@@ -1266,42 +1242,6 @@ def _to_emprestimo(
     )
     emprestimo._eventos = eventos if eventos is not None else []  # type: ignore[assignment]
     return emprestimo
-
-
-def _to_parcela_orm(parcela: Parcela) -> ParcelaORM:
-    return ParcelaORM(
-        id=parcela.id,
-        emprestimo_id=parcela.emprestimo_id,
-        numero=parcela.numero,
-        vencimento=parcela.vencimento,
-        valor_previsto=parcela.valor_previsto,
-        principal=parcela.principal,
-        juros=parcela.juros,
-        encargos=parcela.encargos,
-        valor_liquidado=parcela.valor_liquidado,
-        periodo=_periodo_to_json(parcela.periodo),
-        estado=parcela.estado.value,
-        criada_em=parcela.criada_em,
-        atualizada_em=parcela.atualizada_em,
-    )
-
-
-def _to_parcela(row: ParcelaORM) -> Parcela:
-    return Parcela(
-        id=row.id,
-        emprestimo_id=row.emprestimo_id,
-        numero=row.numero,
-        vencimento=row.vencimento,
-        valor_previsto=row.valor_previsto,
-        principal=row.principal,
-        juros=row.juros,
-        encargos=row.encargos,
-        valor_liquidado=row.valor_liquidado,
-        periodo=_periodo_from_json(row.periodo),
-        estado=ParcelaState(row.estado),
-        criada_em=row.criada_em,
-        atualizada_em=row.atualizada_em,
-    )
 
 
 def _to_pagamento_orm(pagamento: Pagamento) -> PagamentoORM:

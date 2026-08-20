@@ -27,7 +27,7 @@ test("login, contexto proprio e logout nao expõem tokens ao browser", async ({ 
   page.on("request", (request) => browserRequests.push(request.url()));
   await login(page);
   await expect(page).toHaveURL(/\/app\?data_referencia=\d{4}-\d{2}-\d{2}$/);
-  await expect(page.getByRole("heading", { name: "Dashboard" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Inicio" })).toBeVisible();
   await expect(page.getByText("Instituicao ACME")).toBeVisible();
   await expect(page.getByText("Carteira Centro")).toBeVisible();
   await expect(page.getByRole("navigation", { name: "Navegacao principal" }).getByRole("link", { name: "Devedores" })).toHaveAttribute("href", "/app/devedores");

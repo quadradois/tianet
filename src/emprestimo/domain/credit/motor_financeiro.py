@@ -20,7 +20,6 @@ from emprestimo.domain.credit.eventos_financeiros import (
 from emprestimo.domain.credit.financeiro import PeriodoFinanceiro, ValorQuitacao
 from emprestimo.domain.credit.memoria_calculo import MemoriaCalculo, PassoCalculo
 from emprestimo.domain.credit.pagamento import Pagamento
-from emprestimo.domain.credit.parcela import Parcela
 
 __all__ = [
     "MemoriaCalculo",
@@ -28,17 +27,10 @@ __all__ = [
     "QuitacaoCalculada",
     "RenegociacaoFinanceira",
     "ResultadoPagamento",
-    "ResultadoPlanoParcelas",
     "SaldoFinanceiro",
 ]
 
 CENTAVO = Decimal("0.01")
-
-
-@dataclass(frozen=True)
-class ResultadoPlanoParcelas:
-    parcelas: tuple[Parcela, ...]
-    memoria: MemoriaCalculo
 
 
 @dataclass(frozen=True)
@@ -89,7 +81,6 @@ class MotorFinanceiro:
     """Unica superficie de calculo definitivo do dominio financeiro."""
 
     def __init__(self) -> None:
-        self._parcelas_por_emprestimo: dict[uuid.UUID, list[Parcela]] = {}
         self._pagamentos_por_emprestimo: dict[uuid.UUID, list[Pagamento]] = {}
         self._pagamentos_por_chave: dict[tuple[uuid.UUID, str], ResultadoPagamento] = {}
 
@@ -97,93 +88,12 @@ class MotorFinanceiro:
         self,
         *,
         emprestimo_id: uuid.UUID,
-        parcelas: Sequence[Parcela] = (),
         pagamentos: Sequence[Pagamento] = (),
     ) -> None:
         """Carrega fatos persistidos para processar novas operacoes financeiras."""
 
         _validar_uuid("emprestimo_id", emprestimo_id)
-        self._parcelas_por_emprestimo[emprestimo_id] = list(parcelas)
         self._pagamentos_por_emprestimo[emprestimo_id] = list(pagamentos)
-
-    def gerar_plano_parcelas(
-        self,
-        *,
-        emprestimo: Emprestimo,
-        data_referencia: date,
-    ) -> ResultadoPlanoParcelas:
-        self._validar_emprestimo_ativo(emprestimo)
-        if not isinstance(data_referencia, date):
-            raise ViolacaoInvarianteError("EPIC-005", "data_referencia deve ser date")
-        if emprestimo.id in self._parcelas_por_emprestimo:
-            parcelas_existentes = tuple(self._parcelas_por_emprestimo[emprestimo.id])
-            return ResultadoPlanoParcelas(
-                parcelas=parcelas_existentes,
-                memoria=self._memoria_plano(
-                    emprestimo,
-                    data_referencia,
-                    parcelas_existentes,
-                ),
-            )
-
-        quantidade = _inteiro_parametro(
-            emprestimo.parametros_financeiros,
-            "quantidade_parcelas",
-        )
-        if quantidade <= 0:
-            raise ViolacaoInvarianteError(
-                "EPIC-005",
-                "quantidade_parcelas deve ser positiva",
-            )
-        primeiro_vencimento = _data_parametro(
-            emprestimo.parametros_financeiros,
-            "primeiro_vencimento",
-        )
-        principal_base = _quantizar(emprestimo.principal_original / Decimal(quantidade))
-        parcelas: list[Parcela] = []
-        total_principal = Decimal("0.00")
-        inicio = data_referencia
-        vencimento = primeiro_vencimento
-        taxa = _taxa_mensal(emprestimo.parametros_financeiros)
-
-        for numero in range(1, quantidade + 1):
-            periodo = PeriodoFinanceiro(data_inicio=inicio, data_fim=vencimento)
-            principal = (
-                emprestimo.principal_original - total_principal
-                if numero == quantidade
-                else principal_base
-            )
-            principal = _quantizar(principal)
-            juros = _calcular_juros(
-                principal=principal,
-                taxa_mensal=taxa,
-                periodo=periodo,
-            )
-            parcela = Parcela(
-                emprestimo_id=emprestimo.id,
-                numero=numero,
-                vencimento=vencimento,
-                valor_previsto=_quantizar(principal + juros),
-                principal=principal,
-                juros=juros,
-                periodo=periodo,
-            )
-            parcelas.append(parcela)
-            total_principal += principal
-            inicio = vencimento
-            vencimento = _adicionar_meses(vencimento, 1)
-
-        emprestimo.proximo_vencimento_em = datetime.combine(
-            parcelas[0].vencimento,
-            datetime.min.time(),
-            tzinfo=UTC,
-        )
-        emprestimo.ultimo_processamento_em = datetime.now(UTC)
-        self._parcelas_por_emprestimo[emprestimo.id] = parcelas
-        return ResultadoPlanoParcelas(
-            parcelas=tuple(parcelas),
-            memoria=self._memoria_plano(emprestimo, data_referencia, tuple(parcelas)),
-        )
 
     def registrar_pagamento(
         self,
@@ -228,7 +138,6 @@ class MotorFinanceiro:
             usuario_id=usuario_id,
         )
         self._pagamentos_por_emprestimo.setdefault(emprestimo.id, []).append(pagamento)
-        self._liquidar_parcelas(emprestimo.id, pagamento)
         emprestimo.ultimo_pagamento_em = recebido_em
         emprestimo.ultimo_processamento_em = recebido_em
         emprestimo.atualizado_em = datetime.now(UTC)
@@ -286,7 +195,7 @@ class MotorFinanceiro:
         )
         principal = max(emprestimo.principal_original - amortizado, Decimal("0.00"))
         juros = max(
-            self._juros_acumulado(emprestimo, principal, data_referencia) - juros_pago,
+            self._juros_acumulado(emprestimo, data_referencia) - juros_pago,
             Decimal("0.00"),
         )
         encargos = Decimal("0.00")
@@ -484,78 +393,62 @@ class MotorFinanceiro:
     def _pagamentos(self, emprestimo_id: uuid.UUID) -> tuple[Pagamento, ...]:
         return tuple(self._pagamentos_por_emprestimo.get(emprestimo_id, ()))
 
-    def _liquidar_parcelas(self, emprestimo_id: uuid.UUID, pagamento: Pagamento) -> None:
-        restante = pagamento.valor_distribuido
-        for parcela in self._parcelas_por_emprestimo.get(emprestimo_id, ()):
-            if restante <= Decimal("0.00"):
-                break
-            valor = min(restante, parcela.saldo_pendente)
-            if valor > Decimal("0.00"):
-                parcela.registrar_liquidacao(valor=valor, liquidado_em=pagamento.recebido_em)
-                restante -= valor
-
     def _juros_acumulado(
         self,
         emprestimo: Emprestimo,
-        principal: Decimal,
         data_referencia: date,
     ) -> Decimal:
-        data_inicio = emprestimo.criado_em.date()
-        if data_referencia <= data_inicio or principal <= Decimal("0.00"):
-            return Decimal("0.00")
-        periodo = PeriodoFinanceiro(data_inicio=data_inicio, data_fim=data_referencia)
-        return _calcular_juros(
-            principal=principal,
-            taxa_mensal=_taxa_mensal(emprestimo.parametros_financeiros),
-            periodo=periodo,
-        )
+        """Juros acumulados desde a origem, trecho a trecho (DR-004).
 
-    def _memoria_plano(
-        self,
-        emprestimo: Emprestimo,
-        data_referencia: date,
-        parcelas: tuple[Parcela, ...],
-    ) -> MemoriaCalculo:
-        return MemoriaCalculo(
-            tipo="geracao_parcelas",
-            entradas={
-                "emprestimo_id": str(emprestimo.id),
-                "data_referencia": data_referencia.isoformat(),
-            },
-            regra=_regra_memoria(emprestimo.parametros_financeiros),
-            periodos=tuple(
-                {
-                    "numero": parcela.numero,
-                    "data_inicio": parcela.periodo.data_inicio.isoformat(),
-                    "data_fim": parcela.periodo.data_fim.isoformat(),
-                    "dias": parcela.periodo.dias,
-                }
-                for parcela in parcelas
-                if parcela.periodo is not None
-            ),
-            passos=tuple(
-                PassoCalculo(
-                    nome=f"calcular_parcela_{parcela.numero}",
-                    entradas={
-                        "principal": str(parcela.principal),
-                        "periodo_dias": parcela.periodo.dias if parcela.periodo else None,
-                    },
-                    saidas={
-                        "juros": str(parcela.juros),
-                        "valor_previsto": str(parcela.valor_previsto),
-                    },
-                    arredondamento="ROUND_HALF_UP:0.01",
+        A acumulacao anterior media sempre da criacao ate a data de referencia
+        aplicando o saldo **atual** sobre **todo** o periodo decorrido. Cada
+        amortizacao devolvia retroativamente juros ja corretamente cobrados: um
+        emprestimo de 10.000 que amortizou 4.500 passava a ser cobrado como se
+        sempre tivesse sido de 5.500.
+
+        O periodo e quebrado em dois marcos, e so nestes dois:
+
+        - **cada pagamento**, porque muda o saldo sobre o qual a taxa incide;
+        - **cada virada de mes**, porque muda a base de normalizacao da regra
+          (`DOMAIN-030`: o periodo e medido pelos dias do mes a que pertence).
+
+        Sem o segundo marco, dois meses cheios de um emprestimo sem pagamento
+        nenhum custavam 983,87 em vez de 1.000,00, por normalizar setembro pela
+        regua de agosto.
+        """
+        inicio = emprestimo.criado_em.date()
+        if data_referencia <= inicio:
+            return Decimal("0.00")
+
+        amortizado_em: dict[date, Decimal] = {}
+        for pagamento in self._pagamentos(emprestimo.id):
+            recebido = pagamento.recebido_em.date()
+            if inicio < recebido <= data_referencia:
+                amortizado_em[recebido] = (
+                    amortizado_em.get(recebido, Decimal("0.00")) + pagamento.valor_amortizacao
                 )
-                for parcela in parcelas
-            ),
-            arredondamentos=("ROUND_HALF_UP:0.01",),
-            resultados={
-                "quantidade_parcelas": len(parcelas),
-                "valor_total": str(
-                    sum((parcela.valor_previsto for parcela in parcelas), Decimal("0.00"))
-                ),
-            },
+
+        marcos = sorted(
+            set(amortizado_em) | set(_viradas_de_mes(inicio, data_referencia)) | {data_referencia}
         )
+        taxa = _taxa_mensal(emprestimo.parametros_financeiros)
+        saldo = emprestimo.principal_original
+        acumulado = Decimal("0.00")
+        atual = inicio
+        for marco in marcos:
+            if marco <= atual:
+                continue
+            if saldo > Decimal("0.00"):
+                acumulado += _calcular_juros(
+                    principal=saldo,
+                    taxa_mensal=taxa,
+                    periodo=PeriodoFinanceiro(data_inicio=atual, data_fim=marco),
+                )
+            # A amortizacao do dia reduz o saldo depois de cobrado o trecho que
+            # termina nele: quem pagou hoje deve os juros ate hoje.
+            saldo = max(saldo - amortizado_em.get(marco, Decimal("0.00")), Decimal("0.00"))
+            atual = marco
+        return _quantizar(acumulado)
 
     def _memoria_pagamento(
         self,
@@ -614,14 +507,32 @@ class MotorFinanceiro:
         )
 
 
+def _viradas_de_mes(inicio: date, fim: date) -> tuple[date, ...]:
+    """Primeiro dia de cada mes estritamente entre `inicio` e `fim`."""
+    viradas: list[date] = []
+    ano, mes = (inicio.year, inicio.month + 1) if inicio.month < 12 else (inicio.year + 1, 1)
+    virada = date(ano, mes, 1)
+    while virada < fim:
+        if virada > inicio:
+            viradas.append(virada)
+        ano, mes = (virada.year, virada.month + 1) if virada.month < 12 else (virada.year + 1, 1)
+        virada = date(ano, mes, 1)
+    return tuple(viradas)
+
+
 def _calcular_juros(
     *,
     principal: Decimal,
     taxa_mensal: Decimal,
     periodo: PeriodoFinanceiro,
 ) -> Decimal:
+    # Normaliza pelo mes a que o periodo pertence, nao pelo mes em que a parcela
+    # vence (DR-003). A taxa e contratada "por mes": um periodo que cobre um mes
+    # calendario deve custar exatamente essa taxa. Dividir pelos dias do mes de
+    # vencimento media um mes com a regua de outro — 01/01 a 01/02 tem 31 dias de
+    # janeiro e custava 1,107 mes por ser normalizado por fevereiro.
     dias_do_calendario = Decimal(
-        calendar.monthrange(periodo.data_fim.year, periodo.data_fim.month)[1]
+        calendar.monthrange(periodo.data_inicio.year, periodo.data_inicio.month)[1]
     )
     return _quantizar(principal * taxa_mensal * Decimal(periodo.dias) / dias_do_calendario)
 

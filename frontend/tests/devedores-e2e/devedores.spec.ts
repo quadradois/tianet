@@ -17,6 +17,28 @@ async function assertNoToken(page: Page, context: BrowserContext) {
   expect((await context.cookies()).every((cookie) => cookie.httpOnly)).toBe(true);
 }
 
+/**
+ * Congela o Correlation ID antes da captura de evidencia.
+ *
+ * O identificador e um UUID novo a cada requisicao e aparece impresso na tela
+ * apos Inativar/Reativar. Sem isto a evidencia visual nunca se repete: duas
+ * execucoes identicas produzem PNGs diferentes, e o pino de SHA no relatorio
+ * vira ruido em vez de prova. A substituicao mantem os mesmos 36 caracteres,
+ * para nao deslocar o layout.
+ */
+async function freezeCorrelationIds(page: Page) {
+  await page.evaluate(() => {
+    const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
+    for (let node = walker.nextNode(); node; node = walker.nextNode()) {
+      const value = node.nodeValue?.trim() ?? "";
+      if (UUID.test(value) && (node.parentElement?.textContent ?? "").includes("Correlation ID")) {
+        node.nodeValue = "00000000-0000-4000-8000-00000000evid";
+      }
+    }
+  });
+}
+
 test.beforeEach(async ({ page }) => {
   page.on("console", (message) => { if (message.type() === "error") throw new Error(`console error: ${message.text()}`); });
   page.on("pageerror", (error) => { throw error; });
@@ -42,12 +64,22 @@ test("detalhe, historico e comandos idempotentes respeitam RBAC exato", async ({
   await page.goto("/app/devedores");
   await page.getByRole("link", { name: "Consultar" }).first().click();
   await expect(page.getByRole("heading", { name: "Cliente Devedor" })).toBeVisible();
-  await expect(page.getByText("criar.sucesso")).toBeVisible();
+  // O historico deixou de exibir o nome interno do evento. O detalhe tecnico
+  // continua acessivel, porem fechado.
+  await expect(page.getByText("Cadastro", { exact: true }).first()).toBeVisible();
+  await expect(page.getByText("criar.sucesso")).toHaveCount(0);
+  // Abrir o Devedor ja mostra a situacao dos emprestimos dele, agrupada pelo
+  // estado que o backend devolveu. Grupo sem nada nao aparece.
+  await expect(page.getByRole("heading", { name: "Emprestimos deste devedor" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: /Em andamento \(1\)/ })).toBeVisible();
+  await expect(page.getByRole("heading", { name: /Quitados \(1\)/ })).toBeVisible();
+  await expect(page.getByRole("heading", { name: /Encerrados/ })).toHaveCount(0);
   await page.getByRole("button", { name: "Inativar" }).click();
   await expect(page.getByText(/Devedor inativado com sucesso/)).toBeVisible();
   await page.getByRole("button", { name: "Reativar" }).click();
   await expect(page.getByText(/Devedor reativado com sucesso/)).toBeVisible();
   const suffix = testInfo.project.name.startsWith("mobile") ? "devedor-form-mobile" : "devedor-detail-desktop";
+  await freezeCorrelationIds(page);
   await page.screenshot({ animations: "disabled", caret: "initial", fullPage: false, path: resolve(`../docs/audits/evidence/frontend-mvp-imp-291-${suffix}.png`) });
   await page.getByRole("button", { name: "Sair" }).click();
   await expect(page).toHaveURL(/\/login$/);
@@ -55,6 +87,9 @@ test("detalhe, historico e comandos idempotentes respeitam RBAC exato", async ({
   await page.goto("/app/devedores/00000000-0000-4000-8000-000000000010");
   await expect(page.getByText("Sem permissao de atualizar Devedor.")).toBeVisible();
   await expect(page.getByText("Sem permissao de inativar Devedor.")).toBeVisible();
+  // Sem motor.emprestimo.ler o bloco nega, e o detalhe do Devedor continua util.
+  await expect(page.getByText("Seu acesso atual nao permite ver os emprestimos.")).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Cliente Devedor" })).toBeVisible();
 });
 
 test("busca por documento, estados vazios e erros 404/409/422 sao seguros", async ({ page }) => {
@@ -66,7 +101,8 @@ test("busca por documento, estados vazios e erros 404/409/422 sao seguros", asyn
   await expect(page).toHaveURL(/\/login$/);
   await login(page, "VAZIO");
   await page.goto("/app/devedores");
-  await expect(page.getByText(/empty/)).toBeVisible();
+  // empty: a ausencia e dita em frase.
+  await expect(page.getByText(/Nenhum devedor cadastrado ainda/)).toBeVisible();
   await page.getByRole("button", { name: "Sair" }).click();
   await expect(page).toHaveURL(/\/login$/);
   await login(page, "NAO-ENCONTRADO");

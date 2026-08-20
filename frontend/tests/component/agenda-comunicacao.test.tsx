@@ -42,7 +42,6 @@ const historyData: CommunicationHistory = {
     devedor_id: "00000000-0000-4000-8000-000000000010",
     emprestimo_id: null,
     ocorrido_em: "2026-08-14T16:00:00Z",
-    parcela_id: null,
     registro_id: "00000000-0000-4000-8000-000000000082",
     responsavel_id: "00000000-0000-4000-8000-000000000002",
     resultado: "Retorno agendado",

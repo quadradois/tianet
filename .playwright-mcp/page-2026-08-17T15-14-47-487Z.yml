@@ -1,0 +1,10 @@
+- generic [active] [ref=f5e1]:
+  - link "Pular para o conteudo" [ref=f5e2] [cursor=pointer]:
+    - /url: "#conteudo-principal"
+  - main [ref=f5e3]:
+    - generic [ref=f5e4]:
+      - generic [ref=f5e5]:
+        - heading "Validando sua sessao" [level=2] [ref=f5e6]
+        - paragraph [ref=f5e7]: O contexto continua sendo resolvido exclusivamente pelo backend.
+      - status [ref=f5e9]: Restaurando sessao…
+  - alert [ref=f5e10]

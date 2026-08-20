@@ -46,11 +46,11 @@ function action() {
 }
 
 function promise() {
-  return { carteira_id: IDS.wallet, data_promessa: "2026-08-21", devedor_id: IDS.debtor, emprestimo_id: IDS.loan, estado: "pendente", parcela_id: null, promessa_id: IDS.promise, tenant_id: IDS.tenant, valor_declarado: "100.00" };
+  return { carteira_id: IDS.wallet, data_promessa: "2026-08-21", devedor_id: IDS.debtor, emprestimo_id: IDS.loan, estado: "pendente", promessa_id: IDS.promise, tenant_id: IDS.tenant, valor_declarado: "100.00" };
 }
 
 function appropriation() {
-  return { apropriacao_id: IDS.appropriation, estado_promessa: "cumprida", pagamento_id: IDS.payment, parcela_id: IDS.installment, promessa_id: IDS.promise, realizado_em: "2026-08-14T12:00:00Z", valor: "100.00" };
+  return { apropriacao_id: IDS.appropriation, estado_promessa: "cumprida", pagamento_id: IDS.payment, promessa_id: IDS.promise, realizado_em: "2026-08-14T12:00:00Z", valor: "100.00" };
 }
 
 const server = createServer(async (request, response) => {

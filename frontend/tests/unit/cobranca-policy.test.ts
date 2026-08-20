@@ -32,11 +32,11 @@ describe("politica de Cobranca", () => {
     const form = new FormData();
     form.set("data_promessa", "2026-08-21");
     form.set("valor_declarado", "123.45");
-    form.set("parcela_id", "00000000-0000-4000-8000-000000000060");
+    form.set("emprestimo_id", "00000000-0000-4000-8000-000000000060");
     form.set("pagamento_informado", "on");
     expect(formDate(form, "data_promessa")).toBe("2026-08-21");
     expect(formMoney(form, "valor_declarado")).toBe("123.45");
-    expect(formOptionalUuid(form, "parcela_id")).toBe("00000000-0000-4000-8000-000000000060");
+    expect(formOptionalUuid(form, "emprestimo_id")).toBe("00000000-0000-4000-8000-000000000060");
     expect(formBoolean(form, "pagamento_informado")).toBe(true);
     form.set("data_promessa", "2026-02-31");
     expect(formDate(form, "data_promessa")).toBeUndefined();

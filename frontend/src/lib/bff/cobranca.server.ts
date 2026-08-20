@@ -156,7 +156,6 @@ function validPromise(value: unknown, context: OperationalContext, caseId: strin
   return isRecord(value)
     && matchesContext(value, context)
     && uuids(value, ["promessa_id", "tenant_id", "carteira_id", "devedor_id", "emprestimo_id"])
-    && nullableUuid(value, "parcela_id")
     && typeof value.estado === "string"
     && PROMISE_STATES.has(value.estado)
     && decimal(value.valor_declarado)
@@ -165,7 +164,7 @@ function validPromise(value: unknown, context: OperationalContext, caseId: strin
 
 function validAppropriation(value: unknown, _context: OperationalContext, promiseId: string): value is PromiseAppropriation {
   return isRecord(value)
-    && uuids(value, ["apropriacao_id", "promessa_id", "pagamento_id", "parcela_id"])
+    && uuids(value, ["apropriacao_id", "promessa_id", "pagamento_id"])
     && value.promessa_id === promiseId
     && typeof value.estado_promessa === "string"
     && PROMISE_STATES.has(value.estado_promessa)
@@ -300,8 +299,7 @@ export async function registerCollectionAction(
   const tipo = formActionType(formData);
   const resultado = formString(formData, "resultado", 1_000);
   if (!caseId || !tipo || !resultado) return { kind: "problem", message: "Informe acao de cobranca valida.", status: 400, correlationId: correlationId() };
-  const parcelaId = formUuid(formData, "parcela_id");
-  const body: ActionRequest = { tipo, resultado, ...(parcelaId ? { parcela_id: parcelaId } : {}) };
+  const body: ActionRequest = { tipo, resultado };
   return executeMutation(cookies, context, dependencies, COBRANCA_ACTION_REGISTER_PERMISSION, (client, correlation) => client.POST(
     "/credit/cobrancas/casos/{cobranca_caso_id}/acoes",
     { body, params: { path: { cobranca_caso_id: caseId }, header: { "X-Correlation-ID": correlation, "Idempotency-Key": requiredIdempotencyKey(formData) } } },
@@ -318,14 +316,12 @@ export async function registerPaymentPromise(
   const valorDeclarado = formMoney(formData, "valor_declarado");
   const dataPromessa = formDate(formData, "data_promessa");
   if (!caseId || !valorDeclarado || !dataPromessa) return { kind: "problem", message: "Informe promessa declaratoria valida.", status: 400, correlationId: correlationId() };
-  const parcelaId = formUuid(formData, "parcela_id");
   const observacao = formString(formData, "observacao", 1_000);
   const body: PromiseRequest = {
     data_promessa: dataPromessa,
     pagamento_informado: formBoolean(formData, "pagamento_informado"),
     valor_declarado: valorDeclarado,
     ...(observacao ? { observacao } : {}),
-    ...(parcelaId ? { parcela_id: parcelaId } : {}),
   };
   return executeMutation(cookies, context, dependencies, COBRANCA_PROMISE_REGISTER_PERMISSION, (client, correlation) => client.POST(
     "/credit/cobrancas/casos/{cobranca_caso_id}/promessas",
@@ -342,9 +338,8 @@ export async function appropriatePaymentPromise(
   const promiseId = formUuid(formData, "promessa_id");
   const pagamentoId = formUuid(formData, "pagamento_id");
   if (!promiseId || !pagamentoId) return { kind: "problem", message: "Informe apropriacao de pagamento oficial valida.", status: 400, correlationId: correlationId() };
-  const parcelaId = formUuid(formData, "parcela_id");
   const dataReferencia = formDate(formData, "data_referencia");
-  const body: AppropriationRequest = { pagamento_id: pagamentoId, ...(parcelaId ? { parcela_id: parcelaId } : {}), ...(dataReferencia ? { data_referencia: dataReferencia } : {}) };
+  const body: AppropriationRequest = { pagamento_id: pagamentoId, ...(dataReferencia ? { data_referencia: dataReferencia } : {}) };
   return executeMutation(cookies, context, dependencies, COBRANCA_PROMISE_APPROPRIATE_PERMISSION, (client, correlation) => client.POST(
     "/credit/cobrancas/promessas/{promessa_id}/apropriacoes",
     { body, params: { path: { promessa_id: promiseId }, header: { "X-Correlation-ID": correlation, "Idempotency-Key": requiredIdempotencyKey(formData) } } },

@@ -18,8 +18,10 @@ services:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?defina POSTGRES_PASSWORD no .env}
       POSTGRES_DB: emprestimo
     # Loopback apenas: o banco nunca deve escutar na interface publica.
+    # A porta do host e propriedade da maquina, nao do projeto: quem tem outro
+    # Postgres rodando define POSTGRES_PORT no .env. O padrao segue 5432.
     ports:
-      - "127.0.0.1:5432:5432"
+      - "127.0.0.1:${POSTGRES_PORT:-5432}:5432"
     volumes:
       - postgres-data:/var/lib/postgresql/data
     healthcheck:
@@ -43,8 +45,8 @@ services:
       PLATFORM_ADMIN_BOOTSTRAP_SECRET_HASH: ${PLATFORM_ADMIN_BOOTSTRAP_SECRET_HASH:-}
     # 3000 vive aqui porque o frontend compartilha esta netns (ver servico frontend).
     ports:
-      - "127.0.0.1:8000:8000"
-      - "127.0.0.1:3000:3000"
+      - "127.0.0.1:${API_PORT:-8000}:8000"
+      - "127.0.0.1:${FRONTEND_PORT:-3000}:3000"
     depends_on:
       postgres:
         condition: service_healthy

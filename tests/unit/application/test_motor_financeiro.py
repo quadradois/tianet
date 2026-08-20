@@ -23,7 +23,6 @@ from emprestimo.application.motor_financeiro import (
     ConsultaSaldoService,
     CriacaoEmprestimoService,
     PagamentoService,
-    PlanoParcelasService,
     QuitacaoRenegociacaoService,
 )
 from emprestimo.application.ports import AuditoriaRegistro, UnitOfWork
@@ -32,7 +31,6 @@ from emprestimo.domain.credit.emprestimo import Emprestimo, EmprestimoState
 from emprestimo.domain.credit.eventos_financeiros import EventoFinanceiro
 from emprestimo.domain.credit.memoria_calculo import MemoriaCalculo
 from emprestimo.domain.credit.pagamento import Pagamento
-from emprestimo.domain.credit.parcela import Parcela
 
 TENANT_ID = uuid.UUID("20000000-0000-0000-0000-000000000001")
 CARTEIRA_ID = uuid.UUID("20000000-0000-0000-0000-000000000002")
@@ -158,86 +156,21 @@ def test_criacao_emprestimo_duplicado_sem_replay_gera_conflito() -> None:
     assert uow.emprestimo.salvo is None
 
 
-def test_plano_parcelas_gera_parcelas_com_memoria_e_commit() -> None:
-    emprestimo = Emprestimo.criar_de_contrato_liberado(_contrato_liberado_logico())
-    uow = _FakeUoW(contrato=_ContratoLiberado(), emprestimo_existente=emprestimo)
-    service = PlanoParcelasService(_uow_factory(uow))
-
-    resultado = service.gerar(
-        emprestimo_id=emprestimo.id,
-        tenant_id=TENANT_ID,
-        data_referencia=date(2026, 8, 10),
-    )
-
-    assert len(resultado.parcelas) == 2
-    assert resultado.memoria is not None
-    assert resultado.memoria.tipo == "geracao_parcelas"
-    assert uow.parcela.salvas[0].periodo is not None
-    assert uow.memoria_calculo.salvas[0][0].tipo == "geracao_parcelas"
-    assert uow.emprestimo.salvo is emprestimo
-    assert uow.commits == 1
-
-
-def test_plano_parcelas_gerar_retorna_existente_sem_recalcular() -> None:
-    emprestimo = Emprestimo.criar_de_contrato_liberado(_contrato_liberado_logico())
-    uow = _FakeUoW(contrato=_ContratoLiberado(), emprestimo_existente=emprestimo)
-    primeiro = PlanoParcelasService(_uow_factory(uow)).gerar(
-        emprestimo_id=emprestimo.id,
-        tenant_id=TENANT_ID,
-        data_referencia=date(2026, 8, 10),
-    )
-    uow.commits = 0
-    uow.emprestimo.salvo = None
-    uow.parcela.saves = 0
-
-    segundo = PlanoParcelasService(_uow_factory(uow)).gerar(
-        emprestimo_id=emprestimo.id,
-        tenant_id=TENANT_ID,
-        data_referencia=date(2026, 8, 10),
-    )
-
-    assert [parcela.parcela_id for parcela in segundo.parcelas] == [
-        parcela.parcela_id for parcela in primeiro.parcelas
-    ]
-    assert segundo.memoria == primeiro.memoria
-    assert uow.parcela.saves == 0
-    assert uow.commits == 0
-
-
-def test_plano_parcelas_consulta_emprestimo_cross_tenant_responde_404() -> None:
-    emprestimo = Emprestimo.criar_de_contrato_liberado(_contrato_liberado_logico())
-    uow = _FakeUoW(contrato=_ContratoLiberado(), emprestimo_existente=emprestimo)
-    service = PlanoParcelasService(_uow_factory(uow))
-
-    with pytest.raises(EmprestimoNaoEncontradoError):
-        service.consultar(
-            emprestimo_id=emprestimo.id,
-            tenant_id=uuid.uuid4(),
-        )
-
-    assert uow.commits == 0
-
-
 def test_pagamento_service_registra_pagamento_com_memoria_evento_e_commit() -> None:
     emprestimo = Emprestimo.criar_de_contrato_liberado(_contrato_liberado_logico())
     uow = _FakeUoW(contrato=_ContratoLiberado(), emprestimo_existente=emprestimo)
-    plano = PlanoParcelasService(_uow_factory(uow)).gerar(
-        emprestimo_id=emprestimo.id,
-        tenant_id=TENANT_ID,
-        data_referencia=date(2026, 8, 10),
-    )
     uow.commits = 0
 
     resultado = PagamentoService(_uow_factory(uow)).registrar(
         emprestimo_id=emprestimo.id,
         tenant_id=TENANT_ID,
         usuario_id=USUARIO_ID,
-        valor=plano.parcelas[0].valor_previsto,
+        valor=Decimal("1000.00"),
         recebido_em=datetime(2026, 9, 10, 12, 0, tzinfo=UTC),
         idempotency_key="pag-001",
     )
 
-    assert resultado.valor_recebido == plano.parcelas[0].valor_previsto
+    assert resultado.valor_recebido == Decimal("1000.00")
     assert resultado.memoria is not None
     assert resultado.memoria.tipo == "pagamento"
     assert uow.pagamento.salvos[0].chave_idempotencia == "pag-001"
@@ -250,11 +183,6 @@ def test_pagamento_service_registra_pagamento_com_memoria_evento_e_commit() -> N
 def test_pagamento_service_replay_por_chave_nao_duplica() -> None:
     emprestimo = Emprestimo.criar_de_contrato_liberado(_contrato_liberado_logico())
     uow = _FakeUoW(contrato=_ContratoLiberado(), emprestimo_existente=emprestimo)
-    PlanoParcelasService(_uow_factory(uow)).gerar(
-        emprestimo_id=emprestimo.id,
-        tenant_id=TENANT_ID,
-        data_referencia=date(2026, 8, 10),
-    )
     service = PagamentoService(_uow_factory(uow))
     primeiro = service.registrar(
         emprestimo_id=emprestimo.id,
@@ -283,11 +211,6 @@ def test_pagamento_service_replay_por_chave_nao_duplica() -> None:
 def test_pagamento_service_rejeita_replay_com_payload_divergente() -> None:
     emprestimo = Emprestimo.criar_de_contrato_liberado(_contrato_liberado_logico())
     uow = _FakeUoW(contrato=_ContratoLiberado(), emprestimo_existente=emprestimo)
-    PlanoParcelasService(_uow_factory(uow)).gerar(
-        emprestimo_id=emprestimo.id,
-        tenant_id=TENANT_ID,
-        data_referencia=date(2026, 8, 10),
-    )
     service = PagamentoService(_uow_factory(uow))
     service.registrar(
         emprestimo_id=emprestimo.id,
@@ -312,11 +235,6 @@ def test_pagamento_service_rejeita_replay_com_payload_divergente() -> None:
 def test_pagamento_service_rejeita_valor_invalido_sem_commit() -> None:
     emprestimo = Emprestimo.criar_de_contrato_liberado(_contrato_liberado_logico())
     uow = _FakeUoW(contrato=_ContratoLiberado(), emprestimo_existente=emprestimo)
-    PlanoParcelasService(_uow_factory(uow)).gerar(
-        emprestimo_id=emprestimo.id,
-        tenant_id=TENANT_ID,
-        data_referencia=date(2026, 8, 10),
-    )
     uow.commits = 0
 
     with pytest.raises(TransicaoEstadoInvalidaError, match="positivo"):
@@ -337,11 +255,6 @@ def test_pagamento_service_rejeita_valor_invalido_sem_commit() -> None:
 def test_pagamento_service_rejeita_emprestimo_quitado() -> None:
     emprestimo = Emprestimo.criar_de_contrato_liberado(_contrato_liberado_logico())
     uow = _FakeUoW(contrato=_ContratoLiberado(), emprestimo_existente=emprestimo)
-    PlanoParcelasService(_uow_factory(uow)).gerar(
-        emprestimo_id=emprestimo.id,
-        tenant_id=TENANT_ID,
-        data_referencia=date(2026, 8, 10),
-    )
     emprestimo.marcar_quitado(quitado_em=datetime(2026, 9, 10, 12, 0, tzinfo=UTC))
     uow.commits = 0
 
@@ -362,16 +275,11 @@ def test_pagamento_service_rejeita_emprestimo_quitado() -> None:
 def test_consulta_saldo_retorna_componentes_e_memoria_sem_commit() -> None:
     emprestimo = Emprestimo.criar_de_contrato_liberado(_contrato_liberado_logico())
     uow = _FakeUoW(contrato=_ContratoLiberado(), emprestimo_existente=emprestimo)
-    plano = PlanoParcelasService(_uow_factory(uow)).gerar(
-        emprestimo_id=emprestimo.id,
-        tenant_id=TENANT_ID,
-        data_referencia=date(2026, 8, 10),
-    )
     PagamentoService(_uow_factory(uow)).registrar(
         emprestimo_id=emprestimo.id,
         tenant_id=TENANT_ID,
         usuario_id=USUARIO_ID,
-        valor=plano.parcelas[0].principal,
+        valor=Decimal("1000.00"),
         recebido_em=datetime(2026, 9, 10, 12, 0, tzinfo=UTC),
         idempotency_key="pag-antes-saldo",
     )
@@ -407,7 +315,7 @@ def test_consulta_saldo_emprestimo_cross_tenant_responde_404() -> None:
 
 
 def test_quitacao_calcula_valor_sem_commit() -> None:
-    emprestimo, uow = _emprestimo_com_plano_e_pagamento()
+    emprestimo, uow = _emprestimo_com_pagamento()
     uow.commits = 0
     memorias_antes = len(uow.memoria_calculo.salvas)
 
@@ -426,11 +334,6 @@ def test_quitacao_calcula_valor_sem_commit() -> None:
 def test_quitacao_quita_emprestimo_preserva_memorias_e_eventos() -> None:
     emprestimo = Emprestimo.criar_de_contrato_liberado(_contrato_liberado_logico())
     uow = _FakeUoW(contrato=_ContratoLiberado(), emprestimo_existente=emprestimo)
-    PlanoParcelasService(_uow_factory(uow)).gerar(
-        emprestimo_id=emprestimo.id,
-        tenant_id=TENANT_ID,
-        data_referencia=date(2026, 8, 10),
-    )
     uow.commits = 0
 
     resultado = QuitacaoRenegociacaoService(_uow_factory(uow)).quitar(
@@ -459,11 +362,6 @@ def test_quitacao_quita_emprestimo_preserva_memorias_e_eventos() -> None:
 def test_quitacao_replay_por_chave_nao_duplica_pagamento() -> None:
     emprestimo = Emprestimo.criar_de_contrato_liberado(_contrato_liberado_logico())
     uow = _FakeUoW(contrato=_ContratoLiberado(), emprestimo_existente=emprestimo)
-    PlanoParcelasService(_uow_factory(uow)).gerar(
-        emprestimo_id=emprestimo.id,
-        tenant_id=TENANT_ID,
-        data_referencia=date(2026, 8, 10),
-    )
     service = QuitacaoRenegociacaoService(_uow_factory(uow))
     primeiro = service.quitar(
         emprestimo_id=emprestimo.id,
@@ -489,11 +387,6 @@ def test_quitacao_replay_por_chave_nao_duplica_pagamento() -> None:
 def test_quitacao_service_rejeita_replay_com_payload_divergente() -> None:
     emprestimo = Emprestimo.criar_de_contrato_liberado(_contrato_liberado_logico())
     uow = _FakeUoW(contrato=_ContratoLiberado(), emprestimo_existente=emprestimo)
-    PlanoParcelasService(_uow_factory(uow)).gerar(
-        emprestimo_id=emprestimo.id,
-        tenant_id=TENANT_ID,
-        data_referencia=date(2026, 8, 10),
-    )
     service = QuitacaoRenegociacaoService(_uow_factory(uow))
     service.quitar(
         emprestimo_id=emprestimo.id,
@@ -514,7 +407,7 @@ def test_quitacao_service_rejeita_replay_com_payload_divergente() -> None:
 
 
 def test_renegociacao_preserva_memoria_evento_e_estado() -> None:
-    emprestimo, uow = _emprestimo_com_plano_e_pagamento()
+    emprestimo, uow = _emprestimo_com_pagamento()
     uow.commits = 0
 
     resultado = QuitacaoRenegociacaoService(_uow_factory(uow)).renegociar(
@@ -534,7 +427,7 @@ def test_renegociacao_preserva_memoria_evento_e_estado() -> None:
 
 
 def test_renegociacao_service_replay_idempotente_e_conflito_divergente() -> None:
-    emprestimo, uow = _emprestimo_com_plano_e_pagamento()
+    emprestimo, uow = _emprestimo_com_pagamento()
     uow.commits = 0
     service = QuitacaoRenegociacaoService(_uow_factory(uow))
     primeiro = service.renegociar(
@@ -574,7 +467,7 @@ def test_renegociacao_service_replay_idempotente_e_conflito_divergente() -> None
 
 
 def test_renegociacao_rejeita_parametros_vazios_sem_commit() -> None:
-    emprestimo, uow = _emprestimo_com_plano_e_pagamento()
+    emprestimo, uow = _emprestimo_com_pagamento()
     uow.commits = 0
 
     with pytest.raises(TransicaoEstadoInvalidaError, match="nao vazios"):
@@ -591,14 +484,9 @@ def test_renegociacao_rejeita_parametros_vazios_sem_commit() -> None:
     assert uow.rollbacks == 1
 
 
-def _emprestimo_com_plano_e_pagamento() -> tuple[Emprestimo, _FakeUoW]:
+def _emprestimo_com_pagamento() -> tuple[Emprestimo, _FakeUoW]:
     emprestimo = Emprestimo.criar_de_contrato_liberado(_contrato_liberado_logico())
     uow = _FakeUoW(contrato=_ContratoLiberado(), emprestimo_existente=emprestimo)
-    PlanoParcelasService(_uow_factory(uow)).gerar(
-        emprestimo_id=emprestimo.id,
-        tenant_id=TENANT_ID,
-        data_referencia=date(2026, 8, 10),
-    )
     PagamentoService(_uow_factory(uow)).registrar(
         emprestimo_id=emprestimo.id,
         tenant_id=TENANT_ID,
@@ -671,19 +559,6 @@ class _EmprestimoRepo:
     def save(self, emprestimo: Emprestimo) -> None:
         self.salvo = emprestimo
         self.saves += 1
-
-
-@dataclass
-class _ParcelaRepo:
-    salvas: list[Parcela] = field(default_factory=list)
-    saves: int = 0
-
-    def save_many(self, parcelas: tuple[Parcela, ...]) -> None:
-        self.salvas.extend(parcelas)
-        self.saves += 1
-
-    def find_by_emprestimo_id(self, emprestimo_id: uuid.UUID) -> list[Parcela]:
-        return [parcela for parcela in self.salvas if parcela.emprestimo_id == emprestimo_id]
 
 
 @dataclass
@@ -772,7 +647,6 @@ class _FakeUoW:
     contrato_credito: _RepoId = field(init=False)
     usuario: _RepoId = field(init=False)
     emprestimo: _EmprestimoRepo = field(init=False)
-    parcela: _ParcelaRepo = field(default_factory=_ParcelaRepo)
     pagamento: _PagamentoRepo = field(default_factory=_PagamentoRepo)
     memoria_calculo: _MemoriaCalculoRepo = field(default_factory=_MemoriaCalculoRepo)
     evento_financeiro: _EventoFinanceiroRepo = field(default_factory=_EventoFinanceiroRepo)

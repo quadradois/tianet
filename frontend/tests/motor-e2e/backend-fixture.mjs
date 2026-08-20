@@ -23,7 +23,9 @@ function modeFromAuthorization(request) {
 function permissions(mode) {
   if (mode === "nenhuma") return [];
   if (mode === "leitura") return ["motor.emprestimo.ler", "motor.parcela.ler", "motor.saldo.ler", "motor.memoria.ler", "motor.quitacao.executar"];
-  return ["motor.emprestimo.criar", "motor.emprestimo.ler", "motor.parcela.gerar", "motor.parcela.ler", "motor.pagamento.registrar", "motor.saldo.ler", "motor.memoria.ler", "motor.quitacao.executar", "motor.renegociacao.criar"];
+  // devedor.ler acompanha o Motor porque a lista identifica o Devedor pelo nome.
+  // O modo "leitura" segue sem ela, para exercitar a degradacao do rotulo.
+  return ["motor.emprestimo.criar", "motor.emprestimo.ler", "motor.parcela.gerar", "motor.parcela.ler", "motor.pagamento.registrar", "motor.saldo.ler", "motor.memoria.ler", "motor.quitacao.executar", "motor.renegociacao.criar", "devedor.ler"];
 }
 
 function operationalContext(mode) {
@@ -97,6 +99,15 @@ const server = createServer(async (request, response) => {
   if (mode === "nao-encontrado") return send(response, 404, { codigo: "emprestimo_nao_encontrado", mensagem: "detalhe cross-carteira" }, correlation);
   if (mode === "estados") return send(response, 500, { codigo: "interno", mensagem: "stack secreta" }, "corr-motor-states-294");
 
+  if (request.method === "GET" && url.pathname === `/credit/carteiras/${IDS.wallet}/devedores/${IDS.debtor}`) {
+    // O painel do emprestimo abre com o nome do Devedor como titulo.
+    return send(response, 200, { atualizado_em: "2026-08-14T10:00:00Z", carteira_id: IDS.wallet, contatos: [], criado_em: "2026-08-14T10:00:00Z", documento: "39053344705", estado: "ativo", id: IDS.debtor, nome: "Maria Souza", tenant_id: IDS.tenant }, correlation);
+  }
+  if (request.method === "GET" && url.pathname === `/credit/carteiras/${IDS.wallet}/devedores`) {
+    // A lista resolve o nome do Devedor no servidor; sem esta rota a tela cairia
+    // em "Devedor nao identificado" e a legibilidade nao seria provada.
+    return send(response, 200, { items: [{ atualizado_em: "2026-08-14T10:00:00Z", carteira_id: IDS.wallet, contatos: [], criado_em: "2026-08-14T10:00:00Z", documento: "39053344705", estado: "ativo", id: IDS.debtor, nome: "Maria Souza", tenant_id: IDS.tenant }], page: 1, pages: 1, size: 100, total: 1 }, correlation);
+  }
   if (request.method === "GET" && url.pathname === `/credit/carteiras/${IDS.wallet}/emprestimos`) {
     if (mode === "vazio") return send(response, 200, { items: [], page: 1, pages: 0, size: 20, total: 0 }, correlation);
     return send(response, 200, { items: [loan(), loan({ estado: "quitado", id: id(41), principal_original: "2500.00" })], page: 1, pages: 1, size: 20, total: 2 }, correlation);

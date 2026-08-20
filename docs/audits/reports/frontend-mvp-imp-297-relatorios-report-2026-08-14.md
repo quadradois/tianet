@@ -70,10 +70,10 @@ de chegar ao browser.
 
 | Evidencia | Dimensao | SHA-256 |
 |---|---:|---|
-| `frontend-mvp-imp-297-relatorios-list-desktop.png` | 1440x900 | `417716d3ba2ec578be26076a5ac0ee62d7d2a52d30440911b88fefa7de79a073` |
-| `frontend-mvp-imp-297-relatorios-list-mobile.png` | 390x844 | `221b086854a636becbbb02e8329c88f3e166b8ec19899285b52753cc0896f853` |
-| `frontend-mvp-imp-297-fluxo-desktop.png` | 1440x900 | `2be37a6999d9ccc5466011d5faadd93327b0854bff2f606aa3486d760936358c` |
-| `frontend-mvp-imp-297-relatorios-states-mobile.png` | 390x844 | `c4b148d55d24a46841fbe2604facb54d23d30f2aa3925ac0fdd43d07a63687c7` |
+| `frontend-mvp-imp-297-relatorios-list-desktop.png` | 1440x900 | `604b66c963aad9ab34f2ea6ec574c467ac3daf2437014617893c093eec517df5` |
+| `frontend-mvp-imp-297-relatorios-list-mobile.png` | 390x844 | `018d8cbe0080dfc24d3f36c49298418982e8ae18d5ab7d5c429fbf4a1cba3e03` |
+| `frontend-mvp-imp-297-fluxo-desktop.png` | 1440x900 | `68d927c1f4e3c56952376c8833e56dd7219e81f04812c8ba3f641b82d4fa19d3` |
+| `frontend-mvp-imp-297-relatorios-states-mobile.png` | 390x844 | `fdf75dcfb3fa927db11dccc87f02f8e163ebfac063c0754ba48f5c4bc27609d8` |
 
 ## 5. Arquivos alterados/criados
 
@@ -133,3 +133,17 @@ Arquivos novos:
 
 O IMP-298 permanece Planejado. Recomenda-se executar `fable:fable-judge` focal
 do IMP-297 antes de autorizar Configuracoes Financeiras.
+
+---
+
+## 8. Repino de evidencia visual (IMP-327, DR-004)
+
+As quatro capturas foram regravadas em 2026-08-19. O plano de parcelas saiu do
+contrato pela DR-004 e a tela de vencimentos passou a mostrar o acerto: data do
+acerto, situacao, dia combinado, dias sem pagamento e o emprestado. O fluxo
+diario trocou `previsto` — que so podia vir do plano — pela contagem de acertos
+do dia.
+
+Os SHA-256 publicados acima acompanham os bytes vigentes. Manter os hashes
+antigos preservaria imagens de colunas que nao existem mais, e uma evidencia que
+mostra tela removida engana mais do que um pino que precisou ser refeito.

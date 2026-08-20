@@ -38,7 +38,7 @@ function dependencies(selected: BffConfig, fetch: FetchLike, timeoutMs = 1_000):
 }
 
 function payload(pathname: string) {
-  if (pathname.endsWith("/resumo")) return { carteira_id: WALLET_ID, data_referencia: "2026-08-13", operacoes_ativas: 2, operacoes_quitadas: 1, parcelas_previstas: 4, parcelas_vencidas: 1, tenant_id: TENANT_ID, total_operacoes: 3, total_previsto: "40.00", total_realizado: "10.00" };
+  if (pathname.endsWith("/resumo")) return { carteira_id: WALLET_ID, data_referencia: "2026-08-13", operacoes_ativas: 2, operacoes_quitadas: 1, acertos_pendentes: 1, tenant_id: TENANT_ID, total_operacoes: 3, principal_a_receber: "40.00", total_realizado: "10.00" };
   if (pathname.endsWith("/vencimentos")) return { carteira_id: WALLET_ID, data_referencia: "2026-08-13", itens: [], tenant_id: TENANT_ID, total: 0 };
   if (pathname === "/credit/agenda") return { compromissos: [], lembretes: [], total: 0 };
   return { items: [], total: 0 };

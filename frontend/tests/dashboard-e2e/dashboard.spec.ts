@@ -26,9 +26,9 @@ test("login compoe o Dashboard completo sem expor token ou backend ao browser", 
   page.on("request", (request) => requests.push(request.url()));
   await login(page);
   await expect(page).toHaveURL(/\/app\?data_referencia=\d{4}-\d{2}-\d{2}$/);
-  await expect(page.getByRole("heading", { name: "Dashboard" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Inicio" })).toBeVisible();
   await expect(page.getByText("12345.67")).toBeVisible();
-  await expect(page.locator("dd:visible, td:visible").filter({ hasText: /^vencida$/ }).first()).toBeVisible();
+  await expect(page.locator("dd:visible, td:visible").filter({ hasText: /^pendente$/ }).first()).toBeVisible();
   await expect(page.getByText("Contato operacional com o cliente")).toBeVisible();
   await expect(page.getByText("Caso operacional 1 com descricao extensa para validar overflow contido")).toBeVisible();
   await assertNoToken(page, context);
@@ -55,7 +55,7 @@ test("distingue loading, empty e periodo invalido antes de consultar dados", asy
   await expect(page.getByText("12345.67")).toBeVisible();
   await page.getByRole("button", { name: "Sair" }).click();
   await login(page, "VAZIO");
-  await expect(page.getByText(/Nenhum vencimento/)).toBeVisible();
+  await expect(page.getByText(/Nenhum acerto/)).toBeVisible();
   await expect(page.getByText(/Nenhum compromisso/)).toBeVisible();
   await expect(page.getByText(/Nenhum caso ativo/)).toBeVisible();
   await page.goto("/app?data_referencia=2026-02-30");
@@ -66,7 +66,7 @@ test("isola falhas por secao, preserva 404 neutro e captura estados dark", async
   await login(page, "ESTADOS");
   await expect(page.getByText("Nao foi possivel carregar")).toHaveCount(2);
   await expect(page.getByText(/Correlation ID:/)).toHaveCount(2);
-  await expect(page.getByText(/Nenhum vencimento/)).toBeVisible();
+  await expect(page.getByText(/Nenhum acerto/)).toBeVisible();
   await expect(page.getByText("Sem permissao")).toHaveCount(0);
   await expect(page.getByText(/stack secreta|regra interna/)).toHaveCount(0);
   await page.evaluate(() => document.documentElement.classList.add("dark"));

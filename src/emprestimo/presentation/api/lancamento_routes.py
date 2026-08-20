@@ -83,8 +83,7 @@ def lancar_emprestimo(
         condicoes=CondicoesLancamento(
             valor_contratado=payload.condicoes.valor_contratado,
             taxa_juros_mensal=payload.condicoes.taxa_juros_mensal,
-            quantidade_parcelas=payload.condicoes.quantidade_parcelas,
-            primeiro_vencimento=payload.condicoes.primeiro_vencimento,
+            dia_de_acerto=payload.condicoes.dia_de_acerto,
             moeda=payload.condicoes.moeda,
         ),
         data_referencia=payload.data_referencia,
@@ -105,5 +104,5 @@ def lancar_emprestimo(
         proposta_id=resultado.proposta_id,
         contrato_id=resultado.contrato_id,
         emprestimo_id=resultado.emprestimo_id,
-        quantidade_parcelas=resultado.quantidade_parcelas,
+        primeiro_acerto_em=resultado.primeiro_acerto_em,
     )

@@ -16,8 +16,6 @@ const MOTOR_OPERATIONS = [
   ["post", "/credit/contratos/{contrato_id}/emprestimos", true],
   ["get", "/credit/carteiras/{carteira_id}/emprestimos", false],
   ["get", "/credit/emprestimos/{emprestimo_id}", false],
-  ["post", "/credit/emprestimos/{emprestimo_id}/parcelas", false],
-  ["get", "/credit/emprestimos/{emprestimo_id}/parcelas", false],
   ["post", "/credit/emprestimos/{emprestimo_id}/pagamentos", true],
   ["get", "/credit/emprestimos/{emprestimo_id}/saldo", false],
   ["get", "/credit/emprestimos/{emprestimo_id}/memoria-calculo", false],
@@ -31,14 +29,14 @@ function header(operation: { parameters?: { in: string; name: string; required?:
 }
 
 describe("Motor OpenAPI consumido pelo frontend", () => {
-  it("preserva snapshot oficial 108/137 e SHA governado", () => {
+  it("preserva snapshot oficial 106/133 e SHA governado", () => {
     const operationCount = Object.values(spec.paths).flatMap((item) => Object.keys(item).filter((method) => ["get", "post", "patch", "put", "delete"].includes(method))).length;
-    expect(operationCount).toBe(108);
-    expect(Object.keys(spec.components.schemas)).toHaveLength(137);
-    expect(createHash("sha256").update(raw).digest("hex")).toBe("5ebbe33b73ffa20de28a11240bbd53660bb15f989a82fc48456358786a58b153");
+    expect(operationCount).toBe(106);
+    expect(Object.keys(spec.components.schemas)).toHaveLength(133);
+    expect(createHash("sha256").update(raw).digest("hex")).toBe("ff101380ddbc11cdcd93f019c149f9819fbd7091cb42e3feb72f7e0f67189248");
   });
 
-  it("certifica as 11 operacoes oficiais do Motor e Idempotency-Key exata", () => {
+  it("certifica as 9 operacoes oficiais do Motor e Idempotency-Key exata", () => {
     for (const [method, path, needsIdempotency] of MOTOR_OPERATIONS) {
       const operation = spec.paths[path]?.[method];
       expect(operation, `${method.toUpperCase()} ${path}`).toBeTruthy();
@@ -54,7 +52,7 @@ describe("Motor OpenAPI consumido pelo frontend", () => {
   });
 
   it("mantem schemas financeiros como strings e memoria governada", () => {
-    for (const schemaName of ["EmprestimoResponse", "ParcelaResponse", "PagamentoResponse", "SaldoResponse", "MemoriaCalculoResponse", "QuitacaoResponse", "RenegociacaoResponse"]) {
+    for (const schemaName of ["EmprestimoResponse", "PagamentoResponse", "SaldoResponse", "MemoriaCalculoResponse", "QuitacaoResponse", "RenegociacaoResponse"]) {
       expect(spec.components.schemas[schemaName]).toBeTruthy();
     }
     expect(JSON.stringify(spec.components.schemas.SaldoResponse)).toContain("MemoriaCalculoResponse");

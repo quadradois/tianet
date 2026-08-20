@@ -36,8 +36,6 @@ OPERACAO = "devedor.criar"
 PERMISSOES_MOTOR_ESPERADAS = {
     "motor.emprestimo.criar",
     "motor.emprestimo.ler",
-    "motor.parcela.gerar",
-    "motor.parcela.ler",
     "motor.pagamento.registrar",
     "motor.saldo.ler",
     "motor.memoria.ler",

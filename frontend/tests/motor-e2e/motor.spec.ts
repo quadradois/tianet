@@ -32,6 +32,22 @@ async function prepareEvidenceScreenshot(page: Page) {
     style.textContent = "[aria-live='polite'] { visibility: hidden !important; }";
     document.head.appendChild(style);
     window.scrollTo(0, 0);
+    // Congela o Correlation ID: e um UUID novo a cada requisicao. Mesmo dentro
+    // da regiao escondida por `visibility: hidden` ele desestabiliza a captura,
+    // porque a regiao continua ocupando layout e glifos diferentes quebram a
+    // linha em pontos diferentes, deslocando tudo abaixo. A substituicao mantem
+    // os mesmos 36 caracteres.
+    // Substitui o UUID **dentro** do texto, e nao apenas o no que seja so o
+    // UUID: neste modulo o identificador vem concatenado na mesma string da
+    // mensagem, e a versao anterior desta regra nao o alcancava.
+    const UUID = /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/gi;
+    const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
+    for (let node = walker.nextNode(); node; node = walker.nextNode()) {
+      const value = node.nodeValue ?? "";
+      if (value.includes("Correlation ID") || UUID.test(value)) {
+        node.nodeValue = value.replace(UUID, "00000000-0000-4000-8000-00000000evid");
+      }
+    }
   });
 }
 
@@ -53,9 +69,20 @@ test("lista Emprestimos e cria Emprestimo a partir de Contrato liberado sem Cart
   page.on("request", (request) => requests.push(request.url()));
   await login(page);
   await page.goto(`/app/motor?contrato_id=${IDS.contract}&tenant_id=hostil&carteira_id=hostil`);
-  await expect(page.getByRole("heading", { name: "Emprestimos e pagamentos" })).toBeVisible();
-  await expect(page.getByRole("link", { exact: true, name: "Motor" })).toHaveAttribute("href", "/app/motor");
+  await expect(page.getByRole("heading", { name: "Meus emprestimos" })).toBeVisible();
+  await expect(page.getByRole("link", { exact: true, name: "Emprestimos" })).toHaveAttribute("href", "/app/motor");
+  // O caminho principal de lancar e o wizard. A criacao por Contrato continua
+  // possivel, mas recolhida: precisa ser aberta de proposito.
+  await expect(page.getByLabel("Contrato liberado")).toBeHidden();
+  await page.getByText("Criar a partir de um contrato ja existente").click();
   await expect(page.getByLabel("Contrato liberado")).toHaveValue(IDS.contract);
+  // A lista separa pelos estados que o backend devolveu e identifica o Devedor
+  // pelo nome. O identificador do Emprestimo sai do corpo da tela.
+  await expect(page.getByRole("heading", { name: /Em andamento \(1\)/ })).toBeVisible();
+  await expect(page.getByRole("heading", { name: /Quitados \(1\)/ })).toBeVisible();
+  await expect(page.getByRole("heading", { name: /Encerrados \(0\)/ })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Maria Souza" }).first()).toBeVisible();
+  await expect(page.getByText(IDS.loan, { exact: true })).toHaveCount(0);
   await activateButton(page, "Criar Emprestimo");
   await expect(page.getByText(/Emprestimo criado pelo Motor/)).toBeVisible();
   await assertNoToken(page, context);
@@ -69,14 +96,24 @@ test("lista Emprestimos e cria Emprestimo a partir de Contrato liberado sem Cart
 test("consulta detalhe, parcelas, saldo, memoria, pagamento e quitacao sem recalculo local", async ({ page, context }, testInfo) => {
   await login(page);
   await page.goto(`/app/motor/${IDS.loan}`);
-  await expect(page.getByRole("heading", { name: new RegExp(`Emprestimo ${IDS.loan}`) })).toBeVisible();
-  await expect(page.getByText("Saldo oficial")).toBeVisible();
-  await expect(page.getByText("Memoria de calculo oficial")).toBeVisible();
-  await expect(page.getByText("1010.00").first()).toBeVisible();
-  await activateButton(page, "Gerar parcelas");
-  await expect(page.getByText(/Plano de parcelas gerado pelo Motor/)).toBeVisible();
+  // O painel abre dizendo de quem e o emprestimo, e nao qual e o identificador.
+  await expect(page.getByRole("heading", { name: "Maria Souza" })).toBeVisible();
+  await expect(page.getByText("Deve hoje")).toBeVisible();
+  await expect(page.getByText("Proximo acerto")).toBeVisible();
+  // O extrato substitui a tabela de parcelas (DR-004).
+  await expect(page.getByText("Como esta a divida hoje")).toBeVisible();
+  await expect(page.getByText(IDS.loan, { exact: true })).toHaveCount(0);
+  // O cartao antigo saiu: repetia o extrato.
+  await expect(page.getByText("Quanto ainda falta")).toHaveCount(0);
+  await expect(page.getByText("Como a conta foi feita")).toBeVisible();
+  await expect(page.getByText("R$ 1.010,00").first()).toBeVisible();
+  // As operacoes ficam abaixo do painel e recolhidas: primeiro entender, depois agir.
+  await expect(page.getByRole("button", { name: "Registrar pagamento", exact: true })).toBeHidden();
+  await page.getByText("Operacoes deste emprestimo").click();
+  // Nao ha plano a gerar no emprestimo livre (DR-004).
+  await expect(page.getByRole("button", { name: "Gerar parcelas", exact: true })).toHaveCount(0);
   await activateButton(page, "Registrar pagamento");
-  await page.getByLabel("Valor recebido").fill("100.00");
+  await page.getByLabel("Quanto o devedor pagou").fill("100.00");
   await activateButton(page, "Registrar pagamento");
   await expect(page.getByText(/Pagamento idempotente registrado pelo Motor/)).toBeVisible();
   await activateButton(page, "Executar quitacao");
@@ -99,12 +136,15 @@ test("RBAC, empty, 404, 409, 5xx e estados permanecem seguros", async ({ page })
   await expect(page).toHaveURL(/\/login$/);
   await login(page, "NENHUMA");
   await page.goto("/app/motor");
-  await expect(page.getByText("denied", { exact: true })).toBeVisible();
+  await expect(page.getByText("Sem permissao", { exact: true }).first()).toBeVisible();
   await page.getByRole("button", { name: "Sair" }).click();
   await expect(page).toHaveURL(/\/login$/);
   await login(page, "VAZIO");
   await page.goto("/app/motor");
-  await expect(page.getByText(/empty: nenhum Emprestimo/)).toBeVisible();
+  // empty: cada grupo declara a propria ausencia.
+  await expect(page.getByText(/Nenhum emprestimo em andamento/)).toBeVisible();
+  await expect(page.getByText(/Nenhum emprestimo quitado ainda/)).toBeVisible();
+  await expect(page.getByText(/Nenhum emprestimo encerrado/)).toBeVisible();
   await page.getByRole("button", { name: "Sair" }).click();
   await expect(page).toHaveURL(/\/login$/);
   await login(page, "NAO-ENCONTRADO");

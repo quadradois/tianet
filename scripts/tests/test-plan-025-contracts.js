@@ -633,6 +633,8 @@ function readScaffold() {
         && !normalized.includes('/src/components/automacao/')
         && !normalized.includes('/src/lib/automacao/')
         && !normalized.includes('/src/components/shell/')
+        && !normalized.includes('/src/components/lancamento/')
+        && !normalized.includes('/src/lib/lancamento/')
         && !normalized.includes('/src/app/app/contratos/');
     })
     .sort()
@@ -697,6 +699,8 @@ function readFoundation() {
         && !normalized.includes('/src/components/automacao/')
         && !normalized.includes('/src/lib/automacao/')
         && !normalized.includes('/src/components/shell/')
+        && !normalized.includes('/src/components/lancamento/')
+        && !normalized.includes('/src/lib/lancamento/')
         && !normalized.includes('/src/app/app/contratos/');
     })
     .sort()
@@ -732,6 +736,8 @@ function readFoundation() {
         && !normalized.includes('/src/components/automacao/')
         && !normalized.includes('/src/lib/automacao/')
         && !normalized.includes('/src/components/shell/')
+        && !normalized.includes('/src/components/lancamento/')
+        && !normalized.includes('/src/lib/lancamento/')
         && !normalized.includes('/src/app/app/contratos/');
     })
     .map((file) => path.relative(sourceRoot, file).replace(/\\/g, '/'));
@@ -816,6 +822,13 @@ function readAgendaComunicacao() {
     assert.ok(fs.existsSync(absolute), `${rel} ausente`);
     return [key, read(rel)];
   }));
+}
+
+function readFormatoBrasileiro() {
+  return {
+    modulo: read('frontend/src/lib/formato/brasileiro.ts'),
+    teste: read('frontend/tests/unit/formato-brasileiro.test.ts'),
+  };
 }
 
 function readBffErrorSanitization() {
@@ -930,7 +943,7 @@ const contracts = {
   },
 
   matrix(source) {
-    assert.strictEqual(certifiedOperationCount(source.matrix), 107, 'matriz deve somar 107 operacoes certificadas');
+    assert.strictEqual(certifiedOperationCount(source.matrix), 105, 'matriz deve somar 105 operacoes certificadas');
     assertText(source.matrix, '`GET /iam/contexto-atual` | 1 |', 'endpoint certificado contexto');
     assertText(source.matrix, '`GET /iam/permissoes` | 1 |', 'endpoint certificado catalogo');
     assert.ok(!source.matrix.includes('**desejado:**'), 'matriz nao pode manter endpoint implementado como desejado');
@@ -1016,12 +1029,13 @@ const contracts = {
       (total, pathItem) => total + Object.keys(pathItem).filter((method) => ['get', 'post', 'put', 'patch', 'delete'].includes(method)).length,
       0,
     );
-    // PLAN-027/IMP-306 acrescentou POST /credit/carteiras/{id}/lancamentos. O pino
-    // acompanha o snapshot vivo, que por contrato deve bater byte a byte com o
-    // runtime; a contagem da matriz segue em 107 porque nenhuma jornada frontend
-    // consome a operacao nova ainda.
-    assert.strictEqual(operations, 108, 'snapshot deve conter 108 operacoes');
-    assert.strictEqual(Object.keys(snapshot.components.schemas).length, 137, 'snapshot deve conter 137 schemas');
+    // O pino acompanha o snapshot vivo, que por contrato deve bater byte a byte
+    // com o runtime. A matriz soma 105 e o contrato 106: PLAN-027/IMP-306
+    // acrescentou POST /credit/carteiras/{id}/lancamentos, que ainda nao tem
+    // jornada frontend propria, e a DR-004 tirou as duas operacoes de plano de
+    // parcelas dos dois lados.
+    assert.strictEqual(operations, 106, 'snapshot deve conter 106 operacoes');
+    assert.strictEqual(Object.keys(snapshot.components.schemas).length, 133, 'snapshot deve conter 133 schemas');
     assert.ok(snapshot.paths['/iam/contexto-atual']?.get, 'snapshot deve publicar contexto atual');
     assert.ok(snapshot.paths['/iam/permissoes']?.get, 'snapshot deve publicar catalogo IAM');
     const snapshotHash = crypto.createHash('sha256').update(Buffer.from(source.snapshot, 'utf8')).digest('hex');
@@ -1189,8 +1203,8 @@ const contracts = {
     assertText(source.componentSmoke, 'fetch("http://msw.harness.invalid/unhandled")', 'MSW deve testar request inesperada');
     assertText(source.componentSmoke, '.rejects.toThrow()', 'request inesperada deve falhar observavelmente');
     assertText(source.contractSmoke, 'frontend-mvp-backend-openapi.json', 'contrato deve ler snapshot oficial');
-    assertText(source.contractSmoke, '108', 'contrato deve validar 108 operacoes');
-    assertText(source.contractSmoke, '137', 'contrato deve validar 137 schemas');
+    assertText(source.contractSmoke, '106', 'contrato deve validar 106 operacoes');
+    assertText(source.contractSmoke, '133', 'contrato deve validar 133 schemas');
     assert.ok(!/\sas\s+Record</.test(source.contractSmoke), 'contrato nao pode contornar narrowing com cast manual');
     assertText(source.playwrightConfig, 'reuseExistingServer: false', 'Playwright nao pode reutilizar servidor');
     assertText(source.playwrightConfig, 'screenshot: "only-on-failure"', 'screenshot diagnostica');
@@ -1377,7 +1391,7 @@ const contracts = {
     assertText(source.generated, 'This file was auto-generated by IMP-287. Do not edit manually.', 'header gerado');
     assertText(
       source.generated,
-      '5ebbe33b73ffa20de28a11240bbd53660bb15f989a82fc48456358786a58b153',
+      'ff101380ddbc11cdcd93f019c149f9819fbd7091cb42e3feb72f7e0f67189248',
       'SHA governado no gerado',
     );
     assertText(source.generated, 'AuthLoginRequest:', 'AuthLoginRequest gerado');
@@ -1403,7 +1417,7 @@ const contracts = {
     for (const text of ['AuthLoginRequest', 'AuthRefreshRequest', 'ContextoOperacionalResponse', 'PermissoesCatalogoResponse', 'ErroResponse']) {
       assertText(source.contractTest, text, `teste contratual cobre ${text}`);
     }
-    for (const text of ['toHaveLength(31)', 'required).toBe(true)', 'minLength: 1, maxLength: 255', 'toBe(108)', 'toHaveLength(137)']) {
+    for (const text of ['toHaveLength(31)', 'required).toBe(true)', 'minLength: 1, maxLength: 255', 'toBe(106)', 'toHaveLength(133)']) {
       assertText(source.contractTest, text, `teste contratual cobre ${text}`);
     }
     assertText(source.workflow, 'npm run api:check', 'CI bloqueia drift OpenAPI');
@@ -1430,7 +1444,7 @@ const contracts = {
     assert.doesNotMatch(source.discovery, /Não existe aplicação frontend[\s\S]{0,180}estado\s+atual/, 'Discovery nao pode negar o frontend corrente');
     assertText(source.plan, '`npm run api:check` com comparacao de bytes canonicos LF', 'PLAN descreve o check implementado');
     assert.doesNotMatch(source.plan, /openapi-typescript --check/, 'PLAN nao promete flag vendor nao executada');
-    assertText(source.matrix, '**Versao:** 3.3.0', 'matriz versionada apos IMP-298');
+    assertText(source.matrix, '**Versao:** 3.6.0', 'matriz versionada apos IMP-298');
     assertText(source.openapiReport, 'RED: 53 de 54', 'relatorio preserva RED');
     assertText(source.openapiReport, 'fable:fable-judge', 'relatorio exige judge antes do IMP-288');
 
@@ -1607,7 +1621,7 @@ const contracts = {
     assertText(docs.plan, '**Versao:** 3.1.0', 'PLAN corrente apos IMP-298');
     assertText(docs.backlog, '**Versao:** 3.1.0', 'backlog corrente apos IMP-298');
     assertText(docs.discovery, '**Vers?o:** 3.2.0', 'Discovery corrente apos IMP-298');
-    assertText(docs.matrix, '**Versao:** 3.3.0', 'matriz corrente apos IMP-298');
+    assertText(docs.matrix, '**Versao:** 3.6.0', 'matriz corrente apos IMP-298');
   },
 
   dashboard(source = readDashboard()) {
@@ -1657,7 +1671,12 @@ const contracts = {
     }
     assertText(source.component, 'Correlation ID:', 'falha publica correlation segura');
     assertText(source.component, 'Dados nao encontrados ou indisponiveis.', '404 permanece neutro');
-    assertText(source.navigationPolicy, 'label: "Dashboard"', 'navegacao aponta para Dashboard existente');
+    // O rotulo virou "Inicio" no PLAN-029 IMP-318: "Dashboard" e palavra de
+    // quem constroi o sistema, nao de quem empresta o proprio dinheiro. O que o
+    // gate protege continua sendo o mesmo — a navegacao aponta para a rota que
+    // existe, e nao para uma futura.
+    assertText(source.navigationPolicy, 'label: "Inicio"', 'navegacao aponta para a tela inicial existente');
+    assertText(source.navigationPolicy, 'grupo: "principal"', 'navegacao separa dia a dia de administracao');
     assert.doesNotMatch(source.navigationPolicy, /href:\s*["']\/(?:dashboard|credit)/, 'navegacao nao antecipa rota futura');
     assertText(packageJson.scripts?.['test:dashboard'] ?? '', 'playwright.dashboard.config.ts', 'script Playwright Dashboard dedicado');
     assertText(packageJson.scripts?.['test:harness'] ?? '', 'npm run test:dashboard', 'harness inclui Dashboard');
@@ -1704,7 +1723,7 @@ const contracts = {
     assertText(source.plan, '**Versao:** 3.1.0', 'PLAN vivo pos-IMP-298');
     assertText(source.backlog, '**Versao:** 3.1.0', 'backlog vivo pos-IMP-298');
     assertText(source.discovery, '**Vers?o:** 3.2.0', 'Discovery vivo pos-IMP-298');
-    assertText(source.matrix, '**Versao:** 3.3.0', 'matriz viva pos-IMP-298');
+    assertText(source.matrix, '**Versao:** 3.6.0', 'matriz viva pos-IMP-298');
     const imp290 = impBlocks(source.backlog).find(({ id }) => id === 'IMP-290');
     const imp291 = impBlocks(source.backlog).find(({ id }) => id === 'IMP-291');
     assertText(imp290?.text ?? '', '- **Status:** Concluido.', 'IMP-290 deve estar concluido');
@@ -1880,7 +1899,7 @@ const contracts = {
     assertText(source.plan, '**Versao:** 3.1.0', 'PLAN vivo pos-IMP-298');
     assertText(source.backlog, '**Versao:** 3.1.0', 'backlog vivo pos-IMP-298');
     assertText(source.discovery, '**Vers?o:** 3.2.0', 'Discovery vivo pos-IMP-298');
-    assertText(source.matrix, '**Versao:** 3.3.0', 'matriz viva pos-IMP-298');
+    assertText(source.matrix, '**Versao:** 3.6.0', 'matriz viva pos-IMP-298');
     const imp291 = impBlocks(source.backlog).find(({ id }) => id === 'IMP-291');
     const imp292 = impBlocks(source.backlog).find(({ id }) => id === 'IMP-292');
     const imp293 = impBlocks(source.backlog).find(({ id }) => id === 'IMP-293');
@@ -1963,7 +1982,7 @@ const contracts = {
     assertText(source.plan, '**Versao:** 3.1.0', 'PLAN vivo pos-IMP-298');
     assertText(source.backlog, '**Versao:** 3.1.0', 'backlog vivo pos-IMP-298');
     assertText(source.discovery, '**Vers?o:** 3.2.0', 'Discovery vivo pos-IMP-298');
-    assertText(source.matrix, '**Versao:** 3.3.0', 'matriz viva pos-IMP-298');
+    assertText(source.matrix, '**Versao:** 3.6.0', 'matriz viva pos-IMP-298');
     const imp292 = impBlocks(source.backlog).find(({ id }) => id === 'IMP-292');
     const imp293 = impBlocks(source.backlog).find(({ id }) => id === 'IMP-293');
     assertText(imp292?.text ?? '', '- **Status:** Concluido.', 'IMP-292 deve estar concluido');
@@ -2050,7 +2069,7 @@ const contracts = {
     assertText(source.plan, '**Versao:** 3.1.0', 'PLAN vivo pos-IMP-298');
     assertText(source.backlog, '**Versao:** 3.1.0', 'backlog vivo pos-IMP-298');
     assertText(source.discovery, '**Vers?o:** 3.2.0', 'Discovery vivo pos-IMP-298');
-    assertText(source.matrix, '**Versao:** 3.3.0', 'matriz viva pos-IMP-298');
+    assertText(source.matrix, '**Versao:** 3.6.0', 'matriz viva pos-IMP-298');
     const imp293 = impBlocks(source.backlog).find(({ id }) => id === 'IMP-293');
     const imp294 = impBlocks(source.backlog).find(({ id }) => id === 'IMP-294');
     assertText(imp293?.text ?? '', '- **Status:** Concluido.', 'IMP-293 deve estar concluido');
@@ -2107,7 +2126,15 @@ const contracts = {
     assertText(source.loader + source.bffTest + source.contractTest, 'sem-idempotency:/credit/emprestimos/{emprestimo_id}/parcelas', 'parcelas nao inventa Idempotency-Key ausente no OpenAPI');
     assert.doesNotMatch(source.component + source.commandDialog + source.listPage + source.detailPage, /accessToken|refreshToken|Authorization|Bearer|localStorage|sessionStorage/, 'Motor nao expoe tokens no browser');
     assert.doesNotMatch(source.component + source.commandDialog + source.loader + source.policy, /\.reduce\(|parseFloat\(|parseInt\(|Math\.(?:round|floor|ceil)|Intl\.NumberFormat|toFixed\(|\+\s*(?:principal|juros|encargos|saldo|total|valor)|(?:principal|juros|encargos|saldo|total|valor)\s*\+/, 'Motor nao calcula ou formata valor financeiro localmente');
-    for (const marker of ['loading', 'empty', 'denied', '404', '409', '422', 'overflow', 'Memoria de calculo oficial', 'Pagamento idempotente', 'Quitacao oficial', 'Renegociacao opaca']) {
+    // Vocabulario do Credor, e nao da certificacao (PLAN-029 IMP-315).
+    //
+    // 'loading' saiu da lista: o Motor nao tem estado de carregamento. O marker
+    // era satisfeito por um <span class="sr-only">loading empty denied 404 409
+    // 422 overflow</span> que existia so para o grep passar — e era lido em voz
+    // alta por leitor de tela. Removido o span, o marker nao tinha o que
+    // afirmar. Criar um estado de carregamento de verdade para o Motor fica
+    // como trabalho proprio; ate la, a lista nao finge que ele existe.
+    for (const marker of ['empty', 'Sem permissao', '404', '409', '422', 'overflow', 'Como a conta foi feita', 'Pagamento idempotente', 'Valor para quitar hoje', 'Renegociacao opaca']) {
       assertText(source.component + source.componentTest + source.e2eTest, marker, `estado Motor ${marker}`);
     }
     assertText(source.component, 'Emprestimo nao encontrado ou indisponivel.', 'UI Motor preserva 404 neutro');
@@ -2139,7 +2166,7 @@ const contracts = {
     assertText(source.plan, '**Versao:** 3.1.0', 'PLAN final IMP-298');
     assertText(source.backlog, '**Versao:** 3.1.0', 'backlog final IMP-298');
     assertText(source.discovery, '3.2.0', 'Discovery final IMP-298');
-    assertText(source.matrix, '**Versao:** 3.3.0', 'matriz final IMP-298');
+    assertText(source.matrix, '**Versao:** 3.6.0', 'matriz final IMP-298');
     const imp294 = impBlocks(source.backlog).find(({ id }) => id === 'IMP-294');
     const imp295 = impBlocks(source.backlog).find(({ id }) => id === 'IMP-295');
     assertText(imp294?.text ?? '', '- **Status:** Concluido.', 'IMP-294 deve estar concluido');
@@ -2213,7 +2240,7 @@ const contracts = {
     assertText(source.plan, '**Versao:** 3.1.0', 'PLAN final IMP-298');
     assertText(source.backlog, '**Versao:** 3.1.0', 'backlog final IMP-298');
     assertText(source.discovery, '3.2.0', 'Discovery final IMP-298');
-    assertText(source.matrix, '**Versao:** 3.3.0', 'matriz final IMP-298');
+    assertText(source.matrix, '**Versao:** 3.6.0', 'matriz final IMP-298');
     const imp295 = impBlocks(source.backlog).find(({ id }) => id === 'IMP-295');
     const imp296 = impBlocks(source.backlog).find(({ id }) => id === 'IMP-296');
     assertText(imp295?.text ?? '', '- **Status:** Concluido.', 'IMP-295 deve estar concluido');
@@ -2294,11 +2321,29 @@ const contracts = {
     assertText(source.plan, '**Versao:** 3.1.0', 'PLAN final IMP-298');
     assertText(source.backlog, '**Versao:** 3.1.0', 'backlog final IMP-298');
     assertText(source.discovery, '3.2.0', 'Discovery final IMP-298');
-    assertText(source.matrix, '**Versao:** 3.3.0', 'matriz final IMP-298');
+    assertText(source.matrix, '**Versao:** 3.6.0', 'matriz final IMP-298');
     const imp296 = impBlocks(source.backlog).find(({ id }) => id === 'IMP-296');
     const imp297 = impBlocks(source.backlog).find(({ id }) => id === 'IMP-297');
     assertText(imp296?.text ?? '', '- **Status:** Concluido.', 'IMP-296 deve estar concluido');
     assertText(imp297?.text ?? '', '- **Status:** Concluido.', 'IMP-297 deve estar concluido');
+  },
+
+  formatoBrasileiro(source = readFormatoBrasileiro()) {
+    // O modulo formata dinheiro para exibicao. Ele entra nesta varredura de
+    // proposito: o guardrail anti-motor-paralelo veta conversao numerica nas
+    // telas financeiras, e a saida correta foi respeitar a regra e ampliar a
+    // cobertura, nao abrir excecao nela (PLAN-029 secao 5).
+    assert.doesNotMatch(
+      source.modulo,
+      /Intl\.NumberFormat|toFixed\(|parseFloat\(|parseInt\(|Number\(|\.reduce\(|Math\./,
+      'formatacao nao converte valor financeiro para numero',
+    );
+    assert.doesNotMatch(source.modulo, /new Date|Date\.now/, 'formatacao de data nao usa Date, que aplicaria fuso do navegador');
+    assertText(source.modulo, 'agruparMilhares', 'formatacao agrupa milhares por manipulacao de texto');
+    for (const esperado of ['R$ 10.000,00', '390.533.447-05', '17/08/2026']) {
+      assertText(source.teste, esperado, `teste fixa formato ${esperado}`);
+    }
+    assertText(source.teste, '01/01/2026', 'teste cobre meia-noite UTC, que deslocaria o dia via Date');
   },
 
   bffErrorSanitization(source = readBffErrorSanitization()) {
@@ -2364,7 +2409,7 @@ const contracts = {
     assert.doesNotMatch(source.loader + source.policy + source.component, /\.reduce\(|parseFloat\(|parseInt\(|Math\.(?:round|floor|ceil)|Intl\.NumberFormat|toFixed\(|\+\s*(?:saldo|total|valor|previsto|realizado)|(?:saldo|total|valor|previsto|realizado)\s*\+/, 'Relatorios nao calcula financeiro localmente');
     assert.doesNotMatch(source.component, /\.(?:operacoes_quitadas|parcela_ids|pagamento_ids)\.length\b/, 'Relatorios nao deriva contagens locais de arrays oficiais');
     assert.doesNotMatch(source.component + source.page + source.loader, /\/app\/(?:configuracoes|iam|automacao)\b|\/credit\/(?:configuracoes-financeiras|automacao|notificacoes\/templates)\b/i, 'Relatorios nao antecipa Configuracoes/IAM/Automacao');
-    for (const marker of ['loading', 'empty', 'denied', '400', '403', '404', '500', 'overflow', 'Resumo oficial', 'Pagamentos oficiais', 'Fluxo previsto e realizado']) {
+    for (const marker of ['loading', 'empty', 'denied', '400', '403', '404', '500', 'overflow', 'Resumo oficial', 'Pagamentos oficiais', 'Acertos e recebimentos por dia']) {
       assertText(source.component + source.componentTest + source.e2eTest + source.loading, marker, `estado Relatorios ${marker}`);
     }
     assertText(source.component, 'Dados de relatorio nao encontrados ou indisponiveis.', 'UI Relatorios preserva 404 neutro');
@@ -2398,7 +2443,7 @@ const contracts = {
     assertText(source.plan, '**Versao:** 3.1.0', 'PLAN final IMP-298');
     assertText(source.backlog, '**Versao:** 3.1.0', 'backlog final IMP-298');
     assertText(source.discovery, '3.2.0', 'Discovery final IMP-298');
-    assertText(source.matrix, '**Versao:** 3.3.0', 'matriz final IMP-298');
+    assertText(source.matrix, '**Versao:** 3.6.0', 'matriz final IMP-298');
     const imp297 = impBlocks(source.backlog).find(({ id }) => id === 'IMP-297');
     const imp298 = impBlocks(source.backlog).find(({ id }) => id === 'IMP-298');
     const imp299 = impBlocks(source.backlog).find(({ id }) => id === 'IMP-299');
@@ -2484,7 +2529,7 @@ const contracts = {
     assertText(source.plan, '**Versao:** 3.1.0', 'PLAN final IMP-298');
     assertText(source.backlog, '**Versao:** 3.1.0', 'backlog final IMP-298');
     assertText(source.discovery, '3.2.0', 'Discovery final IMP-298');
-    assertText(source.matrix, '**Versao:** 3.3.0', 'matriz final IMP-298');
+    assertText(source.matrix, '**Versao:** 3.6.0', 'matriz final IMP-298');
     const imp298 = impBlocks(source.backlog).find(({ id }) => id === 'IMP-298');
     const imp299 = impBlocks(source.backlog).find(({ id }) => id === 'IMP-299');
     const imp300 = impBlocks(source.backlog).find(({ id }) => id === 'IMP-300');
@@ -2573,7 +2618,7 @@ const contracts = {
     assertText(source.plan, '**Versao:** 3.1.0', 'PLAN final IMP-299');
     assertText(source.backlog, '**Versao:** 3.1.0', 'backlog final IMP-299');
     assertText(source.discovery, '3.2.0', 'Discovery final IMP-299');
-    assertText(source.matrix, '**Versao:** 3.3.0', 'matriz final IMP-299');
+    assertText(source.matrix, '**Versao:** 3.6.0', 'matriz final IMP-299');
     const imp299 = impBlocks(source.backlog).find(({ id }) => id === 'IMP-299');
     const imp300 = impBlocks(source.backlog).find(({ id }) => id === 'IMP-300');
     assertText(imp299?.text ?? '', '- **Status:** Concluido.', 'IMP-299 deve estar concluido');
@@ -2657,7 +2702,7 @@ const contracts = {
     assertText(source.plan, '**Versao:** 3.1.0', 'PLAN final IMP-300');
     assertText(source.backlog, '**Versao:** 3.1.0', 'backlog final IMP-300');
     assertText(source.discovery, '3.2.0', 'Discovery final IMP-300');
-    assertText(source.matrix, '**Versao:** 3.3.0', 'matriz final IMP-300');
+    assertText(source.matrix, '**Versao:** 3.6.0', 'matriz final IMP-300');
     const imp300 = impBlocks(source.backlog).find(({ id }) => id === 'IMP-300');
     const imp301 = impBlocks(source.backlog).find(({ id }) => id === 'IMP-301');
     const imp302 = impBlocks(source.backlog).find(({ id }) => id === 'IMP-302');
@@ -2709,7 +2754,7 @@ const contracts = {
     assertText(source.plan, '**Versao:** 3.1.0', 'PLAN final IMP-301');
     assertText(source.backlog, '**Versao:** 3.1.0', 'backlog final IMP-301');
     assertText(source.discovery, '3.2.0', 'Discovery final IMP-301');
-    assertText(source.matrix, '**Versao:** 3.3.0', 'matriz final IMP-301');
+    assertText(source.matrix, '**Versao:** 3.6.0', 'matriz final IMP-301');
     const imp301 = impBlocks(source.backlog).find(({ id }) => id === 'IMP-301');
     const imp302 = impBlocks(source.backlog).find(({ id }) => id === 'IMP-302');
     const imp303 = impBlocks(source.backlog).find(({ id }) => id === 'IMP-303');
@@ -2749,7 +2794,7 @@ const contracts = {
     assertText(source.plan, '**Versao:** 3.1.0', 'PLAN final IMP-302');
     assertText(source.backlog, '**Versao:** 3.1.0', 'backlog final IMP-302');
     assertText(source.discovery, '3.2.0', 'Discovery final IMP-302');
-    assertText(source.matrix, '**Versao:** 3.3.0', 'matriz final IMP-302');
+    assertText(source.matrix, '**Versao:** 3.6.0', 'matriz final IMP-302');
     const imp302 = impBlocks(source.backlog).find(({ id }) => id === 'IMP-302');
     const imp303 = impBlocks(source.backlog).find(({ id }) => id === 'IMP-303');
     assertText(imp302?.text ?? '', '- **Status:** Concluido.', 'IMP-302 deve estar concluido');
@@ -2779,7 +2824,7 @@ const contracts = {
     assertText(source.plan, '**Versao:** 3.1.0', 'PLAN final do Frontend MVP');
     assertText(source.backlog, '**Versao:** 3.1.0', 'backlog final do Frontend MVP');
     assertText(source.discovery, '**Vers?o:** 3.2.0', 'Discovery final do Frontend MVP');
-    assertText(source.matrix, '**Versao:** 3.3.0', 'matriz final do Frontend MVP');
+    assertText(source.matrix, '**Versao:** 3.6.0', 'matriz final do Frontend MVP');
     assertText(source.plan, 'Frontend MVP concluido localmente', 'PLAN declara conclusao local');
     assertText(source.backlog, 'Frontend MVP concluido localmente', 'backlog declara conclusao local');
     const imp303 = impBlocks(source.backlog).find(({ id }) => id === 'IMP-303');
@@ -2788,10 +2833,11 @@ const contracts = {
     const httpMethods = new Set(['get', 'post', 'put', 'patch', 'delete', 'options', 'head', 'trace']);
     const operationCount = Object.values(api.paths ?? {}).flatMap((pathItem) => Object.keys(pathItem).filter((method) => httpMethods.has(method))).length;
     const schemaCount = Object.keys(api.components?.schemas ?? {}).length;
-    assert.strictEqual(operationCount, 108, 'OpenAPI preserva as 107 operacoes certificadas mais o lancamento');
-    assert.strictEqual(schemaCount, 137, 'OpenAPI preserva os 133 schemas certificados mais os quatro do lancamento');
+    // 106 apos a DR-004 remover POST e GET /credit/emprestimos/{id}/parcelas.
+    assert.strictEqual(operationCount, 106, 'OpenAPI reflete a remocao do plano de parcelas');
+    assert.strictEqual(schemaCount, 133, 'OpenAPI reflete a remocao dos quatro schemas de parcela');
     const openapiSha = crypto.createHash('sha256').update(fs.readFileSync(path.join(ROOT, FINAL_READINESS_FILES.openapi))).digest('hex');
-    assert.strictEqual(openapiSha, '5ebbe33b73ffa20de28a11240bbd53660bb15f989a82fc48456358786a58b153', 'OpenAPI corresponde ao snapshot governado vigente');
+    assert.strictEqual(openapiSha, 'ff101380ddbc11cdcd93f019c149f9819fbd7091cb42e3feb72f7e0f67189248', 'OpenAPI corresponde ao snapshot governado vigente');
   },
 };
 
@@ -2810,7 +2856,7 @@ const test = (name, fn) => cases.push({ name, fn });
 
 test('arquivos e Registry incluem PLAN-025 e US-125/126', () => contracts.filesAndRegistry(docs));
 test('decisao Product reutiliza hierarquia sem artefato artificial', () => contracts.productDecision(docs));
-test('matriz soma 107 operacoes e certifica endpoints IAM', () => contracts.matrix(docs));
+test('matriz soma 105 operacoes e certifica endpoints IAM', () => contracts.matrix(docs));
 test('sete lacunas possuem decisao, contrato, teste, pacote e impacto', () => contracts.gaps(docs));
 test('backlog contem IMP-274..IMP-303 sem dependencia futura', () => contracts.backlog(docs));
 test('snapshot e relatorio comprovam o hardening', () => contracts.hardening(docs));
@@ -2846,6 +2892,7 @@ test('IMP-294 materializa Motor e pagamentos governados', () => contracts.motor(
 test('IMP-295 materializa Cobranca governada', () => contracts.cobranca());
 test('IMP-296 materializa Agenda e Comunicacao governadas', () => contracts.agendaComunicacao());
 test('hardening transversal sanitiza mensagens dos BFFs herdados', () => contracts.bffErrorSanitization());
+test('IMP-316 formata valores sem converter para numero', () => contracts.formatoBrasileiro());
 test('IMP-297 materializa Relatorios governados', () => contracts.relatorios());
 test('IMP-298 materializa Configuracoes Financeiras governadas', () => contracts.configuracoes());
 test('IMP-299 materializa IAM permitido governado', () => contracts.iam());
@@ -3421,7 +3468,7 @@ test('mutacao IMP-289: usar prefixo de Permissao e rejeitado', () => {
 
 test('mutacao IMP-289: antecipar Dashboard na navegacao e rejeitado', () => {
   const source = readShell();
-  const navigationPolicy = source.navigationPolicy.replace('label: "Dashboard",', 'label: "Dashboard",\n  },\n  { href: "/dashboard", label: "Dashboard paralelo"');
+  const navigationPolicy = source.navigationPolicy.replace('label: "Inicio",', 'label: "Inicio",\n  },\n  { grupo: "principal", href: "/dashboard", label: "Dashboard paralelo"');
   assert.notStrictEqual(navigationPolicy, source.navigationPolicy);
   assert.throws(() => contracts.shell({ ...source, navigationPolicy }));
 });

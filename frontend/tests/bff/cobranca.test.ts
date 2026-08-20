@@ -24,7 +24,6 @@ const ACTION_ID = "00000000-0000-4000-8000-000000000091";
 const PROMISE_ID = "00000000-0000-4000-8000-000000000092";
 const PAYMENT_ID = "00000000-0000-4000-8000-000000000070";
 const APPROPRIATION_ID = "00000000-0000-4000-8000-000000000093";
-const INSTALLMENT_ID = "00000000-0000-4000-8000-000000000060";
 const OTHER_WALLET = "00000000-0000-4000-8000-000000000099";
 
 function config(): BffConfig {
@@ -59,11 +58,11 @@ function collectionAction() {
 }
 
 function paymentPromise() {
-  return { carteira_id: WALLET_ID, data_promessa: "2026-08-21", devedor_id: DEBTOR_ID, emprestimo_id: LOAN_ID, estado: "pendente", parcela_id: null, promessa_id: PROMISE_ID, tenant_id: TENANT_ID, valor_declarado: "100.00" };
+  return { carteira_id: WALLET_ID, data_promessa: "2026-08-21", devedor_id: DEBTOR_ID, emprestimo_id: LOAN_ID, estado: "pendente", promessa_id: PROMISE_ID, tenant_id: TENANT_ID, valor_declarado: "100.00" };
 }
 
 function appropriation() {
-  return { apropriacao_id: APPROPRIATION_ID, estado_promessa: "cumprida", pagamento_id: PAYMENT_ID, parcela_id: INSTALLMENT_ID, promessa_id: PROMISE_ID, realizado_em: "2026-08-14T12:10:00Z", valor: "100.00" };
+  return { apropriacao_id: APPROPRIATION_ID, estado_promessa: "cumprida", pagamento_id: PAYMENT_ID, promessa_id: PROMISE_ID, realizado_em: "2026-08-14T12:10:00Z", valor: "100.00" };
 }
 
 describe("BFF Cobranca", () => {

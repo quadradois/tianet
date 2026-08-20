@@ -17,7 +17,6 @@ from emprestimo.application.relatorios import RelatoriosOperacionaisService
 from emprestimo.domain.credit.carteira import Carteira
 from emprestimo.domain.credit.emprestimo import Emprestimo, EmprestimoState
 from emprestimo.domain.credit.pagamento import Pagamento, PagamentoState
-from emprestimo.domain.credit.parcela import Parcela, ParcelaState
 from emprestimo.domain.credit.ports import EmprestimoResultadoPaginado
 
 TENANT_ID = uuid.UUID("77000000-0000-0000-0000-000000000001")
@@ -37,23 +36,6 @@ def test_resumo_carteira_agrega_fatos_oficiais_sem_commit() -> None:
     )
     uow = _FakeUoW(
         emprestimos=[ativo, quitado],
-        parcelas=[
-            _parcela(ativo.id, numero=1, vencimento=date(2026, 8, 1), valor="100.00"),
-            _parcela(
-                ativo.id,
-                numero=2,
-                vencimento=date(2026, 9, 1),
-                valor="120.00",
-            ),
-            _parcela(
-                quitado.id,
-                numero=1,
-                vencimento=date(2026, 7, 1),
-                valor="80.00",
-                estado=ParcelaState.LIQUIDADA,
-                valor_liquidado="80.00",
-            ),
-        ],
         pagamentos=[
             _pagamento(ativo.id, valor="50.00", recebido_em=datetime(2026, 8, 2, tzinfo=UTC)),
             _pagamento(
@@ -79,11 +61,64 @@ def test_resumo_carteira_agrega_fatos_oficiais_sem_commit() -> None:
     assert resultado.total_operacoes == 2
     assert resultado.operacoes_ativas == 1
     assert resultado.operacoes_quitadas == 1
-    assert resultado.parcelas_previstas == 3
-    assert resultado.parcelas_vencidas == 1
-    assert resultado.total_previsto == Decimal("300.00")
+    # Nenhum dos dois tem dia de acerto combinado, entao nenhum entra na fila.
+    assert resultado.acertos_pendentes == 0
+    # Dois emprestimos de 1.000, menos 130,00 de amortizacao efetiva: o estorno
+    # de 20,00 nao reduz o que esta na rua.
+    assert resultado.principal_a_receber == Decimal("1870.00")
     assert resultado.total_realizado == Decimal("130.00")
     assert uow.commits == 0
+
+
+def test_resumo_conta_quem_nao_apareceu_no_acerto_que_ja_venceu() -> None:
+    """A fila que substitui "parcelas vencidas" (DR-004, PLAN-030 fase C).
+
+    Nao se chama inadimplencia: saber se os juros do periodo foram quitados
+    exige o saldo, e saldo e do Motor, que esta camada nao importa.
+    """
+    sem_acerto = _emprestimo(id=uuid.UUID("77000000-0000-0000-0000-000000000101"))
+    venceu_e_ninguem_apareceu = _emprestimo(
+        id=uuid.UUID("77000000-0000-0000-0000-000000000102"),
+        dia_de_acerto=5,
+        criado_em=datetime(2026, 7, 20, tzinfo=UTC),
+    )
+    venceu_e_pagou = _emprestimo(
+        id=uuid.UUID("77000000-0000-0000-0000-000000000103"),
+        dia_de_acerto=5,
+        ultimo_pagamento_em=datetime(2026, 8, 6, tzinfo=UTC),
+        criado_em=datetime(2026, 7, 20, tzinfo=UTC),
+    )
+    ainda_nao_venceu = _emprestimo(
+        id=uuid.UUID("77000000-0000-0000-0000-000000000104"),
+        dia_de_acerto=28,
+        # Emprestado em 01/08: o primeiro acerto so cai em 28/08.
+        criado_em=datetime(2026, 8, 1, tzinfo=UTC),
+    )
+    quitado = _emprestimo(
+        id=uuid.UUID("77000000-0000-0000-0000-000000000105"),
+        dia_de_acerto=5,
+        estado=EmprestimoState.QUITADO,
+        criado_em=datetime(2026, 7, 20, tzinfo=UTC),
+    )
+    uow = _FakeUoW(
+        emprestimos=[
+            sem_acerto,
+            venceu_e_ninguem_apareceu,
+            venceu_e_pagou,
+            ainda_nao_venceu,
+            quitado,
+        ]
+    )
+
+    resultado = RelatoriosOperacionaisService(_uow_factory(uow)).resumo_carteira(
+        tenant_id=TENANT_ID,
+        carteira_id=CARTEIRA_ID,
+        data_referencia=date(2026, 8, 10),
+    )
+
+    # So o segundo: o primeiro nao tem dia combinado, o terceiro pagou, o quarto
+    # ainda nao venceu e o quinto ja esta quitado.
+    assert resultado.acertos_pendentes == 1
 
 
 def test_resumo_carteira_percorre_todas_as_paginas_de_emprestimos() -> None:
@@ -102,30 +137,26 @@ def test_resumo_carteira_percorre_todas_as_paginas_de_emprestimos() -> None:
     assert uow.emprestimo.paginas_consultadas == [1, 2]
 
 
-def test_vencimentos_inadimplencia_classifica_situacoes_oficiais() -> None:
-    emprestimo = _emprestimo(id=EMPRESTIMO_ID)
-    uow = _FakeUoW(
-        emprestimos=[emprestimo],
-        parcelas=[
-            _parcela(emprestimo.id, numero=1, vencimento=date(2026, 8, 1), valor="100.00"),
-            _parcela(emprestimo.id, numero=2, vencimento=date(2026, 9, 1), valor="120.00"),
-            _parcela(
-                emprestimo.id,
-                numero=3,
-                vencimento=date(2026, 7, 1),
-                valor="80.00",
-                estado=ParcelaState.LIQUIDADA,
-                valor_liquidado="80.00",
-            ),
-            _parcela(
-                emprestimo.id,
-                numero=4,
-                vencimento=date(2026, 7, 5),
-                valor="40.00",
-                estado=ParcelaState.CANCELADA,
-            ),
-        ],
+def test_vencimentos_lista_acertos_e_separa_pendente_de_em_dia() -> None:
+    """Substitui a classificacao por parcela (DR-004).
+
+    A situacao diz "pendente" ou "em dia", nunca "inadimplente": julgar se os
+    juros do periodo foram quitados exige o saldo, e saldo e do Motor, que esta
+    camada nao importa.
+    """
+    venceu_e_ninguem_apareceu = _emprestimo(
+        id=EMPRESTIMO_ID,
+        dia_de_acerto=5,
+        criado_em=datetime(2026, 7, 20, tzinfo=UTC),
     )
+    venceu_e_pagou = _emprestimo(
+        id=uuid.UUID("77000000-0000-0000-0000-0000000000a2"),
+        dia_de_acerto=5,
+        ultimo_pagamento_em=datetime(2026, 8, 6, tzinfo=UTC),
+        criado_em=datetime(2026, 7, 20, tzinfo=UTC),
+    )
+    sem_dia_combinado = _emprestimo(id=uuid.UUID("77000000-0000-0000-0000-0000000000a3"))
+    uow = _FakeUoW(emprestimos=[venceu_e_ninguem_apareceu, venceu_e_pagou, sem_dia_combinado])
 
     resultado = RelatoriosOperacionaisService(_uow_factory(uow)).vencimentos_inadimplencia(
         tenant_id=TENANT_ID,
@@ -133,13 +164,13 @@ def test_vencimentos_inadimplencia_classifica_situacoes_oficiais() -> None:
         data_referencia=date(2026, 8, 10),
     )
 
-    assert [item.situacao for item in resultado.itens] == [
-        "regularizada",
-        "cancelada",
-        "vencida",
-        "futura",
-    ]
-    assert resultado.total == 4
+    # O sem dia combinado nao entra: nao ha acerto a cobrar dele.
+    assert [item.situacao for item in resultado.itens] == ["pendente", "em dia"]
+    assert resultado.itens[0].acerto_em == date(2026, 8, 5)
+    assert resultado.itens[0].dias_sem_pagamento == 5
+    assert resultado.itens[0].dia_de_acerto == 5
+    assert resultado.itens[1].dias_sem_pagamento == 0
+    assert resultado.total == 2
 
 
 def test_pagamentos_encerramentos_filtra_periodo_e_ignora_estorno_no_total() -> None:
@@ -181,14 +212,20 @@ def test_pagamentos_encerramentos_filtra_periodo_e_ignora_estorno_no_total() -> 
     assert resultado.total_realizado == Decimal("80.00")
 
 
-def test_fluxo_previsto_realizado_agrupa_por_dia() -> None:
-    emprestimo = _emprestimo(id=EMPRESTIMO_ID)
+def test_fluxo_agrupa_por_dia_o_que_entrou_e_os_acertos_que_vencem() -> None:
+    """`previsto` saiu com o plano (DR-004).
+
+    Nao ha valor agendado no emprestimo livre: o que o devedor deve em cada
+    acerto e calculado no dia, sobre o saldo daquele momento, e so o Motor sabe
+    faze-lo. Ficam o realizado, que e fato, e quantos acertos caem no dia.
+    """
+    emprestimo = _emprestimo(
+        id=EMPRESTIMO_ID,
+        dia_de_acerto=11,
+        criado_em=datetime(2026, 7, 20, tzinfo=UTC),
+    )
     uow = _FakeUoW(
         emprestimos=[emprestimo],
-        parcelas=[
-            _parcela(emprestimo.id, numero=1, vencimento=date(2026, 8, 10), valor="100.00"),
-            _parcela(emprestimo.id, numero=2, vencimento=date(2026, 8, 11), valor="120.00"),
-        ],
         pagamentos=[
             _pagamento(emprestimo.id, valor="40.00", recebido_em=datetime(2026, 8, 10, tzinfo=UTC)),
             _pagamento(emprestimo.id, valor="60.00", recebido_em=datetime(2026, 8, 12, tzinfo=UTC)),
@@ -202,10 +239,10 @@ def test_fluxo_previsto_realizado_agrupa_por_dia() -> None:
         fim=date(2026, 8, 12),
     )
 
-    assert [(item.data, item.previsto, item.realizado) for item in resultado.itens] == [
-        (date(2026, 8, 10), Decimal("100.00"), Decimal("40.00")),
-        (date(2026, 8, 11), Decimal("120.00"), Decimal("0.00")),
-        (date(2026, 8, 12), Decimal("0.00"), Decimal("60.00")),
+    assert [(item.data, item.realizado, item.acertos) for item in resultado.itens] == [
+        (date(2026, 8, 10), Decimal("40.00"), 0),
+        (date(2026, 8, 11), Decimal("0.00"), 1),
+        (date(2026, 8, 12), Decimal("60.00"), 0),
     ]
 
 
@@ -229,8 +266,11 @@ def _emprestimo(
     id: uuid.UUID,
     estado: EmprestimoState = EmprestimoState.ATIVO,
     quitado_em: datetime | None = None,
+    dia_de_acerto: int | None = None,
+    ultimo_pagamento_em: datetime | None = None,
+    criado_em: datetime | None = None,
 ) -> Emprestimo:
-    return Emprestimo(
+    emprestimo = Emprestimo(
         id=id,
         tenant_id=TENANT_ID,
         carteira_id=CARTEIRA_ID,
@@ -238,29 +278,18 @@ def _emprestimo(
         contrato_id=CONTRATO_ID,
         principal_original=Decimal("1000.00"),
         moeda="BRL",
-        _parametros_financeiros={"fonte": "motor"},
+        _parametros_financeiros=(
+            {"fonte": "motor"}
+            if dia_de_acerto is None
+            else {"fonte": "motor", "dia_de_acerto": dia_de_acerto}
+        ),
         estado=estado,
         quitado_em=quitado_em,
+        ultimo_pagamento_em=ultimo_pagamento_em,
     )
-
-
-def _parcela(
-    emprestimo_id: uuid.UUID,
-    *,
-    numero: int,
-    vencimento: date,
-    valor: str,
-    estado: ParcelaState = ParcelaState.PREVISTA,
-    valor_liquidado: str = "0.00",
-) -> Parcela:
-    return Parcela(
-        emprestimo_id=emprestimo_id,
-        numero=numero,
-        vencimento=vencimento,
-        valor_previsto=Decimal(valor),
-        valor_liquidado=Decimal(valor_liquidado),
-        estado=estado,
-    )
+    if criado_em is not None:
+        emprestimo.criado_em = criado_em
+    return emprestimo
 
 
 def _pagamento(
@@ -312,14 +341,6 @@ class _EmprestimoFakeRepository:
 
 
 @dataclass
-class _ParcelaFakeRepository:
-    parcelas: Sequence[Parcela]
-
-    def find_by_emprestimo_id(self, emprestimo_id: uuid.UUID) -> list[Parcela]:
-        return [item for item in self.parcelas if item.emprestimo_id == emprestimo_id]
-
-
-@dataclass
 class _PagamentoFakeRepository:
     pagamentos: Sequence[Pagamento]
 
@@ -333,14 +354,12 @@ class _FakeUoW:
         *,
         carteira: Carteira | None = None,
         emprestimos: Sequence[Emprestimo] = (),
-        parcelas: Sequence[Parcela] = (),
         pagamentos: Sequence[Pagamento] = (),
     ) -> None:
         self.carteira = _CarteiraFakeRepository(
             carteira or Carteira(id=CARTEIRA_ID, tenant_id=TENANT_ID, nome="Carteira")
         )
         self.emprestimo = _EmprestimoFakeRepository(emprestimos)
-        self.parcela = _ParcelaFakeRepository(parcelas)
         self.pagamento = _PagamentoFakeRepository(pagamentos)
         self.commits = 0
 

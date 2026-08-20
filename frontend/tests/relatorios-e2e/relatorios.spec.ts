@@ -42,7 +42,7 @@ test("renderiza Relatorios oficiais e captura desktop/mobile", async ({ page }, 
   await login(page, "ACME");
   await gotoRelatorios(page);
   await expect(page.getByText("98765.43")).toBeVisible();
-  await expect(page.getByRole("region", { name: "Vencimentos oficiais" })).toBeVisible();
+  await expect(page.getByRole("region", { name: "Acertos oficiais" })).toBeVisible();
   await expect(page.getByRole("region", { name: "Pagamentos oficiais" })).toBeVisible();
   expect(backendHits).toEqual([]);
   await page.getByText("98765.43").scrollIntoViewIfNeeded();
@@ -53,10 +53,10 @@ test("renderiza Relatorios oficiais e captura desktop/mobile", async ({ page }, 
 test("observa fluxo oficial, overflow e captura desktop", async ({ page }, testInfo) => {
   await login(page, "ACME");
   await gotoRelatorios(page);
-  await page.getByRole("region", { name: "Fluxo previsto e realizado" }).focus();
-  await expect(page.getByRole("region", { name: "Fluxo previsto e realizado" })).toBeFocused();
+  await page.getByRole("region", { name: "Acertos e recebimentos por dia" }).focus();
+  await expect(page.getByRole("region", { name: "Acertos e recebimentos por dia" })).toBeFocused();
   expect(await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)).toBeLessThanOrEqual(0);
-  await page.getByRole("region", { name: "Fluxo previsto e realizado" }).scrollIntoViewIfNeeded();
+  await page.getByRole("region", { name: "Acertos e recebimentos por dia" }).scrollIntoViewIfNeeded();
   if (testInfo.project.name.includes("desktop")) await screenshotEvidence(page, "fluxo-desktop");
 });
 

@@ -86,48 +86,6 @@ def test_snapshot_do_contrato_liberado_nao_vaza_mutacao_para_emprestimo() -> Non
     assert emprestimo.parametros_financeiros["valor_contratado"] == "10000.00"
 
 
-def test_parcela_representa_obrigacao_prevista_sem_calculo_financeiro() -> None:
-    parcela_cls = _classe("emprestimo.domain.credit.parcela", "Parcela")
-
-    parcela = parcela_cls(
-        emprestimo_id=CONTRATO_ID,
-        numero=1,
-        vencimento=date(2026, 9, 10),
-        valor_previsto=Decimal("1000.00"),
-        principal=Decimal("900.00"),
-        juros=Decimal("100.00"),
-    )
-
-    assert parcela.id is not None
-    assert parcela.estado.value == "prevista"
-    assert parcela.valor_previsto == Decimal("1000.00")
-    assert parcela.saldo_pendente == Decimal("1000.00")
-
-
-def test_parcela_liquida_total_ou_parcialmente_por_ordem_do_motor() -> None:
-    parcela_cls = _classe("emprestimo.domain.credit.parcela", "Parcela")
-    parcela = parcela_cls(
-        emprestimo_id=CONTRATO_ID,
-        numero=1,
-        vencimento=date(2026, 9, 10),
-        valor_previsto=Decimal("1000.00"),
-    )
-
-    parcela.registrar_liquidacao(
-        valor=Decimal("400.00"),
-        liquidado_em=datetime(2026, 9, 10, 12, 0, tzinfo=UTC),
-    )
-    assert parcela.estado.value == "parcialmente_liquidada"
-    assert parcela.saldo_pendente == Decimal("600.00")
-
-    parcela.registrar_liquidacao(
-        valor=Decimal("600.00"),
-        liquidado_em=datetime(2026, 9, 10, 12, 5, tzinfo=UTC),
-    )
-    assert parcela.estado.value == "liquidada"
-    assert parcela.saldo_pendente == Decimal("0.00")
-
-
 def test_pagamento_registra_distribuicao_processada_pelo_motor() -> None:
     pagamento_cls = _classe("emprestimo.domain.credit.pagamento", "Pagamento")
 
@@ -308,33 +266,11 @@ def test_memoria_calculo_rejeita_passos_invalidos() -> None:
     assert exc.value.codigo == "EPIC-005"
 
 
-def test_gera_parcelas_com_periodos_financeiros_reais_e_decimal() -> None:
-    emprestimo_cls = _classe("emprestimo.domain.credit.emprestimo", "Emprestimo")
-    motor_cls = _classe("emprestimo.domain.credit.motor_financeiro", "MotorFinanceiro")
-    emprestimo = emprestimo_cls.criar_de_contrato_liberado(_contrato_liberado(parcelas=3))
-
-    resultado = motor_cls().gerar_plano_parcelas(
-        emprestimo=emprestimo,
-        data_referencia=date(2026, 8, 10),
-    )
-
-    assert len(resultado.parcelas) == 3
-    assert all(parcela.valor_previsto > Decimal("0.00") for parcela in resultado.parcelas)
-    assert all(isinstance(parcela.valor_previsto, Decimal) for parcela in resultado.parcelas)
-    assert resultado.parcelas[0].periodo.data_inicio == date(2026, 8, 10)
-    assert resultado.parcelas[0].periodo.data_fim == date(2026, 9, 10)
-    assert resultado.memoria.tipo == "geracao_parcelas"
-    assert resultado.memoria.regra["tipo"] == "juros_simples_periodo_real"
-    assert resultado.memoria.periodos[0]["dias"] == 31
-    assert resultado.memoria.passos[0].arredondamento == "ROUND_HALF_UP:0.01"
-
-
 def test_registra_pagamento_positivo_e_distribui_juros_antes_da_amortizacao() -> None:
     emprestimo_cls = _classe("emprestimo.domain.credit.emprestimo", "Emprestimo")
     motor_cls = _classe("emprestimo.domain.credit.motor_financeiro", "MotorFinanceiro")
     emprestimo = emprestimo_cls.criar_de_contrato_liberado(_contrato_liberado(parcelas=2))
     motor = motor_cls()
-    motor.gerar_plano_parcelas(emprestimo=emprestimo, data_referencia=date(2026, 8, 10))
 
     resultado = motor.registrar_pagamento(
         emprestimo=emprestimo,
@@ -384,7 +320,6 @@ def test_pagamento_idempotente_nao_altera_saldo_duas_vezes() -> None:
     motor_cls = _classe("emprestimo.domain.credit.motor_financeiro", "MotorFinanceiro")
     emprestimo = emprestimo_cls.criar_de_contrato_liberado(_contrato_liberado())
     motor = motor_cls()
-    motor.gerar_plano_parcelas(emprestimo=emprestimo, data_referencia=date(2026, 8, 10))
 
     primeiro = motor.registrar_pagamento(
         emprestimo=emprestimo,

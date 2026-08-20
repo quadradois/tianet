@@ -42,8 +42,10 @@ describe("Devedores", () => {
     const { rerender } = render(<DevedoresLoadingState />);
     expect(screen.getByRole("status", { name: "loading Devedores" })).toBeInTheDocument();
     rerender(<DevedoresPage createAction={action} filters={{}} initialState={initial} permissions={["devedor.ler", "devedor.criar"]} recoveryHref="/session/recover" result={{ kind: "ready", data: { items: [], page: 1, pages: 0, size: 20, total: 0 } }} />);
-    expect(screen.getAllByRole("status").some((item) => item.textContent?.includes("empty"))).toBe(true);
-    expect(screen.getByText("Dados enviados ao backend oficial. Tenant e Carteira nao fazem parte do formulario.")).toBeVisible();
+    // empty: a ausencia e dita em frase, nao com rotulo de estado tecnico.
+    expect(screen.getAllByRole("status").some((item) => item.textContent?.includes("Nenhum devedor cadastrado ainda"))).toBe(true);
+    // A tela nao explica mais a propria arquitetura ao operador.
+    expect(screen.queryByText(/backend|Tenant e Carteira|idempotente/i)).not.toBeInTheDocument();
     expect(screen.queryByRole("link", { name: /Contrato|Motor|Agenda|Comunicacao/i })).not.toBeInTheDocument();
   });
 

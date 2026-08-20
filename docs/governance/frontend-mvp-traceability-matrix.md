@@ -1,10 +1,10 @@
 # Frontend MVP - Matriz Oficial de Rastreabilidade Product, API, RBAC e E2E
 
-**Versao:** 3.3.0
+**Versao:** 3.6.0
 
-**Data:** 2026-08-16
+**Data:** 2026-08-20
 
-**Status:** Frontend MVP concluido localmente; IMP-274..IMP-304 recertificados; jornada Comercial corrigida pela DR-002
+**Status:** Frontend MVP concluido localmente; IMP-274..IMP-304 recertificados; superficie do Motor reduzida pela DR-004 (plano de parcelas removido)
 
 ---
 
@@ -17,9 +17,15 @@ Context, EPIC, Feature ou User Story.
 
 A fonte contratual observada e o OpenAPI gerado por `create_app().openapi()` na
 worktree derivada do commit backend `e48cb72`, congelado no snapshot governado
-do PLAN-025. O contrato recertificado possui 107 operacoes e 133 schemas; o
-SHA-256 do snapshot e
-`8dadf18eab0dad186044d71e832f72a5850661307d196187f2d0794b9d1d9ec1`.
+do PLAN-025. O contrato vigente possui 106 operacoes e 133 schemas; o SHA-256
+do snapshot e
+`ff101380ddbc11cdcd93f019c149f9819fbd7091cb42e3feb72f7e0f67189248`,
+publicado pelo IMP-328, que retirou `parcela_id` de sete schemas sem mudar a
+contagem de operacoes nem de schemas.
+A linha de base do PLAN-025 tinha 107 operacoes e SHA-256
+`8dadf18eab0dad186044d71e832f72a5850661307d196187f2d0794b9d1d9ec1`; as duas
+operacoes de plano de parcelas sairam do contrato pela DR-004 e a operacao
+`POST /credit/carteiras/{carteira_id}/lancamentos` entrou pelo IMP-306.
 Login usa `AuthLoginRequest`, refresh/logout usam `AuthRefreshRequest`, as 30
 operacoes idempotentes publicam o header obrigatório e 400/422 usam
 `ErroResponse` conforme a semantica runtime.
@@ -58,7 +64,10 @@ um nivel novo dessa hierarquia.
 
 # 3. Matriz de superficies
 
-O total da coluna `Ops` das superficies certificadas e 107.
+O total da coluna `Ops` das superficies certificadas e 105 — uma a menos que o
+contrato, porque `POST /credit/carteiras/{carteira_id}/lancamentos` ainda nao
+tem jornada frontend propria (o lancamento e composicao das operacoes ja
+certificadas).
 
 | Jornada frontend | Product | EPIC | Feature | User Stories | Endpoint OpenAPI | Ops | Permissao RBAC | Cenario Playwright observavel |
 |---|---|---|---|---|---|---:|---|---|
@@ -72,7 +81,7 @@ O total da coluna `Ops` das superficies certificadas e 107.
 | cadastro de Devedores | PRODUCT-002 | EPIC-002 | FEATURE-005..FEATURE-008 | US-015..US-027 | `POST, GET /credit/carteiras/{carteira_id}/devedores`; `GET, PATCH /credit/carteiras/{carteira_id}/devedores/{devedor_id}`; `GET .../{devedor_id}/historico`; `POST .../{devedor_id}/inativar`; `POST .../{devedor_id}/reativar` | 7 | `devedor.criar`, `devedor.ler`, `devedor.atualizar`, `devedor.inativar`, `devedor.reativar` | listar/cadastrar/editar/inativar/reativar e consultar historico; teclado/mobile; 400/409/422; 404 cross-carteira |
 | simulacao e Proposta Comercial | PRODUCT-003 | EPIC-003 | FEATURE-013..FEATURE-017 | US-043..US-052 | `POST /credit/carteiras/{carteira_id}/devedores/{devedor_id}/simulacoes-comerciais`; `GET /credit/simulacoes-comerciais/{simulacao_id}`; `POST, GET .../{devedor_id}/propostas-comerciais`; `GET, PATCH /credit/propostas-comerciais/{proposta_id}`; `POST .../{proposta_id}/enviar-para-analise`; `POST .../{proposta_id}/aprovar`; `POST .../{proposta_id}/recusar`; `POST .../{proposta_id}/cancelar`; `POST .../{proposta_id}/expirar`; `GET .../{proposta_id}/contrato-logico` | 12 | `comercial.simulacao.criar`, `comercial.proposta.criar`, `comercial.proposta.ler`, `comercial.proposta.decidir`, `comercial.proposta.integrar` | IMP-292 observado: partir de Devedor ativo, simular, criar, enviar e decidir Proposta; exibir somente valores retornados; transicao invalida 409/422; sem Idempotency-Key publicada no OpenAPI Comercial. IMP-304 acrescentou cenario de stack real que submete o formulario com o vocabulario canonico do Motor; ate a DR-002 o cenario existia apenas contra stub e a jornada nao se completava pela interface |
 | formalizacao de Contratos | PRODUCT-004 | EPIC-004 | FEATURE-018..FEATURE-022 | US-053..US-062 | `POST, GET /credit/carteiras/{carteira_id}/contratos`; `GET /credit/contratos/{contrato_id}`; `GET .../{contrato_id}/historico`; `POST .../{contrato_id}/assinar`; `POST .../{contrato_id}/liberar-para-motor`; `POST .../{contrato_id}/cancelar`; `POST .../{contrato_id}/encerrar` | 8 | `contratos.contrato.criar`, `contratos.contrato.ler`, `contratos.contrato.assinar`, `contratos.contrato.liberar`, `contratos.contrato.encerrar` | IMP-293 observado: formalizar Proposta aprovada, assinar, liberar saida logica para Motor, cancelar/encerrar e consultar historico; OpenAPI de Contratos nao publica `Idempotency-Key`; 403/404/409/5xx seguros e correlacionados |
-| Motor Financeiro e pagamentos | PRODUCT-004 | EPIC-005 | FEATURE-023..FEATURE-027 | US-063..US-074 | `POST /credit/contratos/{contrato_id}/emprestimos`; `GET /credit/carteiras/{carteira_id}/emprestimos`; `GET /credit/emprestimos/{emprestimo_id}`; `POST, GET .../{emprestimo_id}/parcelas`; `POST .../{emprestimo_id}/pagamentos`; `GET .../{emprestimo_id}/saldo`; `GET .../{emprestimo_id}/memoria-calculo`; `GET, POST .../{emprestimo_id}/quitacao`; `POST .../{emprestimo_id}/renegociacoes` | 11 | `motor.emprestimo.criar`, `motor.emprestimo.ler`, `motor.parcela.gerar`, `motor.parcela.ler`, `motor.pagamento.registrar`, `motor.saldo.ler`, `motor.memoria.ler`, `motor.quitacao.executar`, `motor.renegociacao.criar` | IMP-294 observado: criar Emprestimo a partir de Contrato liberado, gerar parcelas, registrar pagamento, consultar saldo/memoria/quitacao e registrar renegociacao opaca; 4 comandos com `Idempotency-Key` certificado; geracao de parcelas sem header inventado; nunca recalcular |
+| Motor Financeiro e pagamentos | PRODUCT-004 | EPIC-005 | FEATURE-023..FEATURE-027 | US-063..US-074 | `POST /credit/contratos/{contrato_id}/emprestimos`; `GET /credit/carteiras/{carteira_id}/emprestimos`; `GET /credit/emprestimos/{emprestimo_id}`; `POST .../{emprestimo_id}/pagamentos`; `GET .../{emprestimo_id}/saldo`; `GET .../{emprestimo_id}/memoria-calculo`; `GET, POST .../{emprestimo_id}/quitacao`; `POST .../{emprestimo_id}/renegociacoes` | 9 | `motor.emprestimo.criar`, `motor.emprestimo.ler`, `motor.pagamento.registrar`, `motor.saldo.ler`, `motor.memoria.ler`, `motor.quitacao.executar`, `motor.renegociacao.criar` | IMP-294 observado: criar Emprestimo a partir de Contrato liberado, registrar pagamento, consultar saldo/memoria/quitacao e registrar renegociacao opaca; 4 comandos com `Idempotency-Key` certificado; nunca recalcular |
 | cobranca manual | PRODUCT-005 | EPIC-007 | FEATURE-028 | US-075..US-078 | `GET /credit/cobrancas/casos`; `POST /credit/cobrancas/casos/{cobranca_caso_id}/acoes`; `POST .../{cobranca_caso_id}/promessas`; `POST /credit/cobrancas/promessas/{promessa_id}/apropriacoes` | 4 | `cobranca.caso.ler`, `cobranca.acao.registrar`, `cobranca.promessa.registrar`, `cobranca.promessa.apropriar` | IMP-295 observado: operar fila, acao, promessa e apropriacao a partir de fatos oficiais; 3 comandos com `Idempotency-Key`; empty/error/overflow, 404 neutro e sem saldo local |
 | agenda e lembretes | PRODUCT-006 | EPIC-007 | FEATURE-029 | US-079..US-081 | `GET /credit/agenda`; `POST /credit/carteiras/{carteira_id}/devedores/{devedor_id}/agenda/compromissos`; `POST /credit/agenda/compromissos/{agenda_item_id}/lembretes`; `POST .../compromissos/{agenda_item_id}/reagendar`; `POST .../concluir`; `POST .../cancelar`; `POST /credit/agenda/lembretes/{lembrete_id}/reagendar`; `POST .../enviar`; `POST .../concluir`; `POST .../cancelar` | 10 | `agenda.ler`, `agenda.compromisso.gerir`, `agenda.lembrete.gerir`, `notificacao.conciliar` | IMP-296 observado: consultar periodo, criar/manter compromisso e lembrete; 8 comandos idempotentes certificados, alias enviar apenas conciliacao, estados vazios, datas invalidas e 404 neutro |
 | comunicacao | PRODUCT-007 | EPIC-007 | FEATURE-030 | US-082, US-083 | `POST /credit/carteiras/{carteira_id}/devedores/{devedor_id}/comunicacoes`; `GET /credit/comunicacoes` | 2 | `comunicacao.registrar`, `comunicacao.ler` | IMP-296 observado: registrar comunicacao com `Idempotency-Key` e consultar historico conforme OpenAPI atual, sem paginacao publicada e sem vazar contato cross-carteira |
@@ -96,7 +105,7 @@ O total da coluna `Ops` das superficies certificadas e 107.
 | P1 | relatorios e configuracoes | relatorios + configuracoes | leitura operacional e administracao autorizada sem motor paralelo |
 | P1 | IAM contratualmente permitido | credenciais + Perfis + catalogo certificado | administra Perfis e Usuarios conhecidos; nao promete listagem/ciclo de vida integral |
 | P1 | automacao operacional | agenda + jobs/templates/notificacoes | observa e reconcilia automacao com Permissoes e correlation ID |
-| P1 | jornadas compostas certificadas | P0/P1 transversal | IMP-301 observou login, RBAC, 404 neutro, Devedor-Proposta-Contrato-Emprestimo, pagamento idempotente, Motor, operacao diaria, Relatorios, Configuracoes, IAM, Automacao e 5xx correlacionado em stack real Next.js/FastAPI/PostgreSQL |
+| P1 | jornadas compostas certificadas | P0/P1 transversal | IMP-301 observou login, RBAC, 404 neutro, Devedor-Proposta-Contrato-Emprestimo, pagamento idempotente, Motor, operacao diaria, Relatorios, Configuracoes, IAM, Automacao e 5xx correlacionado em stack real Next.js/FastAPI/PostgreSQL. **IMP-311 (2026-08-20) reexecutou a suite no modelo do emprestimo livre**: acrescentou o cenario wizard -> painel -> extrato -> pagamento e reparou tres cenarios que o PLAN-029 e o IMP-326/327 tinham deixado apontando para telas que nao existiam mais. 8/8 verdes, com mutacao deliberada verificando que o cenario novo falha quando a cadeia quebra |
 | P1 | UI, seguranca e fronteiras certificadas | superficie frontend transversal | IMP-302 observou 50 PNGs vigentes, bundle publico sem tokens, Client Components sem backend direto, Web Interface Guidelines e scanner anti-calculo financeiro |
 
 ---
@@ -123,7 +132,7 @@ e o refresh token ficam em codigo server-only.
 
 A matriz so pode ser declarada sem lacunas quando:
 
-- as 107 operacoes certificadas continuarem representadas exatamente uma vez
+- as 105 operacoes certificadas continuarem representadas exatamente uma vez
   na contagem de superficies;
 - os endpoints de contexto e catalogo permanecerem presentes no OpenAPI e no
   snapshot deterministico;
@@ -140,6 +149,9 @@ A matriz so pode ser declarada sem lacunas quando:
 
 | Versao | Data | Descricao |
 |---|---|---|
+| 3.6.0 | 2026-08-20 | IMP-311: jornada real recertificada em 8/8 contra stack real, com o cenario do emprestimo livre (wizard, extrato e pagamento). A suite estava quebrada desde o IMP-327 e desatualizada pelo PLAN-029; nenhuma operacao, permissao ou contagem mudou. |
+| 3.5.0 | 2026-08-20 | IMP-328 retirou `parcela_id` de sete schemas (`AcaoCobrancaCreateRequest`, `ApropriacaoPagamentoCreateRequest`, `ApropriacaoPagamentoResponse`, `ComunicacaoManualCreateRequest`, `PromessaPagamentoCreateRequest`, `PromessaPagamentoResponse`, `RegistroComunicacaoResponse`): a migracao 0017 ja havia derrubado as colunas. Contagem inalterada em 106 operacoes e 133 schemas; snapshot novo `ff101380ddbc11cdcd93f019c149f9819fbd7091cb42e3feb72f7e0f67189248`. |
+| 3.4.0 | 2026-08-19 | IMP-327 aplicou a DR-004: `POST, GET /credit/emprestimos/{emprestimo_id}/parcelas` e as permissoes `motor.parcela.gerar`/`motor.parcela.ler` sairam do contrato e da matriz. Motor caiu de 11 para 9 operacoes, o total certificado de 107 para 105 e o contrato de 107 para 106 operacoes, com 133 schemas preservados. |
 | 3.3.0 | 2026-08-16 | IMP-304 executou a DR-002: parametros comerciais voltaram a ser opacos, falha silenciosa de parametro invalido corrigida para `400` acionavel e cenario de stack real acrescentado submetendo o formulario Comercial. API/RBAC 107/133 preservados. |
 | 3.2.0 | 2026-08-14 | IMP-303 recertificou localmente a matriz final do Frontend MVP, preservou API/RBAC 107/133 e publicou relatorio final; CI remota nao observada. |
 | 3.1.0 | 2026-08-14 | IMP-302 certificou UI, seguranca e fronteiras com 50 PNGs vigentes, bundle publico sem tokens, Client Components sem backend direto, Web Interface Guidelines e anti-calculo; IMP-303 sob judge. |

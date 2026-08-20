@@ -8,7 +8,6 @@ from dataclasses import dataclass, field
 from datetime import UTC, date, datetime
 from decimal import Decimal
 from enum import StrEnum
-from typing import Any
 
 from emprestimo.domain.common.errors import ViolacaoInvarianteError
 
@@ -28,7 +27,6 @@ __all__ = [
     "RelatorioOperacionalCache",
     "ResumoCarteira",
     "TipoAcaoCobranca",
-    "VencimentoOperacional",
 ]
 
 
@@ -139,7 +137,6 @@ class AcaoCobranca:
     tipo: TipoAcaoCobranca
     resultado: str
     devedor_id: uuid.UUID | None = None
-    parcela_id: uuid.UUID | None = None
     id: uuid.UUID = field(default_factory=uuid.uuid4)
     registrada_em: datetime = field(default_factory=lambda: datetime.now(UTC))
     estado: EstadoOperacional = EstadoOperacional.ATIVO
@@ -152,8 +149,6 @@ class AcaoCobranca:
         _validar_uuid("criado_por_usuario_id", self.criado_por_usuario_id)
         if self.devedor_id is not None:
             _validar_uuid("devedor_id", self.devedor_id)
-        if self.parcela_id is not None:
-            _validar_uuid("parcela_id", self.parcela_id)
         if not isinstance(self.tipo, TipoAcaoCobranca):
             raise ViolacaoInvarianteError(
                 "EPIC-007",
@@ -404,7 +399,6 @@ class RegistroComunicacao:
     resultado: str
     devedor_id: uuid.UUID | None = None
     emprestimo_id: uuid.UUID | None = None
-    parcela_id: uuid.UUID | None = None
     cobranca_acao_id: uuid.UUID | None = None
     agenda_item_id: uuid.UUID | None = None
     ator_tipo: str | None = None
@@ -429,8 +423,6 @@ class RegistroComunicacao:
             _validar_uuid("devedor_id", self.devedor_id)
         if self.emprestimo_id is not None:
             _validar_uuid("emprestimo_id", self.emprestimo_id)
-        if self.parcela_id is not None:
-            _validar_uuid("parcela_id", self.parcela_id)
         if self.cobranca_acao_id is not None:
             _validar_uuid("cobranca_acao_id", self.cobranca_acao_id)
         if self.notification_id is not None:
@@ -509,19 +501,6 @@ class ResumoCarteira:
     vencidas: int
     encerradas: int
     atualizado_em: date
-
-
-@dataclass(frozen=True)
-class VencimentoOperacional:
-    """Read model de vencimento operacional."""
-
-    tenant_id: uuid.UUID
-    carteira_id: uuid.UUID
-    data_vencimento: date
-    emprestimo_id: uuid.UUID
-    parcela_id: uuid.UUID
-    valor_esperado: Any
-    estado_oficial: str
 
 
 @dataclass(frozen=True)

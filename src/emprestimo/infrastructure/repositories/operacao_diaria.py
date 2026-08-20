@@ -125,7 +125,6 @@ class SqlAlchemyAcaoCobrancaRepository(AcaoCobrancaRepository):
                 criado_por_usuario_id=acao.criado_por_usuario_id,
                 tipo=acao.tipo.value,
                 resultado=acao.resultado,
-                parcela_id=acao.parcela_id,
                 estado=acao.estado.value,
                 registrada_em=acao.registrada_em,
             )
@@ -174,7 +173,6 @@ class SqlAlchemyPromessaPagamentoRepository(PromessaPagamentoRepository):
                 data_promessa=promessa.data_promessa,
                 estado=promessa.estado.value,
                 observacao=promessa.observacao,
-                parcela_id=promessa.parcela_id,
                 criado_por_usuario_id=promessa.criado_por_usuario_id,
                 criada_em=promessa.criada_em,
                 atualizado_em=promessa.atualizado_em,
@@ -211,8 +209,8 @@ class SqlAlchemyApropriacaoPagamentoRepository(ApropriacaoPagamentoRepository):
         self._session = session
 
     def save(self, apropriacao: ApropriacaoPagamento) -> None:
-        if apropriacao.parcela_id is None:
-            raise ValueError("ApropriacaoPagamento requer parcela_id para persistir")
+        # A exigencia de parcela caiu com a DR-004: a apropriacao liga um
+        # pagamento a uma promessa, e e esse vinculo que importa.
 
         self._session.merge(
             ApropriacaoPagamentoORM(
@@ -221,7 +219,6 @@ class SqlAlchemyApropriacaoPagamentoRepository(ApropriacaoPagamentoRepository):
                 pagamento_id=apropriacao.pagamento_id,
                 valor=apropriacao.valor,
                 realizado_em=apropriacao.realizado_em,
-                parcela_id=apropriacao.parcela_id,
                 idempotencia=str(apropriacao.id),
                 criada_em=apropriacao.realizado_em,
             )
@@ -352,7 +349,6 @@ class SqlAlchemyRegistroComunicacaoRepository(RegistroComunicacaoRepository):
                 resumo=registro.resumo,
                 resultado=registro.resultado,
                 ocorrido_em=registro.ocorrido_em,
-                parcela_id=registro.parcela_id,
                 cobranca_acao_id=registro.cobranca_acao_id,
                 agenda_item_id=registro.agenda_item_id,
             )
@@ -460,7 +456,6 @@ def _to_acao_cobranca(row: AcaoCobrancaORM) -> AcaoCobranca:
         criado_por_usuario_id=row.criado_por_usuario_id,
         tipo=TipoAcaoCobranca(row.tipo),
         resultado=row.resultado,
-        parcela_id=row.parcela_id,
         estado=EstadoOperacional(row.estado),
         registrada_em=row.registrada_em,
     )
@@ -476,7 +471,6 @@ def _to_promessa_pagamento(row: PromessaPagamentoORM) -> PromessaPagamento:
         valor_declarado=row.valor_declarado,
         data_promessa=row.data_promessa,
         criado_por_usuario_id=row.criado_por_usuario_id,
-        parcela_id=row.parcela_id,
         estado=PromessaPagamentoState(row.estado),
         observacao=row.observacao,
         criada_em=row.criada_em,
@@ -492,7 +486,6 @@ def _to_apropriacao_pagamento(row: ApropriacaoPagamentoORM) -> ApropriacaoPagame
         pagamento_id=row.pagamento_id,
         valor=row.valor,
         realizado_em=row.realizado_em,
-        parcela_id=row.parcela_id,
         id=row.id,
     )
 
@@ -545,7 +538,6 @@ def _to_registro(row: RegistroComunicacaoORM) -> RegistroComunicacao:
         resultado=row.resultado,
         devedor_id=row.devedor_id,
         emprestimo_id=row.emprestimo_id,
-        parcela_id=row.parcela_id,
         cobranca_acao_id=row.cobranca_acao_id,
         agenda_item_id=row.agenda_item_id,
     )

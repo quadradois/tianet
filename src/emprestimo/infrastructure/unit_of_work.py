@@ -34,7 +34,6 @@ from emprestimo.infrastructure.repositories import (
     SqlAlchemyMemoriaCalculoRepository,
     SqlAlchemyModalidadeFinanceiraRepository,
     SqlAlchemyPagamentoRepository,
-    SqlAlchemyParcelaRepository,
     SqlAlchemyPerfilAcessoRepository,
     SqlAlchemyPermissaoRepository,
     SqlAlchemyPreferenciaNotificacaoRepository,
@@ -86,7 +85,6 @@ class SqlAlchemyUnitOfWork(UnitOfWork):
         self.proposta_comercial = SqlAlchemyPropostaComercialRepository(self._session)
         self.contrato_credito = SqlAlchemyContratoCreditoRepository(self._session)
         self.emprestimo = SqlAlchemyEmprestimoRepository(self._session)
-        self.parcela = SqlAlchemyParcelaRepository(self._session)
         self.pagamento = SqlAlchemyPagamentoRepository(self._session)
         self.memoria_calculo = SqlAlchemyMemoriaCalculoRepository(self._session)
         self.evento_financeiro = SqlAlchemyEventoFinanceiroRepository(self._session)

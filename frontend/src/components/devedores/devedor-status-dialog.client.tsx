@@ -21,7 +21,7 @@ export function DevedorStatusDialog({ action, devedor, initialState, operation }
       <input name="devedor_id" type="hidden" value={devedor.id} />
       <p className="font-semibold">{destructive ? "Inativar Devedor" : "Reativar Devedor"}</p>
       <p className="text-sm text-muted-foreground" id={descriptionId}>
-        A transicao e autorizada e validada pelo backend. O frontend apenas envia o comando idempotente.
+        Esta acao fica registrada no historico.
       </p>
       <Button disabled={pending} type="submit" variant={destructive ? "destructive" : "success"}>
         {pending ? "Processando..." : destructive ? "Inativar" : "Reativar"}

@@ -22,7 +22,7 @@ export function DevedorForm({ action, devedor, initialState, mode }: DevedorForm
       <div>
         <h2 className="text-lg font-semibold">{mode === "create" ? "Cadastrar Devedor" : "Atualizar dados cadastrais"}</h2>
         <p className="text-sm text-muted-foreground">
-          Dados enviados ao backend oficial. Tenant e Carteira nao fazem parte do formulario.
+          Preencha os dados do devedor.
         </p>
       </div>
       {mode === "update" && devedor ? <input name="devedor_id" type="hidden" value={devedor.id} /> : null}
@@ -38,7 +38,7 @@ export function DevedorForm({ action, devedor, initialState, mode }: DevedorForm
           name="documento"
           required={mode === "create"}
         />
-        {mode === "update" ? <p className="text-xs text-muted-foreground">Documento e imutavel na API.</p> : null}
+        {mode === "update" ? <p className="text-xs text-muted-foreground">O CPF nao pode ser alterado depois do cadastro.</p> : null}
       </div>
       <div className="grid gap-2">
         <Label htmlFor={`${mode}-nome`}>Nome</Label>

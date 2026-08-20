@@ -1,27 +1,55 @@
+/**
+ * Onde o destino aparece no menu.
+ *
+ * "principal" e o que o Credor faz: emprestar, ver quem deve, receber.
+ * "administracao" e o resto — telas que existem, sao alcancaveis e continuam
+ * certificadas, mas nao sao tarefa de todo dia. Nenhuma rota e removida; o que
+ * muda e o que ocupa a primeira vista.
+ */
+export type NavigationGroup = "principal" | "administracao";
+
 export type NavigationDestination = Readonly<{
+  grupo: NavigationGroup;
   href: string;
   label: string;
   requiredPermission?: string;
   requiredAnyPermission?: readonly string[];
+  /** Exige todas: destino que executa uma cadeia so aparece se ela for possivel. */
+  requiredAllPermissions?: readonly string[];
 }>;
 
 export const SHELL_NAVIGATION: readonly NavigationDestination[] = [
   {
+    grupo: "principal",
     href: "/app",
-    label: "Dashboard",
+    label: "Inicio",
     requiredAnyPermission: ["relatorios.operacionais.ler", "agenda.ler", "cobranca.caso.ler"],
   },
   {
+    grupo: "principal",
+    href: "/app/lancamentos",
+    label: "Novo emprestimo",
+    requiredAllPermissions: [
+      "devedor.criar",
+      "comercial.proposta.criar",
+      "contratos.contrato.criar",
+      "motor.emprestimo.criar",
+    ],
+  },
+  {
+    grupo: "principal",
     href: "/app/devedores",
     label: "Devedores",
     requiredPermission: "devedor.ler",
   },
   {
+    grupo: "administracao",
     href: "/app/devedores",
     label: "Comercial",
     requiredAnyPermission: ["comercial.proposta.ler", "comercial.simulacao.criar", "comercial.proposta.criar"],
   },
   {
+    grupo: "administracao",
     href: "/app/contratos",
     label: "Contratos",
     requiredAnyPermission: [
@@ -33,8 +61,9 @@ export const SHELL_NAVIGATION: readonly NavigationDestination[] = [
     ],
   },
   {
+    grupo: "principal",
     href: "/app/motor",
-    label: "Motor",
+    label: "Emprestimos",
     requiredAnyPermission: [
       "motor.emprestimo.criar",
       "motor.emprestimo.ler",
@@ -48,6 +77,7 @@ export const SHELL_NAVIGATION: readonly NavigationDestination[] = [
     ],
   },
   {
+    grupo: "principal",
     href: "/app/cobranca",
     label: "Cobranca",
     requiredAnyPermission: [
@@ -58,6 +88,7 @@ export const SHELL_NAVIGATION: readonly NavigationDestination[] = [
     ],
   },
   {
+    grupo: "administracao",
     href: "/app/agenda",
     label: "Agenda",
     requiredAnyPermission: [
@@ -70,11 +101,13 @@ export const SHELL_NAVIGATION: readonly NavigationDestination[] = [
     ],
   },
   {
+    grupo: "administracao",
     href: "/app/relatorios",
     label: "Relatorios",
     requiredPermission: "relatorios.operacionais.ler",
   },
   {
+    grupo: "administracao",
     href: "/app/configuracoes-financeiras",
     label: "Configuracoes",
     requiredAnyPermission: [
@@ -88,11 +121,13 @@ export const SHELL_NAVIGATION: readonly NavigationDestination[] = [
     ],
   },
   {
+    grupo: "administracao",
     href: "/app/iam",
     label: "IAM",
     requiredAnyPermission: ["perfil.ler", "perfil.gerir"],
   },
   {
+    grupo: "administracao",
     href: "/app/automacao",
     label: "Automacao",
     requiredAnyPermission: [
@@ -106,6 +141,13 @@ export const SHELL_NAVIGATION: readonly NavigationDestination[] = [
   },
 ];
 
+export function navigationByGroup(
+  destinations: readonly NavigationDestination[],
+  grupo: NavigationGroup,
+): readonly NavigationDestination[] {
+  return destinations.filter((destination) => destination.grupo === grupo);
+}
+
 export function visibleNavigationItems(
   destinations: readonly NavigationDestination[],
   effectivePermissions: readonly string[],
@@ -114,5 +156,7 @@ export function visibleNavigationItems(
   return destinations.filter((destination) =>
     (destination.requiredPermission === undefined || granted.has(destination.requiredPermission))
     && (destination.requiredAnyPermission === undefined
-      || destination.requiredAnyPermission.some((permission) => granted.has(permission))));
+      || destination.requiredAnyPermission.some((permission) => granted.has(permission)))
+    && (destination.requiredAllPermissions === undefined
+      || destination.requiredAllPermissions.every((permission) => granted.has(permission))));
 }

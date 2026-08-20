@@ -7,7 +7,7 @@ import type { components, paths } from "../../src/lib/api/openapi.generated";
 
 const HTTP_METHODS = new Set(["get", "post", "put", "patch", "delete"]);
 const ERROR_STATUSES = new Set(["400", "401", "403", "404", "409", "422", "500", "503"]);
-const SNAPSHOT_SHA256 = "5ebbe33b73ffa20de28a11240bbd53660bb15f989a82fc48456358786a58b153";
+const SNAPSHOT_SHA256 = "ff101380ddbc11cdcd93f019c149f9819fbd7091cb42e3feb72f7e0f67189248";
 const snapshotUrl = new URL(
   "../../../docs/governance/contracts/openapi/frontend-mvp-backend-openapi.json",
   import.meta.url,
@@ -83,8 +83,8 @@ describe("generated OpenAPI client contract", () => {
       }
     }
 
-    expect(operationCount).toBe(108);
-    expect(Object.keys(schemas)).toHaveLength(137);
+    expect(operationCount).toBe(106);
+    expect(Object.keys(schemas)).toHaveLength(133);
     expect(idempotencyParameters).toHaveLength(31);
     for (const parameter of idempotencyParameters) {
       expect(parameter.required).toBe(true);

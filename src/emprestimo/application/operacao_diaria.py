@@ -39,7 +39,6 @@ from emprestimo.domain.credit.operacao_diaria import (
     RegistroComunicacao,
     TipoAcaoCobranca,
 )
-from emprestimo.domain.credit.pagamento import Pagamento
 from emprestimo.domain.credit.ports import (
     AgendaItemFiltros,
     ApropriacaoPagamentoFiltros,
@@ -115,7 +114,6 @@ class PromessaPagamentoResultado:
     valor_declarado: Decimal
     data_promessa: date
     estado: PromessaPagamentoState
-    parcela_id: uuid.UUID | None
 
 
 @dataclass(frozen=True)
@@ -123,7 +121,6 @@ class ApropriacaoPagamentoResultado:
     apropriacao_id: uuid.UUID
     promessa_id: uuid.UUID
     pagamento_id: uuid.UUID
-    parcela_id: uuid.UUID
     valor: Decimal
     realizado_em: datetime
     estado_promessa: PromessaPagamentoState
@@ -178,7 +175,6 @@ class RegistroComunicacaoResultado:
     resultado: str
     devedor_id: uuid.UUID | None
     emprestimo_id: uuid.UUID | None
-    parcela_id: uuid.UUID | None
     cobranca_acao_id: uuid.UUID | None
     agenda_item_id: uuid.UUID | None
 
@@ -295,7 +291,6 @@ class RegistrarAcaoCobranca:
         tipo: TipoAcaoCobranca,
         resultado: str,
         idempotency_key: str,
-        parcela_id: uuid.UUID | None = None,
     ) -> AcaoCobrancaResultado:
         solicitacao_hash = _hash_operacao(
             tenant_id=tenant_id,
@@ -303,7 +298,6 @@ class RegistrarAcaoCobranca:
             usuario_id=usuario_id,
             tipo=tipo.value,
             resultado=resultado,
-            parcela_id=parcela_id,
         )
         with self._uow_factory() as uow:
             caso = _caso_do_tenant(uow, caso_id=cobranca_caso_id, tenant_id=tenant_id)
@@ -329,7 +323,6 @@ class RegistrarAcaoCobranca:
                     criado_por_usuario_id=usuario_id,
                     tipo=tipo,
                     resultado=resultado,
-                    parcela_id=parcela_id,
                 )
             except ViolacaoInvarianteError as exc:
                 raise TransicaoEstadoInvalidaError(
@@ -362,7 +355,6 @@ class RegistrarPromessa:
         valor_declarado: Decimal,
         data_promessa: date,
         idempotency_key: str,
-        parcela_id: uuid.UUID | None = None,
         observacao: str | None = None,
         pagamento_informado: bool = False,
     ) -> PromessaPagamentoResultado:
@@ -372,7 +364,6 @@ class RegistrarPromessa:
             usuario_id=usuario_id,
             valor_declarado=valor_declarado,
             data_promessa=data_promessa,
-            parcela_id=parcela_id,
             observacao=observacao,
             pagamento_informado=pagamento_informado,
         )
@@ -399,7 +390,6 @@ class RegistrarPromessa:
                     criado_por_usuario_id=usuario_id,
                     valor_declarado=valor_declarado,
                     data_promessa=data_promessa,
-                    parcela_id=parcela_id,
                     observacao=observacao,
                 )
                 if pagamento_informado:
@@ -434,7 +424,6 @@ class ApropriarPagamentoPromessa:
         pagamento_id: uuid.UUID,
         usuario_id: uuid.UUID,
         idempotency_key: str,
-        parcela_id: uuid.UUID | None = None,
         data_referencia: date | None = None,
     ) -> ApropriacaoPagamentoResultado:
         solicitacao_hash = _hash_operacao(
@@ -442,7 +431,6 @@ class ApropriarPagamentoPromessa:
             promessa_id=promessa_id,
             pagamento_id=pagamento_id,
             usuario_id=usuario_id,
-            parcela_id=parcela_id,
             data_referencia=data_referencia,
         )
         with self._uow_factory() as uow:
@@ -462,14 +450,12 @@ class ApropriarPagamentoPromessa:
                 return _apropriacao_replay(uow, idempotency_key=idempotency_key)
 
             _hidratar_apropriacoes(uow, promessa)
-            parcela_apropriada = _parcela_da_apropriacao(promessa, pagamento, parcela_id)
             try:
                 apropriacao = ApropriacaoPagamento(
                     promessa_id=promessa.id,
                     pagamento_id=pagamento.id,
                     valor=pagamento.valor_recebido,
                     realizado_em=pagamento.recebido_em,
-                    parcela_id=parcela_apropriada,
                 )
                 promessa.apropriar_pagamento(apropriacao)
                 promessa.reavaliar_por_referencia(
@@ -905,7 +891,6 @@ class RegistrarComunicacaoManual:
         resultado: str,
         idempotency_key: str,
         emprestimo_id: uuid.UUID | None = None,
-        parcela_id: uuid.UUID | None = None,
         cobranca_acao_id: uuid.UUID | None = None,
         agenda_item_id: uuid.UUID | None = None,
     ) -> RegistroComunicacaoResultado:
@@ -919,7 +904,6 @@ class RegistrarComunicacaoManual:
             resumo=resumo,
             resultado=resultado,
             emprestimo_id=emprestimo_id,
-            parcela_id=parcela_id,
             cobranca_acao_id=cobranca_acao_id,
             agenda_item_id=agenda_item_id,
         )
@@ -934,12 +918,6 @@ class RegistrarComunicacaoManual:
                     tenant_id=tenant_id,
                     carteira_id=carteira_id,
                     devedor_id=devedor_id,
-                )
-            if parcela_id is not None:
-                _validar_parcela_do_emprestimo(
-                    uow,
-                    parcela_id=parcela_id,
-                    emprestimo_id=emprestimo_id,
                 )
             if cobranca_acao_id is not None:
                 _validar_acao_cobranca_da_cadeia(
@@ -979,7 +957,6 @@ class RegistrarComunicacaoManual:
                     ocorrido_em=ocorrido_em,
                     resumo=resumo,
                     resultado=resultado,
-                    parcela_id=parcela_id,
                     cobranca_acao_id=cobranca_acao_id,
                     agenda_item_id=agenda_item_id,
                 )
@@ -1145,27 +1122,6 @@ def _validar_emprestimo_da_cadeia(
         or emprestimo.devedor_id != devedor_id
     ):
         raise EmprestimoNaoEncontradoError(emprestimo_id)
-
-
-def _validar_parcela_do_emprestimo(
-    uow: UnitOfWork,
-    *,
-    parcela_id: uuid.UUID,
-    emprestimo_id: uuid.UUID | None,
-) -> None:
-    if emprestimo_id is None:
-        raise TransicaoEstadoInvalidaError(
-            parcela_id,
-            "validar_parcela_comunicacao",
-            "parcela exige emprestimo_id na cadeia",
-        )
-    parcelas = uow.parcela.find_by_emprestimo_id(emprestimo_id)
-    if not any(parcela.id == parcela_id for parcela in parcelas):
-        raise TransicaoEstadoInvalidaError(
-            parcela_id,
-            "validar_parcela_comunicacao",
-            "parcela nao pertence ao emprestimo informado",
-        )
 
 
 def _validar_acao_cobranca_da_cadeia(
@@ -1398,25 +1354,6 @@ def _hidratar_apropriacoes(uow: UnitOfWork, promessa: PromessaPagamento) -> None
         promessa.apropriar_pagamento(apropriacao)
 
 
-def _parcela_da_apropriacao(
-    promessa: PromessaPagamento,
-    pagamento: Pagamento,
-    parcela_id: uuid.UUID | None,
-) -> uuid.UUID:
-    if parcela_id is not None:
-        return parcela_id
-    parcelas_liquidadas: tuple[uuid.UUID, ...] = pagamento.parcelas_liquidadas
-    if parcelas_liquidadas:
-        return parcelas_liquidadas[0]
-    if promessa.parcela_id is not None:
-        return promessa.parcela_id
-    raise TransicaoEstadoInvalidaError(
-        promessa.id,
-        "apropriar_pagamento",
-        "parcela oficial da apropriacao nao encontrada",
-    )
-
-
 def _caso_resultado(caso: CobrancaCaso) -> CobrancaCasoResultado:
     return CobrancaCasoResultado(
         caso_id=caso.id,
@@ -1457,7 +1394,6 @@ def _promessa_resultado(promessa: PromessaPagamento) -> PromessaPagamentoResulta
         valor_declarado=promessa.valor_declarado,
         data_promessa=promessa.data_promessa,
         estado=promessa.estado,
-        parcela_id=promessa.parcela_id,
     )
 
 
@@ -1465,17 +1401,11 @@ def _apropriacao_resultado(
     apropriacao: ApropriacaoPagamento,
     promessa: PromessaPagamento,
 ) -> ApropriacaoPagamentoResultado:
-    if apropriacao.parcela_id is None:
-        raise TransicaoEstadoInvalidaError(
-            promessa.id,
-            "apropriar_pagamento",
-            "parcela oficial da apropriacao nao encontrada",
-        )
+    # O vinculo que importa e pagamento-promessa (DR-004).
     return ApropriacaoPagamentoResultado(
         apropriacao_id=apropriacao.id,
         promessa_id=apropriacao.promessa_id,
         pagamento_id=apropriacao.pagamento_id,
-        parcela_id=apropriacao.parcela_id,
         valor=apropriacao.valor,
         realizado_em=apropriacao.realizado_em,
         estado_promessa=promessa.estado,
@@ -1530,7 +1460,6 @@ def _registro_comunicacao_resultado(
         resultado=registro.resultado,
         devedor_id=registro.devedor_id,
         emprestimo_id=registro.emprestimo_id,
-        parcela_id=registro.parcela_id,
         cobranca_acao_id=registro.cobranca_acao_id,
         agenda_item_id=registro.agenda_item_id,
     )
@@ -1637,7 +1566,6 @@ def _serializar_registro_comunicacao_resultado(
             "emprestimo_id": (
                 str(resultado.emprestimo_id) if resultado.emprestimo_id is not None else None
             ),
-            "parcela_id": str(resultado.parcela_id) if resultado.parcela_id is not None else None,
             "cobranca_acao_id": (
                 str(resultado.cobranca_acao_id) if resultado.cobranca_acao_id is not None else None
             ),
@@ -1667,7 +1595,6 @@ def _desserializar_registro_comunicacao_resultado(
             emprestimo_id=(
                 uuid.UUID(dados["emprestimo_id"]) if dados["emprestimo_id"] is not None else None
             ),
-            parcela_id=uuid.UUID(dados["parcela_id"]) if dados["parcela_id"] is not None else None,
             cobranca_acao_id=(
                 uuid.UUID(dados["cobranca_acao_id"])
                 if dados["cobranca_acao_id"] is not None

@@ -6,7 +6,6 @@ import uuid
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
-from decimal import Decimal
 from typing import Any, cast
 
 import pytest
@@ -28,7 +27,6 @@ from emprestimo.domain.credit.operacao_diaria import (
     RegistroComunicacao,
     TipoAcaoCobranca,
 )
-from emprestimo.domain.credit.parcela import Parcela
 from emprestimo.domain.credit.ports import RegistroComunicacaoFiltros
 
 TENANT_ID = uuid.UUID("72000000-0000-0000-0000-000000000001")
@@ -36,7 +34,6 @@ CARTEIRA_ID = uuid.UUID("72000000-0000-0000-0000-000000000002")
 DEVEDOR_ID = uuid.UUID("72000000-0000-0000-0000-000000000003")
 EMPRESTIMO_ID = uuid.UUID("72000000-0000-0000-0000-000000000004")
 USUARIO_ID = uuid.UUID("72000000-0000-0000-0000-000000000005")
-PARCELA_ID = uuid.UUID("72000000-0000-0000-0000-000000000006")
 
 
 def test_registrar_comunicacao_manual_idempotente_e_consultar_historico() -> None:
@@ -55,7 +52,6 @@ def test_registrar_comunicacao_manual_idempotente_e_consultar_historico() -> Non
         resultado="Cliente pediu retorno",
         idempotency_key="com-1",
         emprestimo_id=EMPRESTIMO_ID,
-        parcela_id=PARCELA_ID,
     )
     segundo = service.registrar(
         tenant_id=TENANT_ID,
@@ -68,7 +64,6 @@ def test_registrar_comunicacao_manual_idempotente_e_consultar_historico() -> Non
         resultado="Cliente pediu retorno",
         idempotency_key="com-1",
         emprestimo_id=EMPRESTIMO_ID,
-        parcela_id=PARCELA_ID,
     )
     historico = ConsultarHistoricoComunicacao(_uow_factory(uow)).listar(
         tenant_id=TENANT_ID,
@@ -240,14 +235,6 @@ class _EmprestimoRepo:
 
 
 @dataclass
-class _ParcelaRepo:
-    parcelas: list[Parcela]
-
-    def find_by_emprestimo_id(self, emprestimo_id: uuid.UUID) -> list[Parcela]:
-        return [parcela for parcela in self.parcelas if parcela.emprestimo_id == emprestimo_id]
-
-
-@dataclass
 class _AcaoRepo:
     acao: AcaoCobranca | None = None
 
@@ -311,7 +298,6 @@ class _FakeUoW:
     devedor: _RepoId = field(init=False)
     usuario: _RepoId = field(init=False)
     emprestimo_repo: _EmprestimoRepo = field(init=False)
-    parcela: _ParcelaRepo = field(init=False)
     acao_cobranca: _AcaoRepo = field(init=False)
     agenda_repo: _AgendaRepo = field(init=False)
     registro_comunicacao: _RegistroRepo = field(init=False)
@@ -322,17 +308,6 @@ class _FakeUoW:
         self.usuario = _RepoId(_EntidadeTenant(TENANT_ID))
         self.emprestimo = self.emprestimo or _Emprestimo(TENANT_ID, CARTEIRA_ID, DEVEDOR_ID)
         self.emprestimo_repo = _EmprestimoRepo(self.emprestimo)
-        self.parcela = _ParcelaRepo(
-            [
-                Parcela(
-                    id=PARCELA_ID,
-                    emprestimo_id=EMPRESTIMO_ID,
-                    numero=1,
-                    vencimento=datetime(2026, 10, 10, tzinfo=UTC).date(),
-                    valor_previsto=Decimal("100.00"),
-                )
-            ]
-        )
         self.acao_cobranca = _AcaoRepo(
             AcaoCobranca(
                 tenant_id=TENANT_ID,
