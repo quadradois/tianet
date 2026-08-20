@@ -8,7 +8,7 @@ import uuid
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from datetime import UTC, date, datetime
-from decimal import Decimal
+from decimal import Decimal, InvalidOperation
 
 from emprestimo.application.errors import (
     ContratoCreditoNaoEncontradoError,
@@ -22,7 +22,7 @@ from emprestimo.domain.common.errors import ViolacaoInvarianteError
 from emprestimo.domain.credit.dia_de_acerto import proximo_acerto, validar_dia_de_acerto
 from emprestimo.domain.credit.emprestimo import Emprestimo, EmprestimoState
 from emprestimo.domain.credit.eventos_financeiros import EventoFinanceiro
-from emprestimo.domain.credit.financeiro import ValorQuitacao
+from emprestimo.domain.credit.financeiro import TaxaJuros, ValorQuitacao
 from emprestimo.domain.credit.memoria_calculo import MemoriaCalculo
 from emprestimo.domain.credit.motor_financeiro import MotorFinanceiro
 from emprestimo.domain.credit.pagamento import Pagamento, PagamentoState
@@ -1008,6 +1008,10 @@ class EmprestimoCriadoNoLancamento:
 
     emprestimo_id: uuid.UUID
     primeiro_acerto_em: date
+    valor_contratado: Decimal
+    moeda: str
+    taxa_juros_mensal_percentual: Decimal
+    dia_de_acerto: int
 
 
 def criar_emprestimo_e_plano_em(
@@ -1047,7 +1051,25 @@ def criar_emprestimo_e_plano_em(
         primeiro_acerto, datetime.min.time(), tzinfo=UTC
     )
     uow.emprestimo.save(emprestimo)
+    parametros = emprestimo.parametros_financeiros
+    try:
+        taxa_mensal = TaxaJuros(
+            valor=Decimal(str(parametros.get("taxa_juros_mensal"))),
+            periodicidade="mensal",
+        )
+    except (InvalidOperation, ValueError, ViolacaoInvarianteError) as exc:
+        raise TransicaoEstadoInvalidaError(
+            emprestimo.id,
+            "criar_emprestimo",
+            "taxa_juros_mensal invalida",
+        ) from exc
+    dia_de_acerto = emprestimo.dia_de_acerto
+    assert dia_de_acerto is not None  # validado ao calcular primeiro_acerto
     return EmprestimoCriadoNoLancamento(
         emprestimo_id=emprestimo.id,
         primeiro_acerto_em=primeiro_acerto,
+        valor_contratado=emprestimo.principal_original,
+        moeda=emprestimo.moeda,
+        taxa_juros_mensal_percentual=taxa_mensal.valor * Decimal("100"),
+        dia_de_acerto=dia_de_acerto,
     )

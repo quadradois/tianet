@@ -113,7 +113,6 @@ def test_lembrete_e_historico_de_comunicacao() -> None:
     )
     lembrete.enviar()
     assert lembrete.estado.value == "enviado"
-
     registro = RegistroComunicacao(
         tenant_id=TENANT_ID,
         carteira_id=CARTEIRA_ID,
@@ -135,6 +134,10 @@ def test_lembrete_e_historico_de_comunicacao() -> None:
     historico.adicionar(registro)
     assert len(historico.registros) == 1
     assert historico.registros[0].resumo == "telefones em aberto"
+
+
+def test_whatsapp_e_canal_operacional_valido() -> None:
+    assert CanalComunicacao.WHATSAPP.value == "whatsapp"
 
 
 def test_promessa_cria_em_pendente_e_transiciona_para_pagamento_informado() -> None:

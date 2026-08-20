@@ -829,6 +829,10 @@ class RegistroComunicacaoORM(Base):
         UniqueConstraint("notification_id", name="uq_comunicacao_notification"),
         CheckConstraint("resumo <> ''", name="ck_comunicacao_resumo"),
         CheckConstraint(
+            "canal IN ('telefone', 'email', 'whatsapp', 'chat', 'presencial')",
+            name="ck_comunicacao_canal",
+        ),
+        CheckConstraint(
             "(responsavel_id IS NOT NULL AND ator_tipo IS NULL AND ator_identificador IS NULL) "
             "OR (responsavel_id IS NULL AND ator_tipo IS NOT NULL "
             "AND ator_identificador IS NOT NULL)",

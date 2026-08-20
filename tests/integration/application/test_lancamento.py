@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import uuid
+from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import date
 
@@ -10,12 +11,19 @@ import pytest
 from sqlalchemy.orm import Session, sessionmaker
 from tests.factories import CarteiraFactory, TenantFactory, UsuarioFactory
 
+from emprestimo.application.comprovante import (
+    ORIGEM_COMPROVANTE,
+    TIPO_JOB_COMPROVANTE,
+    ComprovanteLancamento,
+    ComprovanteService,
+)
 from emprestimo.application.errors import (
     IdempotenciaConflitoError,
     TransicaoEstadoInvalidaError,
 )
 from emprestimo.application.lancamento import CondicoesLancamento, DevedorNovo, LancamentoService
 from emprestimo.application.motor_financeiro import criar_emprestimo_e_plano_em
+from emprestimo.domain.credit.automacao_ports import AutomacaoFiltros
 from emprestimo.domain.credit.contrato_credito_state import ContratoCreditoState
 from emprestimo.domain.credit.documento import Documento
 from emprestimo.domain.credit.proposta_comercial_state import PropostaComercialState
@@ -66,9 +74,16 @@ def _condicoes(**overrides: object) -> CondicoesLancamento:
     return CondicoesLancamento(**base)  # type: ignore[arg-type]
 
 
-def _servico(session_factory: sessionmaker[Session]) -> LancamentoService:
+def _servico(
+    session_factory: sessionmaker[Session],
+    *,
+    enfileirar: Callable[[ComprovanteLancamento], object] | None = None,
+) -> LancamentoService:
+    comprovantes = ComprovanteService(lambda: SqlAlchemyUnitOfWork(session_factory))
     return LancamentoService(
-        lambda: SqlAlchemyUnitOfWork(session_factory), criar_emprestimo_e_plano_em
+        lambda: SqlAlchemyUnitOfWork(session_factory),
+        criar_emprestimo_e_plano_em,
+        enfileirar or comprovantes.enfileirar,
     )
 
 
@@ -97,6 +112,12 @@ def test_lancamento_cria_devedor_e_toda_a_cadeia_em_uma_transacao(
         proposta = uow.proposta_comercial.find_by_id(resultado.proposta_id)
         contrato = uow.contrato_credito.find_by_id(resultado.contrato_id)
         emprestimo = uow.emprestimo.find_by_id(resultado.emprestimo_id)
+        contatos = uow.contato.find_by_devedor(resultado.devedor_id)
+        job = uow.job_agendado.find_by_origem(
+            tenant_id=ambiente.tenant_id,
+            origem_tipo=ORIGEM_COMPROVANTE,
+            origem_id=resultado.emprestimo_id,
+        )
 
     assert proposta is not None and proposta.estado is PropostaComercialState.APROVADA
     assert contrato is not None
@@ -107,6 +128,20 @@ def test_lancamento_cria_devedor_e_toda_a_cadeia_em_uma_transacao(
     assert emprestimo.dia_de_acerto == 10
     assert emprestimo.proximo_vencimento_em is not None
     assert resultado.devedor_id is not None
+    assert len(contatos) == 1 and contatos[0].valor == "(11) 98888-7766"
+    assert job is not None
+    assert job.tipo == TIPO_JOB_COMPROVANTE
+    assert job.payload["canal"] == "whatsapp"
+    assert job.payload["destinatario"] == "(11) 98888-7766"
+    assert job.payload["texto"] == (
+        "Comprovante do lancamento\n"
+        "Devedor: Cliente do Wizard\n"
+        f"Emprestimo: {resultado.emprestimo_id}\n"
+        "Valor contratado: BRL 6.000,00\n"
+        "Taxa de juros mensal: 3,00%\n"
+        "Dia de acerto: 10\n"
+        "Primeiro acerto: 10/09/2026"
+    )
 
 
 def test_lancamento_reutiliza_devedor_existente(
@@ -175,6 +210,37 @@ def test_falha_no_motor_desfaz_o_devedor_criado_na_mesma_transacao(
         assert encontrado is None
 
 
+def test_taxa_invalida_falha_controlada_e_desfaz_a_transacao(
+    session_factory: sessionmaker[Session],
+) -> None:
+    ambiente = _ambiente(session_factory)
+    documento = _cpf()
+
+    with pytest.raises(TransicaoEstadoInvalidaError):
+        _servico(session_factory).lancar(
+            tenant_id=ambiente.tenant_id,
+            carteira_id=ambiente.carteira_id,
+            usuario_id=ambiente.usuario_id,
+            devedor_novo=DevedorNovo(
+                documento=documento,
+                nome="Taxa Invalida",
+                contato_whatsapp="(11) 96666-5533",
+            ),
+            condicoes=_condicoes(taxa_juros_mensal="abc"),
+            data_referencia=date(2026, 8, 16),
+            idempotency_key=str(uuid.uuid4()),
+        )
+
+    with session_factory() as session:
+        uow = SqlAlchemyUnitOfWork(lambda: session)
+        assert (
+            uow.devedor.find_by_documento_carteira(
+                Documento.from_str(documento), ambiente.carteira_id
+            )
+            is None
+        )
+
+
 def test_replay_com_a_mesma_chave_nao_lanca_duas_vezes(
     session_factory: sessionmaker[Session],
 ) -> None:
@@ -197,6 +263,68 @@ def test_replay_com_a_mesma_chave_nao_lanca_duas_vezes(
     segundo = servico.lancar(**argumentos)  # type: ignore[arg-type]
 
     assert segundo == primeiro
+    with session_factory() as session:
+        uow = SqlAlchemyUnitOfWork(lambda: session)
+        pagina = uow.job_agendado.listar(
+            AutomacaoFiltros(tenant_id=ambiente.tenant_id, carteira_id=ambiente.carteira_id)
+        )
+    assert pagina.total == 1
+
+
+def test_falha_ao_enfileirar_nao_desfaz_o_lancamento_commitado(
+    session_factory: sessionmaker[Session],
+) -> None:
+    ambiente = _ambiente(session_factory)
+    comprovantes = ComprovanteService(lambda: SqlAlchemyUnitOfWork(session_factory))
+    tentativas = 0
+
+    def fila_instavel(comprovante: ComprovanteLancamento) -> object:
+        nonlocal tentativas
+        tentativas += 1
+        if tentativas == 1:
+            raise RuntimeError("fila indisponivel")
+        return comprovantes.enfileirar(comprovante)
+
+    chave = str(uuid.uuid4())
+    argumentos = dict(
+        tenant_id=ambiente.tenant_id,
+        carteira_id=ambiente.carteira_id,
+        usuario_id=ambiente.usuario_id,
+        devedor_novo=DevedorNovo(
+            documento=_cpf(),
+            nome="Lancamento Commitado",
+            contato_whatsapp="(11) 92222-1100",
+        ),
+        condicoes=_condicoes(),
+        data_referencia=date(2026, 8, 16),
+        idempotency_key=chave,
+    )
+    servico = _servico(session_factory, enfileirar=fila_instavel)
+    resultado = servico.lancar(**argumentos)  # type: ignore[arg-type]
+
+    with session_factory() as session:
+        uow = SqlAlchemyUnitOfWork(lambda: session)
+        assert uow.emprestimo.find_by_id(resultado.emprestimo_id) is not None
+        assert (
+            uow.job_agendado.find_by_origem(
+                tenant_id=ambiente.tenant_id,
+                origem_tipo=ORIGEM_COMPROVANTE,
+                origem_id=resultado.emprestimo_id,
+            )
+            is None
+        )
+
+    replay = servico.lancar(**argumentos)  # type: ignore[arg-type]
+    with session_factory() as session:
+        uow = SqlAlchemyUnitOfWork(lambda: session)
+        job = uow.job_agendado.find_by_origem(
+            tenant_id=ambiente.tenant_id,
+            origem_tipo=ORIGEM_COMPROVANTE,
+            origem_id=resultado.emprestimo_id,
+        )
+    assert replay == resultado
+    assert tentativas == 2
+    assert job is not None
 
 
 def test_mesma_chave_com_intencao_diferente_e_conflito(

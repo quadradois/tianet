@@ -33,6 +33,7 @@ from emprestimo.application.comercial import (
     PropostaComercialService,
     SimulacaoComercialService,
 )
+from emprestimo.application.comprovante import ComprovanteService
 from emprestimo.application.configuracoes_financeiras import (
     CalendarioFinanceiroService,
     CapturaSnapshotConfiguracaoService,
@@ -643,9 +644,13 @@ def get_lancamento_service(
     del session
     session_factory = get_session_factory()
     criar_emprestimo = _motor_service_class("criar_emprestimo_e_plano_em")
+    comprovantes = ComprovanteService(
+        uow_factory=lambda: SqlAlchemyUnitOfWork(session_factory),
+    )
     return LancamentoService(
         uow_factory=lambda: SqlAlchemyUnitOfWork(session_factory),
         criar_emprestimo=criar_emprestimo,
+        enfileirar_comprovante=comprovantes.enfileirar,
     )
 
 

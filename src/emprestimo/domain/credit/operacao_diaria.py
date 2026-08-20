@@ -78,6 +78,7 @@ class CanalComunicacao(StrEnum):
 
     TELEFONE = "telefone"
     EMAIL = "email"
+    WHATSAPP = "whatsapp"
     CHAT = "chat"
     PRESENCIAL = "presencial"
 
