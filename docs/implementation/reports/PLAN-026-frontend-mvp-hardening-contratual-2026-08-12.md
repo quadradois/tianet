@@ -188,21 +188,40 @@ Em 2026-08-17 a DR-004 trocou o modelo do emprestimo: o plano de parcelas deu
 lugar ao acerto mensal no dia combinado. O lancamento deixou de receber
 `quantidade_parcelas` e `primeiro_vencimento` e passou a receber `dia_de_acerto`;
 a resposta deixou de devolver `quantidade_parcelas` e passou a devolver
-`primeiro_acerto_em`. O snapshot foi regerado: **108 operacoes, 137 schemas**,
-SHA-256
-`75a15e1f119a0fe01cbf3401a202680b0bb812f191fd1c00e5d3c9fcef123d34`.
+`primeiro_acerto_em`. O snapshot foi regerado pelo IMP-324: **108 operacoes,
+137 schemas**, SHA-256
+`ba4342af3a977fe65e0f0af60d7e6fd7cab219b386a4f9c03b9167051a1c02cd`.
+
+Ainda em 2026-08-17 o IMP-325 trocou a ancora do Resumo da Carteira
+(`acertos_pendentes` e `principal_a_receber` no lugar de `parcelas_previstas`,
+`parcelas_vencidas` e `total_previsto`). Alteracao de campo; **108 operacoes,
+137 schemas**, SHA-256
+`367381a54d6f4d2430a3be0bc18c39af3ef5a66364daa5f0c95f9dc37d1ec119`.
 
 Em 2026-08-19 o IMP-326 acrescentou `dia_de_acerto`, `proximo_acerto_em` e
 `acerto_pendente_desde` a `EmprestimoResponse`, para que a tela do emprestimo
 nao precise recalcular calendario no navegador. Mudanca **aditiva**; contagem
-inalterada em 108 operacoes e 137 schemas.
+inalterada em **108 operacoes, 137 schemas**, SHA-256
+`6b24001ab24f9e4c47764d93fa8c640115dedd2f77bbc0df290d4145934b953d`.
 
-A regeracao de 2026-08-17 e a de 2026-08-18 estao registradas acima; o hash
-vigente e o desta ultima. Diferente das duas primeiras, a mudanca do IMP-324
-**nao foi aditiva**: campos exigidos
-sairam do contrato. E deliberada e esta na resolucao da DR-004. A contagem de
-operacoes e de schemas nao muda porque a alteracao e de campo, nao de
-superficie. Nada do hardening foi desfeito.
+Em 2026-08-19 o IMP-327 removeu o plano de parcelas do contrato: sairam
+`GET` e `POST /credit/emprestimos/{emprestimo_id}/parcelas` e os quatro schemas
+de parcela. **Reducao de superficie: 106 operacoes, 133 schemas**, 671442 bytes,
+SHA-256
+`75a15e1f119a0fe01cbf3401a202680b0bb812f191fd1c00e5d3c9fcef123d34`.
+Este e o hash **vigente**.
+
+Correcao de registro (2026-08-20): ate esta versao, o hash `75a15e1f...` estava
+lancado na entrada de 2026-08-17 ao lado de "108 operacoes, 137 schemas". Era
+impossivel — ele pertence ao snapshot de 106/133 produzido pelo IMP-327. Os
+hashes acima foram reconstruidos a partir do proprio historico do arquivo em
+`git`, e cada um foi conferido contra a contagem de operacoes e schemas do
+commit correspondente.
+
+Das cinco regeracoes registradas, so a do IMP-326 e aditiva. A do IMP-324
+retirou campos exigidos e a do IMP-327 retirou operacoes e schemas: ambas
+**nao aditivas**, deliberadas, e amparadas pela resolucao da DR-004. Nada do
+hardening foi desfeito.
 
 ---
 
@@ -210,6 +229,7 @@ superficie. Nada do hardening foi desfeito.
 
 | Versao | Data | Descricao |
 |---|---|---|
+| 1.3.0 | 2026-08-20 | Corrigido o registro de snapshots: o hash vigente estava atribuido ao inventario errado. Reconstruidas as cinco regeracoes (IMP-306, 324, 325, 326, 327) com hash e contagem conferidos no historico do arquivo. |
 | 1.2.0 | 2026-08-17 | Registrada a regeracao do snapshot pela DR-004/PLAN-030: lancamento passa a receber dia de acerto. |
 | 1.1.0 | 2026-08-16 | Registrada a regeracao do snapshot pelo PLAN-027/IMP-306, sem alterar o registro original do hardening. |
 | 1.0.0 | 2026-08-12 | Execucao IMP-276..IMP-283, snapshot OpenAPI e decisao de manter IMP-284 bloqueado ate judge. |
