@@ -12,7 +12,7 @@ import { INITIAL_COMERCIAL_ACTION_STATE } from "@/lib/comercial/comercial-policy
 import { decideProposalAction, updateProposalAction } from "../../actions";
 
 export const metadata: Metadata = {
-  title: "Proposta Comercial | Frontend MVP",
+  title: "Proposta Comercial | TiaNet",
 };
 
 export default async function PropostaComercialRoute({ params }: PageProps<"/app/comercial/propostas/[propostaId]">) {

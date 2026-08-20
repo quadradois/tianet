@@ -31,7 +31,7 @@ export function ComercialJsonForm({ action, devedorId, initialState, mode, propo
     <Card>
       <CardHeader>
         <CardTitle>{title}</CardTitle>
-        <CardDescription>Informe parametros comerciais como JSON opaco. O frontend nao calcula regra financeira.</CardDescription>
+        <CardDescription>Informe as condicoes comerciais. O sistema valida e calcula as regras finais.</CardDescription>
       </CardHeader>
       <CardContent>
         <form action={formAction} className="grid gap-4">
@@ -40,11 +40,11 @@ export function ComercialJsonForm({ action, devedorId, initialState, mode, propo
           {mode === "proposal" ? (
             <div className="grid gap-2">
               <Label htmlFor="simulacao_id">Simulacao vinculada opcional</Label>
-              <Input id="simulacao_id" maxLength={36} name="simulacao_id" placeholder="UUID da simulacao, se houver" />
+              <Input id="simulacao_id" maxLength={36} name="simulacao_id" placeholder="ID da simulacao, se houver" />
             </div>
           ) : null}
           <div className="grid gap-2">
-            <Label htmlFor={`${mode}-parametros`}>Parametros comerciais</Label>
+            <Label htmlFor={`${mode}-parametros`}>Condicoes comerciais</Label>
             <textarea
               className="min-h-40 rounded-md border bg-background p-3 font-mono text-sm"
               defaultValue={DEFAULT_PARAMETERS}

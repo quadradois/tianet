@@ -20,7 +20,7 @@ describe("component harness", () => {
   it("renderiza o placeholder existente por papel e nome", () => {
     render(<Home />);
 
-    expect(screen.getByRole("heading", { name: "Frontend MVP" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "TiaNet" })).toBeInTheDocument();
   });
 
   it("renderiza por papel e nome e executa uma interacao de usuario", async () => {

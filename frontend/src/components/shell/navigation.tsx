@@ -33,7 +33,7 @@ export function Navigation({ items }: NavigationProps) {
       <Lista items={principal} />
       {administracao.length > 0 ? (
         <details className="mt-3 border-t border-border pt-3">
-          <summary className="cursor-pointer px-3 py-2 text-sm font-semibold text-muted-foreground">Administracao</summary>
+          <summary className="cursor-pointer px-3 py-2 text-sm font-semibold text-muted-foreground">Mais ferramentas</summary>
           <div className="mt-1">
             <Lista items={administracao} />
           </div>

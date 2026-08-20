@@ -17,7 +17,7 @@ import {
 } from "../actions";
 
 export const metadata: Metadata = {
-  title: "Emprestimo | Frontend MVP",
+  title: "Emprestimo | TiaNet",
 };
 
 /**

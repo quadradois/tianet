@@ -20,7 +20,7 @@ import {
 } from "./actions";
 
 export const metadata: Metadata = {
-  title: "IAM permitido | Frontend MVP",
+  title: "IAM permitido | TiaNet",
 };
 
 export default async function IamPage({ searchParams }: PageProps<"/app/iam">) {

@@ -61,7 +61,7 @@ function SectionCard({ title, description, children }: Readonly<{ title: string;
 
 export function DashboardLoadingState({ title }: Readonly<{ title: string }>) {
   return (
-    <SectionCard title={title} description="Carregando dados oficiais do backend…">
+    <SectionCard title={title} description="Carregando dados...">
       <div aria-label={`Carregando ${title}`} className="grid gap-3" role="status">
         <Skeleton className="h-8 w-2/3" />
         <Skeleton className="h-20 w-full" />
@@ -125,7 +125,7 @@ export function DueDatesView({ data }: Readonly<{ data: DueDates }>) {
       <ul className="grid gap-2 sm:hidden" aria-label="Acertos retornados">{data.itens.map((item) => <li className="rounded-md border p-3" key={item.emprestimo_id}><strong><time dateTime={item.acerto_em}>{formatDate(item.acerto_em)}</time></strong><dl className="mt-2 grid grid-cols-2 gap-2 text-sm"><div><dt className="text-muted-foreground">Situacao</dt><dd>{item.situacao}</dd></div><div><dt className="text-muted-foreground">Dia combinado</dt><dd className="tabular-nums">{item.dia_de_acerto}</dd></div><div><dt className="text-muted-foreground">Dias sem pagamento</dt><dd className="tabular-nums">{item.dias_sem_pagamento}</dd></div><div><dt className="text-muted-foreground">Emprestado</dt><dd className="tabular-nums">{moeda(item.principal_original)}</dd></div></dl></li>)}</ul>
       <div aria-label="Acertos retornados" className="hidden overflow-x-auto rounded-md border sm:block" role="region" tabIndex={0}>
         <table className="w-full table-fixed text-left text-xs">
-          <caption className="sr-only">Acertos e situacoes oficiais retornados pelo backend</caption>
+          <caption className="sr-only">Acertos e situacoes retornados pelo sistema</caption>
           <thead className="bg-muted"><tr><th className="p-2">Acerto em</th><th className="p-2">Situacao</th><th className="p-2">Dia combinado</th><th className="p-2">Dias sem pagamento</th><th className="p-2">Emprestado</th></tr></thead>
           <tbody>{data.itens.map((item) => <tr className="border-t" key={item.emprestimo_id}><td className="break-words p-2"><time dateTime={item.acerto_em}>{formatDate(item.acerto_em)}</time></td><td className="break-words p-2">{item.situacao}</td><td className="break-words p-2 tabular-nums">{item.dia_de_acerto}</td><td className="break-words p-2 tabular-nums">{item.dias_sem_pagamento}</td><td className="break-words p-2 tabular-nums">{moeda(item.principal_original)}</td></tr>)}</tbody>
         </table>
@@ -138,7 +138,7 @@ export function AgendaView({ data }: Readonly<{ data: Agenda }>) {
   if (data.compromissos.length === 0 && data.lembretes.length === 0) return <p role="status">Nenhum compromisso ou lembrete retornado para a janela.</p>;
   return (
     <div className="grid gap-4">
-      <p className="text-sm text-muted-foreground">Total oficial: <span className="tabular-nums">{data.total}</span></p>
+      <p className="text-sm text-muted-foreground">Total: <span className="tabular-nums">{data.total}</span></p>
       <ul className="grid gap-2" aria-label="Compromissos">
         {data.compromissos.map((item) => <li className="min-w-0 rounded-md border p-3" key={item.agenda_item_id}><strong className="break-words">{item.titulo}</strong><p className="text-sm text-muted-foreground"><time dateTime={item.previsto_para}>{formatDateTime(item.previsto_para)}</time> · {item.estado}</p></li>)}
       </ul>
@@ -168,7 +168,7 @@ async function DueDatesSection({ result, recoveryHref }: Readonly<{ result: Dash
 }
 
 async function AgendaSection({ result, recoveryHref }: Readonly<{ result: DashboardProps["agenda"]; recoveryHref: string }>) {
-  return <SectionCard title="Agenda do dia" description="Compromissos na janela inclusiva e os lembretes vinculados retornados pelo backend."><SectionResult result={await result} recoveryHref={recoveryHref}>{(data) => <AgendaView data={data} />}</SectionResult></SectionCard>;
+  return <SectionCard title="Agenda do dia" description="Compromissos e lembretes previstos para o periodo."><SectionResult result={await result} recoveryHref={recoveryHref}>{(data) => <AgendaView data={data} />}</SectionResult></SectionCard>;
 }
 
 async function CollectionSection({ result, recoveryHref }: Readonly<{ result: DashboardProps["collection"]; recoveryHref: string }>) {

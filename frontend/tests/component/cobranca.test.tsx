@@ -43,8 +43,8 @@ describe("CobrancaPage", () => {
     expect(screen.getByRole("heading", { level: 1, name: "Fila de cobranca" })).toBeInTheDocument();
     expect(screen.getByRole("region", { name: "Casos de cobranca" })).toHaveAttribute("data-state", "overflow");
     expect(screen.getAllByText("R$ 100,00").length).toBeGreaterThanOrEqual(2);
-    expect(screen.getAllByText(/Promessa declaratoria/).length).toBeGreaterThanOrEqual(1);
-    expect(screen.getAllByText(/Pagamento oficial apropriado/).length).toBeGreaterThanOrEqual(1);
+    expect(screen.getAllByText(/Use quando o devedor prometeu pagar/).length).toBeGreaterThanOrEqual(1);
+    expect(screen.getAllByText(/Associe um pagamento recebido/).length).toBeGreaterThanOrEqual(1);
     expect(document.body.textContent).not.toMatch(/accessToken|Bearer|Authorization/i);
   });
 
@@ -62,7 +62,7 @@ describe("CobrancaPage", () => {
         result={{ kind: "ready", data: queue() }}
       />,
     );
-    await user.click(screen.getByRole("button", { name: "Acao idempotente" }));
+    await user.click(screen.getByRole("button", { name: "Registrar acao" }));
     expect(action).toHaveBeenCalled();
   });
 
@@ -98,9 +98,9 @@ describe("CobrancaPage", () => {
       registerPromiseAction: action,
     };
     const { rerender } = render(<CobrancaPage {...base} result={{ kind: "denied" }} />);
-    expect(screen.getByText("denied")).toBeInTheDocument();
+    expect(screen.getByText("Sem permissao")).toBeInTheDocument();
     rerender(<CobrancaPage {...base} permissions={["cobranca.caso.ler"]} result={{ kind: "ready", data: { items: [], total: 0 } }} />);
-    expect(screen.getByText(/empty:/)).toBeInTheDocument();
+    expect(screen.getByText(/Nenhum caso ativo encontrado/)).toBeInTheDocument();
     rerender(<CobrancaPage {...base} result={{ kind: "problem", problem: { codigo: "x", correlationId: "corr-404", mensagem: "detalhe hostil", status: 404 } }} />);
     expect(screen.getByRole("alert")).toHaveTextContent("Caso de cobranca nao encontrado ou indisponivel.");
     expect(screen.getByRole("alert")).toHaveTextContent("Correlation ID: corr-404");

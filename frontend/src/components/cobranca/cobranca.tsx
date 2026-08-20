@@ -46,7 +46,7 @@ export function CobrancaLoadingState() {
     <Card>
       <CardHeader>
         <CardTitle>Cobranca</CardTitle>
-        <CardDescription>loading fila oficial de cobranca...</CardDescription>
+        <CardDescription>Carregando fila de cobranca...</CardDescription>
       </CardHeader>
       <CardContent className="grid gap-3" role="status" aria-label="loading Cobranca">
         <Skeleton className="h-8 w-1/3" />
@@ -73,8 +73,8 @@ function ProblemState({ problem }: Readonly<{ problem: CobrancaProblem }>) {
   );
 }
 
-function DeniedState({ children = "denied: voce nao possui permissao para operar Cobranca." }: Readonly<{ children?: ReactNode }>) {
-  return <Alert><AlertTitle>denied</AlertTitle><AlertDescription>{children}</AlertDescription></Alert>;
+function DeniedState({ children = "Voce nao possui permissao para operar Cobranca." }: Readonly<{ children?: ReactNode }>) {
+  return <Alert><AlertTitle>Sem permissao</AlertTitle><AlertDescription>{children}</AlertDescription></Alert>;
 }
 
 function SectionResult<T>({ result, recoveryHref, children }: Readonly<{
@@ -96,7 +96,7 @@ function FilterForm({ filters }: Readonly<{ filters: CobrancaFilters }>) {
       <div className="grid gap-2">
         <Label htmlFor="estado">Estado</Label>
         <select className="min-h-(--size-control) rounded-md border bg-background px-3 text-sm" defaultValue={filters.estado ?? ""} id="estado" name="estado">
-          <option value="">Ativos oficiais</option>
+          <option value="">Ativos</option>
           <option value="pendente">Pendente</option>
           <option value="em_andamento">Em andamento</option>
           <option value="encerrado">Encerrado</option>
@@ -104,7 +104,7 @@ function FilterForm({ filters }: Readonly<{ filters: CobrancaFilters }>) {
       </div>
       <div className="grid gap-2">
         <Label htmlFor="devedor_id">Devedor</Label>
-        <input className="min-h-(--size-control) rounded-md border bg-background px-3 text-sm" defaultValue={filters.devedorId ?? ""} id="devedor_id" name="devedor_id" placeholder="UUID opcional do Devedor" />
+        <input className="min-h-(--size-control) rounded-md border bg-background px-3 text-sm" defaultValue={filters.devedorId ?? ""} id="devedor_id" name="devedor_id" placeholder="ID do devedor, se houver" />
       </div>
       <Button className="self-end" type="submit">Filtrar fila</Button>
     </form>
@@ -153,11 +153,11 @@ function QueueView({ actionState, appropriatePaymentAction, data, permissions, r
   registerAction: Action;
   registerPromiseAction: Action;
 }>) {
-  if (data.items.length === 0) return <p role="status">empty: nenhuma cobranca retornada para a Carteira do contexto.</p>;
+  if (data.items.length === 0) return <p role="status">Nenhum caso ativo encontrado para esta carteira.</p>;
   return (
     <div className="grid gap-4">
       <h2 className="text-xl font-semibold">Casos de cobranca</h2>
-      <p className="text-sm text-muted-foreground">Total oficial: <span className="tabular-nums">{data.total}</span>. sem calculo local de saldo ou promessa.</p>
+      <p className="text-sm text-muted-foreground">Total: <span className="tabular-nums">{data.total}</span>. Saldos e promessas sao conferidos pelo sistema.</p>
       <div aria-label="Casos de cobranca" className="overflow-x-auto rounded-md border" data-state="overflow" role="region" tabIndex={0}>
         <table className="w-full min-w-[72rem] text-left text-sm">
           <caption className="sr-only">Fila de cobranca operacional</caption>
@@ -182,7 +182,7 @@ function QueueView({ actionState, appropriatePaymentAction, data, permissions, r
         <Card key={`detalhe-${item.caso_id}`}>
           <CardHeader>
             <CardTitle>{item.titulo}</CardTitle>
-            <CardDescription>Operacao manual de cobranca sobre fatos oficiais. 409 indica transicao/estado recusado; 422 nao e status publicado nesta fotografia OpenAPI.</CardDescription>
+            <CardDescription>Use estes comandos para registrar contato, promessa ou conciliacao deste caso.</CardDescription>
           </CardHeader>
           <CardContent className="grid gap-4">
             <CaseSummary item={item} />
@@ -201,7 +201,7 @@ export function CobrancaPage({ actionState, appropriatePaymentAction, filters, p
         <p className="text-xs font-semibold uppercase tracking-[0.12em] text-muted-foreground">Cobranca</p>
         <h1 className="text-balance text-3xl font-bold tracking-tight">Fila de cobranca</h1>
         <p className="mt-2 max-w-3xl text-sm text-muted-foreground">
-          IMP-295 opera fila, acao, promessa e apropriacao sobre contratos oficiais. Pagamentos, Agenda e Comunicacao permanecem fora deste ciclo.
+          Acompanhe quem precisa de contato, registre combinados e mantenha a fila de cobranca em dia.
         </p>
       </header>
       <FilterForm filters={filters} />

@@ -53,8 +53,8 @@ test("parte de Devedor ativo, lista Comercial e nao envia Tenant ou Carteira do 
   await page.getByRole("link", { name: "Abrir Comercial deste Devedor" }).click();
   await expect(page).toHaveURL(new RegExp(`/app/devedores/${IDS.debtor}/comercial$`));
   await expect(page.getByRole("heading", { name: "Simulacoes e propostas" })).toBeVisible();
-  await expect(page.getByText("Jornada P0 a partir de Devedor ativo")).toBeVisible();
-  await expect(page.getByText("empty")).toHaveCount(0);
+  await expect(page.getByText("Simule condicoes, crie propostas e acompanhe decisoes comerciais deste devedor.")).toBeVisible();
+  await expect(page.getByText("Nenhuma proposta comercial encontrada para este devedor.")).toHaveCount(0);
   await expect(page.getByRole("region", { name: "Tabela de propostas comerciais com overflow" })).toBeVisible();
   await assertNoToken(page, context);
   expect(requests.every((url) => new URL(url).origin === "http://127.0.0.1:3104")).toBe(true);
@@ -98,7 +98,7 @@ test("RBAC leitura, empty, 404, 409 e 422 permanecem seguros e correlacionados",
   await expect(page).toHaveURL(/\/login$/);
   await login(page, "VAZIO");
   await page.goto(`/app/devedores/${IDS.debtor}/comercial`);
-  await expect(page.getByText(/empty/)).toBeVisible();
+  await expect(page.getByText("Nenhuma proposta comercial encontrada para este devedor.")).toBeVisible();
   await page.getByRole("button", { name: "Sair" }).click();
   await expect(page).toHaveURL(/\/login$/);
   await login(page, "NAO-ENCONTRADO");

@@ -4,8 +4,8 @@ import type { ReactNode } from "react";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Frontend MVP",
-  description: "Fundação visual governada do Frontend MVP.",
+  title: "TiaNet",
+  description: "Operacao de emprestimos da TiaNet.",
 };
 
 export const viewport: Viewport = {

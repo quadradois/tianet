@@ -10,7 +10,7 @@ import { recoveryAttemptCookieName } from "@/lib/bff/context.server";
 import { currentOperationalContext } from "@/lib/bff/current-context.server";
 
 export const metadata: Metadata = {
-  title: "Dashboard | Frontend MVP",
+  title: "Dashboard | TiaNet",
 };
 
 type AuthenticatedLayoutProps = Readonly<{ children: ReactNode }>;

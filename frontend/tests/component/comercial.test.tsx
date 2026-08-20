@@ -61,7 +61,7 @@ describe("Comercial", () => {
     expect(screen.getByRole("status", { name: "loading Comercial" })).toBeInTheDocument();
     rerender(<ComercialDevedorPage createProposalAction={action} createSimulationAction={action} devedorId={DEBTOR_ID} filters={{ page: 1, size: 20 }} initialState={initial} permissions={["comercial.proposta.ler", "comercial.simulacao.criar", "comercial.proposta.criar"]} proposals={{ kind: "ready", data: list([]) }} recoveryHref="/session/recover" />);
     expect(screen.getByRole("heading", { name: "Simulacoes e propostas" })).toBeVisible();
-    expect(screen.getByRole("status")).toHaveTextContent("empty");
+    expect(screen.getByRole("status")).toHaveTextContent("Nenhuma proposta comercial encontrada para este devedor.");
     expect(screen.getByRole("button", { name: "Criar simulacao comercial" })).toBeVisible();
     expect(screen.getByRole("button", { name: "Criar proposta comercial" })).toBeVisible();
     expect(document.body.textContent).not.toMatch(/saldo|parcela|pagamento|emprestimo|juros/i);

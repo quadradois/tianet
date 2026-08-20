@@ -12,7 +12,7 @@ import { INITIAL_CONTRATO_ACTION_STATE } from "@/lib/contratos/contratos-policy"
 import { decideContractAction } from "../actions";
 
 export const metadata: Metadata = {
-  title: "Contrato | Frontend MVP",
+  title: "Contrato | TiaNet",
 };
 
 export default async function ContratoRoute({ params }: PageProps<"/app/contratos/[contratoId]">) {

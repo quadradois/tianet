@@ -115,13 +115,12 @@ test("consulta detalhe, parcelas, saldo, memoria, pagamento e quitacao sem recal
   await page.getByText("Operacoes deste emprestimo").click();
   // Nao ha plano a gerar no emprestimo livre (DR-004).
   await expect(page.getByRole("button", { name: "Gerar parcelas", exact: true })).toHaveCount(0);
-  await activateButton(page, "Registrar pagamento");
   await page.getByLabel("Quanto o devedor pagou").fill("100,00");
   await activateButton(page, "Registrar pagamento");
   await expect(page.getByText(/Pagamento idempotente registrado pelo Motor/)).toBeVisible();
-  await activateButton(page, "Executar quitacao");
+  await activateButton(page, "Quitar emprestimo");
   await expect(page.getByText(/Quitacao oficial executada pelo Motor/)).toBeVisible();
-  await activateButton(page, "Registrar renegociacao");
+  await activateButton(page, "Renegociar condicoes");
   await expect(page.getByText(/Nao foi possivel concluir a operacao do Motor\. Correlation ID:/)).toBeVisible();
   await assertNoToken(page, context);
   const suffix = testInfo.project.name.startsWith("mobile") ? "pagamento-flow-mobile" : "emprestimo-detail-desktop";

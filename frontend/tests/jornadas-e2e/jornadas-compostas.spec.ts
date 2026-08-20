@@ -208,7 +208,7 @@ test("wizard lanca emprestimo livre, painel mostra o extrato e o pagamento abate
 test("IAM permitido, automacao operacional e 5xx correlacionado", async ({ page }) => {
   await login(page);
   await page.goto(`${state.frontendUrl}/app/iam`);
-  await expect(page.getByRole("heading", { name: "Perfis, catalogo e atribuicoes" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Perfis e permissoes" })).toBeVisible();
   await page.goto(`${state.frontendUrl}/app/automacao?job_id=${requiredId("reminder")}`);
   await expect(page.getByRole("heading", { name: "Jobs, Templates e Notificacoes" })).toBeVisible();
   await expect(page.getByRole("heading", { name: "Jobs", exact: true })).toBeVisible();

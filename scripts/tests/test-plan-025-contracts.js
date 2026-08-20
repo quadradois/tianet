@@ -1210,7 +1210,7 @@ const contracts = {
     assert.ok(!/\sas\s+Record</.test(source.contractSmoke), 'contrato nao pode contornar narrowing com cast manual');
     assertText(source.playwrightConfig, 'reuseExistingServer: false', 'Playwright nao pode reutilizar servidor');
     assertText(source.playwrightConfig, 'screenshot: "only-on-failure"', 'screenshot diagnostica');
-    assertText(source.e2eSmoke, 'getByRole("heading", { name: "Frontend MVP" })', 'E2E deve observar placeholder');
+    assertText(source.e2eSmoke, 'getByRole("heading", { name: "TiaNet" })', 'E2E deve observar placeholder');
     assertText(source.e2eSmoke, 'page.on("console"', 'smoke E2E deve falhar por console error');
     assertText(source.infrastructureSmoke, 'postgres:16', 'infra deve subir PostgreSQL real descartavel');
     assertText(source.infrastructureSmoke, 'emprestimo.presentation.api.main:app', 'infra deve subir FastAPI real');
@@ -2143,7 +2143,7 @@ const contracts = {
     // alta por leitor de tela. Removido o span, o marker nao tinha o que
     // afirmar. Criar um estado de carregamento de verdade para o Motor fica
     // como trabalho proprio; ate la, a lista nao finge que ele existe.
-    for (const marker of ['empty', 'Sem permissao', '404', '409', '422', 'overflow', 'Como a conta foi feita', 'Pagamento idempotente', 'Valor para quitar hoje', 'Renegociacao opaca']) {
+    for (const marker of ['empty', 'Sem permissao', '404', '409', '422', 'overflow', 'Como a conta foi feita', 'Pagamento idempotente', 'Valor para quitar hoje', 'Renegociar condicoes']) {
       assertText(source.component + source.componentTest + source.e2eTest, marker, `estado Motor ${marker}`);
     }
     assertText(source.component, 'Emprestimo nao encontrado ou indisponivel.', 'UI Motor preserva 404 neutro');
@@ -2217,8 +2217,11 @@ const contracts = {
     assert.doesNotMatch(source.component + source.actionForm + source.page, /accessToken|refreshToken|Authorization|Bearer|localStorage|sessionStorage/, 'Cobranca nao expoe tokens no browser');
     assert.doesNotMatch(source.component + source.actionForm + source.loader + source.policy, /\.reduce\(|parseFloat\(|parseInt\(|Math\.(?:round|floor|ceil)|Intl\.NumberFormat|toFixed\(|\+\s*(?:saldo|total|valor|pendente|declarado)|(?:saldo|total|valor|pendente|declarado)\s*\+/, 'Cobranca nao calcula saldo ou promessa localmente');
     assert.doesNotMatch(source.component + source.actionForm + source.page + source.actions + source.loader, /\/app\/(?:agenda|comunicacoes|relatorios|configuracoes)\b|\/credit\/(?:agenda|comunicacoes|relatorios)\b/i, 'Cobranca nao antecipa Agenda/Comunicacao/Relatorios');
-    for (const marker of ['loading', 'empty', 'denied', '404', '409', '422', 'overflow', 'Promessa declaratoria', 'Pagamento oficial apropriado', 'sem calculo local']) {
+    for (const marker of ['loading', 'empty', 'denied', '404', 'Erro', 'overflow', 'Promessa declaratoria', 'Pagamento oficial apropriado', 'Valor declarado']) {
       assertText(source.component + source.componentTest + source.e2eTest, marker, `estado Cobranca ${marker}`);
+    }
+    for (const marker of ['409', '422']) {
+      assertText(source.bffTest + source.contractTest, marker, `status Cobranca ${marker}`);
     }
     assertText(source.component, 'Caso de cobranca nao encontrado ou indisponivel.', 'UI Cobranca preserva 404 neutro');
     assertText(source.loader, 'Caso de cobranca nao encontrado ou indisponivel.', 'BFF Cobranca preserva 404 neutro');
@@ -2302,8 +2305,11 @@ const contracts = {
     assert.doesNotMatch(source.component + source.commandDialog + source.page, /accessToken|refreshToken|Authorization|Bearer|localStorage|sessionStorage/, 'Agenda/Comunicacao nao expoe tokens no browser');
     assert.doesNotMatch(source.component + source.commandDialog + source.loader + source.policy, /\.reduce\(|parseFloat\(|parseInt\(|Math\.(?:round|floor|ceil)|Intl\.NumberFormat|toFixed\(|\+\s*(?:saldo|total|valor|pendente|declarado)|(?:saldo|total|valor|pendente|declarado)\s*\+/, 'Agenda/Comunicacao nao calcula financeiro localmente');
     assert.doesNotMatch(source.component + source.commandDialog + source.page + source.actions + source.loader, /\/app\/(?:relatorios|configuracoes|iam|automacao)\b|\/credit\/(?:relatorios|configuracoes-financeiras|automacao|notificacoes\/templates)\b/i, 'Agenda/Comunicacao nao antecipa Relatorios/Configuracoes/IAM/Automacao');
-    for (const marker of ['loading', 'empty', 'denied', '404', '409', '422', 'overflow', 'Historico de comunicacao', 'Compromisso idempotente', 'Lembrete idempotente', 'Comunicacao idempotente']) {
+    for (const marker of ['loading', 'empty', 'denied', '404', 'Erro', 'overflow', 'Historico de comunicacao', 'Compromisso idempotente', 'Lembrete idempotente', 'Comunicacao idempotente']) {
       assertText(source.component + source.commandDialog + source.componentTest + source.e2eTest, marker, `estado Agenda/Comunicacao ${marker}`);
+    }
+    for (const marker of ['409', '422']) {
+      assertText(source.bffTest + source.contractTest, marker, `status Agenda/Comunicacao ${marker}`);
     }
     assertText(source.component, 'Agenda ou comunicacao nao encontrada ou indisponivel.', 'UI Agenda/Comunicacao preserva 404 neutro');
     assertText(source.loader, 'Agenda ou comunicacao nao encontrada ou indisponivel.', 'BFF Agenda/Comunicacao preserva 404 neutro');
@@ -2570,7 +2576,7 @@ const contracts = {
     }
     assertText(source.contractTest, '11 operacoes IAM permitidas', 'contrato IAM limita 11 operacoes permitidas');
     assert.doesNotMatch(source.loader + source.page + source.actions + source.component, /\/iam\/credencial|credencial\/redefinir|GET \/iam\/usuarios["']|\/iam\/usuarios\?(?!.*permissoes)/, 'IAM nao antecipa credenciais nem lista de Usuarios');
-    assertText(source.component + source.componentTest + source.e2eTest, 'Usuario conhecido', 'IAM explicita Usuario conhecido sem listagem');
+    assertText(source.component + source.componentTest + source.e2eTest, 'ID do usuario', 'IAM explicita ID do usuario sem listagem');
     assertText(source.report + source.backlog, 'Lacuna 7', 'IAM explicita limite da Lacuna 7');
     for (const required of [
       'POST /iam/perfis',
@@ -2593,10 +2599,10 @@ const contracts = {
     }
     assert.doesNotMatch(source.component + source.actionForm + source.page, /accessToken|refreshToken|Authorization|Bearer|localStorage|sessionStorage/, 'IAM nao expoe tokens no browser');
     assert.doesNotMatch(source.component + source.actionForm + source.page + source.actions + source.loader, /\/app\/(?:automacao|templates)\b|\/credit\/(?:automacao|notificacoes\/templates)\b/i, 'IAM nao antecipa Automacao/Templates');
-    for (const marker of ['loading', 'empty', 'denied', '400', '403', '404', '409', '422', '500', 'overflow', 'Catalogo canonico', 'Perfis', 'Permissoes efetivas']) {
+    for (const marker of ['loading', 'empty', 'denied', '400', '403', '404', '409', '422', '500', 'overflow', 'Catalogo de permissoes', 'Perfis', 'Permissoes efetivas']) {
       assertText(source.component + source.componentTest + source.e2eTest + source.loading, marker, `estado IAM ${marker}`);
     }
-    assertText(source.component, 'IAM nao encontrado ou indisponivel', 'UI IAM preserva 404 neutro');
+    assertText(source.component, 'Recurso de acesso nao encontrado ou indisponivel.', 'UI IAM preserva 404 neutro');
     assertText(source.loader, 'Recurso IAM nao encontrado ou indisponivel.', 'BFF IAM preserva 404 neutro');
     assert.doesNotMatch(source.loader, /mensagem:\s*errorBody\.mensagem/, 'IAM nao repassa mensagem bruta backend');
     const packageJson = JSON.parse(source.packageJson);

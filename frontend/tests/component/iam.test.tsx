@@ -25,14 +25,14 @@ describe("IAM permitido", () => {
     expect(screen.getByRole("button", { name: "Remover permissao" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Atribuir Perfil ao Usuario" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Remover Perfil do Usuario" })).toBeInTheDocument();
-    expect(screen.getAllByText(/Usuario conhecido/).length).toBeGreaterThanOrEqual(1);
+    expect(screen.getAllByText(/ID do usuario/).length).toBeGreaterThanOrEqual(1);
     expect(document.body).not.toHaveTextContent(/credencial|refreshToken|accessToken|Bearer/i);
   });
 
   it("mantem 404 neutro e correlation visivel", () => {
     render(<IamProblemState problem={{ codigo: "recurso_indisponivel", correlationId: "corr-404", mensagem: "stack interna", status: 404 }} />);
     const alert = screen.getByRole("alert");
-    expect(within(alert).getAllByText(/IAM nao encontrado ou indisponivel/).length).toBeGreaterThanOrEqual(1);
+    expect(within(alert).getAllByText(/Recurso de acesso nao encontrado/).length).toBeGreaterThanOrEqual(1);
     expect(alert).toHaveTextContent("Correlation ID: corr-404");
     expect(alert).not.toHaveTextContent("stack interna");
   });

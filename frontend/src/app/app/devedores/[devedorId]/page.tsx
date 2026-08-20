@@ -18,7 +18,7 @@ import {
 } from "../actions";
 
 export const metadata: Metadata = {
-  title: "Detalhe do Devedor | Frontend MVP",
+  title: "Detalhe do Devedor | TiaNet",
 };
 
 export default async function DevedorDetailRoute({ params }: PageProps<"/app/devedores/[devedorId]">) {

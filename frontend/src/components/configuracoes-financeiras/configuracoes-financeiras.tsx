@@ -69,7 +69,7 @@ function SectionCard({ title, description, children }: Readonly<{ title: string;
 
 export function ConfiguracoesLoadingState({ title }: Readonly<{ title: string }>) {
   return (
-    <SectionCard title={title} description="Carregando configuracao oficial do backend...">
+    <SectionCard title={title} description="Carregando configuracao...">
       <div aria-label={`Carregando ${title}`} className="grid gap-3" data-state="loading" role="status">
         <Skeleton className="h-8 w-2/3" />
         <Skeleton className="h-24 w-full" />
@@ -94,7 +94,7 @@ export function ProblemState({ result }: Readonly<{ result: Extract<Configuracoe
 export function DeniedState() {
   return (
     <Alert data-state="denied">
-      <AlertTitle>Sem permissao (403)</AlertTitle>
+      <AlertTitle>Sem permissao</AlertTitle>
       <AlertDescription>Configuracoes Financeiras nao estao disponiveis para o seu acesso.</AlertDescription>
     </Alert>
   );
@@ -129,11 +129,11 @@ function ConfigRow({ item }: Readonly<{ item: ConfiguracaoFinanceira }>) {
 }
 
 export function ConfiguracoesList({ data }: Readonly<{ data: readonly ConfiguracaoFinanceira[] }>) {
-  if (data.length === 0) return <p role="status">empty: nenhuma Configuracao Financeira retornada para os filtros.</p>;
+  if (data.length === 0) return <p role="status">Nenhuma configuracao financeira encontrada para os filtros.</p>;
   return (
     <div aria-label="Configuracoes oficiais" className="max-h-[28rem] overflow-auto rounded-md border" role="region" tabIndex={0}>
       <table className="w-full min-w-[920px] text-left text-xs">
-        <caption className="sr-only">Configuracoes Financeiras oficiais retornadas pelo backend</caption>
+        <caption className="sr-only">Configuracoes Financeiras retornadas pelo sistema</caption>
         <thead className="bg-muted">
           <tr><th className="p-2">ID</th><th className="p-2">Modalidade</th><th className="p-2">Estado</th><th className="p-2">Versao</th><th className="p-2">Inicio</th><th className="p-2">Fim</th><th className="p-2">Eventos</th><th className="p-2">Parametros oficiais</th></tr>
         </thead>
@@ -157,7 +157,7 @@ export function VigenteView({ data }: Readonly<{ data: ConfiguracaoVigente | nul
 }
 
 function SimpleList<T extends { id: string; codigo: string; nome: string }>({ items, label }: Readonly<{ items: readonly T[]; label: string }>) {
-  if (items.length === 0) return <p role="status">empty: nenhum item retornado.</p>;
+  if (items.length === 0) return <p role="status">Nenhum item encontrado.</p>;
   return (
     <ul aria-label={label} className="grid gap-2">
       {items.map((item) => <li className="break-words rounded-md border bg-muted/20 p-2" key={item.id}><strong>{item.codigo}</strong> — {item.nome}</li>)}
@@ -166,19 +166,19 @@ function SimpleList<T extends { id: string; codigo: string; nome: string }>({ it
 }
 
 async function ConfiguracoesSection({ result, recoveryHref }: Readonly<{ result: ConfiguracoesProps["configuracoes"]; recoveryHref: string }>) {
-  return <SectionCard title="Configuracoes cadastradas" description="Lista oficial da Carteira operacional."><SectionResult result={await result} recoveryHref={recoveryHref}>{(data) => <ConfiguracoesList data={data} />}</SectionResult></SectionCard>;
+  return <SectionCard title="Configuracoes cadastradas" description="Lista da carteira operacional."><SectionResult result={await result} recoveryHref={recoveryHref}>{(data) => <ConfiguracoesList data={data} />}</SectionResult></SectionCard>;
 }
 
 async function VigenteSection({ result, recoveryHref }: Readonly<{ result: ConfiguracoesProps["vigente"]; recoveryHref: string }>) {
-  return <SectionCard title="Configuracao vigente" description="Consulta oficial por modalidade e data."><SectionResult result={await result} recoveryHref={recoveryHref}>{(data) => <VigenteView data={data} />}</SectionResult></SectionCard>;
+  return <SectionCard title="Configuracao vigente" description="Consulta por modalidade e data."><SectionResult result={await result} recoveryHref={recoveryHref}>{(data) => <VigenteView data={data} />}</SectionResult></SectionCard>;
 }
 
 async function ModalidadesSection({ result, recoveryHref }: Readonly<{ result: ConfiguracoesProps["modalidades"]; recoveryHref: string }>) {
-  return <SectionCard title="Modalidades" description="Catalogo financeiro oficial."><SectionResult result={await result} recoveryHref={recoveryHref}>{(data) => <SimpleList items={data} label="Modalidades financeiras oficiais" />}</SectionResult></SectionCard>;
+  return <SectionCard title="Modalidades" description="Catalogo financeiro."><SectionResult result={await result} recoveryHref={recoveryHref}>{(data) => <SimpleList items={data} label="Modalidades financeiras" />}</SectionResult></SectionCard>;
 }
 
 async function CalendariosSection({ result, recoveryHref }: Readonly<{ result: ConfiguracoesProps["calendarios"]; recoveryHref: string }>) {
-  return <SectionCard title="Calendarios" description="Calendarios financeiros oficiais."><SectionResult result={await result} recoveryHref={recoveryHref}>{(data) => <SimpleList items={data} label="Calendarios financeiros oficiais" />}</SectionResult></SectionCard>;
+  return <SectionCard title="Calendarios" description="Calendarios financeiros."><SectionResult result={await result} recoveryHref={recoveryHref}>{(data) => <SimpleList items={data} label="Calendarios financeiros" />}</SectionResult></SectionCard>;
 }
 
 function Filters({ filters }: Readonly<{ filters: ConfiguracoesFilters }>) {
@@ -221,7 +221,7 @@ export function ConfiguracoesFinanceiras({ actions, filters, permissions, recove
         <div>
           <p className="text-xs font-semibold uppercase tracking-[0.12em] text-muted-foreground">Configuracoes Financeiras</p>
           <h1 className="text-balance text-3xl font-bold tracking-tight">Configuracoes Financeiras</h1>
-          <p className="mt-2 max-w-3xl text-sm text-muted-foreground">Administracao operacional das configuracoes oficiais. Parametros financeiros sao exibidos de modo opaco; o frontend nao calcula taxas, parcelas, vigencia derivada ou arredondamentos.</p>
+          <p className="mt-2 max-w-3xl text-sm text-muted-foreground">Gerencie modalidades, calendarios e regras financeiras usadas pela operacao. As contas finais continuam sendo validadas pelo sistema.</p>
           <p className="sr-only">Estados cobertos: loading empty denied 400 403 404 409 422 500 overflow.</p>
         </div>
         <Filters filters={filters} />

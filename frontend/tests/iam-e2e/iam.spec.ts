@@ -20,7 +20,7 @@ async function login(page: Page, institution = "ACME") {
 
 async function gotoIam(page: Page) {
   await page.goto(`/app/iam?perfil_id=${PROFILE_ID}&usuario_id=${USER_ID}`);
-  await expect(page.getByRole("heading", { name: "Perfis, catalogo e atribuicoes" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Perfis e permissoes" })).toBeVisible();
 }
 
 async function screenshotEvidence(page: Page, suffix: string) {
@@ -96,10 +96,10 @@ test("observa denied, empty, 404, 409, 422 e 5xx seguros", async ({ page }, test
   await expect(page.getByText(/Sem permissao/).first()).toBeVisible();
   await login(page, "vazio");
   await gotoIam(page);
-  await expect(page.getByText(/empty:/)).toBeVisible();
+  await expect(page.getByText(/Nenhum perfil encontrado|Informe um ID de perfil/)).toBeVisible();
   await login(page, "nao-encontrado");
   await gotoIam(page);
-  await expect(page.getByRole("alert").first()).toContainText("IAM nao encontrado ou indisponivel");
+  await expect(page.getByRole("alert").first()).toContainText("Recurso de acesso nao encontrado");
   await expect(page.getByText("usuario interno")).toHaveCount(0);
   await login(page, "conflito");
   await gotoIam(page);

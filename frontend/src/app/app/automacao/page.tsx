@@ -19,7 +19,7 @@ import {
 } from "./actions";
 
 export const metadata: Metadata = {
-  title: "Automacao | Frontend MVP",
+  title: "Automacao | TiaNet",
 };
 
 export default async function AutomacaoPage({ searchParams }: PageProps<"/app/automacao">) {

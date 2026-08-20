@@ -10,7 +10,7 @@ import { listAgenda, listCommunications } from "@/lib/bff/agenda-comunicacao.ser
 import { INITIAL_AGENDA_ACTION_STATE, resolveAgendaFilters, resolveCommunicationFilters } from "@/lib/agenda/agenda-policy";
 
 export const metadata = {
-  title: "Agenda e Comunicacao | Frontend MVP",
+  title: "Agenda e Comunicacao | TiaNet",
 };
 
 export default async function AgendaPage({ searchParams }: PageProps<"/app/agenda">) {

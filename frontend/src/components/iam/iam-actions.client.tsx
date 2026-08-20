@@ -43,8 +43,8 @@ export function IamActions(props: IamActionsProps) {
   return (
     <section aria-labelledby="iam-actions-title" className="grid gap-4">
       <div>
-        <h2 className="text-xl font-semibold" id="iam-actions-title">Comandos IAM permitidos</h2>
-        <p className="text-sm text-muted-foreground">Sem lista de usuarios: use apenas Usuario conhecido por UUID.</p>
+        <h2 className="text-xl font-semibold" id="iam-actions-title">Alterar acessos</h2>
+        <p className="text-sm text-muted-foreground">Use os IDs exibidos nas consultas acima para ajustar perfis e permissoes.</p>
       </div>
       <div className="grid min-w-0 gap-4 xl:grid-cols-2">
         <form action={createForm} className="grid min-w-0 gap-3 rounded-lg border bg-card p-4">
@@ -54,7 +54,7 @@ export function IamActions(props: IamActionsProps) {
           <ActionMessage state={createState} />
         </form>
         <form action={renameForm} className="grid min-w-0 gap-3 rounded-lg border bg-card p-4">
-          <Label htmlFor="iam-rename-id">Perfil ID</Label>
+          <Label htmlFor="iam-rename-id">ID do perfil</Label>
           <Input id="iam-rename-id" name="perfil_id" required />
           <Label htmlFor="iam-rename-nome">Novo nome</Label>
           <Input id="iam-rename-nome" maxLength={120} name="nome" required />
@@ -62,13 +62,13 @@ export function IamActions(props: IamActionsProps) {
           <ActionMessage state={renameState} />
         </form>
         <form action={inactiveForm} className="grid min-w-0 gap-3 rounded-lg border bg-card p-4">
-          <Label htmlFor="iam-inactivate-id">Perfil ID</Label>
+          <Label htmlFor="iam-inactivate-id">ID do perfil</Label>
           <Input id="iam-inactivate-id" name="perfil_id" required />
           <Button type="submit" variant="destructive">Inativar Perfil</Button>
           <ActionMessage state={inactiveState} />
         </form>
         <form action={addForm} className="grid min-w-0 gap-3 rounded-lg border bg-card p-4">
-          <Label htmlFor="iam-add-perfil">Perfil ID</Label>
+          <Label htmlFor="iam-add-perfil">ID do perfil</Label>
           <Input id="iam-add-perfil" name="perfil_id" required />
           <Label htmlFor="iam-add-codigo">Codigo do catalogo</Label>
           <Input id="iam-add-codigo" name="codigo" required />
@@ -76,7 +76,7 @@ export function IamActions(props: IamActionsProps) {
           <ActionMessage state={addState} />
         </form>
         <form action={removeForm} className="grid min-w-0 gap-3 rounded-lg border bg-card p-4">
-          <Label htmlFor="iam-remove-perfil">Perfil ID</Label>
+          <Label htmlFor="iam-remove-perfil">ID do perfil</Label>
           <Input id="iam-remove-perfil" name="perfil_id" required />
           <Label htmlFor="iam-remove-codigo">Codigo do catalogo</Label>
           <Input id="iam-remove-codigo" name="codigo" required />
@@ -84,15 +84,15 @@ export function IamActions(props: IamActionsProps) {
           <ActionMessage state={removeState} />
         </form>
         <form action={assignForm} className="grid min-w-0 gap-3 rounded-lg border bg-card p-4">
-          <Label htmlFor="iam-assign-user">Usuario conhecido ID</Label>
+          <Label htmlFor="iam-assign-user">ID do usuario</Label>
           <Input id="iam-assign-user" name="usuario_id" required />
-          <Label htmlFor="iam-assign-perfil">Perfil ID</Label>
+          <Label htmlFor="iam-assign-perfil">ID do perfil</Label>
           <Input id="iam-assign-perfil" name="perfil_id" required />
           <Button type="submit">Atribuir Perfil ao Usuario</Button>
           <ActionMessage state={assignState} />
         </form>
         <form action={removeUserForm} className="grid min-w-0 gap-3 rounded-lg border bg-card p-4">
-          <Label htmlFor="iam-remove-user">Usuario conhecido ID</Label>
+          <Label htmlFor="iam-remove-user">ID do usuario</Label>
           <Input id="iam-remove-user" name="usuario_id" required />
           <Button type="submit" variant="outline">Remover Perfil do Usuario</Button>
           <ActionMessage state={removeUserState} />

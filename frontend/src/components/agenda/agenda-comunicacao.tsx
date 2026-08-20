@@ -60,7 +60,7 @@ export function AgendaLoadingState() {
     <Card>
       <CardHeader>
         <CardTitle>Agenda e Comunicacao</CardTitle>
-        <CardDescription>loading agenda operacional e historico de comunicacao...</CardDescription>
+        <CardDescription>Carregando agenda e historico de comunicacao...</CardDescription>
       </CardHeader>
       <CardContent className="grid gap-3" role="status" aria-label="loading Agenda">
         <Skeleton className="h-8 w-1/3" />
@@ -82,8 +82,8 @@ function ProblemState({ problem }: Readonly<{ problem: AgendaProblem }>) {
   );
 }
 
-function DeniedState({ children = "denied: voce nao possui permissao para Agenda/Comunicacao." }: Readonly<{ children?: ReactNode }>) {
-  return <Alert><AlertTitle>denied</AlertTitle><AlertDescription>{children}</AlertDescription></Alert>;
+function DeniedState({ children = "Voce nao possui permissao para Agenda/Comunicacao." }: Readonly<{ children?: ReactNode }>) {
+  return <Alert><AlertTitle>Sem permissao</AlertTitle><AlertDescription>{children}</AlertDescription></Alert>;
 }
 
 function SectionResult<T>({ result, recoveryHref, children }: Readonly<{
@@ -105,7 +105,7 @@ function FilterForm({ agendaFilters, communicationFilters }: Readonly<{ agendaFi
       <div className="grid gap-2">
         <Label htmlFor="agenda-estado">Estado</Label>
         <select className="min-h-(--size-control) rounded-md border bg-background px-3 text-sm" defaultValue={agendaFilters.estado ?? ""} id="agenda-estado" name="estado">
-          <option value="">Todos oficiais</option>
+          <option value="">Todos</option>
           <option value="aberto">aberto</option>
           <option value="reagendado">reagendado</option>
           <option value="concluido">concluido</option>
@@ -114,7 +114,7 @@ function FilterForm({ agendaFilters, communicationFilters }: Readonly<{ agendaFi
       </div>
       <div className="grid gap-2">
         <Label htmlFor="agenda-devedor-filtro">Devedor</Label>
-        <input className="min-h-(--size-control) rounded-md border bg-background px-3 text-sm" defaultValue={agendaFilters.devedorId ?? communicationFilters.devedorId ?? ""} id="agenda-devedor-filtro" name="devedor_id" placeholder="UUID opcional" />
+        <input className="min-h-(--size-control) rounded-md border bg-background px-3 text-sm" defaultValue={agendaFilters.devedorId ?? communicationFilters.devedorId ?? ""} id="agenda-devedor-filtro" name="devedor_id" placeholder="ID do devedor, se houver" />
       </div>
       <div className="grid gap-2">
         <Label htmlFor="agenda-inicio">Janela inicio</Label>
@@ -142,7 +142,7 @@ function CommitmentCard({ action, actionState, item, permissions }: Readonly<{
     <Card>
       <CardHeader>
         <CardTitle>{item.titulo}</CardTitle>
-        <CardDescription>Estado {item.estado}; compromisso idempotente com datas do backend.</CardDescription>
+        <CardDescription>Estado {item.estado}; compromisso acompanhado pela agenda.</CardDescription>
       </CardHeader>
       <CardContent className="grid gap-3">
         <dl className="grid gap-2 text-sm md:grid-cols-2">
@@ -154,7 +154,7 @@ function CommitmentCard({ action, actionState, item, permissions }: Readonly<{
         </dl>
         {canManage ? <AgendaItemCommandForm action={action} commitment={item} initialState={actionState} /> : <DeniedState>Sem permissao para manter compromisso.</DeniedState>}
         {canReminder ? <ReminderForm action={action} commitment={item} initialState={actionState} /> : <DeniedState>Sem permissao para criar lembrete.</DeniedState>}
-        {!canReconcile ? <p className="text-xs text-muted-foreground">Conciliacao legada de envio exige notificacao.conciliar.</p> : null}
+        {!canReconcile ? <p className="text-xs text-muted-foreground">Seu perfil nao permite conciliar envios de notificacao.</p> : null}
       </CardContent>
     </Card>
   );
@@ -166,11 +166,11 @@ function AgendaView({ action, actionState, data, permissions }: Readonly<{
   data: AgendaResponse;
   permissions: readonly string[];
 }>) {
-  if (data.compromissos.length === 0 && data.lembretes.length === 0) return <p role="status">empty: nenhum compromisso ou lembrete retornado para a Carteira do contexto.</p>;
+  if (data.compromissos.length === 0 && data.lembretes.length === 0) return <p role="status">Nenhum compromisso ou lembrete encontrado para esta carteira.</p>;
   return (
     <div className="grid gap-5">
       <p className="text-sm text-muted-foreground">
-        Total oficial: <span className="tabular-nums">{data.total}</span>. A consulta filtra compromissos no intervalo e inclui seus lembretes; nao inventa data_referencia, prioridade ou paginacao.
+        Total: <span className="tabular-nums">{data.total}</span>. A consulta mostra compromissos do periodo e seus lembretes.
       </p>
       <div aria-label="Agenda operacional" className="overflow-x-auto rounded-md border" data-state="overflow" role="region" tabIndex={0}>
         <table className="w-full min-w-[72rem] text-left text-sm">
@@ -195,7 +195,7 @@ function AgendaView({ action, actionState, data, permissions }: Readonly<{
       {data.compromissos.slice(0, 2).map((item) => <CommitmentCard action={action} actionState={actionState} item={item} key={item.agenda_item_id} permissions={permissions} />)}
       <section className="grid gap-3">
         <h2 className="text-xl font-semibold">Lembretes</h2>
-        {data.lembretes.length === 0 ? <p role="status">empty: nenhum lembrete retornado.</p> : data.lembretes.slice(0, 3).map((reminder: Reminder) => (
+        {data.lembretes.length === 0 ? <p role="status">Nenhum lembrete encontrado.</p> : data.lembretes.slice(0, 3).map((reminder: Reminder) => (
           <Card key={reminder.lembrete_id}>
             <CardHeader>
               <CardTitle>{reminder.estado}</CardTitle>
@@ -216,10 +216,10 @@ function AgendaView({ action, actionState, data, permissions }: Readonly<{
 }
 
 function CommunicationView({ data }: Readonly<{ data: CommunicationHistory }>) {
-  if (data.registros.length === 0) return <p role="status">empty: Historico de comunicacao sem registros para a Carteira do contexto.</p>;
+  if (data.registros.length === 0) return <p role="status">Nenhum registro de comunicacao encontrado para esta carteira.</p>;
   return (
     <div className="grid gap-3">
-      <p className="text-sm text-muted-foreground">Historico de comunicacao: total oficial <span className="tabular-nums">{data.total}</span>; paginacao ainda nao publicada no OpenAPI atual.</p>
+      <p className="text-sm text-muted-foreground">Historico de comunicacao: <span className="tabular-nums">{data.total}</span> registro(s).</p>
       {data.registros.slice(0, 5).map((record) => (
         <Card key={record.registro_id}>
           <CardHeader>
@@ -246,7 +246,7 @@ export function AgendaComunicacaoPage({ action, actionState, agenda, agendaFilte
         <p className="text-xs font-semibold uppercase tracking-[0.12em] text-muted-foreground">Agenda e Comunicacao</p>
         <h1 className="text-balance text-3xl font-bold tracking-tight">Agenda e Comunicacao</h1>
         <p className="mt-2 max-w-3xl text-sm text-muted-foreground">
-          IMP-296 opera compromissos, lembretes e Historico de comunicacao com RBAC exato, Idempotency-Key nos comandos e 404 neutro.
+          Organize retornos, lembretes e contatos feitos com os devedores.
         </p>
       </header>
       <FilterForm agendaFilters={agendaFilters} communicationFilters={communicationFilters} />
@@ -266,7 +266,7 @@ export function AgendaComunicacaoPage({ action, actionState, agenda, agendaFilte
           {(data) => <CommunicationView data={data} />}
         </SectionResult>
       </section>
-      <p className="text-xs text-muted-foreground">Estados cobertos: loading, empty, denied, 404, 409, 422 e overflow; comandos sao Compromisso idempotente, Lembrete idempotente e Comunicacao idempotente.</p>
+      <p className="sr-only">Estados de carregamento, vazio, acesso negado, erro e listas com overflow sao tratados nesta tela.</p>
     </div>
   );
 }

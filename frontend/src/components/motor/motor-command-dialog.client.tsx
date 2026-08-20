@@ -29,10 +29,10 @@ export function CreateLoanForm({ action, initialContractId, initialState }: Read
     <form action={formAction} className="grid gap-3 rounded-lg border bg-card p-4 md:grid-cols-[1fr_14rem_auto]">
       <div className="grid gap-2">
         <Label htmlFor="contrato_id">Contrato liberado</Label>
-        <Input defaultValue={initialContractId ?? ""} id="contrato_id" name="contrato_id" placeholder="UUID do Contrato liberado" />
+        <Input defaultValue={initialContractId ?? ""} id="contrato_id" name="contrato_id" placeholder="ID do contrato liberado" />
       </div>
       <div className="grid gap-2">
-        <Label htmlFor="idempotency_key">Idempotency-Key</Label>
+        <Label htmlFor="idempotency_key">Chave de seguranca opcional</Label>
         <Input id="idempotency_key" name="idempotency_key" placeholder="opcional; gerada se vazia" />
       </div>
       <Button className="self-end" disabled={pending} type="submit">Criar Emprestimo</Button>
@@ -53,17 +53,27 @@ export function MotorCommandForm({ action, command, emprestimoId, hoje, initialS
   const title = command === "registrar-pagamento"
       ? "Registrar pagamento"
       : command === "executar-quitacao"
-        ? "Executar quitacao"
-        : "Registrar renegociacao";
+        ? "Quitar emprestimo"
+        : "Renegociar condicoes";
   const evidence = command === "registrar-pagamento"
-      ? "Pagamento idempotente registrado pelo Motor."
+      ? "Pagamento registrado sem duplicidade."
       : command === "executar-quitacao"
-        ? "Quitacao oficial executada pelo Motor."
-        : "Renegociacao opaca registrada sem formula local.";
+        ? "Quitacao encerra a divida conforme saldo atual."
+        : "Renegociacao registra novas condicoes para acompanhamento.";
+  const description = command === "registrar-pagamento"
+      ? "Use quando o devedor pagou parte da divida."
+      : command === "executar-quitacao"
+        ? "Use somente quando o devedor pagou tudo que falta hoje."
+        : "Use quando a combinacao da divida mudou.";
+  const buttonVariant = command === "executar-quitacao"
+      ? "destructive"
+      : command === "registrar-renegociacao"
+        ? "outline"
+        : "default";
   return (
     <form action={formAction} className="grid gap-3 rounded-lg border bg-card p-4">
       <h3 className="font-semibold">{title}</h3>
-      <p className="text-sm text-muted-foreground">Os valores sao calculados pelo sistema.</p>
+      <p className="text-sm text-muted-foreground">{description}</p>
       <p className="sr-only">{evidence}</p>
       <input name="command" type="hidden" value={command} />
       <input name="emprestimo_id" type="hidden" value={emprestimoId} />
@@ -100,7 +110,7 @@ export function MotorCommandForm({ action, command, emprestimoId, hoje, initialS
             <Input defaultValue={hoje} id={`${command}-renegociado_em`} name="renegociado_em" type="date" />
           </div>
           <div className="grid gap-2">
-            <Label htmlFor={`${command}-novos_parametros`}>Novos parametros opacos</Label>
+            <Label htmlFor={`${command}-novos_parametros`}>Detalhes da renegociacao</Label>
             <textarea className="min-h-24 rounded-md border bg-background p-3 text-sm" defaultValue={'{"origem":"atendimento"}'} id={`${command}-novos_parametros`} name="novos_parametros" />
           </div>
         </>
@@ -109,7 +119,7 @@ export function MotorCommandForm({ action, command, emprestimoId, hoje, initialS
           A camada BFF gera uma quando o campo nao vem, e a protecao contra
           duplicidade continua exatamente igual. */}
       <Status state={state} />
-      <Button disabled={pending} type="submit">{title}</Button>
+      <Button disabled={pending} type="submit" variant={buttonVariant}>{title}</Button>
     </form>
   );
 }
