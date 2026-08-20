@@ -27,7 +27,7 @@ test("login compoe o Dashboard completo sem expor token ou backend ao browser", 
   await login(page);
   await expect(page).toHaveURL(/\/app\?data_referencia=\d{4}-\d{2}-\d{2}$/);
   await expect(page.getByRole("heading", { name: "Inicio" })).toBeVisible();
-  await expect(page.getByText("12345.67")).toBeVisible();
+  await expect(page.getByText("R$ 12.345,67")).toBeVisible();
   await expect(page.locator("dd:visible, td:visible").filter({ hasText: /^pendente$/ }).first()).toBeVisible();
   await expect(page.getByText("Contato operacional com o cliente")).toBeVisible();
   await expect(page.getByText("Caso operacional 1 com descricao extensa para validar overflow contido")).toBeVisible();
@@ -41,7 +41,7 @@ test("login compoe o Dashboard completo sem expor token ou backend ao browser", 
 
 test("RBAC parcial e perfil nulo nao disparam navegacao ou dados indevidos", async ({ page }) => {
   await login(page, "PARCIAL");
-  await expect(page.getByText("12345.67")).toBeVisible();
+  await expect(page.getByText("R$ 12.345,67")).toBeVisible();
   await expect(page.getByText("Sem permissao")).toHaveCount(2);
   await page.getByRole("button", { name: "Sair" }).click();
   await login(page, "NENHUMA");
@@ -52,7 +52,7 @@ test("RBAC parcial e perfil nulo nao disparam navegacao ou dados indevidos", asy
 test("distingue loading, empty e periodo invalido antes de consultar dados", async ({ page }) => {
   await login(page, "LENTO");
   await expect(page.getByRole("status", { name: /Carregando/ }).first()).toBeVisible();
-  await expect(page.getByText("12345.67")).toBeVisible();
+  await expect(page.getByText("R$ 12.345,67")).toBeVisible();
   await page.getByRole("button", { name: "Sair" }).click();
   await login(page, "VAZIO");
   await expect(page.getByText(/Nenhum acerto/)).toBeVisible();

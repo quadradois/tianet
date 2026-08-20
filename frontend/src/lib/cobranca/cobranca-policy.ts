@@ -1,4 +1,5 @@
 import type { components } from "../api/openapi.generated";
+import { normalizarMoeda } from "../formato/brasileiro";
 
 export const COBRANCA_CASE_READ_PERMISSION = "cobranca.caso.ler";
 export const COBRANCA_ACTION_REGISTER_PERMISSION = "cobranca.acao.registrar";
@@ -48,7 +49,6 @@ export type CollectionFilters = Readonly<{
 
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const DATE_PATTERN = /^(\d{4})-(\d{2})-(\d{2})$/;
-const MONEY_INPUT_PATTERN = /^(?!^[-+.]*$)[+]?0*\d*\.?\d{1,2}$/;
 
 export function hasExactPermission(permissions: readonly string[], permission: CobrancaPermission): boolean {
   return new Set(permissions).has(permission);
@@ -119,7 +119,7 @@ export function formDate(formData: FormData, key: string): string | undefined {
 
 export function formMoney(formData: FormData, key: string): string | undefined {
   const value = formString(formData, key, 40);
-  return value && MONEY_INPUT_PATTERN.test(value) ? value : undefined;
+  return normalizarMoeda(value);
 }
 
 export function formActionType(formData: FormData): CollectionActionType | undefined {

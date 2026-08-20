@@ -25,7 +25,9 @@ const cashFlow: CashFlowReport = { carteira_id: WALLET_ID, fim: "2026-08-31", in
 describe("componentes de Relatorios", () => {
   it("renderiza os quatro relatorios oficiais sem recalcular valores", () => {
     render(<><SummaryReportView data={summary} /><DueDatesReportView data={dueDates} /><PaymentsReportView data={payments} /><CashFlowReportView data={cashFlow} /></>);
-    expect(screen.getByText("40.00")).toBeVisible();
+    expect(screen.getByText("R$ 40,00")).toBeVisible();
+    expect(screen.getAllByText("R$ 10,00").length).toBeGreaterThanOrEqual(4);
+    expect(screen.queryByText("40.00")).not.toBeInTheDocument();
     expect(screen.getAllByText(LOAN_ID).length).toBeGreaterThan(0);
     expect(screen.getAllByText(DEVEDOR_ID).length).toBeGreaterThan(0);
     expect(screen.getAllByText(PAYMENT_ID).length).toBeGreaterThan(0);

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { cpf, data, moeda } from "../../src/lib/formato/brasileiro";
+import { cpf, data, mascaraMoeda, moeda, normalizarMoeda } from "../../src/lib/formato/brasileiro";
 
 describe("formatacao brasileira", () => {
   it("formata dinheiro agrupando milhares sem converter para numero", () => {
@@ -26,6 +26,21 @@ describe("formatacao brasileira", () => {
     expect(moeda("indisponivel")).toBe("indisponivel");
     expect(moeda(undefined)).toBe("");
     expect(moeda(null)).toBe("");
+  });
+
+  it("normaliza dinheiro digitado em BRL para o contrato sem usar ponto flutuante", () => {
+    expect(normalizarMoeda("2.000")).toBe("2000.00");
+    expect(normalizarMoeda("2.000,00")).toBe("2000.00");
+    expect(normalizarMoeda("R$ 2.000,50")).toBe("2000.50");
+    expect(normalizarMoeda("2000,5")).toBe("2000.50");
+    expect(normalizarMoeda("2000")).toBe("2000.00");
+    expect(normalizarMoeda("2000.00")).toBeUndefined();
+  });
+
+  it("mascara entrada monetaria reconhecida em BRL", () => {
+    expect(mascaraMoeda("2.000")).toBe("R$ 2.000,00");
+    expect(mascaraMoeda("2000,50")).toBe("R$ 2.000,50");
+    expect(mascaraMoeda("abc")).toBe("abc");
   });
 
   it("formata CPF e preserva entrada que nao seja CPF", () => {

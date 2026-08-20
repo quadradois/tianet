@@ -31,7 +31,7 @@ describe("politica de Cobranca", () => {
   it("valida datas, valores declaratorios e UUID opcional sem calculo local", () => {
     const form = new FormData();
     form.set("data_promessa", "2026-08-21");
-    form.set("valor_declarado", "123.45");
+    form.set("valor_declarado", "R$ 123,45");
     form.set("emprestimo_id", "00000000-0000-4000-8000-000000000060");
     form.set("pagamento_informado", "on");
     expect(formDate(form, "data_promessa")).toBe("2026-08-21");

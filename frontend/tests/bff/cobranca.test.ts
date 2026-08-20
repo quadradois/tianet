@@ -118,7 +118,7 @@ describe("BFF Cobranca", () => {
     await expect(registerCollectionAction(await cookieStore(selected), context(["cobranca.acao.registrar"]), actionForm, dependencies(selected, backend))).resolves.toMatchObject({ kind: "success" });
     const promiseForm = new FormData();
     promiseForm.set("caso_id", CASE_ID);
-    promiseForm.set("valor_declarado", "100.00");
+    promiseForm.set("valor_declarado", "R$ 100,00");
     promiseForm.set("data_promessa", "2026-08-21");
     await expect(registerPaymentPromise(await cookieStore(selected), context(["cobranca.promessa.registrar"]), promiseForm, dependencies(selected, backend))).resolves.toMatchObject({ kind: "success" });
     const appropriationForm = new FormData();

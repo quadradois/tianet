@@ -140,7 +140,7 @@ describe("BFF Motor", () => {
     const installmentForm = new FormData();
     installmentForm.set("data_referencia", "2026-08-14");
     const paymentForm = new FormData();
-    paymentForm.set("valor", "100.00");
+    paymentForm.set("valor", "R$ 100,00");
     paymentForm.set("recebido_em", "2026-08-14T12:00:00Z");
     await expect(registerPayment(await cookieStore(selected), context(["motor.pagamento.registrar"]), LOAN_ID, paymentForm, dependencies(selected, backend))).resolves.toMatchObject({ kind: "success" });
     const settlementForm = new FormData();

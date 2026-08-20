@@ -5,6 +5,7 @@ import { useActionState } from "react";
 import { Button } from "../ui/button";
 import { Input } from "../ui/input";
 import { Label } from "../ui/label";
+import { mascaraMoeda } from "../../lib/formato/brasileiro";
 import type { MotorActionState, MotorCommand } from "../../lib/motor/motor-policy";
 
 type Action = (state: MotorActionState, formData: FormData) => Promise<MotorActionState>;
@@ -70,7 +71,15 @@ export function MotorCommandForm({ action, command, emprestimoId, hoje, initialS
         <>
           <div className="grid gap-2">
             <Label htmlFor={`${command}-valor`}>Quanto o devedor pagou</Label>
-            <Input id={`${command}-valor`} inputMode="decimal" name="valor" placeholder="100.00" />
+            <Input
+              id={`${command}-valor`}
+              inputMode="decimal"
+              name="valor"
+              onBlur={(event) => {
+                event.currentTarget.value = mascaraMoeda(event.currentTarget.value);
+              }}
+              placeholder="R$ 500,00"
+            />
           </div>
           <div className="grid gap-2">
             <Label htmlFor={`${command}-recebido_em`}>Data do pagamento</Label>

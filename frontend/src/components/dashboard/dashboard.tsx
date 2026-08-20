@@ -9,6 +9,7 @@ import { Skeleton } from "../ui/skeleton";
 import type { components } from "../../lib/api/openapi.generated";
 import type { DashboardSectionResult } from "../../lib/bff/dashboard.server";
 import { MAX_REFERENCE_DATE, MIN_REFERENCE_DATE, type DashboardPeriod } from "../../lib/dashboard/dashboard-policy";
+import { moeda } from "../../lib/formato/brasileiro";
 
 type Summary = components["schemas"]["ResumoCarteiraResponse"];
 type DueDates = components["schemas"]["VencimentosInadimplenciaResponse"];
@@ -110,8 +111,8 @@ export function SummaryView({ data }: Readonly<{ data: Summary }>) {
       <Metric label="Ativas" value={data.operacoes_ativas} />
       <Metric label="Quitadas" value={data.operacoes_quitadas} />
       <Metric label="Acertos pendentes" value={data.acertos_pendentes} />
-      <Metric label="Ainda na rua" value={data.principal_a_receber} />
-      <Metric label="Total realizado (oficial)" value={data.total_realizado} />
+      <Metric label="Ainda na rua" value={moeda(data.principal_a_receber)} />
+      <Metric label="Total realizado (oficial)" value={moeda(data.total_realizado)} />
       <Metric label="Data de referencia" value={formatDate(data.data_referencia)} />
     </dl>
   );
@@ -121,12 +122,12 @@ export function DueDatesView({ data }: Readonly<{ data: DueDates }>) {
   if (data.itens.length === 0) return <p role="status">Nenhum acerto retornado para a data selecionada.</p>;
   return (
     <>
-      <ul className="grid gap-2 sm:hidden" aria-label="Acertos retornados">{data.itens.map((item) => <li className="rounded-md border p-3" key={item.emprestimo_id}><strong><time dateTime={item.acerto_em}>{formatDate(item.acerto_em)}</time></strong><dl className="mt-2 grid grid-cols-2 gap-2 text-sm"><div><dt className="text-muted-foreground">Situacao</dt><dd>{item.situacao}</dd></div><div><dt className="text-muted-foreground">Dia combinado</dt><dd className="tabular-nums">{item.dia_de_acerto}</dd></div><div><dt className="text-muted-foreground">Dias sem pagamento</dt><dd className="tabular-nums">{item.dias_sem_pagamento}</dd></div><div><dt className="text-muted-foreground">Emprestado</dt><dd className="tabular-nums">{item.principal_original}</dd></div></dl></li>)}</ul>
+      <ul className="grid gap-2 sm:hidden" aria-label="Acertos retornados">{data.itens.map((item) => <li className="rounded-md border p-3" key={item.emprestimo_id}><strong><time dateTime={item.acerto_em}>{formatDate(item.acerto_em)}</time></strong><dl className="mt-2 grid grid-cols-2 gap-2 text-sm"><div><dt className="text-muted-foreground">Situacao</dt><dd>{item.situacao}</dd></div><div><dt className="text-muted-foreground">Dia combinado</dt><dd className="tabular-nums">{item.dia_de_acerto}</dd></div><div><dt className="text-muted-foreground">Dias sem pagamento</dt><dd className="tabular-nums">{item.dias_sem_pagamento}</dd></div><div><dt className="text-muted-foreground">Emprestado</dt><dd className="tabular-nums">{moeda(item.principal_original)}</dd></div></dl></li>)}</ul>
       <div aria-label="Acertos retornados" className="hidden overflow-x-auto rounded-md border sm:block" role="region" tabIndex={0}>
         <table className="w-full table-fixed text-left text-xs">
           <caption className="sr-only">Acertos e situacoes oficiais retornados pelo backend</caption>
           <thead className="bg-muted"><tr><th className="p-2">Acerto em</th><th className="p-2">Situacao</th><th className="p-2">Dia combinado</th><th className="p-2">Dias sem pagamento</th><th className="p-2">Emprestado</th></tr></thead>
-          <tbody>{data.itens.map((item) => <tr className="border-t" key={item.emprestimo_id}><td className="break-words p-2"><time dateTime={item.acerto_em}>{formatDate(item.acerto_em)}</time></td><td className="break-words p-2">{item.situacao}</td><td className="break-words p-2 tabular-nums">{item.dia_de_acerto}</td><td className="break-words p-2 tabular-nums">{item.dias_sem_pagamento}</td><td className="break-words p-2 tabular-nums">{item.principal_original}</td></tr>)}</tbody>
+          <tbody>{data.itens.map((item) => <tr className="border-t" key={item.emprestimo_id}><td className="break-words p-2"><time dateTime={item.acerto_em}>{formatDate(item.acerto_em)}</time></td><td className="break-words p-2">{item.situacao}</td><td className="break-words p-2 tabular-nums">{item.dia_de_acerto}</td><td className="break-words p-2 tabular-nums">{item.dias_sem_pagamento}</td><td className="break-words p-2 tabular-nums">{moeda(item.principal_original)}</td></tr>)}</tbody>
         </table>
       </div>
     </>
@@ -152,7 +153,7 @@ export function CollectionView({ data }: Readonly<{ data: CollectionQueue }>) {
     <div className="grid gap-3">
       <p className="text-sm text-muted-foreground">Total oficial: <span className="tabular-nums">{data.total}</span></p>
       <div aria-label="Fila de cobranca" className="max-h-80 overflow-auto rounded-md border" role="region" tabIndex={0}>
-        <ul className="divide-y">{data.items.map((item) => <li className="min-w-0 p-3" key={item.caso_id}><strong className="break-words">{item.titulo}</strong><p className="text-sm text-muted-foreground">{item.estado} · Pendente: <span className="tabular-nums">{item.total_pendente}</span></p><p className="break-all text-xs text-muted-foreground">Caso {item.caso_id}</p></li>)}</ul>
+        <ul className="divide-y">{data.items.map((item) => <li className="min-w-0 p-3" key={item.caso_id}><strong className="break-words">{item.titulo}</strong><p className="text-sm text-muted-foreground">{item.estado} · Pendente: <span className="tabular-nums">{moeda(item.total_pendente)}</span></p><p className="break-all text-xs text-muted-foreground">Caso {item.caso_id}</p></li>)}</ul>
       </div>
     </div>
   );

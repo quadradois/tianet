@@ -20,7 +20,7 @@ test("renderiza fila de cobranca e captura desktop/mobile", async ({ page }, tes
   await login(page, "ACME");
   await gotoCobranca(page);
   await expect(page.getByRole("heading", { name: "Caso oficial de cobranca" }).first()).toBeVisible();
-  await expect(page.getByText("1010.00").first()).toBeVisible();
+  await expect(page.getByText("R$ 1.010,00").first()).toBeVisible();
   await expect(page.getByText(/sem calculo local/i).first()).toBeVisible();
   const suffix = testInfo.project.name.includes("mobile") ? "cobranca-list-mobile" : "cobranca-list-desktop";
   await page.screenshot({ animations: "disabled", caret: "initial", fullPage: false, path: resolve(`../docs/audits/evidence/frontend-mvp-imp-295-${suffix}.png`) });
@@ -32,7 +32,7 @@ test("executa acao, promessa e apropriacao idempotentes", async ({ page }, testI
   await page.getByLabel("Resultado").first().fill("Contato confirmado");
   await page.getByRole("button", { name: "Acao idempotente" }).first().click();
   await expect(page.getByText(/Acao de cobranca registrada/)).toBeVisible();
-  await page.getByLabel("Valor declarado").first().fill("100.00");
+  await page.getByLabel("Valor declarado").first().fill("100,00");
   await page.getByLabel("Data da promessa").first().fill("2026-08-21");
   await page.getByRole("button", { name: "Promessa idempotente" }).first().click();
   await expect(page.getByText(/Promessa declaratoria registrada/)).toBeVisible();
