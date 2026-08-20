@@ -2,7 +2,7 @@
 
 **ID:** PLAN-031
 
-**Versao:** 1.0.0
+**Versao:** 1.1.0
 
 **Data:** 2026-08-20
 
@@ -12,7 +12,8 @@
 
 **Decisao de origem:** DR-003 e DR-004
 
-**Status:** Ciclo concluido e recertificado localmente; nao mergeado
+**Status:** Ciclo concluido, recertificado localmente e depois incorporado ao
+`master`; pendencias IMP-307/IMP-329 resolvidas em PRs posteriores
 
 ---
 
@@ -29,8 +30,8 @@ legado, conforme a decisao 5 do PLAN-030.
 
 Este relatorio cobre o PLAN-030 e situa os tres planos que o antecedem no mesmo
 branch, porque nenhum deles tinha relatorio proprio: PLAN-027 (wizard de
-lancamento, parcial), PLAN-028 (base de normalizacao dos juros) e PLAN-029
-(linguagem operacional da interface).
+lancamento, depois concluido pelo PR #14), PLAN-028 (base de normalizacao dos
+juros) e PLAN-029 (linguagem operacional da interface).
 
 ---
 
@@ -44,7 +45,7 @@ lancamento, parcial), PLAN-028 (base de normalizacao dos juros) e PLAN-029
 
 | Plano | Estado | IMPs |
 |---|---|---|
-| PLAN-027 - Wizard de lancamento | **Parcial** | IMP-305, 306, 308, 309, 310 concluidos; IMP-307 e IMP-311 abertos |
+| PLAN-027 - Wizard de lancamento | Concluido apos PR #14 | IMP-305..311 concluidos; IMP-307 entrou no PR #14 e IMP-311 ja estava recertificado |
 | PLAN-028 - Base de normalizacao dos juros | Concluido | IMP-312..314 |
 | PLAN-029 - Linguagem operacional da interface | Concluido | IMP-315..320 |
 | PLAN-030 - Emprestimo livre com acerto mensal | Concluido | IMP-321..327 |
@@ -229,23 +230,24 @@ Nenhum outro defeito surgiu no fechamento.
 
 # 7. Pendencias e caveats
 
-Pendencias de escopo, herdadas e nao criadas por este ciclo:
+Pendencias de escopo declaradas no fechamento original, reconciliadas apos os
+PRs posteriores:
 
-- **IMP-307 - Comprovante do lancamento** (PLAN-027): planejado, nao iniciado.
-- **IMP-311 - Jornada real e recertificacao** (PLAN-027): planejado, e **o
-  enunciado esta obsoleto**. Ele descreve o cenario "ate o plano de parcelas",
-  objeto que o IMP-327 removeu. Precisa ser reescrito antes de executado,
-  contra o extrato do saldo e o acerto mensal.
-- **IMP-284** (PLAN-025): continua bloqueado ate uma execucao de
-  `fable:fable-judge` sobre o pacote do hardening contratual.
+- **IMP-307 - Comprovante do lancamento** (PLAN-027): concluido no PR #14,
+  mergeado em 2026-08-20.
+- **IMP-311 - Jornada real e recertificacao** (PLAN-027): concluido em
+  2026-08-20, com 8/8 jornadas verdes contra stack real.
+- **IMP-284** (PLAN-025): o backlog vigente do PLAN-025 marca o scaffold como
+  concluido; a referencia antiga a bloqueio por `fable:fable-judge` era
+  historica.
 
-Escopo novo, aberto por este fechamento:
+Escopo novo aberto por este fechamento e ja encerrado:
 
-- **IMP-328 (proposto) - Tirar `parcela_id` do contrato e do dominio.** Remover
-  o campo dos sete schemas, das entidades de Operacao Diaria e Promessa, da
-  camada Application, do dialogo de Cobranca no frontend, e apagar o read model
-  morto `VencimentoOperacional`. Alteracao **nao aditiva**: exige regeracao do
-  snapshot, novo inventario e atualizacao da matriz. Ver §6.2.
+- **IMP-328 - Tirar `parcela_id` do contrato e do dominio.** Concluido em
+  2026-08-20, com snapshot, inventario e matriz atualizados. Ver §6.2 e o
+  backlog vigente do PLAN-030.
+- **IMP-329 - Valor digitado ambiguo no wizard.** Concluido no PR #16,
+  mergeado e deployado em 2026-08-20.
 
 Caveats operacionais:
 
@@ -265,4 +267,5 @@ Caveats operacionais:
 
 | Versao | Data | Descricao |
 |---|---|---|
+| 1.1.0 | 2026-08-20 | Atualizacao pos-merge/deploy: PR #14 encerrou IMP-307, PR #16 encerrou IMP-329, e pendencias historicas foram reconciliadas com os backlogs vigentes. |
 | 1.0.0 | 2026-08-20 | Fechamento do ciclo do emprestimo livre: IMP-321..327, cadeia de snapshots reconstruida, gates reexecutados e pendencias declaradas. |
