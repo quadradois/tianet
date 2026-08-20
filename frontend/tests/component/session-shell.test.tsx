@@ -40,7 +40,7 @@ describe("login e shell", () => {
       email: "operador@example.test",
       segredo: "segredo",
     });
-    expect(String(init?.body)).not.toMatch(/tenant|carteira|usuario_id|access_token|refresh_token/);
+    expect(String(init?.body)).not.toMatch(/identificador_institucional|tenant|carteira|usuario_id|access_token|refresh_token/);
   });
 
   it("apresenta Tenant, Carteira e perfil nulo sem fabricar permissao ou navegacao", () => {

@@ -26,9 +26,11 @@ A linha de base do PLAN-025 tinha 107 operacoes e SHA-256
 `8dadf18eab0dad186044d71e832f72a5850661307d196187f2d0794b9d1d9ec1`; as duas
 operacoes de plano de parcelas sairam do contrato pela DR-004 e a operacao
 `POST /credit/carteiras/{carteira_id}/lancamentos` entrou pelo IMP-306.
-Login usa `AuthLoginRequest`, refresh/logout usam `AuthRefreshRequest`, as 30
-operacoes idempotentes publicam o header obrigatório e 400/422 usam
-`ErroResponse` conforme a semantica runtime.
+O backend de login usa `AuthLoginRequest`; o formulario publico do frontend
+envia somente e-mail e senha ao BFF, que deriva `identificador_institucional`
+server-only. Refresh/logout usam `AuthRefreshRequest`, as 30 operacoes
+idempotentes publicam o header obrigatório e 400/422 usam `ErroResponse`
+conforme a semantica runtime.
 
 Regras de leitura:
 

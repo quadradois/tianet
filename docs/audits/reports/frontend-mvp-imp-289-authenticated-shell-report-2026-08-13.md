@@ -13,7 +13,9 @@
 O IMP-289 materializou a primeira superficie autenticada do Frontend MVP sem
 iniciar Dashboard ou outra jornada de negocio:
 
-- `/login` envia somente `AuthLoginRequest` ao BFF same-origin;
+- `/login` envia somente e-mail e senha ao BFF same-origin; o BFF deriva o
+  `identificador_institucional` server-only antes de chamar o backend com
+  `AuthLoginRequest`;
 - `/app` e um shell Server Component com Usuario, Tenant, Carteira e Perfil do
   proprio Principal;
 - a fonte unica e `GET /iam/contexto-atual`, sem IDs arbitrarios e sem consulta
