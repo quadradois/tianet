@@ -29,7 +29,6 @@ function requiredId(name: string): string {
 
 async function login(page: Page, credentials = seed.credentials) {
   await page.goto(`${state.frontendUrl}/login`, { waitUntil: "domcontentloaded" });
-  await page.getByRole("textbox", { name: "Instituicao" }).fill(credentials.institution);
   await page.getByRole("textbox", { name: "E-mail" }).fill(credentials.email);
   await page.getByLabel("Senha").fill(credentials.password);
   await page.getByRole("button", { name: "Entrar" }).click();

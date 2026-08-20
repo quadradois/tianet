@@ -22,6 +22,7 @@ function config(): BffConfig {
     backendUrl: "http://backend.lancamento.invalid",
     origin: "http://frontend.lancamento.invalid",
     production: false,
+    loginTenantIdentifier: "ACME",
     currentKeyId: "current",
     currentKey: randomBytes(32),
   };

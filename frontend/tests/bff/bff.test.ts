@@ -37,6 +37,7 @@ function config(): BffConfig {
     backendUrl: "http://backend.bff.invalid",
     origin: "http://frontend.bff.invalid",
     production: true,
+    loginTenantIdentifier: "ACME",
     currentKeyId: "current",
     currentKey: randomBytes(32),
   };
@@ -106,7 +107,7 @@ const RESPONSE_CORRELATION_CASES = [
 ] as const;
 
 describe("Route Handlers BFF", () => {
-  it("login usa shape OpenAPI, cifra tokens e retorna JSON sanitizado", async () => {
+  it("login deriva instituicao no BFF, cifra tokens e retorna JSON sanitizado", async () => {
     const cookies = new MemoryCookies();
     const backend = vi.fn<FetchLike>(async (request) => {
       expect(request.url).toBe("http://backend.bff.invalid/auth/login");
@@ -124,11 +125,7 @@ describe("Route Handlers BFF", () => {
       });
     });
     const deps = dependencies(backend);
-    const response = await handleLogin(
-      mutationRequest("/api/auth/login", { identificador_institucional: "ACME", email: "user@example.test", segredo: "secret" }),
-      cookies,
-      deps,
-    );
+    const response = await handleLogin(mutationRequest("/api/auth/login", { email: "user@example.test", segredo: "secret" }), cookies, deps);
     expect(response.status).toBe(200);
     const browserBody = JSON.stringify(await response.json());
     expect(browserBody).not.toContain("access-sensitive-token");
@@ -154,7 +151,7 @@ describe("Route Handlers BFF", () => {
       }, 200, backendCorrelation));
 
       const response = await handleLogin(
-        mutationRequest("/api/auth/login", { identificador_institucional: "ACME", email: "user@example.test", segredo: "secret" }),
+        mutationRequest("/api/auth/login", { email: "user@example.test", segredo: "secret" }),
         new MemoryCookies(),
         dependencies(backend),
       );
@@ -167,10 +164,15 @@ describe("Route Handlers BFF", () => {
   it("rejeita Origin/CSRF e payload inesperado antes do backend", async () => {
     const backend = vi.fn<FetchLike>();
     const cookies = new MemoryCookies();
-    const missingOrigin = mutationRequest("/api/auth/login", { identificador_institucional: "ACME", email: "user@example.test", segredo: "secret" });
+    const missingOrigin = mutationRequest("/api/auth/login", { email: "user@example.test", segredo: "secret" });
     missingOrigin.headers.delete("Origin");
     expect((await handleLogin(missingOrigin, cookies, dependencies(backend))).status).toBe(403);
     expect((await handleLogin(mutationRequest("/api/auth/login", { extra: true }), cookies, dependencies(backend))).status).toBe(400);
+    expect((await handleLogin(
+      mutationRequest("/api/auth/login", { identificador_institucional: "ACME", email: "user@example.test", segredo: "secret" }),
+      cookies,
+      dependencies(backend),
+    )).status).toBe(400);
     expect(backend).not.toHaveBeenCalled();
   });
 
@@ -207,7 +209,7 @@ describe("Route Handlers BFF", () => {
 
   it("rejeita media type parecido com JSON", async () => {
     const backend = vi.fn<FetchLike>();
-    const request = mutationRequest("/api/auth/login", { identificador_institucional: "ACME", email: "user@example.test", segredo: "secret" });
+    const request = mutationRequest("/api/auth/login", { email: "user@example.test", segredo: "secret" });
     request.headers.set("Content-Type", "application/jsonp");
     expect((await handleLogin(request, new MemoryCookies(), dependencies(backend))).status).toBe(400);
     expect(backend).not.toHaveBeenCalled();

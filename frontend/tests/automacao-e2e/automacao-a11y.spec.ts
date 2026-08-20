@@ -5,7 +5,6 @@ test("Automacao passa por axe, teclado e overflow nos dois viewports", async ({ 
   page.on("console", (message) => { if (message.type() === "error") throw new Error(message.text()); });
   page.on("pageerror", (error) => { throw error; });
   await page.goto("/login");
-  await page.getByRole("textbox", { name: "Instituicao" }).fill("ACME");
   await page.getByRole("textbox", { name: "E-mail" }).fill("operador@example.test");
   await page.getByLabel("Senha").fill("segredo-automacao");
   await page.getByRole("button", { name: "Entrar" }).click();

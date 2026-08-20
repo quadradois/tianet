@@ -12,7 +12,6 @@ test("login e shell passam pelo gate axe e teclado", async ({ page }) => {
   await expectNoSeriousViolations(page);
   await page.keyboard.press("Tab");
   await expect(page.getByRole("link", { name: "Pular para o conteudo" })).toBeFocused();
-  await page.getByRole("textbox", { name: "Instituicao" }).fill("ACME");
   await page.getByRole("textbox", { name: "E-mail" }).fill("operador@example.test");
   await page.getByLabel("Senha").fill("segredo-e2e");
   await page.getByRole("button", { name: "Entrar" }).click();

@@ -19,7 +19,7 @@ const DEBTOR_ID = "00000000-0000-4000-8000-000000000008";
 const CASE_ID = "00000000-0000-4000-8000-000000000009";
 
 function config(): BffConfig {
-  return { backendUrl: "http://backend.dashboard.invalid", origin: "http://frontend.dashboard.invalid", production: false, currentKeyId: "current", currentKey: randomBytes(32) };
+  return { backendUrl: "http://backend.dashboard.invalid", origin: "http://frontend.dashboard.invalid", production: false, loginTenantIdentifier: "ACME", currentKeyId: "current", currentKey: randomBytes(32) };
 }
 
 const session: SessionData = { accessToken: "access-sensitive", accessTokenExpiresAt: "2026-08-13T12:15:00Z", refreshToken: "refresh-sensitive", refreshTokenExpiresAt: "2026-08-20T12:00:00Z", tenantId: TENANT_ID, userId: USER_ID };

@@ -2,11 +2,14 @@ import { resolve } from "node:path";
 
 import { expect, test, type Page } from "@playwright/test";
 
+function emailForInstitution(institution: string): string {
+  const mode = institution.toLowerCase();
+  return mode === "acme" ? "operador@example.test" : `operador+${mode}@example.test`;
+}
 async function login(page: Page, institution = "ACME") {
   await page.context().clearCookies();
   await page.goto("/login", { waitUntil: "domcontentloaded" });
-  await page.getByRole("textbox", { name: "Instituicao" }).fill(institution);
-  await page.getByRole("textbox", { name: "E-mail" }).fill("operador@example.test");
+  await page.getByRole("textbox", { name: "E-mail" }).fill(emailForInstitution(institution));
   await page.getByLabel("Senha").fill("segredo-configuracoes");
   await page.getByRole("button", { name: "Entrar" }).click();
   await expect(page).toHaveURL(/\/app(?:\?|$)/);

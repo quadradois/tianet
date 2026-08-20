@@ -202,9 +202,10 @@ que exija este scaffold.
 
 ## 3.6 Decisoes do IMP-289 anteriores a implementacao
 
-1. `/login` coleta exclusivamente `AuthLoginRequest` e envia para o Route
-   Handler BFF existente; o destino posterior e fixo em `/app`, sem redirect
-   arbitrario vindo do browser;
+1. `/login` coleta somente e-mail e senha e envia para o Route Handler BFF
+   existente; o BFF deriva `identificador_institucional` de configuracao
+   server-only antes de chamar o backend com `AuthLoginRequest`; o destino
+   posterior e fixo em `/app`, sem redirect arbitrario vindo do browser;
 2. o shell estrutural e Server Component. Tenant, Carteira, Usuario, Perfil e
    Permissoes vem apenas de `GET /iam/contexto-atual`, sem IDs em query/body e
    sem consulta ao catalogo administrativo de Permissoes;
@@ -425,9 +426,12 @@ Superficies aditivas certificadas neste pacote:
 ## Lacuna 4 - auth com body generico
 
 - **Decisao:** corrigir contrato existente, sem Story nova.
-- **Contrato desejado:** login referencia `AuthLoginRequest` com
-  `identificador_institucional`, `email`, `segredo`; refresh/logout referenciam
-  `AuthRefreshRequest` com `refresh_token`; nenhum `Payload` generico.
+- **Contrato desejado:** o backend login referencia `AuthLoginRequest` com
+  `identificador_institucional`, `email`, `segredo`; o login publico do
+  frontend coleta somente `email` e `segredo`, e o BFF injeta
+  `identificador_institucional` a partir de configuracao server-only;
+  refresh/logout referenciam `AuthRefreshRequest` com `refresh_token`; nenhum
+  `Payload` generico.
 - **Teste antes da correcao:** OpenAPI exige schemas especificos e runtime
   valido/invalido preserva envelope uniforme.
 - **Pacote:** IMP-280.

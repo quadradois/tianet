@@ -24,6 +24,7 @@ export type BffConfig = Readonly<{
   backendUrl: string;
   origin: string;
   production: boolean;
+  loginTenantIdentifier: string;
   currentKeyId: string;
   currentKey: Uint8Array;
   previousKeyId?: string;
@@ -110,6 +111,7 @@ export function readBffConfig(env: NodeJS.ProcessEnv = process.env): BffConfig {
   const production = env.NODE_ENV === "production";
   const backendUrl = parseServerUrl(required(env, "FRONTEND_BACKEND_URL"), production);
   const origin = parseOrigin(required(env, "FRONTEND_ORIGIN"), production);
+  const loginTenantIdentifier = env.FRONTEND_LOGIN_TENANT_IDENTIFICADOR?.trim() || "ACME";
   const currentKeyId = required(env, "FRONTEND_SESSION_KEY_ID");
   const currentKey = decodeKey(required(env, "FRONTEND_SESSION_KEY"));
   const previousKeyId = env.FRONTEND_SESSION_PREVIOUS_KEY_ID?.trim();
@@ -123,13 +125,14 @@ export function readBffConfig(env: NodeJS.ProcessEnv = process.env): BffConfig {
       backendUrl: backendUrl.origin,
       origin,
       production,
+      loginTenantIdentifier,
       currentKeyId,
       currentKey,
       previousKeyId,
       previousKey: decodeKey(previousKeyValue),
     };
   }
-  return { backendUrl: backendUrl.origin, origin, production, currentKeyId, currentKey };
+  return { backendUrl: backendUrl.origin, origin, production, loginTenantIdentifier, currentKeyId, currentKey };
 }
 
 function timestamp(value: string): number {

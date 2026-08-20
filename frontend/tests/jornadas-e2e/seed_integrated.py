@@ -100,6 +100,46 @@ def create_principal(
     )
 
 
+def create_tenant_user(
+    session: Session,
+    *,
+    carteira_id: str,
+    email: str,
+    institution: str,
+    nome: str,
+    password: str,
+    permissions: tuple[Any, ...],
+    tenant_id: str,
+) -> PrincipalSeed:
+    tenant_uuid = uuid.UUID(tenant_id)
+    usuario = Usuario(
+        tenant_id=tenant_uuid,
+        nome=nome,
+        email=email,
+        perfil_acesso="Operador Integrado",
+    )
+    usuario.ativar()
+    SqlAlchemyUsuarioRepository(session).save(usuario)
+    SqlAlchemyCredencialRepository(session).save(
+        Credencial.definir(usuario_id=usuario.id, segredo=password)
+    )
+    perfil = PerfilAcesso(tenant_id=tenant_uuid, nome=f"Perfil {nome}")
+    for permissao in permissions:
+        perfil.adicionar_permissao(permissao)
+    perfil_repo = SqlAlchemyPerfilAcessoRepository(session)
+    perfil_repo.save(perfil)
+    perfil_repo.atribuir_usuario(usuario.id, perfil.id)
+    session.commit()
+    return PrincipalSeed(
+        carteira_id=carteira_id,
+        email=usuario.email,
+        institution=institution,
+        password=password,
+        tenant_id=tenant_id,
+        usuario_id=str(usuario.id),
+    )
+
+
 def post_ok(
     client: TestClient,
     path: str,
@@ -422,12 +462,15 @@ def seed(path: Path, database_url: str) -> None:
             password="segredo-jornadas",
             permissions=tuple(CATALOGO_PERMISSOES),
         )
-        denied = create_principal(
+        denied = create_tenant_user(
             session,
-            institution="SEM-PERMISSAO",
+            carteira_id=full.carteira_id,
+            email="sem-permissao@example.test",
+            institution=full.institution,
             nome="Operador Sem Permissao",
             password="segredo-jornadas",
             permissions=(),
+            tenant_id=full.tenant_id,
         )
     with TestClient(create_app()) as client:
         ticket = login(client, full)

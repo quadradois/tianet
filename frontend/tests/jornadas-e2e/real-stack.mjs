@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { execFileSync, spawn } from "node:child_process";
 import { once } from "node:events";
-import { mkdirSync, writeFileSync } from "node:fs";
+import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import net from "node:net";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -140,6 +140,7 @@ async function globalSetup() {
     ], {
       env: { ...process.env, APP_ENV: "test", DATABASE_URL: databaseUrl, JWT_SECRET_KEY: jwtSecret },
     });
+    const seed = JSON.parse(readFileSync(seedPath, "utf-8"));
 
     apiProcess = spawn("uv", [
       "run",
@@ -172,6 +173,7 @@ async function globalSetup() {
       ...process.env,
       FRONTEND_BACKEND_URL: apiUrl,
       FRONTEND_ORIGIN: frontendUrl,
+      FRONTEND_LOGIN_TENANT_IDENTIFICADOR: seed.credentials.institution,
       FRONTEND_SESSION_KEY: sessionKey,
       FRONTEND_SESSION_KEY_ID: "jornadas-current",
     };

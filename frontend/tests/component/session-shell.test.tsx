@@ -23,11 +23,11 @@ const context: OperationalContext = {
 describe("login e shell", () => {
   beforeEach(() => { vi.restoreAllMocks(); replace.mockReset(); refresh.mockReset(); });
 
-  it("envia somente o AuthLoginRequest ao BFF e navega para destino fixo", async () => {
+  it("envia somente credenciais ao BFF e navega para destino fixo", async () => {
     const fetchMock = vi.spyOn(globalThis, "fetch").mockResolvedValue(Response.json({ authenticated: true, correlationId: "corr-login" }));
     const user = userEvent.setup();
     render(<LoginForm />);
-    await user.type(screen.getByRole("textbox", { name: "Instituicao" }), "ACME");
+    expect(screen.queryByRole("textbox", { name: "Instituicao" })).not.toBeInTheDocument();
     await user.type(screen.getByRole("textbox", { name: "E-mail" }), "operador@example.test");
     await user.type(screen.getByLabelText("Senha"), "segredo");
     await user.click(screen.getByRole("button", { name: "Entrar" }));
@@ -38,10 +38,9 @@ describe("login e shell", () => {
     expect(init?.method).toBe("POST");
     expect(JSON.parse(String(init?.body))).toEqual({
       email: "operador@example.test",
-      identificador_institucional: "ACME",
       segredo: "segredo",
     });
-    expect(String(init?.body)).not.toMatch(/tenant|carteira|usuario_id|access_token|refresh_token/);
+    expect(String(init?.body)).not.toMatch(/identificador_institucional|tenant|carteira|usuario_id|access_token|refresh_token/);
   });
 
   it("apresenta Tenant, Carteira e perfil nulo sem fabricar permissao ou navegacao", () => {

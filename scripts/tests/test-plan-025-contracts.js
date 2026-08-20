@@ -179,6 +179,8 @@ const BFF_FILES = {
   workflow: '.github/workflows/quality.yml',
 };
 const SHELL_FILES = {
+  session: 'frontend/src/lib/bff/session.server.ts',
+  backend: 'frontend/src/lib/bff/backend.server.ts',
   context: 'frontend/src/lib/bff/context.server.ts',
   bootstrapRoute: 'frontend/src/app/api/auth/bootstrap/route.ts',
   loginForm: 'frontend/src/components/auth/login-form.client.tsx',
@@ -1761,7 +1763,12 @@ const contracts = {
     assertText(source.appLayout, '? "/login" : "/session/recover"', '401 usa recovery unico entre montagens');
     assertText(source.appLayout, 'Nenhuma Carteira alternativa foi escolhida', '409 nao fabrica Carteira');
     assertText(source.loginForm, 'fetch("/api/auth/login"', 'login chama BFF same-origin');
-    for (const field of ['email:', 'identificador_institucional:', 'segredo:']) assertText(source.loginForm, field, `login usa ${field}`);
+    for (const field of ['email:', 'segredo:']) assertText(source.loginForm, field, `login publico usa ${field}`);
+    assert.doesNotMatch(source.loginForm, /identificador_institucional|Instituicao|organization/, 'login publico nao coleta Instituicao');
+    assertText(source.backend, 'type AuthLoginRequest', 'BFF preserva contrato backend AuthLoginRequest');
+    assertText(source.backend, 'type BrowserLoginRequest', 'BFF separa contrato publico do contrato backend');
+    assertText(source.backend, 'identificador_institucional: dependencies.config.loginTenantIdentifier', 'BFF deriva Instituicao server-only');
+    assertText(source.session, 'FRONTEND_LOGIN_TENANT_IDENTIFICADOR', 'config server-only define Instituicao do login backend');
     assertText(source.loginForm, 'router.replace("/app")', 'pos-login usa destino fixo');
     assert.doesNotMatch(source.loginForm, /(?:returnUrl|redirectTo|nextUrl|localStorage|sessionStorage|access_token|refresh_token)/, 'login nao aceita redirect arbitrario nem expoe token');
     assertText(source.logoutButton, 'fetch("/api/auth/logout"', 'logout chama BFF same-origin');
@@ -1785,7 +1792,9 @@ const contracts = {
     assert.doesNotMatch([source.loginForm, source.logoutButton, source.recovery, source.appShell].join('\n'), /\/iam\/|\/credit\/|NEXT_PUBLIC_|accessToken|refreshToken/, 'Client Components nao recebem API backend ou tokens');
     assert.doesNotMatch([source.context, source.loginForm, source.logoutButton, source.recovery, source.appShell].join('\n'), /:\s*any\b|\bas\s+any\b|<any>|@ts-(?:ignore|expect-error)|\b(?:juros|mora|multa|amortiza|saldo|quitacao|renegocia)\w*/i, 'shell nao contorna tipos nem calcula regra financeira');
     assertText(source.unitTest, 'igualdade exata', 'unit cobre permissao exata');
-    assertText(source.componentTest, 'AuthLoginRequest', 'component cobre body de login');
+    assertText(source.componentTest, 'envia somente credenciais', 'component cobre body publico de login');
+    assertText(source.componentTest, 'queryByRole("textbox", { name: "Instituicao" })', 'component garante remocao do campo Instituicao');
+    assertText(source.componentTest, 'identificador_institucional', 'component rejeita identificador institucional no body publico');
     assertText(source.componentTest, 'Sem perfil ativo', 'component cobre perfil nulo');
     for (const marker of ['proprio Principal', 'resposta 200 malformada', 'Usuario ou Tenant diferente', 'status nao certificado', 'sanitiza 500', 'timeout do contexto', '409 de contexto incompleto', 'um refresh', 'Origin hostil', 'sem cookie']) assertText(source.bffTest, marker, `BFF contexto cobre ${marker}`);
     assertText(source.contractTest, '["200", "401", "409", "500"]', 'contract nao inventa status do contexto');

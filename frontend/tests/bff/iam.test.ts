@@ -25,7 +25,7 @@ const PROFILE_ID = "00000000-0000-4000-8000-000000000004";
 const TARGET_USER_ID = "00000000-0000-4000-8000-000000000005";
 
 function config(): BffConfig {
-  return { backendUrl: "http://backend.iam.invalid", origin: "http://frontend.iam.invalid", production: false, currentKeyId: "current", currentKey: randomBytes(32) };
+  return { backendUrl: "http://backend.iam.invalid", origin: "http://frontend.iam.invalid", production: false, loginTenantIdentifier: "ACME", currentKeyId: "current", currentKey: randomBytes(32) };
 }
 
 const session: SessionData = {

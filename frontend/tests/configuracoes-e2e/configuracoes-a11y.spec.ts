@@ -5,8 +5,7 @@ test("Configuracoes Financeiras passa por axe, teclado e overflow nos dois viewp
   page.on("console", (message) => { if (message.type() === "error") throw new Error(message.text()); });
   page.on("pageerror", (error) => { throw error; });
   await page.goto("/login");
-  await page.getByRole("textbox", { name: "Instituicao" }).fill("vazio");
-  await page.getByRole("textbox", { name: "E-mail" }).fill("operador@example.test");
+  await page.getByRole("textbox", { name: "E-mail" }).fill("operador+vazio@example.test");
   await page.getByLabel("Senha").fill("segredo-configuracoes");
   await page.getByRole("button", { name: "Entrar" }).click();
   await expect(page).toHaveURL(/\/app(?:\?|$)/);

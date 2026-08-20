@@ -18,6 +18,11 @@ async function jsonBody(request) {
   return JSON.parse(Buffer.concat(chunks).toString("utf8"));
 }
 
+function loginMode(body) {
+  const email = String(body.email ?? "");
+  const match = email.match(/\+([^@]+)/);
+  return String(match?.[1] ?? body.identificador_institucional ?? "ACME").toLowerCase();
+}
 const context = {
   carteira_padrao: { id: "wallet-e2e", nome: "Carteira Centro" },
   perfil: { id: "profile-e2e", nome: "Operador" },
@@ -37,16 +42,16 @@ const server = createServer(async (request, response) => {
   }
   if (request.method === "POST" && url.pathname === "/auth/login") {
     const body = await jsonBody(request);
-    const institution = body.identificador_institucional;
-    if (institution === "LOOP") loopContextCalls = 0;
-    const accessToken = institution === "EXPIRADO" ? "access-old"
-      : institution === "LOOP" ? "access-loop-old"
-        : institution === "FALHA" ? "access-error"
-        : institution === "SEM-CARTEIRA" ? "access-conflict" : "access-ok";
+    const mode = loginMode(body);
+    if (mode === "loop") loopContextCalls = 0;
+    const accessToken = mode === "expirado" ? "access-old"
+      : mode === "loop" ? "access-loop-old"
+        : mode === "falha" ? "access-error"
+        : mode === "sem-carteira" ? "access-conflict" : "access-ok";
     send(response, 200, {
       access_token: accessToken,
       access_token_expira_em: "2099-08-13T12:15:00.000Z",
-      refresh_token: `refresh-${String(institution).toLowerCase()}`,
+      refresh_token: `refresh-${mode}`,
       refresh_token_expira_em: "2099-08-20T12:00:00.000Z",
       tenant_id: "tenant-e2e",
       token_type: "bearer",

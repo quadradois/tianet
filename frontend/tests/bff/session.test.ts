@@ -28,6 +28,7 @@ function config(overrides: Partial<BffConfig> = {}): BffConfig {
     backendUrl: "http://127.0.0.1:8000",
     origin: "http://127.0.0.1:3000",
     production: true,
+    loginTenantIdentifier: "ACME",
     currentKeyId: "current",
     currentKey: randomBytes(32),
     ...overrides,
@@ -116,7 +117,8 @@ describe("sessao JWE server-only", () => {
       FRONTEND_SESSION_KEY_ID: "current",
       FRONTEND_SESSION_KEY: key(),
     };
-    expect(readBffConfig(base)).toMatchObject({ production: true, origin: "https://app.example.test" });
+    expect(readBffConfig(base)).toMatchObject({ loginTenantIdentifier: "ACME", production: true, origin: "https://app.example.test" });
+    expect(readBffConfig({ ...base, FRONTEND_LOGIN_TENANT_IDENTIFICADOR: "JORNADAS" })).toMatchObject({ loginTenantIdentifier: "JORNADAS" });
     expect(() => readBffConfig({ ...base, FRONTEND_SESSION_KEY: undefined })).toThrow(SessionError);
     expect(() => readBffConfig({ ...base, FRONTEND_SESSION_KEY: "short" })).toThrow(SessionError);
     expect(() => readBffConfig({ ...base, FRONTEND_SESSION_KEY: `${key()}!` })).toThrow(SessionError);

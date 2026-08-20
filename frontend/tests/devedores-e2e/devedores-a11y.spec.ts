@@ -3,7 +3,6 @@ import { expect, test, type Page } from "@playwright/test";
 
 async function login(page: Page) {
   await page.goto("/login");
-  await page.getByRole("textbox", { name: "Instituicao" }).fill("ACME");
   await page.getByRole("textbox", { name: "E-mail" }).fill("operador@example.test");
   await page.getByLabel("Senha").fill("segredo-devedores");
   await page.getByRole("button", { name: "Entrar" }).click();
