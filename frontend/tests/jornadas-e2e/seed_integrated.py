@@ -167,10 +167,16 @@ def create_devedor(
 
 
 def financial_parameters() -> dict[str, Any]:
+    """Parametros do emprestimo livre (DR-004).
+
+    `quantidade_parcelas` e `primeiro_vencimento` sairam com o plano de
+    parcelas. O que resta e o dia combinado do acerto: `dia_de_acerto` chega ao
+    Emprestimo pelos parametros do Contrato, e e dele que o Motor deriva o
+    proximo acerto a cada consulta.
+    """
     return {
         "valor_contratado": "10000.00",
-        "quantidade_parcelas": 2,
-        "primeiro_vencimento": "2026-09-10",
+        "dia_de_acerto": 10,
         "taxa_juros_mensal": "0.0200",
         "moeda": "BRL",
     }
@@ -224,30 +230,25 @@ def create_contract_and_loan(
         expected=201,
         headers={**headers, "Idempotency-Key": "imp301-emprestimo"},
     )
-    plan = post_ok(
-        client,
-        f"/credit/emprestimos/{loan['id']}/parcelas",
-        headers=headers,
-        json_body={"data_referencia": "2026-08-10"},
-    )
-    first = plan["parcelas"][0]
+    # Nao ha plano a gerar (DR-004). O pagamento vale por si: o Motor separa
+    # juros de amortizacao sobre o saldo do dia, sem parcela a liquidar.
+    recebido_em = f"{datetime.now(UTC).date().isoformat()}T12:00:00Z"
     payment_headers = {**headers, "Idempotency-Key": "imp301-pagamento-repetido"}
     payment = post_ok(
         client,
         f"/credit/emprestimos/{loan['id']}/pagamentos",
         headers=payment_headers,
-        json_body={"valor": first["valor_previsto"], "recebido_em": "2026-09-10T12:00:00Z"},
+        json_body={"valor": "500.00", "recebido_em": recebido_em},
     )
     replay = post_ok(
         client,
         f"/credit/emprestimos/{loan['id']}/pagamentos",
         headers=payment_headers,
-        json_body={"valor": first["valor_previsto"], "recebido_em": "2026-09-10T12:00:00Z"},
+        json_body={"valor": "500.00", "recebido_em": recebido_em},
     )
     assert replay["id"] == payment["id"]
     return {
         "contract": released,
-        "installment": first,
         "loan": loan,
         "payment": payment,
         "paymentReplayVerified": True,

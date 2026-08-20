@@ -1,9 +1,9 @@
 # 2026-08-20 - Handoff: Ciclo do Emprestimo Livre Fechado
 
-**Versao:** 1.1.0
+**Versao:** 1.2.0
 
 **Status:** PLAN-027 (parcial), PLAN-028, PLAN-029 e PLAN-030 entregues e
-recertificados localmente, com IMP-328 executado apos o fechamento;
+recertificados localmente, com IMP-328 e IMP-311 executados apos o fechamento;
 **branch nao mergeado**
 
 **Periodo coberto:** do wizard de lancamento (PLAN-027) ao fim do plano de
@@ -78,11 +78,13 @@ Gates reexecutados em 2026-08-20, arvore limpa:
 - frontend `test:unit` 70, `test:component` 65, `test:bff` 134,
   `test:contract` 40 - **309 testes**, todos verdes;
 - `npm run quality:migrations` - `upgrade head -> downgrade base -> upgrade
-  head` contra PostgreSQL 16 real, **verde**.
+  head` contra PostgreSQL 16 real, **verde**;
+- `npm run test:jornadas` - **8/8 verdes** contra Next.js, FastAPI e
+  PostgreSQL 16 reais (IMP-311), com mutacao deliberada confirmando que o
+  cenario novo falha quando a cadeia quebra.
 
-Nao reexecutadas nesta sessao: as suites Playwright, que exigem a stack real
-subindo FastAPI e PostgreSQL. A evidencia delas e a do proprio ciclo, no
-backlog do PLAN-030.
+Nao reexecutadas nesta sessao: as demais suites Playwright por tela. A
+evidencia delas e a do proprio ciclo, no backlog do PLAN-030.
 
 ---
 
@@ -136,7 +138,19 @@ teste cobria esse caminho pela API.
 Resolvido pelo **IMP-328** (backlog do PLAN-030, §IMP-328), com prova nos dois
 sentidos: com o campo exigido de volta, 500; sem ele, 200.
 
-### 4.5 Limitacao conhecida da fila de cobranca
+### 4.5 O wizard aceita `2.000` e entende dois reais
+
+Achado do IMP-311, **nao corrigido**. O campo "Valor emprestado" aceita
+`2000,00` e `2000.00`, e recusa `2.000,00` — mas aceita **`2.000`**, que o
+backend le como **R$ 2,00**. Quem digitar o separador de milhar sem os centavos
+lanca um emprestimo mil vezes menor, sem aviso nenhum.
+
+Nao foi corrigido porque escolher a interpretacao e decisao de produto: `2.000`
+pode ser dois mil (leitura brasileira) ou dois (leitura da maquina). As saidas
+possiveis sao recusar a entrada ambigua ou formatar o campo enquanto se digita.
+**Escopo proposto: IMP-329.**
+
+### 4.6 Limitacao conhecida da fila de cobranca
 
 Um pagamento parcial tira o emprestimo da fila. Julgar se o juro do periodo foi
 quitado exige o saldo, e saldo e do Motor, que a camada de Cobranca e proibida
@@ -150,14 +164,16 @@ operador abre a operacao. Ha teste documentando o comportamento.
 | Item | Plano | Estado |
 |---|---|---|
 | IMP-307 - Comprovante do lancamento | PLAN-027 | Planejado, nao iniciado |
-| IMP-311 - Jornada real e recertificacao | PLAN-027 | Planejado, **enunciado obsoleto** |
 | IMP-284 - Scaffold governado | PLAN-025 | Bloqueado ate `fable:fable-judge` |
 | ~~IMP-328 - Tirar `parcela_id` do contrato e do dominio~~ | PLAN-030 | **Concluido** em 2026-08-20, ver §4.4 |
+| ~~IMP-311 - Jornada real e recertificacao~~ | PLAN-027 | **Concluido** em 2026-08-20, 8/8 em stack real |
+| **IMP-329 - Valor digitado ambiguo no wizard** | proposto no IMP-311 | Aberto, ver §4.5 |
 
-**Sobre o IMP-311:** o enunciado manda cobrir a jornada do wizard "ate o plano
-de parcelas". Esse objeto nao existe mais. Reescrever contra o extrato do saldo
-e o acerto mensal **antes** de executar — caso contrario o cenario certifica uma
-tela que nao existe.
+**O que o IMP-311 encontrou ao rodar:** a suite nao rodava desde o IMP-327 e
+devolveu 4 de 8 cenarios vermelhos na primeira execucao — seed chamando um
+endpoint removido, e tres cenarios procurando textos que o PLAN-029 e o IMP-326
+tinham trocado. Nenhum era defeito de codigo novo; todos eram a suite
+descrevendo um produto que nao existia mais.
 
 ---
 
@@ -166,16 +182,15 @@ tela que nao existe.
 Ordem sugerida:
 
 1. push do branch e PR para `master`, com o relatorio do ciclo como corpo;
-2. reescrita do **IMP-311** contra o modelo novo, e execucao da jornada real. O
-   seed `frontend/tests/jornadas-e2e/seed_integrated.py` ainda envia
-   `quantidade_parcelas` e chama `POST /credit/emprestimos/{id}/parcelas`,
-   removidos no IMP-327: a jornada integrada esta quebrada desde entao;
+2. **IMP-329** — decidir e corrigir o valor ambiguo do wizard (§4.5). E o unico
+   ponto conhecido em que o Credor pode lancar um valor errado sem perceber;
 3. IMP-307, o comprovante do lancamento;
 4. so entao abrir escopo novo.
 
-A ordem tem motivo: o passo 2 e o unico que exercita o produto inteiro contra a
-stack real — que neste ciclo encontrou quatro defeitos que nenhuma suite com
-mock encontrou — e e tambem o unico que ainda esta quebrado.
+A ordem tem motivo: o passo 2 e o unico achado em aberto que afeta dinheiro na
+mao do Credor. A jornada real, que neste ciclo encontrou cinco defeitos que
+nenhuma suite com mock encontrou, agora roda verde e passa a ser a rede de
+seguranca das proximas mudancas.
 
 ---
 
@@ -198,5 +213,6 @@ mock encontrou — e e tambem o unico que ainda esta quebrado.
 
 | Versao | Data | Descricao |
 |---|---|---|
+| 1.2.0 | 2026-08-20 | IMP-311 executado: jornada real reescrita para o emprestimo livre e verde em 8/8 contra stack real. Achado novo do valor ambiguo do wizard registrado como IMP-329. |
 | 1.1.0 | 2026-08-20 | IMP-328 executado: `parcela_id` sai do contrato e do dominio, fechando o 500 da apropriacao. Snapshot, matriz e gates atualizados. |
 | 1.0.0 | 2026-08-20 | Fechamento do ciclo do emprestimo livre (PLAN-027 parcial, PLAN-028, PLAN-029, PLAN-030), com caveats e pendencias declaradas. |

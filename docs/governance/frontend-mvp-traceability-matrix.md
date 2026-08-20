@@ -1,6 +1,6 @@
 # Frontend MVP - Matriz Oficial de Rastreabilidade Product, API, RBAC e E2E
 
-**Versao:** 3.5.0
+**Versao:** 3.6.0
 
 **Data:** 2026-08-20
 
@@ -105,7 +105,7 @@ certificadas).
 | P1 | relatorios e configuracoes | relatorios + configuracoes | leitura operacional e administracao autorizada sem motor paralelo |
 | P1 | IAM contratualmente permitido | credenciais + Perfis + catalogo certificado | administra Perfis e Usuarios conhecidos; nao promete listagem/ciclo de vida integral |
 | P1 | automacao operacional | agenda + jobs/templates/notificacoes | observa e reconcilia automacao com Permissoes e correlation ID |
-| P1 | jornadas compostas certificadas | P0/P1 transversal | IMP-301 observou login, RBAC, 404 neutro, Devedor-Proposta-Contrato-Emprestimo, pagamento idempotente, Motor, operacao diaria, Relatorios, Configuracoes, IAM, Automacao e 5xx correlacionado em stack real Next.js/FastAPI/PostgreSQL |
+| P1 | jornadas compostas certificadas | P0/P1 transversal | IMP-301 observou login, RBAC, 404 neutro, Devedor-Proposta-Contrato-Emprestimo, pagamento idempotente, Motor, operacao diaria, Relatorios, Configuracoes, IAM, Automacao e 5xx correlacionado em stack real Next.js/FastAPI/PostgreSQL. **IMP-311 (2026-08-20) reexecutou a suite no modelo do emprestimo livre**: acrescentou o cenario wizard -> painel -> extrato -> pagamento e reparou tres cenarios que o PLAN-029 e o IMP-326/327 tinham deixado apontando para telas que nao existiam mais. 8/8 verdes, com mutacao deliberada verificando que o cenario novo falha quando a cadeia quebra |
 | P1 | UI, seguranca e fronteiras certificadas | superficie frontend transversal | IMP-302 observou 50 PNGs vigentes, bundle publico sem tokens, Client Components sem backend direto, Web Interface Guidelines e scanner anti-calculo financeiro |
 
 ---
@@ -149,6 +149,7 @@ A matriz so pode ser declarada sem lacunas quando:
 
 | Versao | Data | Descricao |
 |---|---|---|
+| 3.6.0 | 2026-08-20 | IMP-311: jornada real recertificada em 8/8 contra stack real, com o cenario do emprestimo livre (wizard, extrato e pagamento). A suite estava quebrada desde o IMP-327 e desatualizada pelo PLAN-029; nenhuma operacao, permissao ou contagem mudou. |
 | 3.5.0 | 2026-08-20 | IMP-328 retirou `parcela_id` de sete schemas (`AcaoCobrancaCreateRequest`, `ApropriacaoPagamentoCreateRequest`, `ApropriacaoPagamentoResponse`, `ComunicacaoManualCreateRequest`, `PromessaPagamentoCreateRequest`, `PromessaPagamentoResponse`, `RegistroComunicacaoResponse`): a migracao 0017 ja havia derrubado as colunas. Contagem inalterada em 106 operacoes e 133 schemas; snapshot novo `ff101380ddbc11cdcd93f019c149f9819fbd7091cb42e3feb72f7e0f67189248`. |
 | 3.4.0 | 2026-08-19 | IMP-327 aplicou a DR-004: `POST, GET /credit/emprestimos/{emprestimo_id}/parcelas` e as permissoes `motor.parcela.gerar`/`motor.parcela.ler` sairam do contrato e da matriz. Motor caiu de 11 para 9 operacoes, o total certificado de 107 para 105 e o contrato de 107 para 106 operacoes, com 133 schemas preservados. |
 | 3.3.0 | 2026-08-16 | IMP-304 executou a DR-002: parametros comerciais voltaram a ser opacos, falha silenciosa de parametro invalido corrigida para `400` acionavel e cenario de stack real acrescentado submetendo o formulario Comercial. API/RBAC 107/133 preservados. |

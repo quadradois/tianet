@@ -199,6 +199,7 @@ async function globalSetup() {
         "404 neutro cross-scope",
         "Devedor -> Proposta",
         "Proposta -> Contrato -> Emprestimo",
+        "wizard -> emprestimo livre -> extrato -> pagamento",
         "pagamento repetido com a mesma chave",
         "consulta do Motor sem calculo local",
         "cobranca -> promessa -> agenda -> comunicacao",

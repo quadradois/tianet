@@ -154,7 +154,7 @@ export function MotorPage({ createAction, devedores, filters, initialContractId,
       <header className="space-y-2">
         <h1 className="text-3xl font-semibold tracking-tight">Meus emprestimos</h1>
         <p className="max-w-3xl text-sm text-muted-foreground">
-          Separados pela situacao registrada em cada operacao. Abra um emprestimo para ver as parcelas e registrar pagamento.
+          Separados pela situacao registrada em cada operacao. Abra um emprestimo para ver o extrato e registrar pagamento.
         </p>
       </header>
       {hasExactPermission(permissions, MOTOR_LOAN_CREATE_PERMISSION) ? (

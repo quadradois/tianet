@@ -1444,7 +1444,7 @@ const contracts = {
     assert.doesNotMatch(source.discovery, /Não existe aplicação frontend[\s\S]{0,180}estado\s+atual/, 'Discovery nao pode negar o frontend corrente');
     assertText(source.plan, '`npm run api:check` com comparacao de bytes canonicos LF', 'PLAN descreve o check implementado');
     assert.doesNotMatch(source.plan, /openapi-typescript --check/, 'PLAN nao promete flag vendor nao executada');
-    assertText(source.matrix, '**Versao:** 3.5.0', 'matriz versionada apos IMP-298');
+    assertText(source.matrix, '**Versao:** 3.6.0', 'matriz versionada apos IMP-298');
     assertText(source.openapiReport, 'RED: 53 de 54', 'relatorio preserva RED');
     assertText(source.openapiReport, 'fable:fable-judge', 'relatorio exige judge antes do IMP-288');
 
@@ -1621,7 +1621,7 @@ const contracts = {
     assertText(docs.plan, '**Versao:** 3.1.0', 'PLAN corrente apos IMP-298');
     assertText(docs.backlog, '**Versao:** 3.1.0', 'backlog corrente apos IMP-298');
     assertText(docs.discovery, '**Vers?o:** 3.2.0', 'Discovery corrente apos IMP-298');
-    assertText(docs.matrix, '**Versao:** 3.5.0', 'matriz corrente apos IMP-298');
+    assertText(docs.matrix, '**Versao:** 3.6.0', 'matriz corrente apos IMP-298');
   },
 
   dashboard(source = readDashboard()) {
@@ -1723,7 +1723,7 @@ const contracts = {
     assertText(source.plan, '**Versao:** 3.1.0', 'PLAN vivo pos-IMP-298');
     assertText(source.backlog, '**Versao:** 3.1.0', 'backlog vivo pos-IMP-298');
     assertText(source.discovery, '**Vers?o:** 3.2.0', 'Discovery vivo pos-IMP-298');
-    assertText(source.matrix, '**Versao:** 3.5.0', 'matriz viva pos-IMP-298');
+    assertText(source.matrix, '**Versao:** 3.6.0', 'matriz viva pos-IMP-298');
     const imp290 = impBlocks(source.backlog).find(({ id }) => id === 'IMP-290');
     const imp291 = impBlocks(source.backlog).find(({ id }) => id === 'IMP-291');
     assertText(imp290?.text ?? '', '- **Status:** Concluido.', 'IMP-290 deve estar concluido');
@@ -1899,7 +1899,7 @@ const contracts = {
     assertText(source.plan, '**Versao:** 3.1.0', 'PLAN vivo pos-IMP-298');
     assertText(source.backlog, '**Versao:** 3.1.0', 'backlog vivo pos-IMP-298');
     assertText(source.discovery, '**Vers?o:** 3.2.0', 'Discovery vivo pos-IMP-298');
-    assertText(source.matrix, '**Versao:** 3.5.0', 'matriz viva pos-IMP-298');
+    assertText(source.matrix, '**Versao:** 3.6.0', 'matriz viva pos-IMP-298');
     const imp291 = impBlocks(source.backlog).find(({ id }) => id === 'IMP-291');
     const imp292 = impBlocks(source.backlog).find(({ id }) => id === 'IMP-292');
     const imp293 = impBlocks(source.backlog).find(({ id }) => id === 'IMP-293');
@@ -1982,7 +1982,7 @@ const contracts = {
     assertText(source.plan, '**Versao:** 3.1.0', 'PLAN vivo pos-IMP-298');
     assertText(source.backlog, '**Versao:** 3.1.0', 'backlog vivo pos-IMP-298');
     assertText(source.discovery, '**Vers?o:** 3.2.0', 'Discovery vivo pos-IMP-298');
-    assertText(source.matrix, '**Versao:** 3.5.0', 'matriz viva pos-IMP-298');
+    assertText(source.matrix, '**Versao:** 3.6.0', 'matriz viva pos-IMP-298');
     const imp292 = impBlocks(source.backlog).find(({ id }) => id === 'IMP-292');
     const imp293 = impBlocks(source.backlog).find(({ id }) => id === 'IMP-293');
     assertText(imp292?.text ?? '', '- **Status:** Concluido.', 'IMP-292 deve estar concluido');
@@ -2069,7 +2069,7 @@ const contracts = {
     assertText(source.plan, '**Versao:** 3.1.0', 'PLAN vivo pos-IMP-298');
     assertText(source.backlog, '**Versao:** 3.1.0', 'backlog vivo pos-IMP-298');
     assertText(source.discovery, '**Vers?o:** 3.2.0', 'Discovery vivo pos-IMP-298');
-    assertText(source.matrix, '**Versao:** 3.5.0', 'matriz viva pos-IMP-298');
+    assertText(source.matrix, '**Versao:** 3.6.0', 'matriz viva pos-IMP-298');
     const imp293 = impBlocks(source.backlog).find(({ id }) => id === 'IMP-293');
     const imp294 = impBlocks(source.backlog).find(({ id }) => id === 'IMP-294');
     assertText(imp293?.text ?? '', '- **Status:** Concluido.', 'IMP-293 deve estar concluido');
@@ -2166,7 +2166,7 @@ const contracts = {
     assertText(source.plan, '**Versao:** 3.1.0', 'PLAN final IMP-298');
     assertText(source.backlog, '**Versao:** 3.1.0', 'backlog final IMP-298');
     assertText(source.discovery, '3.2.0', 'Discovery final IMP-298');
-    assertText(source.matrix, '**Versao:** 3.5.0', 'matriz final IMP-298');
+    assertText(source.matrix, '**Versao:** 3.6.0', 'matriz final IMP-298');
     const imp294 = impBlocks(source.backlog).find(({ id }) => id === 'IMP-294');
     const imp295 = impBlocks(source.backlog).find(({ id }) => id === 'IMP-295');
     assertText(imp294?.text ?? '', '- **Status:** Concluido.', 'IMP-294 deve estar concluido');
@@ -2240,7 +2240,7 @@ const contracts = {
     assertText(source.plan, '**Versao:** 3.1.0', 'PLAN final IMP-298');
     assertText(source.backlog, '**Versao:** 3.1.0', 'backlog final IMP-298');
     assertText(source.discovery, '3.2.0', 'Discovery final IMP-298');
-    assertText(source.matrix, '**Versao:** 3.5.0', 'matriz final IMP-298');
+    assertText(source.matrix, '**Versao:** 3.6.0', 'matriz final IMP-298');
     const imp295 = impBlocks(source.backlog).find(({ id }) => id === 'IMP-295');
     const imp296 = impBlocks(source.backlog).find(({ id }) => id === 'IMP-296');
     assertText(imp295?.text ?? '', '- **Status:** Concluido.', 'IMP-295 deve estar concluido');
@@ -2321,7 +2321,7 @@ const contracts = {
     assertText(source.plan, '**Versao:** 3.1.0', 'PLAN final IMP-298');
     assertText(source.backlog, '**Versao:** 3.1.0', 'backlog final IMP-298');
     assertText(source.discovery, '3.2.0', 'Discovery final IMP-298');
-    assertText(source.matrix, '**Versao:** 3.5.0', 'matriz final IMP-298');
+    assertText(source.matrix, '**Versao:** 3.6.0', 'matriz final IMP-298');
     const imp296 = impBlocks(source.backlog).find(({ id }) => id === 'IMP-296');
     const imp297 = impBlocks(source.backlog).find(({ id }) => id === 'IMP-297');
     assertText(imp296?.text ?? '', '- **Status:** Concluido.', 'IMP-296 deve estar concluido');
@@ -2443,7 +2443,7 @@ const contracts = {
     assertText(source.plan, '**Versao:** 3.1.0', 'PLAN final IMP-298');
     assertText(source.backlog, '**Versao:** 3.1.0', 'backlog final IMP-298');
     assertText(source.discovery, '3.2.0', 'Discovery final IMP-298');
-    assertText(source.matrix, '**Versao:** 3.5.0', 'matriz final IMP-298');
+    assertText(source.matrix, '**Versao:** 3.6.0', 'matriz final IMP-298');
     const imp297 = impBlocks(source.backlog).find(({ id }) => id === 'IMP-297');
     const imp298 = impBlocks(source.backlog).find(({ id }) => id === 'IMP-298');
     const imp299 = impBlocks(source.backlog).find(({ id }) => id === 'IMP-299');
@@ -2529,7 +2529,7 @@ const contracts = {
     assertText(source.plan, '**Versao:** 3.1.0', 'PLAN final IMP-298');
     assertText(source.backlog, '**Versao:** 3.1.0', 'backlog final IMP-298');
     assertText(source.discovery, '3.2.0', 'Discovery final IMP-298');
-    assertText(source.matrix, '**Versao:** 3.5.0', 'matriz final IMP-298');
+    assertText(source.matrix, '**Versao:** 3.6.0', 'matriz final IMP-298');
     const imp298 = impBlocks(source.backlog).find(({ id }) => id === 'IMP-298');
     const imp299 = impBlocks(source.backlog).find(({ id }) => id === 'IMP-299');
     const imp300 = impBlocks(source.backlog).find(({ id }) => id === 'IMP-300');
@@ -2618,7 +2618,7 @@ const contracts = {
     assertText(source.plan, '**Versao:** 3.1.0', 'PLAN final IMP-299');
     assertText(source.backlog, '**Versao:** 3.1.0', 'backlog final IMP-299');
     assertText(source.discovery, '3.2.0', 'Discovery final IMP-299');
-    assertText(source.matrix, '**Versao:** 3.5.0', 'matriz final IMP-299');
+    assertText(source.matrix, '**Versao:** 3.6.0', 'matriz final IMP-299');
     const imp299 = impBlocks(source.backlog).find(({ id }) => id === 'IMP-299');
     const imp300 = impBlocks(source.backlog).find(({ id }) => id === 'IMP-300');
     assertText(imp299?.text ?? '', '- **Status:** Concluido.', 'IMP-299 deve estar concluido');
@@ -2702,7 +2702,7 @@ const contracts = {
     assertText(source.plan, '**Versao:** 3.1.0', 'PLAN final IMP-300');
     assertText(source.backlog, '**Versao:** 3.1.0', 'backlog final IMP-300');
     assertText(source.discovery, '3.2.0', 'Discovery final IMP-300');
-    assertText(source.matrix, '**Versao:** 3.5.0', 'matriz final IMP-300');
+    assertText(source.matrix, '**Versao:** 3.6.0', 'matriz final IMP-300');
     const imp300 = impBlocks(source.backlog).find(({ id }) => id === 'IMP-300');
     const imp301 = impBlocks(source.backlog).find(({ id }) => id === 'IMP-301');
     const imp302 = impBlocks(source.backlog).find(({ id }) => id === 'IMP-302');
@@ -2754,7 +2754,7 @@ const contracts = {
     assertText(source.plan, '**Versao:** 3.1.0', 'PLAN final IMP-301');
     assertText(source.backlog, '**Versao:** 3.1.0', 'backlog final IMP-301');
     assertText(source.discovery, '3.2.0', 'Discovery final IMP-301');
-    assertText(source.matrix, '**Versao:** 3.5.0', 'matriz final IMP-301');
+    assertText(source.matrix, '**Versao:** 3.6.0', 'matriz final IMP-301');
     const imp301 = impBlocks(source.backlog).find(({ id }) => id === 'IMP-301');
     const imp302 = impBlocks(source.backlog).find(({ id }) => id === 'IMP-302');
     const imp303 = impBlocks(source.backlog).find(({ id }) => id === 'IMP-303');
@@ -2794,7 +2794,7 @@ const contracts = {
     assertText(source.plan, '**Versao:** 3.1.0', 'PLAN final IMP-302');
     assertText(source.backlog, '**Versao:** 3.1.0', 'backlog final IMP-302');
     assertText(source.discovery, '3.2.0', 'Discovery final IMP-302');
-    assertText(source.matrix, '**Versao:** 3.5.0', 'matriz final IMP-302');
+    assertText(source.matrix, '**Versao:** 3.6.0', 'matriz final IMP-302');
     const imp302 = impBlocks(source.backlog).find(({ id }) => id === 'IMP-302');
     const imp303 = impBlocks(source.backlog).find(({ id }) => id === 'IMP-303');
     assertText(imp302?.text ?? '', '- **Status:** Concluido.', 'IMP-302 deve estar concluido');
@@ -2824,7 +2824,7 @@ const contracts = {
     assertText(source.plan, '**Versao:** 3.1.0', 'PLAN final do Frontend MVP');
     assertText(source.backlog, '**Versao:** 3.1.0', 'backlog final do Frontend MVP');
     assertText(source.discovery, '**Vers?o:** 3.2.0', 'Discovery final do Frontend MVP');
-    assertText(source.matrix, '**Versao:** 3.5.0', 'matriz final do Frontend MVP');
+    assertText(source.matrix, '**Versao:** 3.6.0', 'matriz final do Frontend MVP');
     assertText(source.plan, 'Frontend MVP concluido localmente', 'PLAN declara conclusao local');
     assertText(source.backlog, 'Frontend MVP concluido localmente', 'backlog declara conclusao local');
     const imp303 = impBlocks(source.backlog).find(({ id }) => id === 'IMP-303');
