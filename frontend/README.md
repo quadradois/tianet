@@ -93,7 +93,8 @@ stack permanece bloqueada ate o IMP-288, quando sessao e BFF existirem.
 - `jose` 6.2.8 produz JWE `dir`/`A256GCM`; access/refresh tokens nunca entram em
   JSON, HTML, log ou Client Component;
 - configure `FRONTEND_BACKEND_URL`, `FRONTEND_ORIGIN`,
-  `FRONTEND_SESSION_KEY_ID` e `FRONTEND_SESSION_KEY` somente no servidor;
+  `FRONTEND_LOGIN_TENANT_IDENTIFICADOR`, `FRONTEND_SESSION_KEY_ID` e
+  `FRONTEND_SESSION_KEY` somente no servidor;
 - a chave e base64url de exatamente 32 bytes. O par `PREVIOUS` e opcional e
   serve apenas para rotacao por `kid`;
 - cookie `__Host-emprestimo-session`: HttpOnly, SameSite=Lax, Path=/, Secure em
@@ -108,7 +109,9 @@ stack permanece bloqueada ate o IMP-288, quando sessao e BFF existirem.
 
 ## Shell autenticado e contexto operacional
 
-- `/login` envia somente o `AuthLoginRequest` certificado ao BFF same-origin;
+- `/login` envia somente e-mail e senha ao BFF same-origin; o BFF deriva
+  `identificador_institucional` de `FRONTEND_LOGIN_TENANT_IDENTIFICADOR` antes
+  de chamar o backend;
 - `/app` e Server Component e apresenta Usuario, Tenant, Carteira e Perfil
   retornados pelo `GET /iam/contexto-atual` do proprio Principal;
 - a leitura normal do shell nao muta cookie. Um 401 passa uma unica vez por

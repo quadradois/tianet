@@ -16,6 +16,11 @@ async function jsonBody(request) {
   return JSON.parse(Buffer.concat(chunks).toString("utf8") || "{}");
 }
 
+function loginMode(body) {
+  const email = String(body.email ?? "");
+  const match = email.match(/\+([^@]+)/);
+  return String(match?.[1] ?? body.identificador_institucional ?? "ACME").toLowerCase();
+}
 function modeFromAuthorization(request) {
   return String(request.headers.authorization ?? "").replace(/^Bearer access-/, "");
 }
@@ -87,7 +92,7 @@ const server = createServer(async (request, response) => {
   if (request.method === "GET" && url.pathname === "/health") return send(response, 200, { checks: { database: "healthy" }, service: "api", status: "healthy" }, correlation);
   if (request.method === "POST" && url.pathname === "/auth/login") {
     const body = await jsonBody(request);
-    const mode = String(body.identificador_institucional ?? "ACME").toLowerCase();
+    const mode = loginMode(body);
     return send(response, 200, { access_token: `access-${mode === "acme" ? "acme" : mode}`, access_token_expira_em: "2099-08-14T12:15:00Z", refresh_token: `refresh-${mode}`, refresh_token_expira_em: "2099-08-21T12:00:00Z", tenant_id: IDS.tenant, token_type: "bearer", usuario_id: IDS.user }, correlation);
   }
   if (request.method === "POST" && url.pathname === "/auth/refresh") return send(response, 200, { access_token: "access-acme", access_token_expira_em: "2099-08-14T12:30:00Z", tenant_id: IDS.tenant, token_type: "bearer", usuario_id: IDS.user }, correlation);

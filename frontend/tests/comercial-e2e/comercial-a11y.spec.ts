@@ -5,7 +5,6 @@ const debtorId = "00000000-0000-4000-8000-000000000010";
 
 async function login(page: Page) {
   await page.goto("/login");
-  await page.getByRole("textbox", { name: "Instituicao" }).fill("ACME");
   await page.getByRole("textbox", { name: "E-mail" }).fill("operador@example.test");
   await page.getByLabel("Senha").fill("segredo-comercial");
   await page.getByRole("button", { name: "Entrar" }).click();

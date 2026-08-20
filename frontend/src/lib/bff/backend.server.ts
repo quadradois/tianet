@@ -23,6 +23,10 @@ type AuthLoginRequest = components["schemas"]["AuthLoginRequest"];
 type AuthLoginResponse = components["schemas"]["AuthLoginResponse"];
 type AuthRefreshResponse = components["schemas"]["AuthRefreshResponse"];
 type ErroResponse = components["schemas"]["ErroResponse"];
+type BrowserLoginRequest = Readonly<{
+  email: string;
+  segredo: string;
+}>;
 
 export type FetchLike = (request: Request) => Promise<Response>;
 
@@ -84,12 +88,11 @@ function isErroResponse(value: unknown): value is ErroResponse {
   return isRecord(value) && typeof value.codigo === "string" && typeof value.mensagem === "string";
 }
 
-function isAuthLoginRequest(value: unknown): value is AuthLoginRequest {
+function isBrowserLoginRequest(value: unknown): value is BrowserLoginRequest {
   if (!isRecord(value)) return false;
   const keys = Object.keys(value).sort().join(",");
-  return keys === "email,identificador_institucional,segredo"
+  return keys === "email,segredo"
     && typeof value.email === "string"
-    && typeof value.identificador_institucional === "string"
     && typeof value.segredo === "string";
 }
 
@@ -351,10 +354,15 @@ export async function handleLogin(
     if (!isJsonContentType(request.headers.get("Content-Type"))) {
       throw new ApiProblem({ status: 400, codigo: "payload_invalido", mensagem: "Payload JSON inválido.", correlationId: requestCorrelation });
     }
-    const body: unknown = await readLoginBody(request, requestCorrelation, dependencies);
-    if (!isAuthLoginRequest(body)) {
+    const browserBody: unknown = await readLoginBody(request, requestCorrelation, dependencies);
+    if (!isBrowserLoginRequest(browserBody)) {
       throw new ApiProblem({ status: 400, codigo: "payload_invalido", mensagem: "Payload de login inválido.", correlationId: requestCorrelation });
     }
+    const body: AuthLoginRequest = {
+      email: browserBody.email,
+      identificador_institucional: dependencies.config.loginTenantIdentifier,
+      segredo: browserBody.segredo,
+    };
     const clock = deadline(dependencies);
     try {
       const client = createBackendClient(dependencies.config.backendUrl, { fetch: restrictedBackendFetch(dependencies) });

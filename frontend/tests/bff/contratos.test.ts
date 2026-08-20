@@ -19,7 +19,7 @@ const CONTRACT_ID = "00000000-0000-4000-8000-000000000030";
 const OTHER_WALLET = "00000000-0000-4000-8000-000000000099";
 
 function config(): BffConfig {
-  return { backendUrl: "http://backend.contratos.invalid", origin: "http://frontend.contratos.invalid", production: false, currentKeyId: "current", currentKey: randomBytes(32) };
+  return { backendUrl: "http://backend.contratos.invalid", origin: "http://frontend.contratos.invalid", production: false, loginTenantIdentifier: "ACME", currentKeyId: "current", currentKey: randomBytes(32) };
 }
 
 const session: SessionData = { accessToken: "access-sensitive", accessTokenExpiresAt: "2026-08-14T12:15:00Z", refreshToken: "refresh-sensitive", refreshTokenExpiresAt: "2026-08-21T12:00:00Z", tenantId: TENANT_ID, userId: USER_ID };

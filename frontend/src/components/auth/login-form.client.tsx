@@ -3,12 +3,14 @@
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState, useTransition } from "react";
 
-import type { components } from "../../lib/api/openapi.generated";
 import { Button } from "../ui/button";
 import { Input } from "../ui/input";
 import { Label } from "../ui/label";
 
-type AuthLoginRequest = components["schemas"]["AuthLoginRequest"];
+type LoginRequest = Readonly<{
+  email: string;
+  segredo: string;
+}>;
 
 function publicMessage(status: number): string {
   if (status === 401) return "Nao foi possivel autenticar com os dados informados.";
@@ -27,9 +29,8 @@ export function LoginForm() {
   }, [message]);
 
   function submit(formData: FormData) {
-    const body: AuthLoginRequest = {
+    const body: LoginRequest = {
       email: String(formData.get("email") ?? ""),
-      identificador_institucional: String(formData.get("identificador_institucional") ?? ""),
       segredo: String(formData.get("segredo") ?? ""),
     };
     setMessage(undefined);
@@ -60,10 +61,6 @@ export function LoginForm() {
 
   return (
     <form action={submit} className="grid gap-5" noValidate>
-      <div className="grid gap-2">
-        <Label htmlFor="identificador-institucional">Instituicao</Label>
-        <Input autoComplete="organization" id="identificador-institucional" maxLength={100} name="identificador_institucional" required />
-      </div>
       <div className="grid gap-2">
         <Label htmlFor="email">E-mail</Label>
         <Input autoComplete="username" id="email" maxLength={254} minLength={3} name="email" required spellCheck={false} type="email" />

@@ -88,6 +88,7 @@ services:
     environment:
       FRONTEND_BACKEND_URL: http://127.0.0.1:8000
       FRONTEND_ORIGIN: ${FRONTEND_ORIGIN:-http://localhost:3000}
+      FRONTEND_LOGIN_TENANT_IDENTIFICADOR: ${FRONTEND_LOGIN_TENANT_IDENTIFICADOR:-tianet-local}
       FRONTEND_SESSION_KEY_ID: ${FRONTEND_SESSION_KEY_ID:?defina no .env}
       FRONTEND_SESSION_KEY: ${FRONTEND_SESSION_KEY:?defina no .env}
     depends_on:

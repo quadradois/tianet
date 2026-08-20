@@ -21,6 +21,7 @@ function config(): BffConfig {
     backendUrl: "http://backend.context.invalid",
     origin: "http://frontend.context.invalid",
     production: false,
+    loginTenantIdentifier: "ACME",
     currentKeyId: "current",
     currentKey: randomBytes(32),
   };
