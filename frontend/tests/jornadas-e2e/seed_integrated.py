@@ -262,7 +262,6 @@ def seed_cobranca_agenda(
     devedor_id: str,
     loan_id: str,
     payment_id: str,
-    parcela_id: str,
 ) -> dict[str, Any]:
     with session_factory() as session:
         case = CobrancaCaso(
@@ -293,7 +292,7 @@ def seed_cobranca_agenda(
         client,
         f"/credit/cobrancas/promessas/{promise['promessa_id']}/apropriacoes",
         headers={**headers, "Idempotency-Key": "imp301-apropriacao"},
-        json_body={"pagamento_id": payment_id, "parcela_id": parcela_id},
+        json_body={"pagamento_id": payment_id},
     )
     template = post_ok(
         client,
@@ -443,7 +442,6 @@ def seed(path: Path, database_url: str) -> None:
             devedor["id"],
             motor["loan"]["id"],
             motor["payment"]["id"],
-            motor["installment"]["id"],
         )
         config = seed_configuracoes(client, full, headers)
         # Garante credenciais e perfil sem permissao existem e validam RBAC pelo frontend.

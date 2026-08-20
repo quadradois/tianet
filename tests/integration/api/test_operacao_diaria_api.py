@@ -23,6 +23,7 @@ from emprestimo.domain.credit.operacao_diaria import (
     EstadoLembrete,
     TipoAcaoCobranca,
 )
+from emprestimo.domain.credit.promessa import PromessaPagamentoState
 from emprestimo.presentation.api import dependencies
 from emprestimo.presentation.api.main import create_app
 
@@ -34,6 +35,7 @@ EMPRESTIMO_ID = uuid.UUID("78000000-0000-0000-0000-000000000005")
 CASO_ID = uuid.UUID("78000000-0000-0000-0000-000000000006")
 PAGAMENTO_ID = uuid.UUID("78000000-0000-0000-0000-000000000007")
 AGENDA_ID = uuid.UUID("78000000-0000-0000-0000-000000000008")
+PROMESSA_ID = uuid.UUID("78000000-0000-0000-0000-000000000009")
 
 PRINCIPAL = Principal(
     usuario_id=USUARIO_ID,
@@ -69,6 +71,9 @@ def client() -> TestClient:
     )
     app.dependency_overrides[dependencies.get_relatorios_operacionais_service] = (
         lambda: _relatorios_service()
+    )
+    app.dependency_overrides[dependencies.get_apropriar_pagamento_promessa_service] = (
+        lambda: _apropriacao_service()
     )
     return TestClient(app)
 
@@ -298,7 +303,6 @@ def _registro_comunicacao() -> SimpleNamespace:
         resultado="sem resposta",
         devedor_id=DEVEDOR_ID,
         emprestimo_id=EMPRESTIMO_ID,
-        parcela_id=None,
         cobranca_acao_id=None,
         agenda_item_id=None,
     )
@@ -322,3 +326,53 @@ def test_schemas_openapi_incluem_estados_operacionais() -> None:
     assert "EstadoLembrete" in schema["components"]["schemas"]
     assert "PromessaPagamentoState" in schema["components"]["schemas"]
     assert "PagamentoState" in schema["components"]["schemas"]
+
+
+def _apropriacao_service() -> SimpleNamespace:
+    """Apropriacao como ela ocorre no emprestimo livre: sem parcela nenhuma."""
+    return SimpleNamespace(
+        apropriar=lambda **_: SimpleNamespace(
+            apropriacao_id=uuid.uuid4(),
+            promessa_id=PROMESSA_ID,
+            pagamento_id=PAGAMENTO_ID,
+            valor=Decimal("500.00"),
+            realizado_em=datetime(2026, 9, 10, tzinfo=UTC),
+            estado_promessa=PromessaPagamentoState.CUMPRIDA,
+        )
+    )
+
+
+def test_apropriar_pagamento_sem_parcela_responde_200(client: TestClient) -> None:
+    """IMP-328: no emprestimo livre nao existe parcela, e apropriar deve funcionar.
+
+    Antes do IMP-328 a resposta exigia `parcela_id`, campo de um agregado que a
+    DR-004 removeu. Como o resolvedor devolvia `None`, a serializacao quebrava e
+    o Credor recebia 500 no caminho normal de apropriar um pagamento.
+    """
+    resposta = client.post(
+        f"/credit/cobrancas/promessas/{PROMESSA_ID}/apropriacoes",
+        json={"pagamento_id": str(PAGAMENTO_ID)},
+        headers={"Idempotency-Key": "imp-328-apropriacao"},
+    )
+
+    assert resposta.status_code == 200, resposta.text
+    corpo = resposta.json()
+    assert corpo["pagamento_id"] == str(PAGAMENTO_ID)
+    assert "parcela_id" not in corpo
+
+
+def test_contrato_nao_expoe_mais_parcela_id() -> None:
+    """IMP-328: a parcela saiu no IMP-327; o identificador dela nao pode ficar.
+
+    A migracao 0017 derrubou as colunas `parcela_id`. Um campo que a API aceita
+    e o repositorio nao grava some na releitura sem erro nenhum.
+    """
+    schema = create_app().openapi()
+
+    portadores = [
+        nome
+        for nome, definicao in schema["components"]["schemas"].items()
+        if "parcela_id" in str(definicao)
+    ]
+
+    assert portadores == [], f"schemas ainda expoem parcela_id: {portadores}"

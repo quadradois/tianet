@@ -15,7 +15,7 @@ const USER_ID = "00000000-0000-4000-8000-000000000002";
 const WALLET_ID = "00000000-0000-4000-8000-000000000003";
 const PROFILE_ID = "00000000-0000-4000-8000-000000000004";
 const LOAN_ID = "00000000-0000-4000-8000-000000000010";
-const PARCEL_ID = "00000000-0000-4000-8000-000000000011";
+const DEBTOR_ID = "00000000-0000-4000-8000-000000000011";
 const PAYMENT_ID = "00000000-0000-4000-8000-000000000012";
 
 function config(): BffConfig {
@@ -39,9 +39,9 @@ function dependencies(selected: BffConfig, fetch: FetchLike, timeoutMs = 1_000):
 
 function payload(pathname: string) {
   if (pathname.endsWith("/resumo")) return { carteira_id: WALLET_ID, data_referencia: period.referenceDate, operacoes_ativas: 2, operacoes_quitadas: 1, acertos_pendentes: 1, tenant_id: TENANT_ID, total_operacoes: 3, principal_a_receber: "40.00", total_realizado: "10.00" };
-  if (pathname.endsWith("/vencimentos")) return { carteira_id: WALLET_ID, data_referencia: period.referenceDate, itens: [{ emprestimo_id: LOAN_ID, estado: "vencida", numero: 1, parcela_id: PARCEL_ID, situacao: "inadimplente", valor_liquidado: "0.00", valor_previsto: "10.00", vencimento: "2026-08-10" }], tenant_id: TENANT_ID, total: 1 };
+  if (pathname.endsWith("/vencimentos")) return { carteira_id: WALLET_ID, data_referencia: period.referenceDate, itens: [{ acerto_em: "2026-08-10", devedor_id: DEBTOR_ID, dia_de_acerto: 10, dias_sem_pagamento: 4, emprestimo_id: LOAN_ID, principal_original: "10.00", situacao: "acerto_pendente" }], tenant_id: TENANT_ID, total: 1 };
   if (pathname.endsWith("/pagamentos")) return { carteira_id: WALLET_ID, fim: period.endDate, inicio: period.startDate, operacoes_quitadas: [LOAN_ID], pagamentos: [{ emprestimo_id: LOAN_ID, estado: "confirmado", pagamento_id: PAYMENT_ID, recebido_em: "2026-08-12", valor_recebido: "10.00" }], tenant_id: TENANT_ID, total_realizado: "10.00" };
-  return { carteira_id: WALLET_ID, fim: period.endDate, inicio: period.startDate, itens: [{ data: "2026-08-12", pagamento_ids: [PAYMENT_ID], parcela_ids: [PARCEL_ID], previsto: "10.00", realizado: "10.00" }], tenant_id: TENANT_ID };
+  return { carteira_id: WALLET_ID, fim: period.endDate, inicio: period.startDate, itens: [{ acertos: 1, data: "2026-08-12", pagamento_ids: [PAYMENT_ID], realizado: "10.00" }], tenant_id: TENANT_ID };
 }
 
 describe("loader server-only de Relatorios", () => {

@@ -24,7 +24,6 @@ class AcaoCobrancaCreateRequest(BaseModel):
 
     tipo: TipoAcaoCobranca
     resultado: str = Field(min_length=1)
-    parcela_id: uuid.UUID | None = None
 
 
 class PromessaPagamentoCreateRequest(BaseModel):
@@ -32,7 +31,6 @@ class PromessaPagamentoCreateRequest(BaseModel):
 
     valor_declarado: Decimal = Field(gt=Decimal("0.00"), decimal_places=2)
     data_promessa: date
-    parcela_id: uuid.UUID | None = None
     observacao: str | None = None
     pagamento_informado: bool = False
 
@@ -41,7 +39,6 @@ class ApropriacaoPagamentoCreateRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     pagamento_id: uuid.UUID
-    parcela_id: uuid.UUID | None = None
     data_referencia: date | None = None
 
 
@@ -74,7 +71,6 @@ class ComunicacaoManualCreateRequest(BaseModel):
     resumo: str = Field(min_length=1)
     resultado: str = Field(min_length=1)
     emprestimo_id: uuid.UUID | None = None
-    parcela_id: uuid.UUID | None = None
     cobranca_acao_id: uuid.UUID | None = None
     agenda_item_id: uuid.UUID | None = None
 
@@ -119,14 +115,12 @@ class PromessaPagamentoResponse(BaseModel):
     valor_declarado: Decimal
     data_promessa: date
     estado: PromessaPagamentoState
-    parcela_id: uuid.UUID | None
 
 
 class ApropriacaoPagamentoResponse(BaseModel):
     apropriacao_id: uuid.UUID
     promessa_id: uuid.UUID
     pagamento_id: uuid.UUID
-    parcela_id: uuid.UUID
     valor: Decimal
     realizado_em: datetime
     estado_promessa: PromessaPagamentoState
@@ -173,7 +167,6 @@ class RegistroComunicacaoResponse(BaseModel):
     resultado: str
     devedor_id: uuid.UUID | None
     emprestimo_id: uuid.UUID | None
-    parcela_id: uuid.UUID | None
     cobranca_acao_id: uuid.UUID | None
     agenda_item_id: uuid.UUID | None
 

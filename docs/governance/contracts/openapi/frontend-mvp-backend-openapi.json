@@ -4,18 +4,6 @@
       "AcaoCobrancaCreateRequest": {
         "additionalProperties": false,
         "properties": {
-          "parcela_id": {
-            "anyOf": [
-              {
-                "format": "uuid",
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Parcela Id"
-          },
           "resultado": {
             "minLength": 1,
             "title": "Resultado",
@@ -252,18 +240,6 @@
             "format": "uuid",
             "title": "Pagamento Id",
             "type": "string"
-          },
-          "parcela_id": {
-            "anyOf": [
-              {
-                "format": "uuid",
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Parcela Id"
           }
         },
         "required": [
@@ -287,11 +263,6 @@
             "title": "Pagamento Id",
             "type": "string"
           },
-          "parcela_id": {
-            "format": "uuid",
-            "title": "Parcela Id",
-            "type": "string"
-          },
           "promessa_id": {
             "format": "uuid",
             "title": "Promessa Id",
@@ -312,7 +283,6 @@
           "apropriacao_id",
           "promessa_id",
           "pagamento_id",
-          "parcela_id",
           "valor",
           "realizado_em",
           "estado_promessa"
@@ -770,18 +740,6 @@
             "format": "date-time",
             "title": "Ocorrido Em",
             "type": "string"
-          },
-          "parcela_id": {
-            "anyOf": [
-              {
-                "format": "uuid",
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Parcela Id"
           },
           "resultado": {
             "minLength": 1,
@@ -3527,18 +3485,6 @@
             "title": "Pagamento Informado",
             "type": "boolean"
           },
-          "parcela_id": {
-            "anyOf": [
-              {
-                "format": "uuid",
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Parcela Id"
-          },
           "valor_declarado": {
             "anyOf": [
               {
@@ -3585,18 +3531,6 @@
           "estado": {
             "$ref": "#/components/schemas/PromessaPagamentoState"
           },
-          "parcela_id": {
-            "anyOf": [
-              {
-                "format": "uuid",
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Parcela Id"
-          },
           "promessa_id": {
             "format": "uuid",
             "title": "Promessa Id",
@@ -3621,8 +3555,7 @@
           "emprestimo_id",
           "valor_declarado",
           "data_promessa",
-          "estado",
-          "parcela_id"
+          "estado"
         ],
         "title": "PromessaPagamentoResponse",
         "type": "object"
@@ -4056,18 +3989,6 @@
             "title": "Ocorrido Em",
             "type": "string"
           },
-          "parcela_id": {
-            "anyOf": [
-              {
-                "format": "uuid",
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Parcela Id"
-          },
           "registro_id": {
             "format": "uuid",
             "title": "Registro Id",
@@ -4110,7 +4031,6 @@
           "resultado",
           "devedor_id",
           "emprestimo_id",
-          "parcela_id",
           "cobranca_acao_id",
           "agenda_item_id"
         ],

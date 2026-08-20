@@ -230,7 +230,6 @@ function validCommunication(value: unknown, context: OperationalContext, devedor
     && nullableUuid(value, "devedor_id")
     && (devedorId === undefined || value.devedor_id === devedorId)
     && nullableUuid(value, "emprestimo_id")
-    && nullableUuid(value, "parcela_id")
     && nullableUuid(value, "cobranca_acao_id")
     && nullableUuid(value, "agenda_item_id");
 }
@@ -476,7 +475,6 @@ export async function registerCommunication(cookies: CookieStore, context: Opera
   const agendaItemId = formOptionalUuid(formData, "agenda_item_id");
   const cobrancaAcaoId = formOptionalUuid(formData, "cobranca_acao_id");
   const emprestimoId = formOptionalUuid(formData, "emprestimo_id");
-  const parcelaId = formOptionalUuid(formData, "parcela_id");
   const request: CommunicationCreateRequest = {
     canal,
     ocorrido_em: ocorridoEm,
@@ -485,7 +483,6 @@ export async function registerCommunication(cookies: CookieStore, context: Opera
     ...(agendaItemId ? { agenda_item_id: agendaItemId } : {}),
     ...(cobrancaAcaoId ? { cobranca_acao_id: cobrancaAcaoId } : {}),
     ...(emprestimoId ? { emprestimo_id: emprestimoId } : {}),
-    ...(parcelaId ? { parcela_id: parcelaId } : {}),
   };
   const idem = requiredIdempotencyKey(formData);
   if (typeof idem !== "string") return idem;

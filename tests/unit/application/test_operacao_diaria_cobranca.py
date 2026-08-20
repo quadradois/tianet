@@ -45,7 +45,6 @@ CARTEIRA_ID = uuid.UUID("70000000-0000-0000-0000-000000000002")
 DEVEDOR_ID = uuid.UUID("70000000-0000-0000-0000-000000000003")
 EMPRESTIMO_ID = uuid.UUID("70000000-0000-0000-0000-000000000004")
 USUARIO_ID = uuid.UUID("70000000-0000-0000-0000-000000000005")
-PARCELA_ID = uuid.UUID("70000000-0000-0000-0000-000000000006")
 PAGAMENTO_ID = uuid.UUID("70000000-0000-0000-0000-000000000007")
 
 
@@ -72,7 +71,6 @@ def test_registrar_acao_cobranca_persiste_com_idempotencia_e_replay() -> None:
         tipo=TipoAcaoCobranca.TELEFONE,
         resultado="cliente prometeu retorno",
         idempotency_key="acao-1",
-        parcela_id=PARCELA_ID,
     )
     segundo = service.registrar(
         tenant_id=TENANT_ID,
@@ -81,7 +79,6 @@ def test_registrar_acao_cobranca_persiste_com_idempotencia_e_replay() -> None:
         tipo=TipoAcaoCobranca.TELEFONE,
         resultado="cliente prometeu retorno",
         idempotency_key="acao-1",
-        parcela_id=PARCELA_ID,
     )
 
     assert segundo == primeiro
@@ -143,12 +140,10 @@ def test_registrar_promessa_cria_estado_pagamento_informado() -> None:
         valor_declarado=Decimal("100.00"),
         data_promessa=date(2026, 9, 10),
         idempotency_key="promessa-1",
-        parcela_id=PARCELA_ID,
         pagamento_informado=True,
     )
 
     assert resultado.estado is PromessaPagamentoState.PAGAMENTO_INFORMADO
-    assert uow.promessa_pagamento.salvas[0].parcela_id == PARCELA_ID
     assert uow.commits == 1
 
 
@@ -162,7 +157,6 @@ def test_apropriar_pagamento_promessa_usa_pagamento_oficial_e_cumpre_promessa() 
         criado_por_usuario_id=USUARIO_ID,
         valor_declarado=Decimal("100.00"),
         data_promessa=date(2026, 9, 10),
-        parcela_id=PARCELA_ID,
     )
     uow = _FakeUoW(casos=[_caso()], promessas=[promessa], pagamentos=[pagamento])
 
@@ -175,7 +169,6 @@ def test_apropriar_pagamento_promessa_usa_pagamento_oficial_e_cumpre_promessa() 
     )
 
     assert resultado.valor == pagamento.valor_recebido
-    assert resultado.parcela_id == PARCELA_ID
     assert resultado.estado_promessa is PromessaPagamentoState.CUMPRIDA
     assert len(uow.apropriacao_pagamento.salvas) == 1
     assert uow.promessa_pagamento.salvas[-1].estado is PromessaPagamentoState.CUMPRIDA
@@ -209,7 +202,6 @@ def _pagamento(*, valor: Decimal) -> Pagamento:
         recebido_em=datetime(2026, 9, 10, 12, 0, tzinfo=UTC),
         valor_juros=Decimal("0.00"),
         valor_amortizacao=valor,
-        parcelas_liquidadas=(PARCELA_ID,),
         usuario_id=USUARIO_ID,
     )
 

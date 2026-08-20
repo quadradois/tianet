@@ -28,7 +28,7 @@ describe("Cobranca OpenAPI consumida pelo frontend", () => {
     const operationCount = Object.values(spec.paths).flatMap((item) => Object.keys(item).filter((method) => ["get", "post", "patch", "put", "delete"].includes(method))).length;
     expect(operationCount).toBe(106);
     expect(Object.keys(spec.components.schemas)).toHaveLength(133);
-    expect(createHash("sha256").update(raw).digest("hex")).toBe("75a15e1f119a0fe01cbf3401a202680b0bb812f191fd1c00e5d3c9fcef123d34");
+    expect(createHash("sha256").update(raw).digest("hex")).toBe("ff101380ddbc11cdcd93f019c149f9819fbd7091cb42e3feb72f7e0f67189248");
   });
 
   it("certifica as 4 operacoes oficiais de Cobranca e Idempotency-Key exata", () => {

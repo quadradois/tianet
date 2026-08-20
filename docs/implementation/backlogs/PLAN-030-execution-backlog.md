@@ -2,9 +2,9 @@
 
 **ID:** PLAN-030-EXEC
 
-**Versao:** 1.4.0
+**Versao:** 1.5.0
 
-**Status:** IMP-321..327 concluidos; PLAN-030 encerrado
+**Status:** IMP-321..328 concluidos; PLAN-030 encerrado (reaberto e fechado de novo no IMP-328)
 
 ---
 
@@ -194,12 +194,59 @@ PLAN-029.
   `ruff`/`black`/`mypy` limpos, `docs:validate` com 0 erros e o gate governado em
   173/173.
 
+### IMP-328 - O identificador da parcela sai junto
+
+- **Objetivo:** remover `parcela_id` do contrato publico, do dominio e da
+  interface, fechando o criterio "nenhum arquivo legado" do IMP-327.
+- **Origem:** conferencia de fechamento do ciclo (relatorio PLAN-031 §6.2). O
+  IMP-327 tirou o agregado, a tabela e as operacoes, mas o **identificador**
+  dele ficou em sete schemas, nas entidades de Cobranca, Promessa e Comunicacao,
+  na camada Application e no dialogo de Cobranca do frontend.
+- **Status:** Concluido.
+- **Nao era so residuo — era um 500.** `ApropriacaoPagamentoResponse` exigia
+  `parcela_id`, enquanto o resolvedor devolvia `None` sempre que nao havia
+  parcela, que no emprestimo livre e **sempre**. A serializacao quebrava e o
+  Credor recebia `erro_interno` ao apropriar um pagamento a uma promessa.
+  Verificado nos dois sentidos: com o campo exigido de volta no schema, o teste
+  falha com 500; sem ele, responde 200.
+- **Nenhum teste cobria apropriacao pela API.** Segunda vez neste ciclo que um
+  caminho central passa verde por ausencia de teste, e nao por acerto — a
+  primeira foi a regra de plano no pagamento, no IMP-327.
+- **O que saiu:** o campo dos sete schemas; os parametros e DTOs da Application;
+  o resolvedor `_parcela_da_apropriacao`; os campos das entidades `CobrancaAcao`,
+  `RegistroComunicacao`, `PromessaPagamento` e `ApropriacaoPagamento`; o read
+  model **morto** `VencimentoOperacional`, que exigia `parcela_id` e nunca foi
+  construido por ninguem; e as constantes `PERMISSAO_PARCELA_GERAR` e
+  `PERMISSAO_PARCELA_LER`, orfas desde que a `0017` apagou as permissoes.
+- **Idempotencia:** `parcela_id` saiu do `solicitacao_hash` das quatro operacoes
+  e do payload serializado do registro de comunicacao. Chaves gravadas antes
+  desta mudanca teriam hash divergente no replay. Sem producao, sem impacto.
+- **Sem migracao.** A `0017` ja tinha derrubado as quatro colunas; o que ficou
+  para tras foi codigo, nao schema.
+- **Contrato:** alteracao **nao aditiva**, sem mudanca de superficie — 106
+  operacoes e 133 schemas, como antes. Snapshot novo
+  `ff101380ddbc11cdcd93f019c149f9819fbd7091cb42e3feb72f7e0f67189248`, 669593
+  bytes; o hash foi avancado nos 13 arquivos que o fixam. Matriz em 3.5.0.
+- **Fixtures que mentiam:** os testes BFF de Relatorios ainda montavam
+  vencimentos com `numero`, `parcela_id`, `valor_previsto` e `valor_liquidado`,
+  e fluxo diario com `parcela_ids` e `previsto` — nenhum desses campos existe no
+  contrato desde o IMP-327. Passavam verdes contra uma ficcao. Alinhados ao
+  schema real.
+- **Deixado quebrado de proposito:** `frontend/tests/jornadas-e2e/seed_integrated.py`
+  ainda envia `quantidade_parcelas` e chama `POST /credit/emprestimos/{id}/parcelas`,
+  removidos no IMP-327. Corrigi apenas o que o IMP-328 tocou; reescrever a
+  jornada e o **IMP-311**, que precisa rodar contra a stack real.
+- **Gates:** 985 testes Python, 309 testes frontend
+  (unit/component/bff/contract), `ruff`/`black`/`mypy` limpos, `docs:validate`
+  com 0 erros e o gate governado em 173/173.
+
 ---
 
 # 7. Historico de Versoes
 
 | Versao | Data | Descricao |
 |---|---|---|
+| 1.5.0 | 2026-08-20 | IMP-328: `parcela_id` sai do contrato, do dominio e da interface. Fechou um 500 no caminho de apropriar pagamento e o criterio "nenhum arquivo legado" do IMP-327. |
 | 1.4.0 | 2026-08-19 | IMP-327 concluido: plano de parcelas removido do dominio, do banco, do contrato e dos relatorios; inventario novo 106/133 registrado e matriz em 3.4.0. PLAN-030 encerrado. |
 | 1.3.0 | 2026-08-19 | IMP-327 nas telas: restos do plano removidos, formulario de pagamento operavel e duas regras que bloqueavam o fluxo central corrigidas. |
 | 1.2.0 | 2026-08-19 | IMP-326 concluido na tela: painel do emprestimo livre e extrato no lugar da tabela de parcelas. |

@@ -1,8 +1,8 @@
 # Frontend MVP - Matriz Oficial de Rastreabilidade Product, API, RBAC e E2E
 
-**Versao:** 3.4.0
+**Versao:** 3.5.0
 
-**Data:** 2026-08-19
+**Data:** 2026-08-20
 
 **Status:** Frontend MVP concluido localmente; IMP-274..IMP-304 recertificados; superficie do Motor reduzida pela DR-004 (plano de parcelas removido)
 
@@ -19,7 +19,9 @@ A fonte contratual observada e o OpenAPI gerado por `create_app().openapi()` na
 worktree derivada do commit backend `e48cb72`, congelado no snapshot governado
 do PLAN-025. O contrato vigente possui 106 operacoes e 133 schemas; o SHA-256
 do snapshot e
-`75a15e1f119a0fe01cbf3401a202680b0bb812f191fd1c00e5d3c9fcef123d34`.
+`ff101380ddbc11cdcd93f019c149f9819fbd7091cb42e3feb72f7e0f67189248`,
+publicado pelo IMP-328, que retirou `parcela_id` de sete schemas sem mudar a
+contagem de operacoes nem de schemas.
 A linha de base do PLAN-025 tinha 107 operacoes e SHA-256
 `8dadf18eab0dad186044d71e832f72a5850661307d196187f2d0794b9d1d9ec1`; as duas
 operacoes de plano de parcelas sairam do contrato pela DR-004 e a operacao
@@ -147,6 +149,7 @@ A matriz so pode ser declarada sem lacunas quando:
 
 | Versao | Data | Descricao |
 |---|---|---|
+| 3.5.0 | 2026-08-20 | IMP-328 retirou `parcela_id` de sete schemas (`AcaoCobrancaCreateRequest`, `ApropriacaoPagamentoCreateRequest`, `ApropriacaoPagamentoResponse`, `ComunicacaoManualCreateRequest`, `PromessaPagamentoCreateRequest`, `PromessaPagamentoResponse`, `RegistroComunicacaoResponse`): a migracao 0017 ja havia derrubado as colunas. Contagem inalterada em 106 operacoes e 133 schemas; snapshot novo `ff101380ddbc11cdcd93f019c149f9819fbd7091cb42e3feb72f7e0f67189248`. |
 | 3.4.0 | 2026-08-19 | IMP-327 aplicou a DR-004: `POST, GET /credit/emprestimos/{emprestimo_id}/parcelas` e as permissoes `motor.parcela.gerar`/`motor.parcela.ler` sairam do contrato e da matriz. Motor caiu de 11 para 9 operacoes, o total certificado de 107 para 105 e o contrato de 107 para 106 operacoes, com 133 schemas preservados. |
 | 3.3.0 | 2026-08-16 | IMP-304 executou a DR-002: parametros comerciais voltaram a ser opacos, falha silenciosa de parametro invalido corrigida para `400` acionavel e cenario de stack real acrescentado submetendo o formulario Comercial. API/RBAC 107/133 preservados. |
 | 3.2.0 | 2026-08-14 | IMP-303 recertificou localmente a matriz final do Frontend MVP, preservou API/RBAC 107/133 e publicou relatorio final; CI remota nao observada. |

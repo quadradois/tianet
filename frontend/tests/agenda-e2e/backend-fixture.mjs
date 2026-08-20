@@ -46,7 +46,7 @@ function reminder(overrides = {}) {
 }
 
 function communication(overrides = {}) {
-  return { agenda_item_id: IDS.commitment, canal: "telefone", carteira_id: IDS.wallet, cobranca_acao_id: null, devedor_id: IDS.debtor, emprestimo_id: IDS.loan, ocorrido_em: "2026-08-14T16:00:00Z", parcela_id: null, registro_id: IDS.communication, responsavel_id: IDS.user, resultado: "Retorno agendado", resumo: "Contato realizado", tenant_id: IDS.tenant, ...overrides };
+  return { agenda_item_id: IDS.commitment, canal: "telefone", carteira_id: IDS.wallet, cobranca_acao_id: null, devedor_id: IDS.debtor, emprestimo_id: IDS.loan, ocorrido_em: "2026-08-14T16:00:00Z", registro_id: IDS.communication, responsavel_id: IDS.user, resultado: "Retorno agendado", resumo: "Contato realizado", tenant_id: IDS.tenant, ...overrides };
 }
 
 function notification() {

@@ -45,8 +45,6 @@ from emprestimo.presentation.api.openapi import (
 
 PERMISSAO_EMPRESTIMO_CRIAR = "motor.emprestimo.criar"
 PERMISSAO_EMPRESTIMO_LER = "motor.emprestimo.ler"
-PERMISSAO_PARCELA_GERAR = "motor.parcela.gerar"
-PERMISSAO_PARCELA_LER = "motor.parcela.ler"
 PERMISSAO_PAGAMENTO_REGISTRAR = "motor.pagamento.registrar"
 PERMISSAO_SALDO_LER = "motor.saldo.ler"
 PERMISSAO_MEMORIA_LER = "motor.memoria.ler"

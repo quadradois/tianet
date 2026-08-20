@@ -1,9 +1,10 @@
 # 2026-08-20 - Handoff: Ciclo do Emprestimo Livre Fechado
 
-**Versao:** 1.0.0
+**Versao:** 1.1.0
 
 **Status:** PLAN-027 (parcial), PLAN-028, PLAN-029 e PLAN-030 entregues e
-recertificados localmente; **branch nao mergeado**
+recertificados localmente, com IMP-328 executado apos o fechamento;
+**branch nao mergeado**
 
 **Periodo coberto:** do wizard de lancamento (PLAN-027) ao fim do plano de
 parcelas (PLAN-030)
@@ -53,12 +54,14 @@ protegidos, de 65 para 63. A matriz de rastreabilidade esta em 3.4.0.
 
 Snapshot vigente
 (`docs/governance/contracts/openapi/frontend-mvp-backend-openapi.json`),
-conferido em 2026-08-20: 671442 bytes, SHA-256
-`75a15e1f119a0fe01cbf3401a202680b0bb812f191fd1c00e5d3c9fcef123d34`.
+conferido em 2026-08-20: 669593 bytes, SHA-256
+`ff101380ddbc11cdcd93f019c149f9819fbd7091cb42e3feb72f7e0f67189248`
+(publicado pelo IMP-328).
 
-**Duas alteracoes deste ciclo nao sao aditivas** e isso e deliberado: o IMP-324
-retirou campos exigidos do lancamento e o IMP-327 retirou operacoes e schemas.
-Ambas amparadas pela resolucao da DR-004.
+**Tres alteracoes deste ciclo nao sao aditivas** e isso e deliberado: o IMP-324
+retirou campos exigidos do lancamento, o IMP-327 retirou operacoes e schemas, e
+o IMP-328 retirou `parcela_id` de sete schemas. As tres amparadas pela
+resolucao da DR-004.
 
 ---
 
@@ -66,7 +69,7 @@ Ambas amparadas pela resolucao da DR-004.
 
 Gates reexecutados em 2026-08-20, arvore limpa:
 
-- `uv run pytest` - **983 testes verdes** em 345,60 s;
+- `uv run pytest` - **985 testes verdes** em 394,48 s (983 no fechamento, mais os dois do IMP-328);
 - `uv run ruff check .` - verde;
 - `uv run black --check .` - verde, 260 arquivos;
 - `uv run mypy src tests` - verde, 238 source files;
@@ -119,23 +122,19 @@ O PLAN-026 §7.1 atribuia o hash vigente a um inventario que nao era o dele. A
 cadeia foi reconstruida a partir do historico do arquivo em `git` e o PLAN-026
 foi para 1.3.0. Detalhe no §6 do relatorio do ciclo.
 
-### 4.4 `parcela_id` sobreviveu no contrato publico
+### 4.4 `parcela_id` sobreviveu ao IMP-327 — resolvido no IMP-328
 
-A remocao do IMP-327 nao alcancou o campo `parcela_id`. Ele continua em **sete
-schemas** do OpenAPI vigente, nas entidades de Operacao Diaria e Promessa, na
-camada Application e no dialogo de Cobranca do frontend — mas a migracao `0017`
-derrubou as colunas correspondentes.
+A remocao do IMP-327 nao alcancou o campo `parcela_id`: ele ficou em sete
+schemas, nas entidades de Cobranca, Promessa e Comunicacao, na Application e no
+dialogo de Cobranca, enquanto a migracao `0017` ja tinha derrubado as colunas.
 
-Efeito pratico: a API aceita o campo, o dominio o valida, e o repositorio nao
-tem onde grava-lo. O valor some na releitura, **sem erro**. E o unico ponto
-deste ciclo em que o produto perde dado em silencio.
+**Era pior do que residuo.** `ApropriacaoPagamentoResponse` exigia o campo e o
+resolvedor devolvia `None` sempre que nao havia parcela — que no emprestimo
+livre e sempre. Apropriar um pagamento a uma promessa respondia **500**. Nenhum
+teste cobria esse caminho pela API.
 
-Junto com ele sobrou codigo morto: o read model `VencimentoOperacional`, no
-dominio, com `parcela_id` obrigatorio e nenhum construtor.
-
-Escopo proposto: **IMP-328** (ver §5). Nao foi corrigido aqui porque muda
-contrato — exige regeracao de snapshot, novo inventario e matriz atualizada, o
-que e trabalho de ciclo, nao de fechamento.
+Resolvido pelo **IMP-328** (backlog do PLAN-030, §IMP-328), com prova nos dois
+sentidos: com o campo exigido de volta, 500; sem ele, 200.
 
 ### 4.5 Limitacao conhecida da fila de cobranca
 
@@ -153,7 +152,7 @@ operador abre a operacao. Ha teste documentando o comportamento.
 | IMP-307 - Comprovante do lancamento | PLAN-027 | Planejado, nao iniciado |
 | IMP-311 - Jornada real e recertificacao | PLAN-027 | Planejado, **enunciado obsoleto** |
 | IMP-284 - Scaffold governado | PLAN-025 | Bloqueado ate `fable:fable-judge` |
-| **IMP-328 - Tirar `parcela_id` do contrato e do dominio** | proposto neste fechamento | Aberto, ver §4.4 |
+| ~~IMP-328 - Tirar `parcela_id` do contrato e do dominio~~ | PLAN-030 | **Concluido** em 2026-08-20, ver §4.4 |
 
 **Sobre o IMP-311:** o enunciado manda cobrir a jornada do wizard "ate o plano
 de parcelas". Esse objeto nao existe mais. Reescrever contra o extrato do saldo
@@ -167,16 +166,16 @@ tela que nao existe.
 Ordem sugerida:
 
 1. push do branch e PR para `master`, com o relatorio do ciclo como corpo;
-2. **IMP-328** — tirar `parcela_id` do contrato e do dominio (caveat 4.4). E o
-   unico item que ainda perde dado em silencio;
-3. reescrita do IMP-311 contra o modelo novo, e execucao da jornada real;
-4. IMP-307, o comprovante do lancamento;
-5. so entao abrir escopo novo.
+2. reescrita do **IMP-311** contra o modelo novo, e execucao da jornada real. O
+   seed `frontend/tests/jornadas-e2e/seed_integrated.py` ainda envia
+   `quantidade_parcelas` e chama `POST /credit/emprestimos/{id}/parcelas`,
+   removidos no IMP-327: a jornada integrada esta quebrada desde entao;
+3. IMP-307, o comprovante do lancamento;
+4. so entao abrir escopo novo.
 
-A ordem tem motivo: o passo 2 e o unico defeito de comportamento ainda em
-aberto, e o passo 3 e o unico que exercita o produto inteiro contra a stack
-real — que neste ciclo encontrou tres defeitos que nenhuma suite com mock
-encontrou.
+A ordem tem motivo: o passo 2 e o unico que exercita o produto inteiro contra a
+stack real — que neste ciclo encontrou quatro defeitos que nenhuma suite com
+mock encontrou — e e tambem o unico que ainda esta quebrado.
 
 ---
 
@@ -199,4 +198,5 @@ encontrou.
 
 | Versao | Data | Descricao |
 |---|---|---|
+| 1.1.0 | 2026-08-20 | IMP-328 executado: `parcela_id` sai do contrato e do dominio, fechando o 500 da apropriacao. Snapshot, matriz e gates atualizados. |
 | 1.0.0 | 2026-08-20 | Fechamento do ciclo do emprestimo livre (PLAN-027 parcial, PLAN-028, PLAN-029, PLAN-030), com caveats e pendencias declaradas. |

@@ -36,14 +36,11 @@ class ApropriacaoPagamento:
     pagamento_id: uuid.UUID
     valor: Decimal
     realizado_em: datetime
-    parcela_id: uuid.UUID | None = None
     id: uuid.UUID = field(default_factory=uuid.uuid4)
 
     def __post_init__(self) -> None:
         _validar_uuid("promessa_id", self.promessa_id)
         _validar_uuid("pagamento_id", self.pagamento_id)
-        if self.parcela_id is not None:
-            _validar_uuid("parcela_id", self.parcela_id)
         if not isinstance(self.valor, Decimal):
             raise ViolacaoInvarianteError(
                 "EPIC-007",
@@ -80,7 +77,6 @@ class PromessaPagamento:
     valor_declarado: Decimal
     data_promessa: date
     criado_por_usuario_id: uuid.UUID
-    parcela_id: uuid.UUID | None = None
     estado: PromessaPagamentoState = PromessaPagamentoState.PENDENTE
     observacao: str | None = None
     id: uuid.UUID = field(default_factory=uuid.uuid4)
@@ -104,8 +100,6 @@ class PromessaPagamento:
         _validar_uuid("devedor_id", self.devedor_id)
         _validar_uuid("emprestimo_id", self.emprestimo_id)
         _validar_uuid("criado_por_usuario_id", self.criado_por_usuario_id)
-        if self.parcela_id is not None:
-            _validar_uuid("parcela_id", self.parcela_id)
         _validar_uuid("id", self.id)
         if not isinstance(self.estado, PromessaPagamentoState):
             raise ViolacaoInvarianteError(
@@ -139,7 +133,6 @@ class PromessaPagamento:
         criado_por_usuario_id: uuid.UUID,
         valor_declarado: Decimal,
         data_promessa: date,
-        parcela_id: uuid.UUID | None = None,
         observacao: str | None = None,
     ) -> PromessaPagamento:
         """Cria promessa em estado inicial ``pendente``."""
@@ -152,7 +145,6 @@ class PromessaPagamento:
             valor_declarado=valor_declarado,
             data_promessa=data_promessa,
             criado_por_usuario_id=criado_por_usuario_id,
-            parcela_id=parcela_id,
             observacao=observacao,
         )
 
