@@ -435,10 +435,12 @@ export class RefreshCoordinator {
   private readonly revoked = new Map<string, number>();
   private readonly maximum: number;
   private readonly timeoutMs: number;
+  private readonly currentTime: () => number;
 
-  constructor(maximum = 1_024, timeoutMs = 10_000) {
+  constructor(maximum = 1_024, timeoutMs = 10_000, currentTime: () => number = Date.now) {
     this.maximum = maximum;
     this.timeoutMs = timeoutMs;
+    this.currentTime = currentTime;
   }
 
   get size(): number {
@@ -449,7 +451,7 @@ export class RefreshCoordinator {
     const key = createHash("sha256").update(refreshToken).digest("hex");
     const expiration = Date.parse(expiresAt);
     this.pruneRevoked();
-    if (Number.isFinite(expiration) && expiration > Date.now()) this.revoked.set(key, expiration);
+    if (Number.isFinite(expiration) && expiration > this.currentTime()) this.revoked.set(key, expiration);
     this.active.get(key)?.controller.abort();
   }
 
@@ -459,7 +461,7 @@ export class RefreshCoordinator {
   }
 
   private pruneRevoked(): void {
-    const current = Date.now();
+    const current = this.currentTime();
     for (const [key, expiration] of this.revoked) {
       if (expiration <= current) this.revoked.delete(key);
     }

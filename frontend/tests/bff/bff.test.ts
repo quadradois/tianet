@@ -527,7 +527,7 @@ describe("transporte autenticado", () => {
 
   it("revalida logout depois de cifrar e antes de persistir o cookie", async () => {
     const settings = config();
-    const coordinator = new RefreshCoordinator(10, 1_000);
+    const coordinator = new RefreshCoordinator(10, 1_000, () => NOW.getTime());
     const cookies = new MemoryCookies();
     cookies.values.set(SESSION_COOKIE_NAME, await sealSession(session(), settings, NOW));
     let releaseSeal: (() => void) | undefined;
