@@ -10,7 +10,7 @@ import { beginReportsLoads } from "@/lib/bff/relatorios.server";
 import { resolveReportsPeriod } from "@/lib/relatorios/relatorios-policy";
 
 export const metadata: Metadata = {
-  title: "Relatorios | Frontend MVP",
+  title: "Relatorios | TiaNet",
 };
 
 export default async function RelatoriosPage({ searchParams }: PageProps<"/app/relatorios">) {

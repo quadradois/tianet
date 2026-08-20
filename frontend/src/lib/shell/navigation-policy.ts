@@ -45,7 +45,7 @@ export const SHELL_NAVIGATION: readonly NavigationDestination[] = [
   {
     grupo: "administracao",
     href: "/app/devedores",
-    label: "Comercial",
+    label: "Comercial por devedor",
     requiredAnyPermission: ["comercial.proposta.ler", "comercial.simulacao.criar", "comercial.proposta.criar"],
   },
   {

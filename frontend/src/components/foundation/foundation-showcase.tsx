@@ -38,9 +38,9 @@ function FoundationShowcase() {
           <span className="rounded-full bg-success-subtle px-3 py-1 text-xs font-semibold text-success-foreground-strong">Base funcional</span>
         </div>
         <div className="grid gap-3">
-          <h1 className="text-4xl font-bold tracking-[-0.035em] text-balance sm:text-6xl">Frontend MVP</h1>
+          <h1 className="text-4xl font-bold tracking-[-0.035em] text-balance sm:text-6xl">TiaNet</h1>
           <p className="max-w-2xl text-base leading-7 text-muted-foreground sm:text-lg">
-            Showcase técnico da fundação visual: tokens neutros, primitives pertencentes ao repositório e estados acessíveis antes das jornadas.
+            Fundacao visual do sistema: componentes consistentes, estados acessiveis e base pronta para as jornadas do dia a dia.
           </p>
         </div>
         <Alert variant="information">

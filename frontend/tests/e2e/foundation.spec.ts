@@ -29,7 +29,7 @@ test.afterEach(async ({ page }) => {
 test("captura a foundation como artifact diagnóstico", async ({ page }, testInfo) => {
   const expectedViewport = governedViewports[testInfo.project.name as keyof typeof governedViewports];
   expect(page.viewportSize()).toEqual(expectedViewport);
-  await expect(page.getByRole("heading", { level: 1, name: "Frontend MVP" })).toBeVisible();
+  await expect(page.getByRole("heading", { level: 1, name: "TiaNet" })).toBeVisible();
   await expect(page.getByRole("heading", { name: "Estados estruturais" })).toBeVisible();
 
   const documentWidth = await page.evaluate(() => ({

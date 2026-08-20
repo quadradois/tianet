@@ -10,7 +10,7 @@ import { beginDashboardLoads } from "@/lib/bff/dashboard.server";
 import { resolveDashboardPeriod } from "@/lib/dashboard/dashboard-policy";
 
 export const metadata: Metadata = {
-  title: "Dashboard | Frontend MVP",
+  title: "Dashboard | TiaNet",
 };
 
 export default async function AppHomePage({ searchParams }: PageProps<"/app">) {

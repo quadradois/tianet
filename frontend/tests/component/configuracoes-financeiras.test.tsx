@@ -40,7 +40,7 @@ describe("Configuracoes Financeiras", () => {
     render(<ConfiguracoesList data={[config]} />);
     const region = screen.getByRole("region", { name: "Configuracoes oficiais" });
     expect(region).toHaveAttribute("tabindex", "0");
-    expect(within(region).getByRole("table", { name: "Configuracoes Financeiras oficiais retornadas pelo backend" })).toBeInTheDocument();
+    expect(within(region).getByRole("table", { name: "Configuracoes Financeiras retornadas pelo sistema" })).toBeInTheDocument();
     expect(screen.getByText('{"limite":"opaco"}')).toBeInTheDocument();
   });
 
@@ -72,7 +72,7 @@ describe("Configuracoes Financeiras", () => {
       </>,
     );
     expect(screen.getByText(/Correlation ID: corr-config/)).toBeInTheDocument();
-    expect(screen.getAllByText(/empty:/)).toHaveLength(1);
+    expect(screen.getByText(/Nenhuma configuracao financeira encontrada/)).toBeInTheDocument();
     expect(screen.getByText(/Defina modalidade e data de referencia/)).toBeInTheDocument();
     expect(screen.getByText(/Sem permissao/)).toBeInTheDocument();
     expect(document.body).not.toHaveTextContent(/accessToken|refreshToken|Bearer/);

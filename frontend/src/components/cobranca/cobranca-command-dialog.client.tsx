@@ -20,12 +20,7 @@ function Status({ state }: Readonly<{ state: CobrancaActionState }>) {
 }
 
 function IdempotencyField({ id }: Readonly<{ id: string }>) {
-  return (
-    <div className="grid gap-2">
-      <Label htmlFor={id}>Idempotency-Key</Label>
-      <Input id={id} name="idempotency_key" placeholder="opcional; gerada se vazia" />
-    </div>
-  );
+  return <input id={id} name="idempotency_key" type="hidden" />;
 }
 
 export function CobrancaActionForm({ action, caseItem, initialState }: Readonly<{
@@ -38,7 +33,7 @@ export function CobrancaActionForm({ action, caseItem, initialState }: Readonly<
   return (
     <form action={formAction} className="grid gap-3 rounded-lg border bg-card p-4">
       <h3 className="font-semibold">Registrar acao manual</h3>
-      <p className="text-xs text-muted-foreground">A acao registra contato/resultado e nao altera saldo localmente.</p>
+      <p className="text-xs text-muted-foreground">Registre o contato feito e o resultado combinado.</p>
       <input name="caso_id" type="hidden" value={caseItem.caso_id} />
       <div className="grid gap-2">
         <Label htmlFor={`${caseItem.caso_id}-tipo`}>Tipo</Label>
@@ -52,7 +47,7 @@ export function CobrancaActionForm({ action, caseItem, initialState }: Readonly<
       </div>
       <IdempotencyField id={`${caseItem.caso_id}-acao-idempotency`} />
       <Status state={state} />
-      <Button disabled={pending} type="submit">Acao idempotente</Button>
+      <Button disabled={pending} type="submit">Registrar acao</Button>
     </form>
   );
 }
@@ -66,8 +61,7 @@ export function PromiseForm({ action, caseItem, initialState }: Readonly<{
   return (
     <form action={formAction} className="grid gap-3 rounded-lg border bg-card p-4">
       <h3 className="font-semibold">Registrar promessa</h3>
-      <p className="text-xs text-muted-foreground">Valor e data sao enviados ao backend sem calculo local.</p>
-      <p className="text-xs text-muted-foreground">Promessa declaratoria; Idempotency-Key:/credit/cobrancas/casos/{"{cobranca_caso_id}"}/promessas</p>
+      <p className="text-xs text-muted-foreground">Use quando o devedor prometeu pagar um valor em uma data.</p>
       <input name="caso_id" type="hidden" value={caseItem.caso_id} />
       <div className="grid gap-2">
         <Label htmlFor={`${caseItem.caso_id}-valor`}>Valor declarado</Label>
@@ -95,7 +89,7 @@ export function PromiseForm({ action, caseItem, initialState }: Readonly<{
       </div>
       <IdempotencyField id={`${caseItem.caso_id}-promessa-idempotency`} />
       <Status state={state} />
-      <Button disabled={pending} type="submit">Promessa idempotente</Button>
+      <Button disabled={pending} type="submit">Registrar promessa</Button>
     </form>
   );
 }
@@ -108,16 +102,15 @@ export function AppropriationForm({ action, caseItem, initialState }: Readonly<{
   const [state, formAction, pending] = useActionState(action, initialState);
   return (
     <form action={formAction} className="grid gap-3 rounded-lg border bg-card p-4">
-      <h3 className="font-semibold">Apropriar pagamento oficial</h3>
-      <p className="text-xs text-muted-foreground">Associacao de pagamento a promessa. O frontend nao registra pagamento nem calcula cumprimento.</p>
-      <p className="text-xs text-muted-foreground">Pagamento oficial apropriado; Idempotency-Key:/credit/cobrancas/promessas/{"{promessa_id}"}/apropriacoes</p>
+      <h3 className="font-semibold">Conciliar pagamento</h3>
+      <p className="text-xs text-muted-foreground">Associe um pagamento recebido a uma promessa registrada.</p>
       <div className="grid gap-2">
         <Label htmlFor={`${caseItem.caso_id}-promessa-id`}>Promessa</Label>
-        <Input id={`${caseItem.caso_id}-promessa-id`} name="promessa_id" placeholder="UUID da promessa" />
+        <Input id={`${caseItem.caso_id}-promessa-id`} name="promessa_id" placeholder="ID da promessa" />
       </div>
       <div className="grid gap-2">
-        <Label htmlFor={`${caseItem.caso_id}-pagamento-id`}>Pagamento oficial</Label>
-        <Input id={`${caseItem.caso_id}-pagamento-id`} name="pagamento_id" placeholder="UUID do pagamento oficial" />
+        <Label htmlFor={`${caseItem.caso_id}-pagamento-id`}>Pagamento</Label>
+        <Input id={`${caseItem.caso_id}-pagamento-id`} name="pagamento_id" placeholder="ID do pagamento" />
       </div>
       <div className="grid gap-2">
         <Label htmlFor={`${caseItem.caso_id}-data-referencia`}>Data de referencia (opcional)</Label>
@@ -125,7 +118,7 @@ export function AppropriationForm({ action, caseItem, initialState }: Readonly<{
       </div>
       <IdempotencyField id={`${caseItem.caso_id}-apropriacao-idempotency`} />
       <Status state={state} />
-      <Button disabled={pending} type="submit">Apropriacao idempotente</Button>
+      <Button disabled={pending} type="submit">Conciliar pagamento</Button>
     </form>
   );
 }

@@ -12,7 +12,7 @@ import { INITIAL_COMERCIAL_ACTION_STATE, resolveProposalFilters } from "@/lib/co
 import { createProposalAction, createSimulationAction } from "../../../comercial/actions";
 
 export const metadata: Metadata = {
-  title: "Comercial do Devedor | Frontend MVP",
+  title: "Comercial do Devedor | TiaNet",
 };
 
 export default async function ComercialDevedorRoute({ params, searchParams }: PageProps<"/app/devedores/[devedorId]/comercial">) {

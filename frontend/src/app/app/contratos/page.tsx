@@ -12,7 +12,7 @@ import { INITIAL_CONTRATO_ACTION_STATE, isUuid, resolveContractFilters } from "@
 import { createContractAction } from "./actions";
 
 export const metadata: Metadata = {
-  title: "Contratos | Frontend MVP",
+  title: "Contratos | TiaNet",
 };
 
 export default async function ContratosRoute({ searchParams }: PageProps<"/app/contratos">) {

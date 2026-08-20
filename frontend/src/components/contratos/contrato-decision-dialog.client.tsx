@@ -98,7 +98,7 @@ export function ContratoCreateForm({ action, initialProposalId, initialState }: 
           id="proposta_comercial_id"
           maxLength={36}
           name="proposta_comercial_id"
-          placeholder="UUID da proposta aprovada"
+          placeholder="ID da proposta aprovada"
         />
       </div>
       <p className="text-xs text-muted-foreground">A formalizacao copia parametros aprovados do backend; o frontend nao calcula valores financeiros.</p>

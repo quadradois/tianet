@@ -21,7 +21,7 @@ import {
 } from "./actions";
 
 export const metadata: Metadata = {
-  title: "Configuracoes Financeiras | Frontend MVP",
+  title: "Configuracoes Financeiras | TiaNet",
 };
 
 export default async function ConfiguracoesFinanceirasPage({ searchParams }: PageProps<"/app/configuracoes-financeiras">) {

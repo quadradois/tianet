@@ -20,7 +20,7 @@ import {
 import { lancarEmprestimoAction } from "./actions";
 
 export const metadata: Metadata = {
-  title: "Novo emprestimo | Frontend MVP",
+  title: "Novo emprestimo | TiaNet",
 };
 
 export default async function LancamentosRoute() {

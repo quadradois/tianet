@@ -16,7 +16,7 @@ test("login e shell passam pelo gate axe e teclado", async ({ page }) => {
   await page.getByLabel("Senha").fill("segredo-e2e");
   await page.getByRole("button", { name: "Entrar" }).click();
   await expect(page.getByText("Carteira Centro")).toBeVisible();
-  await expect(page).toHaveTitle("Dashboard | Frontend MVP");
+  await expect(page).toHaveTitle("Dashboard | TiaNet");
   await expectNoSeriousViolations(page);
   const viewport = page.viewportSize();
   if (viewport) {

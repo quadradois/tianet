@@ -41,7 +41,7 @@ test("renderiza Agenda e Comunicacao e captura desktop/mobile", async ({ page },
   await gotoAgenda(page);
   await expect(page.getByRole("cell", { name: "Retorno operacional" })).toBeVisible();
   await expect(page.getByRole("heading", { name: "Historico de comunicacao" })).toBeVisible();
-  await expect(page.getByText(/nao inventa data_referencia/i)).toBeVisible();
+  await expect(page.getByText(/Estados de carregamento, vazio, acesso negado, erro e listas com overflow/i)).toBeAttached();
   const suffix = testInfo.project.name.includes("mobile") ? "agenda-list-mobile" : "agenda-list-desktop";
   await screenshotEvidence(page, suffix);
 });
@@ -70,7 +70,7 @@ test("executa compromisso, lembrete e comunicacao idempotentes", async ({ page }
   await expect(page.getByText(/Lembrete idempotente reagendado/)).toBeVisible();
   await page.getByLabel("Motivo da conciliacao").fill("Conciliacao manual");
   await page.getByLabel("Provider message id").fill("provider-296");
-  await page.getByLabel("Notification id").fill("00000000-0000-4000-8000-000000000084");
+  await page.getByLabel("ID da notificacao").fill("00000000-0000-4000-8000-000000000084");
   await page.getByRole("button", { name: "Conciliar envio" }).click();
   await expect(page.getByText(/Lembrete idempotente conciliado/)).toBeVisible();
   await page.getByRole("button", { name: "Concluir lembrete" }).click();
@@ -90,10 +90,10 @@ test("executa compromisso, lembrete e comunicacao idempotentes", async ({ page }
 test("observa denied, empty, 404 e 5xx sem vazar detalhe backend", async ({ page }) => {
   await login(page, "nenhuma");
   await gotoAgenda(page);
-  await expect(page.getByText("denied", { exact: true }).first()).toBeVisible();
+  await expect(page.getByText("Sem permissao", { exact: true }).first()).toBeVisible();
   await login(page, "vazio");
   await gotoAgenda(page);
-  await expect(page.getByText(/empty/).first()).toBeVisible();
+  await expect(page.getByText(/Nenhum compromisso ou lembrete encontrado/).first()).toBeVisible();
   await login(page, "nao-encontrado");
   await gotoAgenda(page);
   await expect(page.getByRole("alert").first()).toContainText("Agenda ou comunicacao nao encontrada ou indisponivel.");

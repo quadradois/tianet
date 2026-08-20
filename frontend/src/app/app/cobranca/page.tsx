@@ -12,7 +12,7 @@ import { INITIAL_COBRANCA_ACTION_STATE, resolveCollectionFilters } from "@/lib/c
 import { appropriatePromiseAction, registerCollectionActionAction, registerPromiseAction } from "./actions";
 
 export const metadata: Metadata = {
-  title: "Cobranca | Frontend MVP",
+  title: "Cobranca | TiaNet",
 };
 
 export default async function CobrancaRoute({ searchParams }: PageProps<"/app/cobranca">) {

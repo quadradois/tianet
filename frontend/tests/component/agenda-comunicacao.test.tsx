@@ -84,9 +84,9 @@ describe("AgendaComunicacaoPage", () => {
     await user.clear(screen.getByLabelText("Resumo"));
     await user.type(screen.getByLabelText("Resumo"), "Contato pelo telefone");
     expect(screen.getByLabelText("Resumo")).toHaveValue("Contato pelo telefone");
-    expect(screen.getAllByText(/Compromisso idempotente/i)).not.toHaveLength(0);
-    expect(screen.getAllByText(/Lembrete idempotente/i)).not.toHaveLength(0);
-    expect(screen.getAllByText(/Comunicacao idempotente/i)).not.toHaveLength(0);
+    expect(screen.getAllByText(/Novo compromisso/i)).not.toHaveLength(0);
+    expect(screen.getAllByText(/Novo lembrete/i)).not.toHaveLength(0);
+    expect(screen.getAllByText(/Registrar comunicacao/i)).not.toHaveLength(0);
   });
 
   it("mostra denied e 404 neutro sem vazar detalhe cross-carteira", () => {
@@ -102,7 +102,7 @@ describe("AgendaComunicacaoPage", () => {
         recoveryHref="/session/recover"
       />,
     );
-    expect(screen.getAllByText("denied")).not.toHaveLength(0);
+    expect(screen.getAllByText("Sem permissao")).not.toHaveLength(0);
     expect(screen.getAllByText(/Agenda ou comunicacao nao encontrada ou indisponivel/i)).not.toHaveLength(0);
     expect(screen.queryByText(/stack cross-carteira/)).not.toBeInTheDocument();
   });

@@ -9,7 +9,7 @@ test("observa o placeholder governado na raiz", async ({ page }) => {
   const response = await page.goto("/");
 
   expect(response?.ok()).toBe(true);
-  await expect(page).toHaveTitle("Frontend MVP");
-  await expect(page.getByRole("heading", { name: "Frontend MVP" })).toBeVisible();
+  await expect(page).toHaveTitle("TiaNet");
+  await expect(page.getByRole("heading", { name: "TiaNet" })).toBeVisible();
   expect(consoleErrors).toEqual([]);
 });

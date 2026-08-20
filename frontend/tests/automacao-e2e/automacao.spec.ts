@@ -82,7 +82,6 @@ test("executa comandos Automacao sem expor token", async ({ page }) => {
   await page.locator("#automacao-reconcile-notification").fill(NOTIFICATION_ID);
   await page.locator("#automacao-reconcile-provider").fill("provider-ok");
   await page.locator("#automacao-reconcile-motivo").fill("Conferencia manual");
-  await page.locator("#automacao-reconcile-idem").fill("idem-conciliar-e2e");
   await submitByName(page, "Conciliar notificacao");
   await expect(page.getByText(/Notificacao conciliada/)).toBeVisible();
   await expect(page.getByText(/access-|refresh-|Bearer/)).toHaveCount(0);
@@ -109,7 +108,6 @@ test("observa denied, empty, 404, 409, 422 e 500 seguros", async ({ page }, test
   await page.locator("#automacao-reconcile-notification").fill(NOTIFICATION_ID);
   await page.locator("#automacao-reconcile-provider").fill("provider-ok");
   await page.locator("#automacao-reconcile-motivo").fill("Conferencia manual");
-  await page.locator("#automacao-reconcile-idem").fill("idem-regra");
   await submitByName(page, "Conciliar notificacao");
   await expect(page.getByText(/Regra de Automacao rejeitou/)).toBeVisible();
   await login(page, "estados");

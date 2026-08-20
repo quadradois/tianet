@@ -67,9 +67,9 @@ describe("login e shell", () => {
     // Dia a dia: sempre visivel.
     expect(screen.getByRole("link", { name: "Inicio" })).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Devedores" })).toBeInTheDocument();
-    // Administracao: recolhida, porem presente — esconder nao e remover, e a
+    // Mais ferramentas: recolhida, porem presente — esconder nao e remover, e a
     // tela continua alcancavel para quem tem a permissao.
-    expect(screen.getByText("Administracao")).toBeInTheDocument();
+    expect(screen.getByText("Mais ferramentas")).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "IAM" })).toHaveAttribute("href", "/app/iam");
   });
 

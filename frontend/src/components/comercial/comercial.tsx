@@ -61,7 +61,7 @@ export function ComercialLoadingState() {
     <Card>
       <CardHeader>
         <CardTitle>Comercial</CardTitle>
-        <CardDescription>loading simulações e propostas oficiais...</CardDescription>
+        <CardDescription>Carregando simulacoes e propostas...</CardDescription>
       </CardHeader>
       <CardContent className="grid gap-3" role="status" aria-label="loading Comercial">
         <Skeleton className="h-8 w-1/3" />
@@ -83,8 +83,8 @@ function ProblemState({ problem }: Readonly<{ problem: ComercialProblem }>) {
   );
 }
 
-function DeniedState({ children = "denied: voce nao possui permissao para esta acao comercial." }: Readonly<{ children?: ReactNode }>) {
-  return <Alert><AlertTitle>denied</AlertTitle><AlertDescription>{children}</AlertDescription></Alert>;
+function DeniedState({ children = "Voce nao possui permissao para esta acao comercial." }: Readonly<{ children?: ReactNode }>) {
+  return <Alert><AlertTitle>Sem permissao</AlertTitle><AlertDescription>{children}</AlertDescription></Alert>;
 }
 
 function SectionResult<T>({ result, recoveryHref, children }: Readonly<{
@@ -117,7 +117,7 @@ function JsonBlock({ title, value }: Readonly<{ title: string; value: Record<str
 }
 
 function ProposalTable({ proposals }: Readonly<{ proposals: ProposalList }>) {
-  if (proposals.items.length === 0) return <p role="status">empty: nenhuma proposta comercial retornada para este Devedor.</p>;
+  if (proposals.items.length === 0) return <p role="status">Nenhuma proposta comercial encontrada para este devedor.</p>;
   return (
     <div aria-label="Tabela de propostas comerciais com overflow" className="overflow-x-auto rounded-md border" role="region" tabIndex={0}>
       <table className="w-full min-w-[56rem] text-left text-sm">
@@ -138,7 +138,7 @@ function ProposalTable({ proposals }: Readonly<{ proposals: ProposalList }>) {
           ))}
         </tbody>
       </table>
-      <p className="px-2 py-3 text-xs text-muted-foreground">Total oficial: <span className="tabular-nums">{proposals.total}</span> | pagina {proposals.page} de {proposals.pages}</p>
+      <p className="px-2 py-3 text-xs text-muted-foreground">Total: <span className="tabular-nums">{proposals.total}</span> | pagina {proposals.page} de {proposals.pages}</p>
     </div>
   );
 }
@@ -194,7 +194,7 @@ export function ComercialDevedorPage({ createProposalAction, createSimulationAct
         <p className="text-xs font-semibold uppercase tracking-[0.12em] text-muted-foreground">Comercial</p>
         <h1 className="text-balance text-3xl font-bold tracking-tight">Simulacoes e propostas</h1>
         <p className="mt-2 max-w-3xl text-sm text-muted-foreground">
-          Jornada P0 a partir de Devedor ativo. Parametros sao tratados como retorno oficial e opaco do backend; o frontend nao calcula valores financeiros.
+          Simule condicoes, crie propostas e acompanhe decisoes comerciais deste devedor.
         </p>
       </header>
       <ProposalFilter filters={filters} />
@@ -221,7 +221,7 @@ export function PropostaComercialPage({ contract, decisionAction, initialState, 
             <Card>
               <CardHeader>
                 <CardTitle>Proposta comercial</CardTitle>
-                <CardDescription>Detalhe oficial retornado pelo backend Comercial.</CardDescription>
+                <CardDescription>Resumo da proposta comercial.</CardDescription>
               </CardHeader>
               <CardContent className="grid gap-4">
                 <ProposalSummary proposal={item} />
@@ -246,7 +246,7 @@ export function PropostaComercialPage({ contract, decisionAction, initialState, 
             <Card>
               <CardHeader>
                 <CardTitle>Simulacao comercial vinculada</CardTitle>
-                <CardDescription>Consulta read-only da simulacao oficial quando a Proposta informa `simulacao_id`.</CardDescription>
+                <CardDescription>Simulacao usada como base para esta proposta, quando houver.</CardDescription>
               </CardHeader>
               <CardContent>
                 {item.simulacao_id ? (

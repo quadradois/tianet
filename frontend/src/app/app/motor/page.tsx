@@ -13,7 +13,7 @@ import { INITIAL_MOTOR_ACTION_STATE, isUuid, resolveLoanFilters } from "@/lib/mo
 import { createLoanAction } from "./actions";
 
 export const metadata: Metadata = {
-  title: "Motor | Frontend MVP",
+  title: "Motor | TiaNet",
 };
 
 export default async function MotorRoute({ searchParams }: PageProps<"/app/motor">) {

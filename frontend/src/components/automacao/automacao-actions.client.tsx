@@ -46,13 +46,13 @@ export function AutomacaoActions(props: AutomacaoActionsProps) {
       </div>
       <div className="grid min-w-0 gap-4 xl:grid-cols-2">
         <form action={cancelForm} className="grid min-w-0 gap-3 rounded-lg border bg-card p-4">
-          <Label htmlFor="automacao-cancel-job">job_id</Label>
+          <Label htmlFor="automacao-cancel-job">ID do job</Label>
           <Input id="automacao-cancel-job" name="job_id" required />
           <Button type="submit" variant="outline">Cancelar job</Button>
           <ActionMessage state={cancelState} />
         </form>
         <form action={retryForm} className="grid min-w-0 gap-3 rounded-lg border bg-card p-4">
-          <Label htmlFor="automacao-retry-job">job_id</Label>
+          <Label htmlFor="automacao-retry-job">ID do job</Label>
           <Input id="automacao-retry-job" name="job_id" required />
           <Button type="submit">Retry job</Button>
           <ActionMessage state={retryState} />
@@ -82,14 +82,13 @@ export function AutomacaoActions(props: AutomacaoActionsProps) {
           <ActionMessage state={activateState} />
         </form>
         <form action={reconcileForm} className="grid min-w-0 gap-3 rounded-lg border bg-card p-4">
-          <Label htmlFor="automacao-reconcile-notification">notification_id</Label>
+          <Label htmlFor="automacao-reconcile-notification">ID da notificacao</Label>
           <Input id="automacao-reconcile-notification" name="notification_id" required />
-          <Label htmlFor="automacao-reconcile-provider">provider_message_id</Label>
+          <Label htmlFor="automacao-reconcile-provider">ID da mensagem no provedor</Label>
           <Input id="automacao-reconcile-provider" name="provider_message_id" required />
           <Label htmlFor="automacao-reconcile-motivo">Motivo</Label>
           <Input id="automacao-reconcile-motivo" maxLength={500} name="motivo" required />
-          <Label htmlFor="automacao-reconcile-idem">Idempotency-Key</Label>
-          <Input id="automacao-reconcile-idem" maxLength={255} name="idempotency_key" required />
+          <Input id="automacao-reconcile-idem" maxLength={255} name="idempotency_key" type="hidden" value={crypto.randomUUID()} />
           <Button type="submit">Conciliar notificacao</Button>
           <ActionMessage state={reconcileState} />
         </form>

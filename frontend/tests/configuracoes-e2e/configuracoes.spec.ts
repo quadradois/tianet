@@ -93,7 +93,7 @@ test("observa denied, empty, 404, 422 e 5xx seguros", async ({ page }, testInfo)
   await expect(page.getByText("Sem permissao").first()).toBeVisible();
   await login(page, "vazio");
   await gotoConfiguracoes(page);
-  await expect(page.getByText(/empty:/)).toBeVisible();
+  await expect(page.getByText(/Nenhuma configuracao financeira encontrada/)).toBeVisible();
   await login(page, "nao-encontrado");
   await gotoConfiguracoes(page);
   await expect(page.getByRole("alert").first()).toContainText("Configuracao Financeira nao encontrada ou indisponivel.");

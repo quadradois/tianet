@@ -127,7 +127,7 @@ function ContractFilter({ filters }: Readonly<{ filters: ContractFilters }>) {
       </div>
       <div className="grid gap-2">
         <Label htmlFor="devedor_id">Devedor opcional</Label>
-        <input className="min-h-(--size-control) rounded-md border bg-background px-3 text-sm" defaultValue={filters.devedorId ?? ""} id="devedor_id" name="devedor_id" placeholder="UUID do Devedor" />
+        <input className="min-h-(--size-control) rounded-md border bg-background px-3 text-sm" defaultValue={filters.devedorId ?? ""} id="devedor_id" name="devedor_id" placeholder="ID do devedor" />
       </div>
       <div className="grid gap-2">
         <Label htmlFor="size">Tamanho</Label>
@@ -212,7 +212,7 @@ export function ContratosPage({ createAction, filters, initialProposalId, initia
         <p className="text-xs font-semibold uppercase tracking-[0.12em] text-muted-foreground">Contratos</p>
         <h1 className="text-balance text-3xl font-bold tracking-tight">Contratos de Credito</h1>
         <p className="mt-2 max-w-3xl text-sm text-muted-foreground">
-          Formalizacao P0 a partir de Proposta aprovada. Parametros permanecem opacos; liberar para Motor gera somente saida logica, sem Emprestimo ou Pagamento.
+          Formalize propostas aprovadas, acompanhe assinaturas e libere contratos para virarem emprestimos quando estiver tudo pronto.
         </p>
       </header>
       <ContractFilter filters={filters} />

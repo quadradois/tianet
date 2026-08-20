@@ -97,15 +97,15 @@ function FilterForm({ filters }: Readonly<{ filters: AutomacaoFilters }>) {
   return (
     <form className="grid gap-3 rounded-lg border bg-card p-4 md:grid-cols-[repeat(3,minmax(0,1fr))_auto]" method="get">
       <div className="grid gap-2">
-        <Label htmlFor="automacao-filter-job">job_id</Label>
-        <Input defaultValue={filters.jobId ?? ""} id="automacao-filter-job" name="job_id" placeholder="UUID opcional" />
+        <Label htmlFor="automacao-filter-job">Job</Label>
+        <Input defaultValue={filters.jobId ?? ""} id="automacao-filter-job" name="job_id" placeholder="ID do job, se houver" />
       </div>
       <div className="grid gap-2">
-        <Label htmlFor="automacao-filter-notification">notification_id</Label>
-        <Input defaultValue={filters.notificationId ?? ""} id="automacao-filter-notification" name="notification_id" placeholder="UUID opcional" />
+        <Label htmlFor="automacao-filter-notification">Notificacao</Label>
+        <Input defaultValue={filters.notificationId ?? ""} id="automacao-filter-notification" name="notification_id" placeholder="ID da notificacao, se houver" />
       </div>
       <div className="grid gap-2">
-        <Label htmlFor="automacao-filter-size">size</Label>
+        <Label htmlFor="automacao-filter-size">Itens por pagina</Label>
         <Input defaultValue={filters.size} id="automacao-filter-size" max={100} min={1} name="size" type="number" />
       </div>
       <Button className="self-end" type="submit">Consultar Automacao</Button>
@@ -185,7 +185,7 @@ function TemplatesView({ templates }: Readonly<{ templates: TemplateList }>) {
 }
 
 function JobDetail({ job }: Readonly<{ job: Job | null }>) {
-  if (!job) return <p role="status">Informe job_id para consultar um job especifico.</p>;
+  if (!job) return <p role="status">Informe o ID do job para consultar um job especifico.</p>;
   return (
     <Card>
       <CardHeader><CardTitle>Job {job.estado}</CardTitle><CardDescription>Detalhe operacional read-only.</CardDescription></CardHeader>
@@ -199,7 +199,7 @@ function JobDetail({ job }: Readonly<{ job: Job | null }>) {
 }
 
 function NotificationDetail({ notification }: Readonly<{ notification: Notification | null }>) {
-  if (!notification) return <p role="status">Informe notification_id para consultar uma notificacao especifica.</p>;
+  if (!notification) return <p role="status">Informe o ID da notificacao para consultar uma notificacao especifica.</p>;
   return (
     <Card>
       <CardHeader><CardTitle>Notificacao {notification.estado}</CardTitle><CardDescription>Detalhe para conciliacao governada.</CardDescription></CardHeader>
@@ -224,7 +224,7 @@ export async function AutomacaoAdmin({ actions, filters, job, jobs, notification
         <p className="text-xs font-semibold uppercase tracking-[0.12em] text-muted-foreground">Automacao operacional</p>
         <h1 className="text-balance text-3xl font-bold tracking-tight">Jobs, Templates e Notificacoes</h1>
         <p className="mt-2 max-w-3xl text-sm text-muted-foreground">
-          IMP-300 observa jobs e notificacoes, governa templates e concilia resultado desconhecido com RBAC exato, correlation ID e a unica Idempotency-Key contratada.
+          Acompanhe jobs, notificacoes e templates em um unico lugar, com conciliacao segura quando o envio precisa de conferencia.
         </p>
       </header>
       <FilterForm filters={filters} />

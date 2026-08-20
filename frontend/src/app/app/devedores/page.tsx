@@ -12,7 +12,7 @@ import { INITIAL_DEVEDOR_ACTION_STATE, resolveDevedoresFilters } from "@/lib/dev
 import { createDevedorAction } from "./actions";
 
 export const metadata: Metadata = {
-  title: "Devedores | Frontend MVP",
+  title: "Devedores | TiaNet",
 };
 
 export default async function DevedoresRoute({ searchParams }: PageProps<"/app/devedores">) {

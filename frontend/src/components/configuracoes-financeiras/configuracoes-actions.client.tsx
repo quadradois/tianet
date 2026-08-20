@@ -8,7 +8,7 @@ import { Button } from "../ui/button";
 import { Input } from "../ui/input";
 import { Label } from "../ui/label";
 
-const initialState: ConfiguracoesActionState = { kind: "idle", message: "Aguardando comando." };
+const initialState: ConfiguracoesActionState = { kind: "idle", message: "Aguardando envio." };
 type Action = (state: ConfiguracoesActionState, formData: FormData) => Promise<ConfiguracoesActionState>;
 
 export type ConfiguracoesActionsProps = Readonly<{
@@ -72,7 +72,7 @@ export function ConfiguracoesActions({
         <Input id="calendario_codigo" name="calendario_codigo" required />
         <Label htmlFor="calendario_nome">Nome</Label>
         <Input id="calendario_nome" name="calendario_nome" required />
-        <Label htmlFor="feriados">Feriados ISO separados por virgula</Label>
+        <Label htmlFor="feriados">Feriados separados por virgula</Label>
         <Input id="feriados" name="feriados" placeholder="2026-01-01,2026-12-25" />
       </ActionForm>
 
@@ -80,23 +80,23 @@ export function ConfiguracoesActions({
         <h3 className="font-semibold">Configuracao financeira</h3>
         <Label htmlFor="config_modalidade">Modalidade</Label>
         <Input id="config_modalidade" name="config_modalidade" required />
-        <Label htmlFor="config_calendario_id">Calendario ID</Label>
+        <Label htmlFor="config_calendario_id">ID do calendario</Label>
         <Input id="config_calendario_id" name="config_calendario_id" required />
         <Label htmlFor="vigencia_inicio">Vigencia inicio</Label>
         <Input id="vigencia_inicio" name="vigencia_inicio" required type="date" />
         <Label htmlFor="vigencia_fim">Vigencia fim</Label>
         <Input id="vigencia_fim" name="vigencia_fim" type="date" />
-        <Label htmlFor="taxas_json">Taxas JSON opaco</Label>
+        <Label htmlFor="taxas_json">Taxas</Label>
         <Input id="taxas_json" name="taxas_json" required defaultValue='[{"nome":"taxa_base","valor":"0.00","periodicidade":"mensal"}]' />
-        <Label htmlFor="parametros_json">Parametros JSON opaco</Label>
-        <Input id="parametros_json" name="parametros_json" required defaultValue='[{"nome":"limite","valor":"opaco"}]' />
-        <Label htmlFor="politica_json">Politica JSON opaca</Label>
+        <Label htmlFor="parametros_json">Parametros</Label>
+        <Input id="parametros_json" name="parametros_json" required defaultValue='[{"nome":"limite","valor":"definido_pela_operacao"}]' />
+        <Label htmlFor="politica_json">Politica de arredondamento</Label>
         <Input id="politica_json" name="politica_json" required defaultValue='{"modo":"meio_para_cima","escala":2}' />
       </ActionForm>
 
       <ActionForm action={approveAction} button="Aprovar">
         <h3 className="font-semibold">Decisao</h3>
-        <Label htmlFor="aprovar_configuracao_id">Configuracao ID</Label>
+        <Label htmlFor="aprovar_configuracao_id">ID da configuracao</Label>
         <Input id="aprovar_configuracao_id" name="configuracao_id" required />
         <Label htmlFor="aprovar_motivo">Motivo opcional</Label>
         <Input id="aprovar_motivo" name="motivo" />
@@ -104,7 +104,7 @@ export function ConfiguracoesActions({
 
       <ActionForm action={programAction} button="Programar">
         <h3 className="font-semibold">Programacao</h3>
-        <Label htmlFor="programar_configuracao_id">Configuracao ID</Label>
+        <Label htmlFor="programar_configuracao_id">ID da configuracao</Label>
         <Input id="programar_configuracao_id" name="configuracao_id" required />
         <Label htmlFor="data_ativacao">Data de ativacao</Label>
         <Input id="data_ativacao" name="data_ativacao" required type="date" />
@@ -114,19 +114,19 @@ export function ConfiguracoesActions({
 
       <ActionForm action={activateAction} button="Ativar">
         <h3 className="font-semibold">Ativacao</h3>
-        <Label htmlFor="ativar_configuracao_id">Configuracao ID</Label>
+        <Label htmlFor="ativar_configuracao_id">ID da configuracao</Label>
         <Input id="ativar_configuracao_id" name="configuracao_id" required />
       </ActionForm>
 
       <ActionForm action={inactivateAction} button="Inativar">
         <h3 className="font-semibold">Inativacao</h3>
-        <Label htmlFor="inativar_configuracao_id">Configuracao ID</Label>
+        <Label htmlFor="inativar_configuracao_id">ID da configuracao</Label>
         <Input id="inativar_configuracao_id" name="configuracao_id" required />
       </ActionForm>
 
       <ActionForm action={captureSnapshotAction} button="Capturar snapshot">
         <h3 className="font-semibold">Snapshot contratual</h3>
-        <Label htmlFor="snapshot_configuracao_id">Configuracao ID</Label>
+        <Label htmlFor="snapshot_configuracao_id">ID da configuracao</Label>
         <Input id="snapshot_configuracao_id" name="configuracao_id" required />
         <Label htmlFor="snapshot_motivo">Motivo opcional</Label>
         <Input id="snapshot_motivo" name="motivo" />
