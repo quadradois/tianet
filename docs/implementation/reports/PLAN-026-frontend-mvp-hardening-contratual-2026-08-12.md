@@ -215,6 +215,11 @@ ja havia derrubado as colunas correspondentes, entao o campo era aceito pela API
 e descartado na gravacao. **Nao aditivo**, e sem mudanca de superficie: 106
 operacoes, 133 schemas, 669593 bytes, SHA-256
 `ff101380ddbc11cdcd93f019c149f9819fbd7091cb42e3feb72f7e0f67189248`.
+
+Ainda em 2026-08-20 o IMP-307 acrescentou `whatsapp` ao enum de canal de
+comunicacao. Mudanca **aditiva**, sem alteracao de superficie: 106 operacoes,
+133 schemas, 669615 bytes, SHA-256
+`d9521145dadfe95295eca3f4e720c621eaeb075b146b83a4bdadad7fdf6b4b95`.
 Este e o hash **vigente**.
 
 Correcao de registro (2026-08-20): ate esta versao, o hash `75a15e1f...` estava

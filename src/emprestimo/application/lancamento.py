@@ -15,12 +15,15 @@ from __future__ import annotations
 
 import hashlib
 import json
+import logging
 import uuid
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from datetime import date
+from decimal import Decimal
 from typing import Protocol
 
+from emprestimo.application.comprovante import ComprovanteLancamento
 from emprestimo.application.errors import (
     CarteiraNaoEncontradaError,
     DevedorNaoEncontradoError,
@@ -38,6 +41,7 @@ from emprestimo.domain.credit.documento import Documento
 from emprestimo.domain.credit.proposta_comercial import PropostaComercial
 
 ESCOPO_IDEMPOTENCIA = "credit.lancamento"
+logger = logging.getLogger(__name__)
 
 
 class ResultadoFinanceiro(Protocol):
@@ -52,6 +56,18 @@ class ResultadoFinanceiro(Protocol):
 
     @property
     def primeiro_acerto_em(self) -> date: ...
+
+    @property
+    def valor_contratado(self) -> Decimal: ...
+
+    @property
+    def moeda(self) -> str: ...
+
+    @property
+    def taxa_juros_mensal_percentual(self) -> Decimal: ...
+
+    @property
+    def dia_de_acerto(self) -> int: ...
 
 
 class CriadorDeEmprestimo(Protocol):
@@ -108,6 +124,7 @@ class LancamentoResultado:
     contrato_id: uuid.UUID
     emprestimo_id: uuid.UUID
     primeiro_acerto_em: date
+    comprovante: ComprovanteLancamento | None = None
 
 
 class LancamentoService:
@@ -117,9 +134,11 @@ class LancamentoService:
         self,
         uow_factory: Callable[[], UnitOfWork],
         criar_emprestimo: CriadorDeEmprestimo,
+        enfileirar_comprovante: Callable[[ComprovanteLancamento], object],
     ) -> None:
         self._uow_factory = uow_factory
         self._criar_emprestimo = criar_emprestimo
+        self._enfileirar_comprovante = enfileirar_comprovante
 
     def lancar(
         self,
@@ -150,41 +169,76 @@ class LancamentoService:
             replay = self._replay_ou_registrar_chave(uow, idempotency_key, hash_solicitacao)
             if replay is not None:
                 uow.commit()
-                return replay
-            self._validar_contexto(
-                uow, tenant_id=tenant_id, carteira_id=carteira_id, usuario_id=usuario_id
-            )
-            devedor = (
-                self._devedor_existente(uow, devedor_id=devedor_id, carteira_id=carteira_id)
-                if devedor_id is not None
-                else self._criar_devedor(uow, carteira_id=carteira_id, dados=devedor_novo)
-            )
+                resultado = replay
+            else:
+                self._validar_contexto(
+                    uow, tenant_id=tenant_id, carteira_id=carteira_id, usuario_id=usuario_id
+                )
+                devedor = (
+                    self._devedor_existente(uow, devedor_id=devedor_id, carteira_id=carteira_id)
+                    if devedor_id is not None
+                    else self._criar_devedor(uow, carteira_id=carteira_id, dados=devedor_novo)
+                )
+                destinatario_whatsapp = _contato_whatsapp(devedor)
 
-            proposta = self._proposta_aprovada(
-                uow,
-                tenant_id=tenant_id,
-                carteira_id=carteira_id,
-                devedor_id=devedor.id,
-                usuario_id=usuario_id,
-                condicoes=condicoes,
-            )
-            contrato = self._contrato_liberado(uow, proposta=proposta, usuario_id=usuario_id)
-            financeiro = self._criar_emprestimo(
-                uow,
-                saida_logica=contrato.gerar_saida_logica(),
-                data_referencia=data_referencia,
-            )
+                proposta = self._proposta_aprovada(
+                    uow,
+                    tenant_id=tenant_id,
+                    carteira_id=carteira_id,
+                    devedor_id=devedor.id,
+                    usuario_id=usuario_id,
+                    condicoes=condicoes,
+                )
+                contrato = self._contrato_liberado(uow, proposta=proposta, usuario_id=usuario_id)
+                financeiro = self._criar_emprestimo(
+                    uow,
+                    saida_logica=contrato.gerar_saida_logica(),
+                    data_referencia=data_referencia,
+                )
 
-            resultado = LancamentoResultado(
-                devedor_id=devedor.id,
-                proposta_id=proposta.id,
-                contrato_id=contrato.id,
-                emprestimo_id=financeiro.emprestimo_id,
-                primeiro_acerto_em=financeiro.primeiro_acerto_em,
+                comprovante = ComprovanteLancamento(
+                    tenant_id=tenant_id,
+                    carteira_id=carteira_id,
+                    devedor_id=devedor.id,
+                    nome_devedor=devedor.nome,
+                    destinatario_whatsapp=destinatario_whatsapp,
+                    emprestimo_id=financeiro.emprestimo_id,
+                    valor_contratado=financeiro.valor_contratado,
+                    moeda=financeiro.moeda,
+                    taxa_juros_mensal_percentual=financeiro.taxa_juros_mensal_percentual,
+                    dia_de_acerto=financeiro.dia_de_acerto,
+                    primeiro_acerto_em=financeiro.primeiro_acerto_em,
+                )
+                resultado = LancamentoResultado(
+                    devedor_id=devedor.id,
+                    proposta_id=proposta.id,
+                    contrato_id=contrato.id,
+                    emprestimo_id=financeiro.emprestimo_id,
+                    primeiro_acerto_em=financeiro.primeiro_acerto_em,
+                    comprovante=comprovante,
+                )
+                uow.idempotencia.concluir(
+                    idempotency_key, ESCOPO_IDEMPOTENCIA, _serializar(resultado)
+                )
+                uow.commit()
+
+        self._enfileirar_apos_commit(resultado)
+        return resultado
+
+    def _enfileirar_apos_commit(self, resultado: LancamentoResultado) -> None:
+        if resultado.comprovante is None:
+            return
+        try:
+            self._enfileirar_comprovante(resultado.comprovante)
+        except Exception:
+            # A fila e deliberadamente posterior ao commit do lancamento. Uma
+            # indisponibilidade operacional pode ser reparada pelo replay da
+            # chave idempotente, mas nunca deve transformar sucesso financeiro
+            # persistido em erro/rollback para o usuario.
+            logger.exception(
+                "comprovante_enqueue_failed",
+                extra={"emprestimo_id": str(resultado.emprestimo_id)},
             )
-            uow.idempotencia.concluir(idempotency_key, ESCOPO_IDEMPOTENCIA, _serializar(resultado))
-            uow.commit()
-            return resultado
 
     def _replay_ou_registrar_chave(
         self, uow: UnitOfWork, idempotency_key: str, hash_solicitacao: str
@@ -249,6 +303,8 @@ class LancamentoService:
             ),
         )
         uow.devedor.save(devedor)
+        for contato in devedor.contatos:
+            uow.contato.save(contato)
         return devedor
 
     def _proposta_aprovada(
@@ -332,6 +388,7 @@ def _serializar(resultado: LancamentoResultado) -> str:
             "contrato_id": str(resultado.contrato_id),
             "emprestimo_id": str(resultado.emprestimo_id),
             "primeiro_acerto_em": resultado.primeiro_acerto_em.isoformat(),
+            "comprovante": _serializar_comprovante(resultado.comprovante),
         },
         sort_keys=True,
     )
@@ -346,5 +403,56 @@ def _desserializar(conteudo: str | None) -> LancamentoResultado:
         proposta_id=uuid.UUID(dados["proposta_id"]),
         contrato_id=uuid.UUID(dados["contrato_id"]),
         emprestimo_id=uuid.UUID(dados["emprestimo_id"]),
+        primeiro_acerto_em=date.fromisoformat(str(dados["primeiro_acerto_em"])),
+        comprovante=_desserializar_comprovante(dados.get("comprovante")),
+    )
+
+
+def _contato_whatsapp(devedor: Devedor) -> str:
+    contatos = [contato for contato in devedor.contatos if contato.tipo is TipoContato.WHATSAPP]
+    preferencial = next((contato for contato in contatos if contato.preferencial), None)
+    escolhido = preferencial or next(iter(contatos), None)
+    if escolhido is None:
+        raise ViolacaoInvarianteError(
+            "PLAN-027",
+            "devedor precisa de contato WhatsApp para receber o comprovante",
+        )
+    return escolhido.valor
+
+
+def _serializar_comprovante(
+    comprovante: ComprovanteLancamento | None,
+) -> dict[str, object] | None:
+    if comprovante is None:
+        return None
+    return {
+        "tenant_id": str(comprovante.tenant_id),
+        "carteira_id": str(comprovante.carteira_id),
+        "devedor_id": str(comprovante.devedor_id),
+        "nome_devedor": comprovante.nome_devedor,
+        "destinatario_whatsapp": comprovante.destinatario_whatsapp,
+        "emprestimo_id": str(comprovante.emprestimo_id),
+        "valor_contratado": str(comprovante.valor_contratado),
+        "moeda": comprovante.moeda,
+        "taxa_juros_mensal_percentual": str(comprovante.taxa_juros_mensal_percentual),
+        "dia_de_acerto": comprovante.dia_de_acerto,
+        "primeiro_acerto_em": comprovante.primeiro_acerto_em.isoformat(),
+    }
+
+
+def _desserializar_comprovante(dados: object) -> ComprovanteLancamento | None:
+    if not isinstance(dados, dict):
+        return None
+    return ComprovanteLancamento(
+        tenant_id=uuid.UUID(str(dados["tenant_id"])),
+        carteira_id=uuid.UUID(str(dados["carteira_id"])),
+        devedor_id=uuid.UUID(str(dados["devedor_id"])),
+        nome_devedor=str(dados["nome_devedor"]),
+        destinatario_whatsapp=str(dados["destinatario_whatsapp"]),
+        emprestimo_id=uuid.UUID(str(dados["emprestimo_id"])),
+        valor_contratado=Decimal(str(dados["valor_contratado"])),
+        moeda=str(dados["moeda"]),
+        taxa_juros_mensal_percentual=Decimal(str(dados["taxa_juros_mensal_percentual"])),
+        dia_de_acerto=int(dados["dia_de_acerto"]),
         primeiro_acerto_em=date.fromisoformat(str(dados["primeiro_acerto_em"])),
     )

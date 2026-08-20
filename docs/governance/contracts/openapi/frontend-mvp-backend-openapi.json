@@ -556,6 +556,7 @@
         "enum": [
           "telefone",
           "email",
+          "whatsapp",
           "chat",
           "presencial"
         ],
