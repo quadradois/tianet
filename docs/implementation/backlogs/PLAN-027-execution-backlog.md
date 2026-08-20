@@ -2,9 +2,9 @@
 
 **ID:** PLAN-027-EXEC
 
-**Versao:** 1.6.0
+**Versao:** 1.7.0
 
-**Status:** IMP-305, IMP-306, IMP-308..IMP-311 concluidos; IMP-307 planejado
+**Status:** IMP-305..IMP-311 concluidos
 
 ---
 
@@ -78,7 +78,8 @@ aprovacao permanece porque e a caixa de entrada do agente de IA
 - **Criterios de conclusao:** o texto usa somente valores retornados pelo Motor;
   o envio nao bloqueia o commit; falha de canal nao desfaz o lancamento.
 - **Suite minima:** unidade da montagem do texto, integracao do enfileiramento.
-- **Status:** Planejado.
+- **Status:** Concluido no PR #14 (`IMP-307: comprovante do lancamento`),
+  mergeado em 2026-08-20.
 
 ---
 
@@ -239,6 +240,7 @@ aprovacao permanece porque e a caixa de entrada do agente de IA
 
 | Versao | Data | Descricao |
 |---|---|---|
+| 1.7.0 | 2026-08-20 | IMP-307 reconciliado pos-merge: comprovante do lancamento concluido no PR #14. PLAN-027 deixa de listar pendencia ativa. |
 | 1.6.0 | 2026-08-20 | IMP-311 concluido: jornada real reescrita para o emprestimo livre e verde em 8/8 contra stack real. A execucao revelou que a suite estava quebrada desde o IMP-327 e desatualizada pelo PLAN-029. |
 | 1.5.0 | 2026-08-17 | IMP-310 concluido: Devedor abre com os emprestimos dele; causa da evidencia visual irreprodutivel isolada e corrigida. |
 | 1.4.0 | 2026-08-17 | IMP-309 concluido: lista em tres grupos pelo estado oficial, Devedor pelo nome e evidencia visual repinada. |

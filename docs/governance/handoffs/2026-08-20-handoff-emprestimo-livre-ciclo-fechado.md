@@ -1,20 +1,22 @@
 # 2026-08-20 - Handoff: Ciclo do Emprestimo Livre Fechado
 
-**Versao:** 1.2.0
+**Versao:** 1.3.0
 
-**Status:** PLAN-027 (parcial), PLAN-028, PLAN-029 e PLAN-030 entregues e
+**Status:** PLAN-027, PLAN-028, PLAN-029 e PLAN-030 entregues e
 recertificados localmente, com IMP-328 e IMP-311 executados apos o fechamento;
-**branch nao mergeado**
+atualizado pos-merge/deploy dos PRs #14 e #16
 
 **Periodo coberto:** do wizard de lancamento (PLAN-027) ao fim do plano de
 parcelas (PLAN-030)
 
-**Branch:** `codex/plan-027-wizard`
+**Branch historico do ciclo:** `codex/plan-027-wizard`
 
-**Base:** `origin/master`, 25 commits atras
+**Base atual:** `origin/master` em `9eeb17f7147c9e06d8b2b413e2b48ce3cdce1081`
 
-**Commit de topo:** `1ea303d` - feat(relatorios): a tela de vencimentos passa a
-falar de acerto (IMP-327)
+**Merge/deploy posteriores ao fechamento:** PR #14 (`IMP-307: comprovante do
+lancamento`) e PR #16 (`IMP-329: padroniza moeda em BRL no frontend`), ambos em
+2026-08-20; Quality do `master` pos-merge #16 verde
+(`32391044934`).
 
 **Relatorio do ciclo:**
 `docs/implementation/reports/PLAN-030-emprestimo-livre-com-acerto-mensal-2026-08-20.md`
@@ -34,8 +36,10 @@ de parcelas foi removido do dominio, do banco, do contrato e das telas. A
 conferencia de fechamento achou um resto que a remocao nao alcancou — o campo
 `parcela_id` — e ele esta declarado no caveat 4.4, nao escondido.
 
-**O trabalho esta apenas no branch local.** Nao ha PR aberto e o `origin/master`
-segue no estado anterior ao ciclo.
+O trabalho que este handoff descrevia como pendente foi incorporado ao
+`origin/master`: o comprovante do lancamento entrou no PR #14, e a correcao do
+valor monetario ambiguo entrou no PR #16. Nao ha PRs ou issues abertas no
+GitHub apos o deploy.
 
 ---
 
@@ -43,7 +47,7 @@ segue no estado anterior ao ciclo.
 
 | Plano | Estado | Conteudo |
 |---|---|---|
-| PLAN-027 | **Parcial** | Wizard de lancamento em tres passos, lista de emprestimos em grupos, Devedor abrindo pelos emprestimos. IMP-307 e IMP-311 seguem abertos |
+| PLAN-027 | Concluido | Wizard de lancamento em tres passos, lista de emprestimos em grupos, Devedor abrindo pelos emprestimos, jornada real recertificada e comprovante de lancamento entregue |
 | PLAN-028 | Concluido | Juros normalizados pelo mes do periodo (DR-003) |
 | PLAN-029 | Concluido | Linguagem operacional da interface: painel do emprestimo, vocabulario do Credor, formatacao brasileira, menu em dois grupos, identidade TiaNet |
 | PLAN-030 | Concluido | Emprestimo livre com acerto mensal e remocao do plano de parcelas (IMP-321..327) |
@@ -138,17 +142,17 @@ teste cobria esse caminho pela API.
 Resolvido pelo **IMP-328** (backlog do PLAN-030, §IMP-328), com prova nos dois
 sentidos: com o campo exigido de volta, 500; sem ele, 200.
 
-### 4.5 O wizard aceita `2.000` e entende dois reais
+### 4.5 O wizard aceitava `2.000` e entendia dois reais — resolvido no IMP-329
 
-Achado do IMP-311, **nao corrigido**. O campo "Valor emprestado" aceita
-`2000,00` e `2000.00`, e recusa `2.000,00` — mas aceita **`2.000`**, que o
-backend le como **R$ 2,00**. Quem digitar o separador de milhar sem os centavos
-lanca um emprestimo mil vezes menor, sem aviso nenhum.
+Achado do IMP-311. O campo "Valor emprestado" aceitava `2000,00` e
+`2000.00`, recusava `2.000,00` — mas aceitava **`2.000`**, que o backend lia
+como **R$ 2,00**. Quem digitasse o separador de milhar sem os centavos lancava
+um emprestimo mil vezes menor, sem aviso nenhum.
 
-Nao foi corrigido porque escolher a interpretacao e decisao de produto: `2.000`
-pode ser dois mil (leitura brasileira) ou dois (leitura da maquina). As saidas
-possiveis sao recusar a entrada ambigua ou formatar o campo enquanto se digita.
-**Escopo proposto: IMP-329.**
+Resolvido pelo **IMP-329** no PR #16: entradas humanas de dinheiro passaram para
+padrao BRL, `2.000` normaliza como `2000.00`, `2000.00` e rejeitado como
+formato tecnico na entrada humana, e os displays monetarios principais passaram
+a usar `R$`.
 
 ### 4.6 Limitacao conhecida da fila de cobranca
 
@@ -159,15 +163,15 @@ operador abre a operacao. Ha teste documentando o comportamento.
 
 ---
 
-## 5. Pendencias herdadas
+## 5. Pendencias herdadas reconciliadas
 
 | Item | Plano | Estado |
 |---|---|---|
-| IMP-307 - Comprovante do lancamento | PLAN-027 | Planejado, nao iniciado |
-| IMP-284 - Scaffold governado | PLAN-025 | Bloqueado ate `fable:fable-judge` |
+| ~~IMP-307 - Comprovante do lancamento~~ | PLAN-027 | **Concluido** no PR #14, mergeado em 2026-08-20 |
+| ~~IMP-284 - Scaffold governado~~ | PLAN-025 | **Concluido** no backlog vigente do PLAN-025; referencia antiga de bloqueio era historica |
 | ~~IMP-328 - Tirar `parcela_id` do contrato e do dominio~~ | PLAN-030 | **Concluido** em 2026-08-20, ver §4.4 |
 | ~~IMP-311 - Jornada real e recertificacao~~ | PLAN-027 | **Concluido** em 2026-08-20, 8/8 em stack real |
-| **IMP-329 - Valor digitado ambiguo no wizard** | proposto no IMP-311 | Aberto, ver §4.5 |
+| ~~IMP-329 - Valor digitado ambiguo no wizard~~ | achado no IMP-311 | **Concluido** no PR #16, mergeado e deployado em 2026-08-20 |
 
 **O que o IMP-311 encontrou ao rodar:** a suite nao rodava desde o IMP-327 e
 devolveu 4 de 8 cenarios vermelhos na primeira execucao — seed chamando um
@@ -179,18 +183,16 @@ descrevendo um produto que nao existia mais.
 
 ## 6. Proximo Ciclo Recomendado
 
-Ordem sugerida:
+Estado pos-merge/deploy:
 
-1. push do branch e PR para `master`, com o relatorio do ciclo como corpo;
-2. **IMP-329** — decidir e corrigir o valor ambiguo do wizard (§4.5). E o unico
-   ponto conhecido em que o Credor pode lancar um valor errado sem perceber;
-3. IMP-307, o comprovante do lancamento;
-4. so entao abrir escopo novo.
+- PR #14 e PR #16 mergeados;
+- Quality do `master` pos-merge #16 verde;
+- deploy confirmado;
+- sem PRs ou issues abertas.
 
-A ordem tem motivo: o passo 2 e o unico achado em aberto que afeta dinheiro na
-mao do Credor. A jornada real, que neste ciclo encontrou cinco defeitos que
-nenhuma suite com mock encontrou, agora roda verde e passa a ser a rede de
-seguranca das proximas mudancas.
+Com as pendencias deste handoff encerradas, o proximo ciclo deve abrir escopo
+novo a partir do roadmap vigente, sem carregar IMP-307 ou IMP-329 como divida
+ativa.
 
 ---
 
@@ -213,6 +215,7 @@ seguranca das proximas mudancas.
 
 | Versao | Data | Descricao |
 |---|---|---|
+| 1.3.0 | 2026-08-20 | Atualizacao pos-merge/deploy: PR #14 concluiu IMP-307, PR #16 concluiu IMP-329, Quality do master verde e pendencias herdadas reconciliadas. |
 | 1.2.0 | 2026-08-20 | IMP-311 executado: jornada real reescrita para o emprestimo livre e verde em 8/8 contra stack real. Achado novo do valor ambiguo do wizard registrado como IMP-329. |
 | 1.1.0 | 2026-08-20 | IMP-328 executado: `parcela_id` sai do contrato e do dominio, fechando o 500 da apropriacao. Snapshot, matriz e gates atualizados. |
 | 1.0.0 | 2026-08-20 | Fechamento do ciclo do emprestimo livre (PLAN-027 parcial, PLAN-028, PLAN-029, PLAN-030), com caveats e pendencias declaradas. |
