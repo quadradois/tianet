@@ -19,8 +19,9 @@ describe("Dashboard operacional", () => {
       tenant_id: "tenant-1", total_operacoes: 8, principal_a_receber: "9007199254740993.01",
       total_realizado: "123.45",
     }} />);
-    expect(screen.getByText("9007199254740993.01")).toBeInTheDocument();
-    expect(screen.getByText("123.45")).toBeInTheDocument();
+    expect(screen.getByText("R$ 9.007.199.254.740.993,01")).toBeInTheDocument();
+    expect(screen.getByText("R$ 123,45")).toBeInTheDocument();
+    expect(screen.queryByText("9007199254740993.01")).not.toBeInTheDocument();
     expect(document.body.textContent).not.toMatch(/percentual|diferenca|projecao/i);
   });
 
@@ -31,6 +32,7 @@ describe("Dashboard operacional", () => {
     await userEvent.tab();
     expect(region).toHaveFocus();
     expect(screen.getAllByText("situacao-oficial-longa")).toHaveLength(2);
+    expect(screen.getAllByText("R$ 999,99")).toHaveLength(2);
   });
 
   it("distingue empty de loading e periodo invalido", () => {
@@ -47,6 +49,7 @@ describe("Dashboard operacional", () => {
     expect(screen.getByText("2", { selector: "span.tabular-nums" })).toBeInTheDocument();
     rerender(<CollectionView data={{ total: 1, items: [{ carteira_id: "wallet-1", caso_id: "case-1", criado_em: "2026-08-13T10:00:00Z", devedor_id: "debtor-1", emprestimo_id: null, estado: "pendente", origem: "manual", tenant_id: "tenant-1", titulo: "Caso com titulo muito longo para exercitar quebra responsiva sem perder conteudo", total_pendente: "77.70" }] }} />);
     expect(screen.getByRole("region", { name: "Fila de cobranca" })).toHaveAttribute("tabindex", "0");
+    expect(screen.getByText(/R\$ 77,70/)).toBeInTheDocument();
     expect(screen.queryByRole("button")).not.toBeInTheDocument();
     expect(screen.queryByRole("link")).not.toBeInTheDocument();
   });

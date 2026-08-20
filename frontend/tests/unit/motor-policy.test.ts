@@ -37,7 +37,7 @@ describe("politica do Motor", () => {
     const form = new FormData();
     form.set("data_referencia", "2026-08-14");
     form.set("recebido_em", "2026-08-14T12:00:00Z");
-    form.set("valor", "123.45");
+    form.set("valor", "123,45");
     expect(formDate(form, "data_referencia")).toBe("2026-08-14");
     expect(formDateTime(form, "recebido_em")).toBe("2026-08-14T12:00:00Z");
     expect(formDecimalText(form, "valor")).toBe("123.45");
@@ -93,11 +93,13 @@ describe("valor em dinheiro no formulario", () => {
     expect(formMoney(form, "valor")).toBe("500.00");
   });
 
-  it("continua aceitando ponto e recusando o que nao for valor", () => {
+  it("aceita mascara BRL e recusa decimal tecnico", () => {
     const form = new FormData();
-    form.set("valor", "500.00");
+    form.set("valor", "R$ 500,00");
     expect(formMoney(form, "valor")).toBe("500.00");
-    for (const invalido of ["", "abc", "1.234,56", "-10"]) {
+    form.set("valor", "1.234,56");
+    expect(formMoney(form, "valor")).toBe("1234.56");
+    for (const invalido of ["", "abc", "500.00", "-10"]) {
       form.set("valor", invalido);
       expect(formMoney(form, "valor")).toBeUndefined();
     }

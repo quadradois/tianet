@@ -3,6 +3,7 @@
 import { useActionState } from "react";
 
 import type { CobrancaActionState, CobrancaActionType, CobrancaCase } from "../../lib/cobranca/cobranca-policy";
+import { mascaraMoeda } from "../../lib/formato/brasileiro";
 import { Button } from "../ui/button";
 import { Input } from "../ui/input";
 import { Label } from "../ui/label";
@@ -70,7 +71,15 @@ export function PromiseForm({ action, caseItem, initialState }: Readonly<{
       <input name="caso_id" type="hidden" value={caseItem.caso_id} />
       <div className="grid gap-2">
         <Label htmlFor={`${caseItem.caso_id}-valor`}>Valor declarado</Label>
-        <Input id={`${caseItem.caso_id}-valor`} inputMode="decimal" name="valor_declarado" placeholder="100.00" />
+        <Input
+          id={`${caseItem.caso_id}-valor`}
+          inputMode="decimal"
+          name="valor_declarado"
+          onBlur={(event) => {
+            event.currentTarget.value = mascaraMoeda(event.currentTarget.value);
+          }}
+          placeholder="R$ 100,00"
+        />
       </div>
       <div className="grid gap-2">
         <Label htmlFor={`${caseItem.caso_id}-data-promessa`}>Data da promessa</Label>

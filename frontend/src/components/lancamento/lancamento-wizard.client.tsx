@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useActionState, useState } from "react";
 
+import { mascaraMoeda } from "../../lib/formato/brasileiro";
 import type { LancamentoActionState } from "../../lib/lancamento/lancamento-policy";
 import { cpfValido, validarCondicoes, validarDevedor } from "../../lib/lancamento/lancamento-policy";
 import { Button } from "../ui/button";
@@ -142,7 +143,9 @@ export function LancamentoWizard({ action, devedores, initialState }: WizardProp
                 id="valor"
                 inputMode="decimal"
                 name="valor"
+                onBlur={() => setValor(mascaraMoeda(valor))}
                 onChange={(event) => setValor(event.target.value)}
+                placeholder="R$ 2.000,00"
                 value={valor}
               />
             </div>
@@ -185,7 +188,7 @@ export function LancamentoWizard({ action, devedores, initialState }: WizardProp
               </div>
               <div>
                 <dt className="text-muted-foreground">Valor</dt>
-                <dd>{valor}</dd>
+                <dd>{mascaraMoeda(valor)}</dd>
               </div>
               <div>
                 <dt className="text-muted-foreground">Juros ao mes</dt>

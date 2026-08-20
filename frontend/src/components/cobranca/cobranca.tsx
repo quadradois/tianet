@@ -13,6 +13,7 @@ import {
   type CobrancaQueue,
   type CobrancaReadResult,
 } from "../../lib/cobranca/cobranca-policy";
+import { moeda } from "../../lib/formato/brasileiro";
 import { Alert, AlertDescription, AlertTitle } from "../ui/alert";
 import { Button } from "../ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../ui/card";
@@ -119,7 +120,7 @@ function CaseSummary({ item }: Readonly<{ item: CobrancaCase }>) {
       <div><dt className="text-muted-foreground">Emprestimo</dt><dd className="break-all">{item.emprestimo_id ?? "Nao vinculado"}</dd></div>
       <div><dt className="text-muted-foreground">Origem</dt><dd>{item.origem}</dd></div>
       <div><dt className="text-muted-foreground">Criado em</dt><dd><time dateTime={item.criado_em}>{formatDateTime(item.criado_em)}</time></dd></div>
-      <div><dt className="text-muted-foreground">Pendente oficial</dt><dd className="tabular-nums">{item.total_pendente}</dd></div>
+      <div><dt className="text-muted-foreground">Pendente oficial</dt><dd className="tabular-nums">{moeda(item.total_pendente)}</dd></div>
     </dl>
   );
 }
@@ -168,7 +169,7 @@ function QueueView({ actionState, appropriatePaymentAction, data, permissions, r
               <tr className="border-t" key={item.caso_id}>
                 <td className="max-w-xs break-words p-2 font-semibold">{item.titulo}</td>
                 <td className="p-2">{item.estado}</td>
-                <td className="p-2 tabular-nums">{item.total_pendente}</td>
+                <td className="p-2 tabular-nums">{moeda(item.total_pendente)}</td>
                 <td className="break-all p-2">{item.caso_id}</td>
                 <td className="break-all p-2">{item.devedor_id}</td>
                 <td className="p-2"><time dateTime={item.criado_em}>{formatDateTime(item.criado_em)}</time></td>

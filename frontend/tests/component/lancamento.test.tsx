@@ -77,7 +77,23 @@ describe("LancamentoWizard", () => {
 
     expect(screen.getByLabelText("Nome")).toHaveValue("Cliente do Wizard");
     await user.click(screen.getByRole("button", { name: "Continuar" }));
-    expect(screen.getByLabelText("Valor emprestado")).toHaveValue("6000,00");
+    expect(screen.getByLabelText("Valor emprestado")).toHaveValue("R$ 6.000,00");
+  });
+
+  it("mascara valor brasileiro com milhar antes da confirmacao", async () => {
+    const user = userEvent.setup();
+    render(<LancamentoWizard action={acaoOk()} devedores={[]} initialState={inicial} />);
+    await preencherDevedorNovo(user);
+    await user.click(screen.getByRole("button", { name: "Continuar" }));
+
+    await user.type(screen.getByLabelText("Valor emprestado"), "2.000");
+    await user.tab();
+    await user.type(screen.getByLabelText("Juros ao mes (%)"), "3");
+    await user.type(screen.getByLabelText("Dia do acerto"), "10");
+
+    expect(screen.getByLabelText("Valor emprestado")).toHaveValue("R$ 2.000,00");
+    await user.click(screen.getByRole("button", { name: "Continuar" }));
+    expect(screen.getByText("R$ 2.000,00")).toBeVisible();
   });
 
   it("chama a acao uma unica vez e oferece o emprestimo criado", async () => {

@@ -1,4 +1,5 @@
 import { render, screen } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { describe, expect, it } from "vitest";
 
 import { EmprestimosDoDevedor, MotorDetailPage, MotorPage } from "../../src/components/motor/motor";
@@ -233,6 +234,30 @@ describe("Motor UI", () => {
     // O valor chega do backend como "1010.00" e e exibido no formato do pais.
     expect(screen.getAllByText("R$ 1.010,00")[0]).toBeInTheDocument();
     expect(screen.queryByText("1010.00")).not.toBeInTheDocument();
+  });
+
+  it("mascara valor de pagamento em BRL", async () => {
+    const user = userEvent.setup();
+    render(
+      <MotorDetailPage
+        balance={{ kind: "ready", data: balance }}
+        hoje="2026-08-19"
+        initialState={INITIAL_MOTOR_ACTION_STATE}
+        loan={{ kind: "ready", data: loan }}
+        memories={{ kind: "denied" }}
+        paymentAction={action}
+        permissions={permissions}
+        recoveryHref="/session/recover"
+        renegotiationAction={action}
+        settlementAction={action}
+        settlementPreview={{ kind: "denied" }}
+      />,
+    );
+
+    await user.type(screen.getByLabelText("Quanto o devedor pagou"), "2.000");
+    await user.tab();
+
+    expect(screen.getByLabelText("Quanto o devedor pagou")).toHaveValue("R$ 2.000,00");
   });
 
   it("mantem 404 neutro, 409, 422 e overflow observaveis", () => {

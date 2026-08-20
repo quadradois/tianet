@@ -63,9 +63,9 @@ function respostaValida(valor: unknown, context: OperationalContext): valor is L
  * Lanca o emprestimo em uma unica chamada ao backend.
  *
  * A validacao daqui e de forma, para nao gastar ida ao servidor com campo vazio.
- * Nenhum valor financeiro e calculado, convertido ou arredondado: os campos
- * seguem como texto, so com a virgula normalizada para ponto, e o Motor
- * permanece autoridade sobre o resultado.
+ * Nenhum valor financeiro e calculado, convertido ou arredondado: a entrada
+ * em BRL e normalizada para a string decimal do contrato, e o Motor permanece
+ * autoridade sobre o resultado.
  */
 export async function criarLancamento(
   cookies: CookieStore,

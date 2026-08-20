@@ -41,11 +41,11 @@ test("renderiza Relatorios oficiais e captura desktop/mobile", async ({ page }, 
   });
   await login(page, "ACME");
   await gotoRelatorios(page);
-  await expect(page.getByText("98765.43")).toBeVisible();
+  await expect(page.getByText("R$ 98.765,43")).toBeVisible();
   await expect(page.getByRole("region", { name: "Acertos oficiais" })).toBeVisible();
   await expect(page.getByRole("region", { name: "Pagamentos oficiais" })).toBeVisible();
   expect(backendHits).toEqual([]);
-  await page.getByText("98765.43").scrollIntoViewIfNeeded();
+  await page.getByText("R$ 98.765,43").scrollIntoViewIfNeeded();
   const suffix = testInfo.project.name.includes("mobile") ? "relatorios-list-mobile" : "relatorios-list-desktop";
   await screenshotEvidence(page, suffix);
 });

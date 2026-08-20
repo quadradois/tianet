@@ -42,6 +42,7 @@ describe("CobrancaPage", () => {
     );
     expect(screen.getByRole("heading", { level: 1, name: "Fila de cobranca" })).toBeInTheDocument();
     expect(screen.getByRole("region", { name: "Casos de cobranca" })).toHaveAttribute("data-state", "overflow");
+    expect(screen.getAllByText("R$ 100,00").length).toBeGreaterThanOrEqual(2);
     expect(screen.getAllByText(/Promessa declaratoria/).length).toBeGreaterThanOrEqual(1);
     expect(screen.getAllByText(/Pagamento oficial apropriado/).length).toBeGreaterThanOrEqual(1);
     expect(document.body.textContent).not.toMatch(/accessToken|Bearer|Authorization/i);
@@ -63,6 +64,27 @@ describe("CobrancaPage", () => {
     );
     await user.click(screen.getByRole("button", { name: "Acao idempotente" }));
     expect(action).toHaveBeenCalled();
+  });
+
+  it("mascara valor de promessa em BRL", async () => {
+    const user = userEvent.setup();
+    render(
+      <CobrancaPage
+        actionState={INITIAL_COBRANCA_ACTION_STATE}
+        appropriatePaymentAction={action}
+        filters={{ estado: "pendente" }}
+        permissions={["cobranca.caso.ler", "cobranca.promessa.registrar"]}
+        recoveryHref="/session/recover"
+        registerAction={action}
+        registerPromiseAction={action}
+        result={{ kind: "ready", data: queue() }}
+      />,
+    );
+
+    await user.type(screen.getByLabelText("Valor declarado"), "2.000");
+    await user.tab();
+
+    expect(screen.getByLabelText("Valor declarado")).toHaveValue("R$ 2.000,00");
   });
 
   it("mostra empty, denied e 404 neutro", () => {

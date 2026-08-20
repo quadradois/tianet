@@ -18,7 +18,7 @@ const TODAS = [
 ];
 
 const CONDICOES_OK = {
-  valor: "6000.00",
+  valor: "6.000,00",
   taxa: "3",
   diaDeAcerto: "10",
 };
@@ -35,7 +35,7 @@ describe("lancamento-policy", () => {
 
   it("valida a forma das condicoes sem calcular nada", () => {
     expect(validarCondicoes(CONDICOES_OK)).toEqual([]);
-    expect(validarCondicoes({ ...CONDICOES_OK, valor: "6.000,00" })).toHaveLength(1);
+    expect(validarCondicoes({ ...CONDICOES_OK, valor: "2000.00" })).toHaveLength(1);
     expect(validarCondicoes({ ...CONDICOES_OK, taxa: "0,05" })).toHaveLength(1);
     expect(validarCondicoes({ ...CONDICOES_OK, taxa: "101" })).toHaveLength(1);
     // O dia do acerto e do mes, entao 0, 32 e decimal nao existem.
@@ -46,10 +46,12 @@ describe("lancamento-policy", () => {
     expect(validarCondicoes({ valor: "", taxa: "", diaDeAcerto: "" })).toHaveLength(3);
   });
 
-  it("aceita virgula decimal e entrega ponto ao contrato", () => {
+  it("aceita BRL e entrega ponto ao contrato", () => {
     expect(validarCondicoes({ ...CONDICOES_OK, valor: "1234,56" })).toEqual([]);
     expect(normalizarDecimal("1234,56")).toBe("1234.56");
-    expect(normalizarDecimal(" 1234.56 ")).toBe("1234.56");
+    expect(validarCondicoes({ ...CONDICOES_OK, valor: "2.000" })).toEqual([]);
+    expect(normalizarDecimal("R$ 2.000,00")).toBe("2000.00");
+    expect(normalizarDecimal("2.000")).toBe("2000.00");
   });
 
   it("aceita devedor existente por UUID e recusa identificador invalido", () => {

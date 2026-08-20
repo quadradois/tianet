@@ -8,6 +8,7 @@ import { Input } from "../ui/input";
 import { Label } from "../ui/label";
 import { Skeleton } from "../ui/skeleton";
 import type { ReportsSectionResult } from "../../lib/bff/relatorios.server";
+import { moeda } from "../../lib/formato/brasileiro";
 import {
   MAX_REPORT_DATE,
   MIN_REPORT_DATE,
@@ -129,8 +130,8 @@ export function SummaryReportView({ data }: Readonly<{ data: SummaryReport }>) {
       <Metric label="Ativas" value={data.operacoes_ativas} />
       <Metric label="Quitadas" value={data.operacoes_quitadas} />
       <Metric label="Acertos pendentes" value={data.acertos_pendentes} />
-      <Metric label="Ainda na rua" value={data.principal_a_receber} />
-      <Metric label="Total realizado" value={data.total_realizado} />
+      <Metric label="Ainda na rua" value={moeda(data.principal_a_receber)} />
+      <Metric label="Total realizado" value={moeda(data.total_realizado)} />
       <Metric label="Data de referencia" value={formatDate(data.data_referencia)} />
     </dl>
   );
@@ -152,7 +153,7 @@ export function DueDatesReportView({ data }: Readonly<{ data: DueDatesReport }>)
               <td className="break-words p-2">{item.situacao}</td>
               <td className="p-2 tabular-nums">{item.dia_de_acerto}</td>
               <td className="p-2 tabular-nums">{item.dias_sem_pagamento}</td>
-              <td className="p-2 tabular-nums">{item.principal_original}</td>
+              <td className="p-2 tabular-nums">{moeda(item.principal_original)}</td>
               <td className="break-all p-2">{item.devedor_id}</td>
             </tr>
           ))}
@@ -166,12 +167,12 @@ export function PaymentsReportView({ data }: Readonly<{ data: PaymentsReport }>)
   if (data.pagamentos[0] === undefined && data.operacoes_quitadas[0] === undefined) return <p role="status">empty: nenhum pagamento ou encerramento retornado no periodo.</p>;
   return (
     <div className="grid gap-3">
-      <p className="text-sm text-muted-foreground">Total realizado oficial: <span className="tabular-nums">{data.total_realizado}</span></p>
+      <p className="text-sm text-muted-foreground">Total realizado oficial: <span className="tabular-nums">{moeda(data.total_realizado)}</span></p>
       <div aria-label="Pagamentos oficiais" className="overflow-x-auto rounded-md border" role="region" tabIndex={0}>
         <table className="w-full min-w-[660px] text-left text-xs">
           <caption className="sr-only">Pagamentos oficiais retornados pelo backend</caption>
           <thead className="bg-muted"><tr><th className="p-2">Recebido em</th><th className="p-2">Estado</th><th className="p-2">Valor</th><th className="p-2">Pagamento</th></tr></thead>
-          <tbody>{data.pagamentos.map((item) => <tr className="border-t" key={item.pagamento_id}><td className="p-2"><time dateTime={item.recebido_em}>{formatDate(item.recebido_em)}</time></td><td className="p-2">{item.estado}</td><td className="p-2 tabular-nums">{item.valor_recebido}</td><td className="break-all p-2">{item.pagamento_id}</td></tr>)}</tbody>
+          <tbody>{data.pagamentos.map((item) => <tr className="border-t" key={item.pagamento_id}><td className="p-2"><time dateTime={item.recebido_em}>{formatDate(item.recebido_em)}</time></td><td className="p-2">{item.estado}</td><td className="p-2 tabular-nums">{moeda(item.valor_recebido)}</td><td className="break-all p-2">{item.pagamento_id}</td></tr>)}</tbody>
         </table>
       </div>
       <p className="break-all text-xs text-muted-foreground">Operacoes quitadas retornadas: <span>{officialIds(data.operacoes_quitadas)}</span></p>
@@ -186,7 +187,7 @@ export function CashFlowReportView({ data }: Readonly<{ data: CashFlowReport }>)
       <table className="w-full min-w-[720px] text-left text-xs">
         <caption className="sr-only">Acertos e recebimentos diarios retornados pelo backend</caption>
         <thead className="bg-muted"><tr><th className="p-2">Data</th><th className="p-2">Acertos no dia</th><th className="p-2">Realizado</th><th className="p-2">Pagamentos retornados</th></tr></thead>
-        <tbody>{data.itens.map((item) => <tr className="border-t" key={item.data}><td className="p-2"><time dateTime={item.data}>{formatDate(item.data)}</time></td><td className="p-2 tabular-nums">{item.acertos}</td><td className="p-2 tabular-nums">{item.realizado}</td><td className="break-all p-2">{officialIds(item.pagamento_ids)}</td></tr>)}</tbody>
+        <tbody>{data.itens.map((item) => <tr className="border-t" key={item.data}><td className="p-2"><time dateTime={item.data}>{formatDate(item.data)}</time></td><td className="p-2 tabular-nums">{item.acertos}</td><td className="p-2 tabular-nums">{moeda(item.realizado)}</td><td className="break-all p-2">{officialIds(item.pagamento_ids)}</td></tr>)}</tbody>
       </table>
     </div>
   );

@@ -19,6 +19,9 @@
  */
 
 const APENAS_DIGITOS = /\D/g;
+const PREFIXO_BRL = /^R\$\s*/;
+const INTEIRO_BRL = /^(?:\d+|\d{1,3}(?:\.\d{3})+)$/;
+const MOEDA_BRL = /^(?:\d+|\d{1,3}(?:\.\d{3})+)(?:,\d{1,2})?$/;
 
 /** Agrupa a parte inteira em milhares, da direita para a esquerda. */
 function agruparMilhares(inteiro: string): string {
@@ -46,6 +49,26 @@ export function moeda(valor: string | undefined | null): string {
   const [inteiro = "0", decimais = ""] = semSinal.split(".");
   const centavos = `${decimais}00`.slice(0, 2);
   return `${negativo ? "-" : ""}R$ ${agruparMilhares(inteiro)},${centavos}`;
+}
+
+/**
+ * Le dinheiro digitado no padrao brasileiro e devolve a string decimal do
+ * contrato: `"R$ 2.000,00"` ou `"2.000"` -> `"2000.00"`.
+ */
+export function normalizarMoeda(valor: string | undefined | null): string | undefined {
+  const bruto = (valor ?? "").trim().replace(PREFIXO_BRL, "").replace(/\s/g, "");
+  if (!bruto || !MOEDA_BRL.test(bruto)) return undefined;
+  const [inteiroBruto = "", centavosBrutos = ""] = bruto.split(",");
+  if (!INTEIRO_BRL.test(inteiroBruto)) return undefined;
+  const inteiro = inteiroBruto.replace(/\./g, "").replace(/^0+(?=\d)/, "") || "0";
+  const centavos = `${centavosBrutos}00`.slice(0, 2);
+  return `${inteiro}.${centavos}`;
+}
+
+/** Mascara uma entrada monetaria reconhecida para BRL; preserva texto invalido. */
+export function mascaraMoeda(valor: string | undefined | null): string {
+  const normalizado = normalizarMoeda(valor);
+  return normalizado === undefined ? (valor ?? "").trim() : moeda(normalizado);
 }
 
 /** `"39053344705"` -> `"390.533.447-05"`. Devolve o original se nao for CPF. */

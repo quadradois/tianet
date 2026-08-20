@@ -1,4 +1,5 @@
 import type { components } from "../api/openapi.generated";
+import { normalizarMoeda } from "../formato/brasileiro";
 
 export const MOTOR_LOAN_CREATE_PERMISSION = "motor.emprestimo.criar";
 export const MOTOR_LOAN_READ_PERMISSION = "motor.emprestimo.ler";
@@ -56,7 +57,6 @@ export type MotorCommand = typeof MOTOR_COMMANDS[number];
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const DATE_PATTERN = /^(\d{4})-(\d{2})-(\d{2})$/;
 const DATE_TIME_PATTERN = /^(\d{4})-(\d{2})-(\d{2})T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:\d{2})$/;
-const MONEY_INPUT_PATTERN = /^(?!^[-+.]*$)[+]?0*\d*\.?\d{1,2}$/;
 const FORBIDDEN_FINANCIAL_KEYS = /juros|mora|multa|amortiza|saldo|quitacao|parcela|pagamento|principal|encargo|regra|memoria|resultado/i;
 
 export function isUuid(value: unknown): value is string {
@@ -187,7 +187,7 @@ export function formString(formData: FormData, key: string, max = 5_000): string
 }
 
 export function validMoneyInput(value: string | undefined): value is string {
-  return typeof value === "string" && MONEY_INPUT_PATTERN.test(value);
+  return normalizarMoeda(value) !== undefined;
 }
 
 export function formDate(formData: FormData, key: string): string | undefined {
@@ -225,8 +225,7 @@ export function formDataDeRecebimento(formData: FormData, key: string): string |
  */
 export function formMoney(formData: FormData, key: string): string | undefined {
   const bruto = formString(formData, key, 40);
-  const value = bruto === undefined ? undefined : bruto.replace(",", ".");
-  return validMoneyInput(value) ? value : undefined;
+  return normalizarMoeda(bruto);
 }
 
 export const formDecimalText = formMoney;

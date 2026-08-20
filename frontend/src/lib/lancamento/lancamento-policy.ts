@@ -1,4 +1,5 @@
 import type { components } from "../api/openapi.generated";
+import { normalizarMoeda } from "../formato/brasileiro";
 
 /** O lancamento atravessa quatro contextos; exige as quatro permissoes. */
 export const LANCAMENTO_PERMISSIONS = [
@@ -49,9 +50,6 @@ export type DevedorEntrada = Readonly<{
 }>;
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-// Aceita "1234,56" ou "1234.56". O backend e a autoridade sobre o valor; aqui
-// so se verifica forma, nunca se calcula nem se arredonda nada.
-const DECIMAL = /^\d{1,12}([.,]\d{1,4})?$/;
 
 /**
  * Valida a forma do que o Credor digitou, antes de gastar uma ida ao backend.
@@ -62,7 +60,7 @@ const DECIMAL = /^\d{1,12}([.,]\d{1,4})?$/;
  */
 export function validarCondicoes(entrada: CondicoesEntrada): readonly string[] {
   const erros: string[] = [];
-  if (!DECIMAL.test(entrada.valor.trim())) erros.push("Informe o valor emprestado.");
+  if (normalizarMoeda(entrada.valor) === undefined) erros.push("Informe o valor emprestado em reais.");
   // Percentual inteiro: `5` significa 5% ao mes. Aceitar decimal aqui foi o que
   // fez um lancamento sair com taxa de 500% — o Credor digitou 5 pensando em
   // porcento e o contrato leu 5 como fracao.
@@ -122,7 +120,7 @@ export function validarDevedor(entrada: DevedorEntrada): readonly string[] {
 }
 
 export function normalizarDecimal(valor: string): string {
-  return valor.trim().replace(",", ".");
+  return normalizarMoeda(valor) ?? valor.trim();
 }
 
 /**
