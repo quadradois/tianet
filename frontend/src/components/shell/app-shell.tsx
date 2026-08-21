@@ -5,6 +5,7 @@ import type { OperationalContext } from "../../lib/bff/context.server";
 import { SHELL_NAVIGATION, visibleNavigationItems } from "../../lib/shell/navigation-policy";
 
 import { ContextSummary } from "./context-summary";
+import { MobileNav } from "./mobile-nav.client";
 import { Navigation } from "./navigation";
 
 type AppShellProps = Readonly<{ children: ReactNode; context: OperationalContext }>;
@@ -19,11 +20,17 @@ export function AppShell({ children, context }: AppShellProps) {
             <p className="text-xs font-semibold uppercase tracking-[0.12em] text-muted-foreground">TiaNet</p>
             <p className="truncate text-sm font-medium" title={context.usuario.email}>{context.usuario.nome}</p>
           </div>
-          <LogoutButton />
+          <div className="flex items-center gap-2">
+            <MobileNav>
+              <ContextSummary context={context} />
+              <Navigation items={navigation} />
+            </MobileNav>
+            <LogoutButton />
+          </div>
         </div>
       </header>
       <div className="mx-auto grid w-full max-w-(--size-content) gap-5 px-5 py-6 sm:px-8 lg:grid-cols-[15rem_minmax(0,1fr)] lg:px-10 lg:py-8">
-        <aside className="grid content-start gap-5 rounded-xl border border-border bg-background p-4 shadow-sm">
+        <aside className="hidden content-start gap-5 rounded-xl border border-border bg-background p-4 shadow-sm lg:grid">
           <ContextSummary context={context} />
           <Navigation items={navigation} />
         </aside>

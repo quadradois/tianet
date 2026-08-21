@@ -212,6 +212,15 @@ th {
   overscroll-behavior: contain;
 }
 
+[data-slot="sheet-content"][data-side="left"] {
+  animation-name: foundation-sheet-in-left;
+}
+
+@keyframes foundation-sheet-in-left {
+  from { opacity: 0; transform: translateX(-1rem); }
+  to { opacity: 1; transform: translateX(0); }
+}
+
 [data-motion-sample] {
   transition: transform var(--motion-standard) var(--motion-ease), box-shadow var(--motion-standard) var(--motion-ease);
 }
