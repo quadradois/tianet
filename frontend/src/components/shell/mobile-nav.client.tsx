@@ -2,18 +2,13 @@
 
 import { useState } from "react";
 
-import type { OperationalContext } from "../../lib/bff/context.server";
 import type { NavigationDestination } from "../../lib/shell/navigation-policy";
-import { ContextSummary } from "./context-summary";
 import { Navigation } from "./navigation";
 import { Sheet, SheetBody, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "../ui/sheet";
 
-type MobileNavProps = Readonly<{
-  context: OperationalContext;
-  items: readonly NavigationDestination[];
-}>;
+type MobileNavProps = Readonly<{ items: readonly NavigationDestination[] }>;
 
-export function MobileNav({ context, items }: MobileNavProps) {
+export function MobileNav({ items }: MobileNavProps) {
   const [open, setOpen] = useState(false);
   return (
     <>
@@ -36,7 +31,6 @@ export function MobileNav({ context, items }: MobileNavProps) {
             <SheetDescription>Acesse as areas do sistema.</SheetDescription>
           </SheetHeader>
           <SheetBody>
-            <ContextSummary context={context} />
             <Navigation items={items} onNavigate={() => setOpen(false)} />
           </SheetBody>
         </SheetContent>
