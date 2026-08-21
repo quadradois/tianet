@@ -19,16 +19,14 @@ function SheetOverlay({ className, ...props }: ComponentProps<typeof DialogPrimi
   );
 }
 
-function SheetContent({ side = "right", children, className, ...props }: ComponentProps<typeof DialogPrimitive.Content> & { side?: "left" | "right" }) {
+function SheetContent({ className, children, ...props }: ComponentProps<typeof DialogPrimitive.Content>) {
   return (
     <DialogPrimitive.Portal>
       <SheetOverlay />
       <DialogPrimitive.Content
         data-slot="sheet-content"
-        data-side={side}
         className={cn(
-          "fixed top-0 z-50 grid h-dvh w-full max-w-xl grid-rows-[auto_minmax(0,1fr)] gap-5 overflow-hidden border-border bg-card p-5 text-card-foreground shadow-lg sm:p-6",
-          side === "right" ? "right-0 border-l" : "left-0 border-r",
+          "fixed top-0 right-0 z-50 grid h-dvh w-full max-w-xl grid-rows-[auto_minmax(0,1fr)] gap-5 overflow-hidden border-l border-border bg-card p-5 text-card-foreground shadow-lg sm:p-6",
           className,
         )}
         {...props}
