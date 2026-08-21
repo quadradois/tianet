@@ -116,7 +116,7 @@ function LoanRow({ devedor, loan }: { devedor: string | undefined; loan: Loan })
           </p>
         </div>
         <Link
-          className="shrink-0 rounded-xl border border-border px-3 py-2 text-sm font-semibold text-primary underline-offset-4 hover:underline"
+          className="shrink-0 inline-flex min-h-(--size-control) items-center rounded-xl border border-border px-3 py-2 text-sm font-semibold text-primary underline-offset-4 hover:underline"
           href={`/app/motor/${loan.id}`}
         >
           Mais informacoes
@@ -232,7 +232,7 @@ export function EmprestimosDoDevedor({ recoveryHref, result }: Readonly<{ recove
                           <span className="text-muted-foreground"> · desde {formatarData(loan.criado_em)}</span>
                         </p>
                         <Link
-                          className="shrink-0 rounded-xl border border-border px-3 py-2 text-sm font-semibold text-primary underline-offset-4 hover:underline"
+                          className="shrink-0 inline-flex min-h-(--size-control) items-center rounded-xl border border-border px-3 py-2 text-sm font-semibold text-primary underline-offset-4 hover:underline"
                           href={`/app/motor/${loan.id}`}
                         >
                           Mais informacoes
@@ -310,7 +310,7 @@ function LoanOperationsDrawer({
           <Button className="shrink-0" type="button">Operar emprestimo</Button>
         </SheetTrigger>
       </section>
-      <SheetContent aria-label="Operacoes deste emprestimo">
+      <SheetContent>
         <SheetHeader>
           <SheetTitle>Operacoes deste emprestimo</SheetTitle>
           <SheetDescription>

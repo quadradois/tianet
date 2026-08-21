@@ -12,7 +12,7 @@ type AppShellProps = Readonly<{ children: ReactNode; context: OperationalContext
 export function AppShell({ children, context }: AppShellProps) {
   const navigation = visibleNavigationItems(SHELL_NAVIGATION, context.permissoes);
   return (
-    <div className="min-h-screen bg-muted/40">
+    <div className="min-h-dvh bg-muted/40">
       <header className="border-b border-border bg-background">
         <div className="mx-auto flex w-full max-w-(--size-content) items-center justify-between gap-4 px-5 py-4 sm:px-8 lg:px-10">
           <div className="min-w-0">
