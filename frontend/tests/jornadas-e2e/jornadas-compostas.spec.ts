@@ -192,7 +192,8 @@ test("wizard lanca emprestimo livre, painel mostra o extrato e o pagamento abate
   await expect(page.getByText("Gerar parcelas")).toHaveCount(0);
 
   // Pagamento pela tela, com virgula. O Motor e a autoridade sobre o valor.
-  await page.locator("summary", { hasText: "Operacoes deste emprestimo" }).click();
+  await page.getByRole("button", { name: "Operar emprestimo" }).click();
+  await expect(page.getByRole("dialog", { name: "Operacoes deste emprestimo" })).toBeVisible();
   await page.getByLabel("Quanto o devedor pagou").fill("500,00");
   await page.getByRole("button", { name: "Registrar pagamento" }).click();
   // A confirmacao e o paragrafo de status, nao o texto `sr-only` do formulario:

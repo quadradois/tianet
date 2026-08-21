@@ -228,9 +228,8 @@ describe("Motor UI", () => {
     // Nao ha plano a gerar no emprestimo livre.
     expect(screen.queryByRole("button", { name: /Gerar parcelas/i })).not.toBeInTheDocument();
     expect(screen.getAllByText("Como a conta foi feita")[0]).toBeInTheDocument();
-    expect(screen.getAllByText(/Registrar pagamento/i)[0]).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Operar emprestimo/i })).toBeInTheDocument();
     expect(screen.getAllByText(/Valor para quitar hoje/i)[0]).toBeInTheDocument();
-    expect(screen.getAllByText(/Renegociar condicoes/i)[0]).toBeInTheDocument();
     // O valor chega do backend como "1010.00" e e exibido no formato do pais.
     expect(screen.getAllByText("R$ 1.010,00")[0]).toBeInTheDocument();
     expect(screen.queryByText("1010.00")).not.toBeInTheDocument();
@@ -254,6 +253,7 @@ describe("Motor UI", () => {
       />,
     );
 
+    await user.click(screen.getByRole("button", { name: /Operar emprestimo/i }));
     await user.type(screen.getByLabelText("Quanto o devedor pagou"), "2.000");
     await user.tab();
 
