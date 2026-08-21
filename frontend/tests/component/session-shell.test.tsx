@@ -10,7 +10,7 @@ import type { OperationalContext } from "../../src/lib/bff/context.server";
 const replace = vi.fn();
 const refresh = vi.fn();
 
-vi.mock("next/navigation", () => ({ useRouter: () => ({ replace, refresh }) }));
+vi.mock("next/navigation", () => ({ useRouter: () => ({ replace, refresh }), usePathname: () => "/app" }));
 
 const context: OperationalContext = {
   carteira_padrao: { id: "carteira-1", nome: "Carteira Centro" },
