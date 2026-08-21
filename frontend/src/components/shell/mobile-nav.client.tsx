@@ -1,19 +1,20 @@
 "use client";
 
-import { useEffect, useState, type ReactNode } from "react";
-import { usePathname } from "next/navigation";
+import { useState } from "react";
 
+import type { OperationalContext } from "../../lib/bff/context.server";
+import type { NavigationDestination } from "../../lib/shell/navigation-policy";
+import { ContextSummary } from "./context-summary";
+import { Navigation } from "./navigation";
 import { Sheet, SheetBody, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "../ui/sheet";
 
-type MobileNavProps = Readonly<{ children: ReactNode }>;
+type MobileNavProps = Readonly<{
+  context: OperationalContext;
+  items: readonly NavigationDestination[];
+}>;
 
-export function MobileNav({ children }: MobileNavProps) {
+export function MobileNav({ context, items }: MobileNavProps) {
   const [open, setOpen] = useState(false);
-  const pathname = usePathname();
-  useEffect(() => {
-    setOpen(false);
-  }, [pathname]);
-
   return (
     <>
       <button
@@ -34,7 +35,10 @@ export function MobileNav({ children }: MobileNavProps) {
             <SheetTitle>Menu</SheetTitle>
             <SheetDescription>Acesse as areas do sistema.</SheetDescription>
           </SheetHeader>
-          <SheetBody>{children}</SheetBody>
+          <SheetBody>
+            <ContextSummary context={context} />
+            <Navigation items={items} onNavigate={() => setOpen(false)} />
+          </SheetBody>
         </SheetContent>
       </Sheet>
     </>

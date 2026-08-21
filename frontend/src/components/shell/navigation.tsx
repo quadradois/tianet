@@ -6,7 +6,7 @@ import { usePathname } from "next/navigation";
 import { cn } from "../../lib/utils";
 import { navigationByGroup, type NavigationDestination } from "../../lib/shell/navigation-policy";
 
-type NavigationProps = Readonly<{ items: readonly NavigationDestination[] }>;
+type NavigationProps = Readonly<{ items: readonly NavigationDestination[]; onNavigate?: () => void }>;
 
 function isActive(pathname: string, href: string): boolean {
   if (pathname === href) return true;
@@ -15,7 +15,7 @@ function isActive(pathname: string, href: string): boolean {
   return pathname.startsWith(`${href}/`);
 }
 
-function Lista({ items, pathname }: NavigationProps & Readonly<{ pathname: string }>) {
+function Lista({ items, onNavigate, pathname }: NavigationProps & Readonly<{ pathname: string }>) {
   return (
     <ul className="grid gap-1">
       {items.map((item) => {
@@ -29,6 +29,7 @@ function Lista({ items, pathname }: NavigationProps & Readonly<{ pathname: strin
                 active && "bg-muted shadow-[inset_3px_0_0_0_var(--ring)]",
               )}
               href={item.href}
+              {...(onNavigate ? { onClick: onNavigate } : {})}
             >
               {item.label}
             </Link>
@@ -46,18 +47,18 @@ function Lista({ items, pathname }: NavigationProps & Readonly<{ pathname: strin
  * alcancavel e mantem a permissao, porem recolhido. Nenhum destino foi
  * removido — o que muda e quanto do sistema disputa a primeira olhada.
  */
-export function Navigation({ items }: NavigationProps) {
+export function Navigation({ items, onNavigate }: NavigationProps) {
   const pathname = usePathname() ?? "/app";
   const principal = navigationByGroup(items, "principal");
   const administracao = navigationByGroup(items, "administracao");
   return (
     <nav aria-label="Navegacao principal">
-      <Lista items={principal} pathname={pathname} />
+      <Lista items={principal} pathname={pathname} {...(onNavigate ? { onNavigate } : {})} />
       {administracao.length > 0 ? (
         <details className="mt-3 border-t border-border pt-3">
           <summary className="cursor-pointer px-3 py-2 text-sm font-semibold text-muted-foreground">Mais ferramentas</summary>
           <div className="mt-1">
-            <Lista items={administracao} pathname={pathname} />
+            <Lista items={administracao} pathname={pathname} {...(onNavigate ? { onNavigate } : {})} />
           </div>
         </details>
       ) : null}

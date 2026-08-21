@@ -21,10 +21,7 @@ export function AppShell({ children, context }: AppShellProps) {
             <p className="truncate text-sm font-medium" title={context.usuario.email}>{context.usuario.nome}</p>
           </div>
           <div className="flex items-center gap-2">
-            <MobileNav>
-              <ContextSummary context={context} />
-              <Navigation items={navigation} />
-            </MobileNav>
+            <MobileNav context={context} items={navigation} />
             <LogoutButton />
           </div>
         </div>
