@@ -374,7 +374,7 @@ function PainelDoEmprestimo({
         <h1 className="text-3xl font-semibold tracking-tight">{devedor ?? "Emprestimo"}</h1>
         <span
           className={`rounded-full px-3 py-1 text-sm font-semibold ${
-            pendente ? "bg-destructive/15 text-destructive" : "bg-secondary text-secondary-foreground"
+            pendente ? "bg-destructive/15 text-destructive" : "bg-muted text-foreground"
           }`}
         >
           {pendente ? `Acerto em atraso desde ${formatarData(pendente)}` : (situacao?.titulo ?? loan.estado)}

@@ -13,7 +13,7 @@ type Action = (state: CobrancaActionState, formData: FormData) => Promise<Cobran
 function Status({ state }: Readonly<{ state: CobrancaActionState }>) {
   if (state.kind === "idle") return null;
   return (
-    <p aria-live="polite" className={state.kind === "success" ? "text-sm text-success" : "text-sm text-danger"}>
+    <p aria-live="polite" className={state.kind === "success" ? "text-sm text-success" : "text-sm text-destructive"}>
       {state.message}{state.correlationId ? ` Correlation ID: ${state.correlationId}` : ""}
     </p>
   );
