@@ -1,0 +1,14 @@
+#!/bin/sh
+# pre-push — build + testes unit/component do frontend antes de cada push.
+# Em caso de erro, o push é cancelado. Suítes Playwright/e2e ficam no CI.
+
+echo "pre-push: build do frontend..."
+cd frontend && npm run build || exit 1
+
+echo "pre-push: testes unit do frontend..."
+npm run test:unit || exit 1
+
+echo "pre-push: testes de componente do frontend..."
+npm run test:component || exit 1
+
+echo "pre-push: OK"
