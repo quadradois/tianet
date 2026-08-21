@@ -1,6 +1,8 @@
 import Link from "next/link";
 
 import { data as formatarData, moeda } from "../../lib/formato/brasileiro";
+import { Button } from "../ui/button";
+import { Sheet, SheetBody, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTrigger } from "../ui/sheet";
 
 import {
   INITIAL_MOTOR_ACTION_STATE,
@@ -264,7 +266,7 @@ function DetailCommands({
   settlementAction: MotorAction;
 }>) {
   return (
-    <section className="grid gap-4 lg:grid-cols-2">
+    <section className="grid gap-4">
       {hasExactPermission(permissions, MOTOR_PAYMENT_CREATE_PERMISSION) ? (
         <MotorCommandForm action={paymentAction} command="registrar-pagamento" emprestimoId={loanId} hoje={hoje} initialState={initialState} />
       ) : null}
@@ -275,6 +277,59 @@ function DetailCommands({
         <MotorCommandForm action={renegotiationAction} command="registrar-renegociacao" emprestimoId={loanId} hoje={hoje} initialState={initialState} />
       ) : null}
     </section>
+  );
+}
+
+function LoanOperationsDrawer({
+  hoje,
+  initialState,
+  loanId,
+  paymentAction,
+  permissions,
+  renegotiationAction,
+  settlementAction,
+}: Readonly<{
+  hoje: string;
+  initialState: MotorActionState;
+  loanId: string;
+  paymentAction: MotorAction;
+  permissions: readonly string[];
+  renegotiationAction: MotorAction;
+  settlementAction: MotorAction;
+}>) {
+  return (
+    <Sheet>
+      <section className="flex flex-col gap-4 rounded-2xl border border-border bg-card p-4 shadow-sm sm:flex-row sm:items-center sm:justify-between">
+        <div className="min-w-0">
+          <h2 className="text-lg font-semibold">Operacoes do emprestimo</h2>
+          <p className="mt-1 max-w-2xl text-sm text-muted-foreground">
+            Registre pagamentos, quite ou renegocie sem sair do contexto desta operacao.
+          </p>
+        </div>
+        <SheetTrigger asChild>
+          <Button className="shrink-0" type="button">Operar emprestimo</Button>
+        </SheetTrigger>
+      </section>
+      <SheetContent aria-label="Operacoes deste emprestimo">
+        <SheetHeader>
+          <SheetTitle>Operacoes deste emprestimo</SheetTitle>
+          <SheetDescription>
+            Escolha a acao feita no atendimento. Os valores continuam sendo enviados ao Motor; a tela apenas coleta a intencao.
+          </SheetDescription>
+        </SheetHeader>
+        <SheetBody>
+          <DetailCommands
+            hoje={hoje}
+            initialState={initialState}
+            loanId={loanId}
+            paymentAction={paymentAction}
+            permissions={permissions}
+            renegotiationAction={renegotiationAction}
+            settlementAction={settlementAction}
+          />
+        </SheetBody>
+      </SheetContent>
+    </Sheet>
   );
 }
 
@@ -432,26 +487,20 @@ export function MotorDetailPage({
         <>
           <PainelDoEmprestimo balance={balance} devedor={devedor} loan={loan.data} />
           <ExtratoDoSaldo balance={balance} />
-          {/* As operacoes vem depois do painel: primeiro entender, depois agir.
-              Sem nenhuma permissao de comando o bloco nao existe, em vez de
+          {/* Sem nenhuma permissao de comando o bloco nao existe, em vez de
               abrir vazio e sugerir uma acao indisponivel. */}
           {hasExactPermission(permissions, MOTOR_PAYMENT_CREATE_PERMISSION)
           || hasExactPermission(permissions, MOTOR_SETTLEMENT_EXECUTE_PERMISSION)
           || hasExactPermission(permissions, MOTOR_RENEGOTIATION_CREATE_PERMISSION) ? (
-          <details className="rounded-2xl border border-border bg-muted/30 p-4">
-            <summary className="cursor-pointer font-semibold">Operacoes deste emprestimo</summary>
-            <div className="mt-4">
-              <DetailCommands
-                hoje={hoje}
-                initialState={initialState}
-                loanId={loan.data.id}
-                paymentAction={paymentAction}
-                permissions={permissions}
-                renegotiationAction={renegotiationAction}
-                settlementAction={settlementAction}
-              />
-            </div>
-          </details>
+          <LoanOperationsDrawer
+            hoje={hoje}
+            initialState={initialState}
+            loanId={loan.data.id}
+            paymentAction={paymentAction}
+            permissions={permissions}
+            renegotiationAction={renegotiationAction}
+            settlementAction={settlementAction}
+          />
           ) : null}
           <ReadyAuxiliary memories={memories} settlementPreview={settlementPreview} />
         </>

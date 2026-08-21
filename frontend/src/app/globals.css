@@ -203,6 +203,15 @@ th {
   overscroll-behavior: contain;
 }
 
+[data-slot="sheet-overlay"] {
+  animation: foundation-fade-in var(--motion-standard) var(--motion-ease);
+}
+
+[data-slot="sheet-content"] {
+  animation: foundation-sheet-in var(--motion-standard) var(--motion-ease);
+  overscroll-behavior: contain;
+}
+
 [data-motion-sample] {
   transition: transform var(--motion-standard) var(--motion-ease), box-shadow var(--motion-standard) var(--motion-ease);
 }
@@ -220,6 +229,11 @@ th {
 @keyframes foundation-dialog-in {
   from { opacity: 0; transform: translate(-50%, -48%) scale(0.98); }
   to { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+}
+
+@keyframes foundation-sheet-in {
+  from { opacity: 0; transform: translateX(1rem); }
+  to { opacity: 1; transform: translateX(0); }
 }
 
 @media (prefers-reduced-motion: reduce) {

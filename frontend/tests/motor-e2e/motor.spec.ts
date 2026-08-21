@@ -110,9 +110,10 @@ test("consulta detalhe, parcelas, saldo, memoria, pagamento e quitacao sem recal
   await expect(page.getByText("Quanto ainda falta")).toHaveCount(0);
   await expect(page.getByText("Como a conta foi feita")).toBeVisible();
   await expect(page.getByText("R$ 1.010,00").first()).toBeVisible();
-  // As operacoes ficam abaixo do painel e recolhidas: primeiro entender, depois agir.
+  // As operacoes ficam em um drawer: primeiro entender, depois agir.
   await expect(page.getByRole("button", { name: "Registrar pagamento", exact: true })).toBeHidden();
-  await page.getByText("Operacoes deste emprestimo").click();
+  await page.getByRole("button", { name: "Operar emprestimo" }).click();
+  await expect(page.getByRole("dialog", { name: "Operacoes deste emprestimo" })).toBeVisible();
   // Nao ha plano a gerar no emprestimo livre (DR-004).
   await expect(page.getByRole("button", { name: "Gerar parcelas", exact: true })).toHaveCount(0);
   await page.getByLabel("Quanto o devedor pagou").fill("100,00");
