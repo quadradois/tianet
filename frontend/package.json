@@ -16,6 +16,7 @@
     "api:check": "node scripts/openapi-codegen.mjs --check",
     "lint": "eslint . --max-warnings=0 --ignore-pattern playwright-report --ignore-pattern test-results --ignore-pattern coverage --ignore-pattern blob-report",
     "typecheck": "next typegen && tsc --noEmit",
+    "gate:precommit": "npm run lint && npm run typecheck",
     "test": "npm run test:harness",
     "test:unit": "vitest run --config vitest.unit.config.ts",
     "test:component": "vitest run --config vitest.component.config.ts",
