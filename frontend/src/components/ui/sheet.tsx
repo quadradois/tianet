@@ -19,7 +19,7 @@ function SheetOverlay({ className, ...props }: ComponentProps<typeof DialogPrimi
   );
 }
 
-function SheetContent({ className, children, ...props }: ComponentProps<typeof DialogPrimitive.Content>) {
+function SheetContent({ children, className, ...props }: ComponentProps<typeof DialogPrimitive.Content>) {
   return (
     <DialogPrimitive.Portal>
       <SheetOverlay />
