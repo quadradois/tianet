@@ -1343,7 +1343,7 @@ const contracts = {
     }).sort();
     assert.deepStrictEqual(
       clientFiles,
-      ['components/configuracoes-financeiras/configuracoes-actions.client.tsx', 'components/foundation/destructive-dialog-demo.tsx', 'components/ui/dialog.tsx'],
+      ['components/configuracoes-financeiras/configuracoes-actions.client.tsx', 'components/foundation/destructive-dialog-demo.tsx', 'components/ui/dialog.tsx', 'components/ui/sheet.tsx'],
       'Client Components devem ficar limitados ao dialogo interativo',
     );
 
