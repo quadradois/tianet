@@ -59,7 +59,21 @@ falhou() {
 
 restaurar_evidencias() {
   [ "${EVIDENCIAS_JA_SUJAS:-0}" -eq 0 ] || return 0
-  git -C "$RAIZ" checkout -- docs/audits/evidence/ 2>/dev/null || true
+  # No Windows, os servidores das suites ainda encerrando seguram os arquivos e
+  # o checkout falha em silencio, deixando a arvore suja — o que faz o proximo
+  # push reprovar logo no docs:test, por SHA de evidencia. Tenta algumas vezes e,
+  # se nao conseguir, DIZ, em vez de deixar o usuario descobrir depois.
+  for _ in 1 2 3 4 5; do
+    git -C "$RAIZ" checkout -- docs/audits/evidence/ 2>/dev/null
+    [ "$(git -C "$RAIZ" status --porcelain docs/audits/evidence/ | wc -l | tr -d ' ')" -eq 0 ] && return 0
+    sleep 3
+  done
+  echo ""
+  echo "pre-push: AVISO — nao consegui restaurar docs/audits/evidence/."
+  echo "pre-push: provavelmente um servidor de teste ainda segura os arquivos."
+  echo "pre-push: rode 'git checkout -- docs/audits/evidence/' antes do proximo push,"
+  echo "pre-push: senao o docs:test reprova por SHA de evidencia."
+  return 1
 }
 
 # ---------------------------------------------------------------------------
