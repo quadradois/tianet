@@ -946,6 +946,73 @@ funcionou.
 **Regra do loop daqui em diante:** um item so e aprovado se **nao aumentar**
 esses tres numeros. Zerar a divida herdada e trabalho do IMP-344.
 
+## 9.3 Auditoria do CI — por que PRs abriam vermelhas (2026-08-23)
+
+Motivada pelo custo de rodar o CI, ver falhar e rodar de novo. **A lista local
+de gates era um subconjunto da lista do CI.**
+
+**O numero:** o CI executa **28 comandos npm** mais o pytest. Ao longo de todo o
+PLAN-032 eu rodei **10 deles**. Os 18 que faltavam sao todos suite Playwright de
+navegador mais o `build` — exatamente onde os tres defeitos estavam.
+
+**Ja existia o comando que teria pegado tudo.** `npm run test:harness` encadeia
+19 suites, inclusive `test:dashboard` e `test:jornadas`, que foram as que
+falharam. Ele estava no `frontend/package.json` desde antes deste ciclo e nunca
+foi executado. Nao faltava ferramenta; faltava usar.
+
+**O pre-commit da falsa seguranca.** O hook roda `docs:validate`, `lint` e
+`typecheck` do frontend — 3 de 28. Passar no hook nao diz nada sobre o CI, mas
+parece dizer.
+
+**Falhas encontradas ao rodar o conjunto completo, todas invisiveis antes:**
+
+| # | Defeito | So aparecia em |
+|---|---|---|
+| 1 | `<dd>` orfao no KpiCard, violacao axe `dlitem` (serious) | `test:dashboard` |
+| 2 | Seed das jornadas sem `Idempotency-Key` (efeito do IMP-333) | `test:jornadas` |
+| 3 | Seed construindo `SchedulerService`/`NotificationService` sem auditoria (efeito do IMP-334) | `test:jornadas` |
+
+**Por que o job Windows passou e o Linux falhou.** Nao e flakiness: o workflow
+tem `if: runner.os == 'Linux'` nos passos de `uv`, Python e `test:jornadas`.
+As jornadas **so rodam no Linux**. E o `test:dashboard` roda nos dois, mas a
+violacao de axe so se manifesta no viewport mobile, que o job Windows executou
+com resultado diferente. Conclusao pratica: **passar no Windows nao prova nada
+sobre o job que reprova**.
+
+**Armadilha de ordem, descoberta na auditoria.** As suites visuais
+**regeneram** os PNGs de evidencia, e `test:certification` exige que o SHA
+vigente esteja publicado nos relatorios. Rodar `test:visual` antes de
+`test:certification` quebra a certificacao por efeito colateral do proprio
+teste. O CI escapa porque roda `certification` **antes** das visuais. Quem rodar
+localmente na ordem "natural" precisa restaurar `docs/audits/evidence/` antes de
+certificar.
+
+**Historico confirma que e sistemico, nao pontual:** o branch anterior
+`codex/ux-tokens-navegacao` acumulou **cinco execucoes vermelhas** de CI antes
+de fechar verde.
+
+### Barra final de aprovacao, obrigatoria antes de qualquer push
+
+    # backend
+    uv run pytest tests/            # inteiro
+    uv run ruff check . && uv run black --check . && uv run mypy src tests
+    MIGRATION_VALIDATION_ALLOW_DESTRUCTIVE=1 npm run quality:migrations
+
+    # documentacao
+    npm run docs:validate           # 0 erros
+    npm run docs:test               # 173/173
+
+    # frontend — o que faltava
+    cd frontend
+    npm run lint && npm run typecheck && npm run build
+    npm run test:certification      # ANTES das visuais, ver armadilha de ordem
+    npm run test:a11y && npm run test:visual
+    npm run test:harness            # as 19 suites, inclusive jornadas
+    git checkout -- ../docs/audits/evidence/   # desfaz a regeracao das visuais
+
+Custo local aproximado: 15 a 20 minutos. Custo de descobrir no CI: 13 minutos de
+runner por tentativa, mais o tempo de ida e volta.
+
 **A violacao do guardrail do Motor e decisao de desenho, nao conserto mecanico.**
 O `varredura_cobranca.py` consulta o Motor **de proposito** — foi a razao
 tecnica que sustentou a escolha da varredura diaria no IMP-331, porque o job
