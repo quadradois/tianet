@@ -126,7 +126,7 @@ function KpiCard({ label, value, icon, accent, badge, hint }: Readonly<{
         <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">{label}</span>
         <KpiIcon>{icon}</KpiIcon>
       </div>
-      <dd className={`text-2xl font-semibold tabular-nums ${valueClass}`}>{value}</dd>
+      <p className={`text-2xl font-semibold tabular-nums ${valueClass}`}>{value}</p>
       {badge ? (
         <span className="w-fit rounded-full bg-muted px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-muted-foreground">{badge}</span>
       ) : null}
