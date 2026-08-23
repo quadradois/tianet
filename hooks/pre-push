@@ -1,14 +1,196 @@
 #!/bin/sh
-# pre-push — build + testes unit/component do frontend antes de cada push.
-# Em caso de erro, o push é cancelado. Suítes Playwright/e2e ficam no CI.
+# pre-push — roda localmente, na mesma ordem, o que o CI executa.
+#
+# Motivo (auditoria de 2026-08-23, PLAN-032 §9.3): a versao anterior deste hook
+# rodava build + unit + component e dizia, em comentario, que as suites
+# Playwright ficavam para o CI. Tres defeitos reais passaram por essa fresta e
+# so apareceram depois do push — um <dd> orfao acusado pelo axe e duas quebras
+# do seed de jornadas. O branch anterior gastou cinco execucoes vermelhas de CI
+# pelo mesmo motivo.
+#
+# A ORDEM IMPORTA e e a mesma do workflow: test:certification vem ANTES de
+# test:a11y e test:visual. As suites de captura regeram os PNGs de evidencia, e
+# a certificacao exige que o SHA vigente esteja publicado nos relatorios —
+# inverter quebra a certificacao por efeito colateral do proprio teste. Pelo
+# mesmo motivo este hook NAO usa `npm run test:harness`, que termina em
+# certification depois das capturas.
+#
+# Escopo pelo que mudou, calibrado pelas quebras observadas:
+#   - so documentacao      -> gates documentais
+#   - so backend           -> backend + contrato + jornadas (o IMP-333 quebrou
+#                             o seed de jornadas sem tocar em frontend)
+#   - frontend ou contrato -> tudo
+#
+# Para pular deliberadamente: git push --no-verify
 
-echo "pre-push: build do frontend..."
-cd frontend && npm run build || exit 1
+set -u
 
-echo "pre-push: testes unit do frontend..."
-npm run test:unit || exit 1
+RAIZ=$(git rev-parse --show-toplevel)
+cd "$RAIZ" || exit 1
+INICIO=$(date +%s)
 
-echo "pre-push: testes de componente do frontend..."
-npm run test:component || exit 1
+# Sem isto o hook fica MAIS RIGIDO que o CI e reprova push que o CI aprovaria.
+# Os configs do Playwright usam process.env.CI para tres coisas, e as tres sao
+# desejaveis aqui: `retries` (o CI tenta de novo, o local nao tentava — uma
+# falha esporadica sob carga bloqueava o push), `workers: 1` (execucao
+# deterministica) e `forbidOnly` (barra um `.only` esquecido antes do push).
+CI=1
+export CI
 
-echo "pre-push: OK"
+# Medido AQUI, antes de qualquer coisa: se as evidencias ja estavam modificadas
+# quando o hook comecou, a modificacao e de alguem e nao pode ser descartada.
+# Medir mais tarde arriscaria restaurar por cima de trabalho deliberado numa
+# falha precoce.
+EVIDENCIAS_JA_SUJAS=$(git status --porcelain docs/audits/evidence/ | wc -l | tr -d ' ')
+
+passo() {
+  echo ""
+  echo "pre-push: $1"
+}
+
+falhou() {
+  echo ""
+  echo "pre-push: FALHOU em '$1'."
+  echo "pre-push: o CI reprovaria aqui, e la custa mais caro."
+  echo "pre-push: para pular deliberadamente, use git push --no-verify"
+  restaurar_evidencias
+  exit 1
+}
+
+restaurar_evidencias() {
+  [ "${EVIDENCIAS_JA_SUJAS:-0}" -eq 0 ] || return 0
+  git -C "$RAIZ" checkout -- docs/audits/evidence/ 2>/dev/null || true
+}
+
+# ---------------------------------------------------------------------------
+# O que mudou neste push
+# ---------------------------------------------------------------------------
+BASE=$(git rev-parse --verify --quiet origin/master 2>/dev/null)
+if [ -n "$BASE" ]; then
+  ALTERADOS=$(git diff --name-only "$BASE"...HEAD 2>/dev/null)
+else
+  ALTERADOS=$(git diff --name-only HEAD~1 2>/dev/null)
+fi
+
+TOCA_BACKEND=0
+TOCA_FRONTEND=0
+for arquivo in $ALTERADOS; do
+  case "$arquivo" in
+    # O snapshot mora em docs/ mas e contrato: mexer nele afeta o frontend.
+    docs/governance/contracts/openapi/*) TOCA_FRONTEND=1; TOCA_BACKEND=1 ;;
+    docs/*) ;;
+    frontend/*) TOCA_FRONTEND=1 ;;
+    src/*|tests/*|migrations/*|pyproject.toml|uv.lock) TOCA_BACKEND=1 ;;
+    *) TOCA_BACKEND=1; TOCA_FRONTEND=1 ;;
+  esac
+done
+
+# ---------------------------------------------------------------------------
+# Documentacao — sempre
+# ---------------------------------------------------------------------------
+passo "documentacao (docs:validate, docs:test)"
+npm run docs:validate || falhou "docs:validate"
+npm run docs:test || falhou "docs:test"
+
+if [ "$TOCA_BACKEND" -eq 0 ] && [ "$TOCA_FRONTEND" -eq 0 ]; then
+  echo ""
+  echo "pre-push: push apenas de documentacao — gates de codigo dispensados."
+  echo "pre-push: OK em $(( $(date +%s) - INICIO ))s"
+  exit 0
+fi
+
+# ---------------------------------------------------------------------------
+# Backend
+# ---------------------------------------------------------------------------
+if [ "$TOCA_BACKEND" -eq 1 ]; then
+  passo "lint e tipos do backend (ruff, black, mypy)"
+  uv run ruff check . || falhou "ruff"
+  uv run black --check . || falhou "black"
+  uv run mypy src tests || falhou "mypy"
+
+  if [ -z "${DATABASE_URL:-}" ] && [ -f .env ]; then
+    SENHA=$(grep -m1 '^POSTGRES_PASSWORD=' .env | cut -d= -f2-)
+    if [ -n "$SENHA" ]; then
+      DATABASE_URL="postgresql+psycopg://emprestimo:${SENHA}@127.0.0.1:5432/emprestimo"
+      export DATABASE_URL
+    fi
+  fi
+
+  passo "suite completa do backend (pytest)"
+  echo "pre-push: exige PostgreSQL no ar; se falhar por conexao, suba a stack antes."
+  uv run pytest tests/ -q || falhou "pytest"
+fi
+
+# ---------------------------------------------------------------------------
+# Frontend — na ordem do CI
+# ---------------------------------------------------------------------------
+cd frontend || exit 1
+
+passo "testes rapidos do frontend (unit, component, contrato, bff)"
+npm run test:unit || falhou "test:unit"
+npm run test:component || falhou "test:component"
+npm run api:check || falhou "api:check"
+npm run test:contract || falhou "test:contract"
+npm run test:bff || falhou "test:bff"
+
+passo "lint, tipos e build do frontend"
+npm run lint || falhou "lint do frontend"
+npm run typecheck || falhou "typecheck do frontend"
+npm run build || falhou "build do frontend"
+
+passo "certificacao de UI e seguranca — antes das capturas, de proposito"
+npm run test:certification || falhou "test:certification"
+
+if [ "$TOCA_FRONTEND" -eq 1 ]; then
+  passo "acessibilidade e capturas"
+  npm run test:a11y || falhou "test:a11y"
+  npm run test:visual || falhou "test:visual"
+
+  # LIMITE CONHECIDO, medido em 2026-08-23. Cada config do Playwright sobe o
+  # proprio servidor com `npm run build && npm run start`, com orcamento de 120s.
+  # Rodar as treze suites em sequencia significa treze builds completos: no CI,
+  # runner limpo, cabe; nesta maquina, a partir da nona, o build estoura o
+  # orcamento e o teste morre em ERR_CONNECTION_REFUSED — falha de ambiente, nao
+  # de produto, e falso alarme em hook vira `--no-verify` habitual.
+  #
+  # Entao o hook roda aqui as suites de MAIOR RENDIMENTO: sao as que pegaram os
+  # quatro defeitos reais desta auditoria (axe do Dashboard, duas quebras do seed
+  # de jornadas e a deriva de evidencia da certificacao).
+  #
+  # As demais rodam com `npm run gate:full` na raiz, antes de abrir ou atualizar
+  # PR. Isto e uma aposta declarada, nao um esquecimento: `gate:full` existe
+  # justamente porque a aposta pode falhar.
+  passo "suites de maior rendimento (dashboard)"
+  npm run test:dashboard || falhou "test:dashboard"
+fi
+
+# Jornadas exercitam o backend real pela interface. Rodam mesmo em push que so
+# mexe no backend: foi assim que o IMP-333 e o IMP-334 quebraram o seed.
+passo "jornadas compostas em stack real (test:jornadas)"
+npm run test:jornadas || falhou "test:jornadas"
+
+# ---------------------------------------------------------------------------
+# Migrations e limpeza
+# ---------------------------------------------------------------------------
+cd "$RAIZ" || exit 1
+
+if [ "$TOCA_BACKEND" -eq 1 ]; then
+  passo "ciclo de migrations contra PostgreSQL real"
+  MIGRATION_VALIDATION_ALLOW_DESTRUCTIVE=1 npm run quality:migrations \
+    || falhou "quality:migrations"
+fi
+
+if [ "${EVIDENCIAS_JA_SUJAS:-0}" -eq 0 ]; then
+  restaurar_evidencias
+  echo ""
+  echo "pre-push: evidencias visuais restauradas ao estado commitado."
+else
+  echo ""
+  echo "pre-push: AVISO — docs/audits/evidence/ ja estava modificado antes deste"
+  echo "pre-push: hook. Nao restaurei nada para nao descartar trabalho seu."
+  echo "pre-push: se as capturas mudaram de proposito, republique os SHA-256 nos"
+  echo "pre-push: relatorios, senao test:certification reprova no CI."
+fi
+
+echo ""
+echo "pre-push: OK em $(( $(date +%s) - INICIO ))s — mesmo conjunto e mesma ordem do CI."

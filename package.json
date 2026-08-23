@@ -7,7 +7,8 @@
     "docs:validate": "node scripts/validate-docs.js",
     "docs:test": "node scripts/tests/test-validator.js && node scripts/tests/test-identifiers.js && node scripts/tests/test-epic-007-contracts.js && node scripts/tests/test-epic-008-contracts.js && node scripts/tests/test-epic-009-contracts.js && node scripts/tests/test-epic-010-contracts.js && node scripts/tests/test-plan-020-contracts.js && node scripts/tests/test-plan-025-contracts.js",
     "quality:migrations": "uv run python scripts/validate_migrations.py",
-    "docs:hooks": "git config core.hooksPath hooks"
+    "docs:hooks": "git config core.hooksPath hooks",
+    "gate:full": "npm run docs:validate && npm run docs:test && uv run ruff check . && uv run black --check . && uv run mypy src tests && uv run pytest tests/ -q && npm --prefix frontend run lint && npm --prefix frontend run typecheck && npm --prefix frontend run build && npm --prefix frontend run test:certification && npm --prefix frontend run test:harness && npm --prefix frontend run test:a11y && npm --prefix frontend run test:visual && git checkout -- docs/audits/evidence/"
   },
   "devDependencies": {
     "ajv": "^8.20.0",

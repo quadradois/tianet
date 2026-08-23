@@ -1013,6 +1013,60 @@ de fechar verde.
 Custo local aproximado: 15 a 20 minutos. Custo de descobrir no CI: 13 minutos de
 runner por tentativa, mais o tempo de ida e volta.
 
+O `hooks/pre-push` passou a rodar isso automaticamente. Ver §9.4.
+
+### 9.4 O que o pre-push roda, e o limite que ele declara
+
+Reescrito em 2026-08-23. O hook antigo rodava build, unit e component, e dizia
+em comentario que "as suites Playwright ficam no CI" — a fresta por onde os
+defeitos passaram.
+
+**Escopo pelo que mudou**, calibrado pelas quebras observadas, nao por teoria:
+
+| Push toca | Roda | Tempo medido |
+|---|---|---|
+| so `docs/` | gates documentais | **7s** |
+| backend | + ruff, black, mypy, pytest, migrations, **jornadas** | — |
+| frontend ou contrato | + tudo do frontend ate `test:dashboard` | **424s** |
+
+As **jornadas rodam mesmo em push so de backend**: foi assim que o IMP-333 e o
+IMP-334 quebraram o seed sem tocar em uma linha de frontend.
+
+**Paridade com o CI:** o hook exporta `CI=1`. Sem isso ele fica **mais rigido
+que o CI** — os configs usam `retries: process.env.CI ? 1 : 0`, entao uma falha
+esporadica bloqueava push que o CI aprovaria. `CI=1` tambem liga `forbidOnly`,
+que barra um `.only` esquecido.
+
+**Ordem obrigatoria:** `test:certification` vem **antes** de `test:a11y` e
+`test:visual`, como no workflow. As suites de captura regeram os PNGs de
+evidencia e a certificacao exige o SHA vigente publicado nos relatorios —
+inverter quebra por efeito colateral do proprio teste. Pelo mesmo motivo o hook
+**nao** usa `test:harness`, que termina em certification depois das capturas.
+
+**LIMITE DECLARADO, com medicao.** Cada config do Playwright sobe o proprio
+servidor com `npm run build && npm run start`, orcamento de 120s. Treze suites
+em sequencia sao **treze builds completos**: no runner limpo do CI cabe; nesta
+maquina, a partir da nona, o build estoura e o teste morre em
+`ERR_CONNECTION_REFUSED` — falha de ambiente, nao de produto. E falso alarme em
+hook vira `--no-verify` habitual, que destroi o hook.
+
+Por isso o pre-push roda as suites de **maior rendimento** (certification, a11y,
+visual e dashboard, mais jornadas), que sao as que pegaram os quatro defeitos
+desta auditoria. As outras doze rodam em **`npm run gate:full`**, antes de abrir
+ou atualizar PR. **E uma aposta declarada, nao um esquecimento** — o
+`gate:full` existe porque a aposta pode falhar.
+
+**Correcao estrutural que vale mais que o hook, nao feita aqui:** treze builds
+para treze suites e desperdicio no CI tambem. Construir uma vez e reaproveitar
+entre configs cortaria minutos de runner em toda execucao. Exige mexer nos treze
+configs e validar, e ficou fora desta auditoria.
+
+**Salvaguarda contra destruicao:** o hook mede se `docs/audits/evidence/` ja
+estava suja **antes de comecar**. Se estava, avisa e nao restaura nada — pode
+ser captura atualizada de proposito. Medir mais tarde arriscava descartar
+trabalho alheio numa falha precoce, bug que existiu na primeira versao e foi
+corrigido.
+
 **A violacao do guardrail do Motor e decisao de desenho, nao conserto mecanico.**
 O `varredura_cobranca.py` consulta o Motor **de proposito** — foi a razao
 tecnica que sustentou a escolha da varredura diaria no IMP-331, porque o job
