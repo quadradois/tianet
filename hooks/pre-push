@@ -146,22 +146,18 @@ if [ "$TOCA_FRONTEND" -eq 1 ]; then
   npm run test:a11y || falhou "test:a11y"
   npm run test:visual || falhou "test:visual"
 
-  # LIMITE CONHECIDO, medido em 2026-08-23. Cada config do Playwright sobe o
-  # proprio servidor com `npm run build && npm run start`, com orcamento de 120s.
-  # Rodar as treze suites em sequencia significa treze builds completos: no CI,
-  # runner limpo, cabe; nesta maquina, a partir da nona, o build estoura o
-  # orcamento e o teste morre em ERR_CONNECTION_REFUSED — falha de ambiente, nao
-  # de produto, e falso alarme em hook vira `--no-verify` habitual.
-  #
-  # Entao o hook roda aqui as suites de MAIOR RENDIMENTO: sao as que pegaram os
-  # quatro defeitos reais desta auditoria (axe do Dashboard, duas quebras do seed
-  # de jornadas e a deriva de evidencia da certificacao).
-  #
-  # As demais rodam com `npm run gate:full` na raiz, antes de abrir ou atualizar
-  # PR. Isto e uma aposta declarada, nao um esquecimento: `gate:full` existe
-  # justamente porque a aposta pode falhar.
-  passo "suites de maior rendimento (dashboard)"
-  npm run test:dashboard || falhou "test:dashboard"
+  # As treze suites rodam por inteiro desde que o build deixou de ser refeito por
+  # cada config (PLAN-032 §9.5). Antes, treze builds no mesmo `.next/` gastavam
+  # tempo e produziam corrida: o servidor de uma suite ainda encerrando enquanto
+  # a seguinte sobrescrevia o build dava ERR_CONNECTION_REFUSED intermitente, e
+  # foi por isso que uma versao anterior deste hook rodava so o dashboard.
+  # Medido depois da correcao: as treze passam em ~5,4 min, sem falha.
+  passo "suites Playwright por tela — a parte demorada"
+  echo "pre-push: e aqui que estavam os defeitos que o CI pegava e o hook antigo nao."
+  for suite in e2e session dashboard devedores comercial contratos motor cobranca \
+               agenda relatorios configuracoes iam automacao; do
+    npm run "test:$suite" || falhou "test:$suite"
+  done
 fi
 
 # Jornadas exercitam o backend real pela interface. Rodam mesmo em push que so

@@ -1056,10 +1056,7 @@ desta auditoria. As outras doze rodam em **`npm run gate:full`**, antes de abrir
 ou atualizar PR. **E uma aposta declarada, nao um esquecimento** — o
 `gate:full` existe porque a aposta pode falhar.
 
-**Correcao estrutural que vale mais que o hook, nao feita aqui:** treze builds
-para treze suites e desperdicio no CI tambem. Construir uma vez e reaproveitar
-entre configs cortaria minutos de runner em toda execucao. Exige mexer nos treze
-configs e validar, e ficou fora desta auditoria.
+**Correcao estrutural — FEITA, ver §9.5.**
 
 **Salvaguarda contra destruicao:** o hook mede se `docs/audits/evidence/` ja
 estava suja **antes de comecar**. Se estava, avisa e nao restaura nada — pode
@@ -1093,3 +1090,54 @@ deles.
 | 1.2.0 | 2026-08-22 | Provedor de WhatsApp corrigido: nao era decisao aberta — Evolution Go ja esta definido, em uso e com contrato auditado em `docs/whatsapp/CRM_EVOLUTION_CONTRACT.md`. IMP-346 reescrito com o contrato real e desbloqueado; ordem de execucao refeita; IMP-339 ganhou o ponteiro do `contexto-externo.md` no `CLAUDE.md` como correcao de causa raiz. |
 | 1.1.0 | 2026-08-22 | Decisoes do fundador no IMP-331 (varredura diaria) e IMP-332 (aviso e estorno). Descoberto que nao existe transporte de WhatsApp: aberto IMP-346 como pre-requisito de IMP-330 e IMP-332. Visao de notificacoes diarias registrada como IMP-347 pos-MVP. Checklist de execucao e protocolo do loop adicionados. |
 | 1.0.0 | 2026-08-22 | Abertura do plano a partir do raio-X AS-IS/TO-BE, com os achados reverificados no codigo desta arvore. |
+
+### 9.5 Build unico para as suites Playwright (2026-08-23)
+
+**O diagnostico inicial estava errado, e medir corrigiu.** Eu havia atribuido o
+`ERR_CONNECTION_REFUSED` a estouro do orcamento de 120s do build. Medicao: build
+quente leva **11s** — folga de dez vezes. A causa era outra.
+
+**A causa real:** doze configs do Playwright rodavam `npm run build && npm run
+start`, todos escrevendo no **mesmo `.next/`**. O servidor de uma suite ainda
+encerrando enquanto a seguinte sobrescrevia o build e uma **corrida sobre
+artefato compartilhado** — o que explica a intermitencia, o connection refused e
+o fato de so aparecer depois de varias suites. Nao era so desperdicio: era a
+fonte da instabilidade.
+
+**A correcao:** o build acontece uma vez, antes das suites, e cada config so faz
+`start`. Viavel porque nenhum config usa variavel `NEXT_PUBLIC_*`, entao o
+bundle nao depende do ambiente de cada suite — so o runtime depende, e esse le a
+env na hora.
+
+**O risco novo foi fechado antes de existir.** Build unico permite testar contra
+build velho, que passaria despercebido e daria **falso verde** — pior que o
+desperdicio original. `frontend/scripts/require-build.mjs` compara o `BUILD_ID`
+com o arquivo mais novo de `src/` e recusa subir, nomeando o culpado. Testado
+nos dois sentidos.
+
+**Medicoes, antes e depois:**
+
+| | Antes | Depois |
+|---|---|---|
+| uma suite (`test:dashboard`) | ~55s | **27s** |
+| oito suites em sequencia | ~440s **e falhava** | **191s, verdes** |
+| as treze suites | inviavel nesta maquina | **~5,4 min** |
+| hook completo, fim a fim | — | **658s, exit 0** |
+
+Como a corrida acabou, o pre-push voltou a rodar **as treze suites**; a versao
+que rodava so o dashboard era contorno da instabilidade, nao escolha.
+
+**O ganho maior e no CI, todo dia.** O workflow ja constroi uma vez antes das
+suites, entao passa a economizar **doze builds por execucao**, nas duas
+plataformas, em todo push e todo PR.
+
+**Um contrato de governanca precisou mudar sem afrouxar.** O `docs:test` fixava
+o literal `npm run build && npm run start` para provar que o Dashboard roda
+contra build de producao. A intencao continua valendo; o literal nao. Trocado
+por tres asercoes que verificam o que a regra realmente quer: usa
+`npm run start`, exige `require-build.mjs`, e **nao** usa `npm run dev`. Ficou
+mais preciso do que era.
+
+**Armadilha de ambiente, para quem for usar:** suite interrompida deixa servidor
+vivo, e a proxima tentativa falha com "porta ja em uso" — parece defeito de
+configuracao e nao e. Listar quem escuta em 3101-3112 e 3201-3212 e encerrar.

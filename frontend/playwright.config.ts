@@ -36,7 +36,7 @@ export default defineConfig({
     },
   ],
   webServer: {
-    command: `npm run build && npm run start -- --hostname 127.0.0.1 --port ${port}`,
+    command: `node scripts/require-build.mjs && npm run start -- --hostname 127.0.0.1 --port ${port}`,
     reuseExistingServer: false,
     timeout: 120_000,
     url: baseURL,

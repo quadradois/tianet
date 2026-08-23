@@ -1693,7 +1693,13 @@ const contracts = {
     assertText(source.workflow, 'npm run test:dashboard', 'CI executa Dashboard');
     assert.doesNotMatch(source.workflow, /node scripts\/tests\/test-imp-28[4-9]-scope\.js/, 'CI nao executa scope historico');
     assertText(source.playwrightConfig, 'reuseExistingServer: false', 'Dashboard nao reutiliza servidores');
-    assertText(source.playwrightConfig, 'npm run build && npm run start', 'Dashboard usa build de producao');
+    // O build deixou de ser refeito por config (PLAN-032 §9.5): treze builds no
+    // mesmo .next/ eram desperdicio e corrida. A INTENCAO da regra continua a
+    // mesma — a suite roda contra build de producao, nunca contra `next dev` —
+    // e agora e verificada em duas partes.
+    assertText(source.playwrightConfig, 'npm run start', 'Dashboard usa servidor de producao');
+    assertText(source.playwrightConfig, 'require-build.mjs', 'Dashboard exige build atual antes de subir');
+    assert.doesNotMatch(source.playwrightConfig, /npm run dev/, 'Dashboard nao usa servidor de desenvolvimento');
     assertText(source.playwrightConfig, 'viewport: { height: 900, width: 1440 }', 'viewport Dashboard desktop');
     assertText(source.playwrightConfig, 'viewport: { height: 844, width: 390 }', 'viewport Dashboard mobile');
     assertText(source.axeTest, 'AxeBuilder', 'axe executa no browser real');
