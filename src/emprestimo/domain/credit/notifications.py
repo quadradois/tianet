@@ -150,11 +150,11 @@ class ResultadoEnvio:
 class SolicitacaoNotificacao:
     tenant_id: uuid.UUID
     carteira_id: uuid.UUID
-    lembrete_id: uuid.UUID
+    lembrete_id: uuid.UUID | None
     job_id: uuid.UUID
     tentativa_job_id: uuid.UUID
     contato_id: uuid.UUID
-    template_id: uuid.UUID
+    template_id: uuid.UUID | None
     chave_idempotente: str
     payload_canonico: dict[str, Any]
     payload_hash: str
@@ -197,6 +197,37 @@ class SolicitacaoNotificacao:
             tentativa_job_id=tentativa_job_id,
             contato_id=contato_id,
             template_id=template_id,
+            chave_idempotente=chave_idempotente,
+            payload_canonico=canonico,
+            payload_hash=hashlib.sha256(bruto.encode()).hexdigest(),
+        )
+
+    @classmethod
+    def preparar_comprovante(
+        cls,
+        *,
+        tenant_id: uuid.UUID,
+        carteira_id: uuid.UUID,
+        job_id: uuid.UUID,
+        tentativa_job_id: uuid.UUID,
+        contato_id: uuid.UUID,
+        chave_idempotente: str,
+        payload: dict[str, Any],
+    ) -> SolicitacaoNotificacao:
+        """Prepara notificacao transacional cujo texto ja nasceu do Motor."""
+
+        if not chave_idempotente.strip() or "@" in chave_idempotente:
+            raise ViolacaoInvarianteError("EPIC-010", "chave idempotente invalida")
+        canonico = json.loads(json.dumps(payload, sort_keys=True, separators=(",", ":")))
+        bruto = json.dumps(canonico, sort_keys=True, separators=(",", ":"))
+        return cls(
+            tenant_id=tenant_id,
+            carteira_id=carteira_id,
+            lembrete_id=None,
+            job_id=job_id,
+            tentativa_job_id=tentativa_job_id,
+            contato_id=contato_id,
+            template_id=None,
             chave_idempotente=chave_idempotente,
             payload_canonico=canonico,
             payload_hash=hashlib.sha256(bruto.encode()).hexdigest(),

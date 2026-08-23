@@ -2,7 +2,7 @@
 
 **ID:** DOMAIN-005
 
-**Versão:** 1.0.0
+**Versão:** 2.0.0
 
 **Status:** Aprovado
 
@@ -10,9 +10,37 @@
 
 ---
 
+> ## ⚠️ Entidade revogada pela DR-004
+>
+> **A Parcela não existe mais no produto.** A DR-004 substituiu o plano de
+> parcelas pelo **empréstimo livre com acerto mensal**: os juros correm sobre o
+> saldo devedor por trecho, o devedor deve no mínimo o juro do período em cada
+> acerto, e amortizar é voluntário. Atraso não gera multa nem encargo — são
+> apenas mais dias do mesmo juro.
+>
+> A remoção foi executada em três etapas: a migration
+> `0017_remove_plano_de_parcelas` derrubou a estrutura no banco, o IMP-327
+> retirou o aggregate e as operações, e o IMP-336 removeu o último resíduo do
+> código e do contrato público (`parcelas_liquidadas` e
+> `TipoRegraCalculo.PRAZO_FIXO`).
+>
+> **Este documento é mantido como registro histórico**, porque identificadores
+> de governança não são apagados nem renumerados. Ele descreve o que a Parcela
+> era enquanto existiu; **não descreve o produto atual** e não deve ser usado
+> como especificação para implementar nada.
+>
+> Para o modelo vigente, leia:
+> **DOMAIN-004** (Empréstimo), **DOMAIN-006** (Pagamento),
+> **DOMAIN-010** (Motor Financeiro) e **DOMAIN-030** (base de normalização dos
+> juros).
+
+---
+
 # 1. Definição
 
-A Parcela representa uma obrigação financeira prevista em um Contrato de Crédito na modalidade Prazo Fixo.
+> Descrição histórica, válida até a DR-004.
+
+A Parcela representava uma obrigação financeira prevista em um Contrato de Crédito na modalidade Prazo Fixo.
 
 Ela define o compromisso financeiro esperado para uma determinada data de vencimento.
 
@@ -218,4 +246,5 @@ Valor originalmente esperado para liquidação da Parcela.
 
 | Versão | Data | Descrição |
 |---------|------|-----------|
+| 2.0.0 | 23/08/2026 | Entidade revogada pela DR-004. Documento mantido como registro histórico, com aviso de revogação e ponteiro para o modelo vigente (IMP-337). |
 | 1.0.0 | 01/08/2026 | Primeira versão oficial da Entity Parcela. |

@@ -185,6 +185,7 @@ class ResumoCarteiraResponse(BaseModel):
     operacoes_quitadas: int
     acertos_pendentes: int
     principal_a_receber: Decimal
+    projecao_juros: Decimal
     total_realizado: Decimal
 
 

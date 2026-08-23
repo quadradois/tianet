@@ -2,7 +2,7 @@
 
 **ID:** DOMAIN-030
 
-**Versão:** 1.0.0
+**Versão:** 1.1.0
 
 **Status:** Aprovado
 
@@ -19,8 +19,8 @@ BR-030
 # 2. Descrição
 
 Os juros de um período são normalizados pelos dias do **mês a que o período
-pertence** — o mês da data de início —, nunca pelos dias do mês em que a parcela
-vence.
+pertence** — o mês da data de início —, nunca pelos dias do mês em que o
+período termina.
 
 ```
 juros = principal × taxa_mensal × dias_do_periodo ÷ dias_do_mes_de_inicio
@@ -37,7 +37,7 @@ calendário deve custar exatamente a taxa contratada, independentemente de o mê
 ter 28, 30 ou 31 dias. Períodos parciais permanecem proporcionais aos dias
 reais decorridos.
 
-Normalizar pelo mês de vencimento media um mês com a régua de outro: o período
+Normalizar pelo mês de término media um mês com a régua de outro: o período
 de 01/01 a 01/02 tem 31 dias, todos de janeiro, e ao ser dividido pelos 28 dias
 de fevereiro custava **1,107 mês**. O período seguinte, fevereiro inteiro
 dividido por março, custava **0,903 mês**. Ver DR-003 §4.1.
@@ -46,9 +46,9 @@ dividido por março, custava **0,903 mês**. Ver DR-003 §4.1.
 
 # 4. Exemplo numérico
 
-Empréstimo de R$ 10.000,00 em 10 parcelas, 5% ao mês, lançado em 17/08/2026,
-primeiro vencimento em 01/09/2026. Principal de R$ 1.000,00 por parcela,
-portanto R$ 50,00 por mês cheio.
+Empréstimo livre de R$ 1.000,00 a 5% ao mês, lançado em 17/08/2026, com dia de
+acerto no dia 1º. O saldo permanece em R$ 1.000,00 porque o devedor paga apenas
+o juro de cada período, sem amortizar — portanto R$ 50,00 por mês cheio.
 
 | # | Período | Dias | Mês do período | Juros |
 |---|---|---:|---|---:|
@@ -63,8 +63,13 @@ portanto R$ 50,00 por mês cheio.
 | 9 | 01/04 → 01/05 | 30 | abr (30) | **50,00** |
 | 10 | 01/05 → 01/06 | 31 | mai (31) | **50,00** |
 
-Apenas a primeira parcela é proporcional, por cobrir 15 dias de agosto em vez de
-um mês inteiro.
+Apenas o primeiro período é proporcional, por cobrir 15 dias de agosto em vez de
+um mês inteiro. Todos os demais custam exatamente a taxa contratada, e é isso
+que a normalização pelo mês de início garante.
+
+Se o devedor amortizasse R$ 500,00 no acerto de 01/10, o saldo cairia para
+R$ 500,00 e o período seguinte custaria **R$ 25,00** — os juros correm sobre o
+saldo em vigor em cada trecho, não sobre o saldo original.
 
 ---
 
@@ -93,4 +98,5 @@ estrutura da regra — nunca o número.
 
 | Versão | Data | Descrição |
 |---------|------|-----------|
+| 1.1.0 | 23/08/2026 | Regra inalterada; linguagem e exemplo numerico migrados do plano de parcelas para o emprestimo livre com acerto mensal, conforme DR-004 (IMP-337). |
 | 1.0.0 | 17/08/2026 | Especificação criada pela DR-003, junto com a correção da base de normalização e o teste de valor. |

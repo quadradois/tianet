@@ -8,21 +8,22 @@ import {
   DashboardLoadingState,
   DueDatesView,
   InvalidPeriodState,
-  SummaryView,
+  SummaryHero,
 } from "../../src/components/dashboard/dashboard";
 
 describe("Dashboard operacional", () => {
-  it("apresenta valores oficiais sem derivar indicador", () => {
-    render(<SummaryView data={{
+  it("apresenta valores oficiais e a projecao de juros do backend", () => {
+    render(<SummaryHero data={{
       carteira_id: "wallet-1", data_referencia: "2026-08-13", operacoes_ativas: 3,
       operacoes_quitadas: 5, acertos_pendentes: 1,
       tenant_id: "tenant-1", total_operacoes: 8, principal_a_receber: "9007199254740993.01",
-      total_realizado: "123.45",
+      total_realizado: "123.45", projecao_juros: "250.00",
     }} />);
     expect(screen.getByText("R$ 9.007.199.254.740.993,01")).toBeInTheDocument();
     expect(screen.getByText("R$ 123,45")).toBeInTheDocument();
+    expect(screen.getByText("R$ 250,00")).toBeInTheDocument();
     expect(screen.queryByText("9007199254740993.01")).not.toBeInTheDocument();
-    expect(document.body.textContent).not.toMatch(/percentual|diferenca|projecao/i);
+    expect(document.body.textContent).not.toMatch(/percentual|diferenca/i);
   });
 
   it("mantem situacao e valores de vencimento retornados pelo backend", async () => {

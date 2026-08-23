@@ -2,7 +2,7 @@
 
 **ID:** FOUNDATION-007
 
-**Versão:** 1.2.0
+**Versão:** 1.3.0
 
 **Status:** Aprovado
 
@@ -59,7 +59,6 @@ Responsável por:
 
 - Contratos de Crédito;
 - Empréstimos;
-- Parcelas;
 - Pagamentos;
 - Processamento Financeiro;
 - Memória de Cálculo;
@@ -168,6 +167,7 @@ Este documento será considerado aprovado quando:
 
 | Versão | Data | Descrição |
 |---------|------|-----------|
+| 1.3.0 | 23/08/2026 | Parcelas removidas do mapa de produto: revogadas pela DR-004 (IMP-337). |
 | 1.2.0 | 2026-08-11 | Automação de Agenda e Comunicação incorporada sem criar nova Capability no EPIC-010. |
 | 1.1.0 | 2026-08-11 | Capability Administrar Configuracoes Financeiras adicionada ao Product Map para o EPIC-009. |
 | 1.0.0 | 01/08/2026 | Primeira versão oficial do Product Map do MVP. |

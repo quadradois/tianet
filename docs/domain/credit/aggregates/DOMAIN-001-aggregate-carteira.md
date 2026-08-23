@@ -2,7 +2,7 @@
 
 **ID:** DOMAIN-001
 
-**Versão:** 1.0.0
+**Versão:** 1.1.0
 
 **Status:** Aprovado
 
@@ -76,7 +76,6 @@ A Carteira é composta pelas seguintes entidades:
 - Devedor
 - Contrato de Crédito
 - Empréstimo
-- Parcela
 - Pagamento
 
 ---
@@ -124,7 +123,6 @@ Carteira
 ├── Devedor
 ├── Contrato de Crédito
 ├── Empréstimo
-│ ├── Parcela
 │ └── Pagamento
 │
 ├── Dinheiro
@@ -143,7 +141,6 @@ classDiagram
     class Devedor
     class ContratoDeCrédito
     class Empréstimo
-    class Parcela
     class Pagamento
     class Dinheiro
     class Periodicidade
@@ -156,7 +153,6 @@ classDiagram
     Carteira *-- Devedor : contém
     Carteira *-- ContratoDeCrédito : contém
     Carteira *-- Empréstimo : contém
-    Empréstimo *-- Parcela : possui
     Empréstimo o-- Pagamento : recebe
     Empréstimo --> ContratoDeCrédito : originado por
     Empréstimo --> Dinheiro : saldo
@@ -174,4 +170,5 @@ classDiagram
 
 | Versão | Data | Descrição |
 |---------|------|-----------|
+| 1.1.0 | 23/08/2026 | Parcela removida da composicao, da arvore e do diagrama do agregado: entidade revogada pela DR-004 (IMP-337). |
 | 1.0.0 | 01/08/2026 | Primeira versão oficial do Aggregate Carteira. |

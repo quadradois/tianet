@@ -2,7 +2,7 @@
 
 **ID:** PLAN-013
 
-**Versao:** 1.0.0
+**Versao:** 1.1.0
 
 **Status:** Proposto
 
@@ -162,6 +162,9 @@ Rotas candidatas do EPIC-005:
 - `POST /credit/emprestimos/{emprestimo_id}/parcelas` gera plano de Parcelas;
 - `GET /credit/emprestimos/{emprestimo_id}/parcelas` lista Parcelas;
 - `POST /credit/emprestimos/{emprestimo_id}/pagamentos` registra Pagamento;
+- `POST /credit/pagamentos/{pagamento_id}/estornos` registra, com
+  `Idempotency-Key` obrigatoria, o estorno parcial da sobra destinada a
+  devolucao sem apagar o valor bruto recebido;
 - `GET /credit/emprestimos/{emprestimo_id}/saldo` consulta saldo em data de
   referencia;
 - `GET /credit/emprestimos/{emprestimo_id}/memoria-calculo` consulta memoria;
@@ -280,4 +283,5 @@ O EPIC-005 so pode ser considerado pronto quando:
 
 | Versao | Data | Descricao |
 |--------|------|-----------|
+| 1.1.0 | 2026-08-22 | IMP-332 declara o estorno parcial idempotente da sobra de Pagamento. |
 | 1.0.0 | 2026-08-09 | Plano tecnico inicial do EPIC-005/Motor Financeiro com backlog, suites e guardrails de precisao. |

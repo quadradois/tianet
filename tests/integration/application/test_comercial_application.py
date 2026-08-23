@@ -6,6 +6,7 @@ import uuid
 from dataclasses import dataclass
 
 import pytest
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session, sessionmaker
 from tests.factories import CarteiraFactory, TenantFactory, UsuarioFactory
 
@@ -26,6 +27,12 @@ from emprestimo.domain.credit.contato import Contato, TipoContato
 from emprestimo.domain.credit.devedor import Devedor
 from emprestimo.domain.credit.documento import Documento
 from emprestimo.domain.credit.proposta_comercial_state import PropostaComercialState
+from emprestimo.infrastructure.auditoria import SqlAlchemyAuditoriaRegistro
+from emprestimo.infrastructure.db.orm import (
+    AuditoriaLogORM,
+    IdempotencyKeyORM,
+    SimulacaoComercialORM,
+)
 from emprestimo.infrastructure.repositories import (
     SqlAlchemyCarteiraRepository,
     SqlAlchemyDevedorRepository,
@@ -44,13 +51,54 @@ class _Ambiente:
     uow_factory: sessionmaker[Session]
 
 
+class _UnitOfWorkComFalhaNoCommit(SqlAlchemyUnitOfWork):
+    def commit(self) -> None:
+        raise RuntimeError("falha forcada no commit do negocio")
+
+
+def test_comercial_audita_falha_em_sessao_independente_e_reverte_negocio(
+    session_factory: sessionmaker[Session],
+) -> None:
+    ambiente = _ambiente(session_factory)
+    with session_factory() as session:
+        simulacoes_antes = session.scalar(select(func.count()).select_from(SimulacaoComercialORM))
+        chaves_antes = session.scalar(select(func.count()).select_from(IdempotencyKeyORM))
+
+    service = SimulacaoComercialService(
+        lambda: _UnitOfWorkComFalhaNoCommit(session_factory),
+        SqlAlchemyAuditoriaRegistro(session_factory),
+    )
+    with pytest.raises(RuntimeError, match="falha forcada"):
+        service.criar(
+            tenant_id=ambiente.tenant_id,
+            carteira_id=ambiente.carteira_id,
+            devedor_id=ambiente.devedor_id,
+            usuario_id=ambiente.usuario_id,
+            parametros={"valor": 2000, "parcelas": 8},
+            idempotency_key=str(uuid.uuid4()),
+        )
+
+    with session_factory() as session:
+        simulacoes_depois = session.scalar(select(func.count()).select_from(SimulacaoComercialORM))
+        chaves_depois = session.scalar(select(func.count()).select_from(IdempotencyKeyORM))
+        acoes = session.scalars(
+            select(AuditoriaLogORM.acao)
+            .where(AuditoriaLogORM.entidade == "simulacao_comercial")
+            .where(AuditoriaLogORM.detalhes.contains(str(ambiente.carteira_id)))
+        ).all()
+    assert simulacoes_depois == simulacoes_antes
+    assert chaves_depois == chaves_antes
+    assert set(acoes) == {"criar.inicio", "criar.falha", "criar.rollback"}
+
+
 def test_fluxo_comercial_cria_aprova_e_gera_contrato_logico(
     session_factory: sessionmaker[Session],
 ) -> None:
     ambiente = _ambiente(session_factory)
-    simulacoes = SimulacaoComercialService(lambda: SqlAlchemyUnitOfWork(session_factory))
-    propostas = PropostaComercialService(lambda: SqlAlchemyUnitOfWork(session_factory))
-    decisoes = DecisaoComercialService(lambda: SqlAlchemyUnitOfWork(session_factory))
+    auditoria = SqlAlchemyAuditoriaRegistro(session_factory)
+    simulacoes = SimulacaoComercialService(lambda: SqlAlchemyUnitOfWork(session_factory), auditoria)
+    propostas = PropostaComercialService(lambda: SqlAlchemyUnitOfWork(session_factory), auditoria)
+    decisoes = DecisaoComercialService(lambda: SqlAlchemyUnitOfWork(session_factory), auditoria)
     integracao = IntegracaoPropostaAprovadaService(lambda: SqlAlchemyUnitOfWork(session_factory))
 
     simulacao = simulacoes.criar(
@@ -96,7 +144,10 @@ def test_consulta_comercial_lista_propostas_isoladas_por_tenant(
 ) -> None:
     ambiente_a = _ambiente(session_factory)
     ambiente_b = _ambiente(session_factory)
-    propostas = PropostaComercialService(lambda: SqlAlchemyUnitOfWork(session_factory))
+    propostas = PropostaComercialService(
+        lambda: SqlAlchemyUnitOfWork(session_factory),
+        SqlAlchemyAuditoriaRegistro(session_factory),
+    )
     consulta = ConsultaComercialService(lambda: SqlAlchemyUnitOfWork(session_factory))
     proposta_a = propostas.criar(
         tenant_id=ambiente_a.tenant_id,
@@ -129,8 +180,9 @@ def test_decisao_comercial_rejeita_usuario_de_outro_tenant(
 ) -> None:
     ambiente_a = _ambiente(session_factory)
     ambiente_b = _ambiente(session_factory)
-    propostas = PropostaComercialService(lambda: SqlAlchemyUnitOfWork(session_factory))
-    decisoes = DecisaoComercialService(lambda: SqlAlchemyUnitOfWork(session_factory))
+    auditoria = SqlAlchemyAuditoriaRegistro(session_factory)
+    propostas = PropostaComercialService(lambda: SqlAlchemyUnitOfWork(session_factory), auditoria)
+    decisoes = DecisaoComercialService(lambda: SqlAlchemyUnitOfWork(session_factory), auditoria)
     proposta = propostas.criar(
         tenant_id=ambiente_a.tenant_id,
         carteira_id=ambiente_a.carteira_id,
@@ -152,8 +204,9 @@ def test_servicos_comerciais_rejeitam_devedor_inativo(
 ) -> None:
     ambiente = _ambiente(session_factory)
     _inativar_devedor(session_factory, ambiente.devedor_id)
-    simulacoes = SimulacaoComercialService(lambda: SqlAlchemyUnitOfWork(session_factory))
-    propostas = PropostaComercialService(lambda: SqlAlchemyUnitOfWork(session_factory))
+    auditoria = SqlAlchemyAuditoriaRegistro(session_factory)
+    simulacoes = SimulacaoComercialService(lambda: SqlAlchemyUnitOfWork(session_factory), auditoria)
+    propostas = PropostaComercialService(lambda: SqlAlchemyUnitOfWork(session_factory), auditoria)
 
     with pytest.raises(ViolacaoInvarianteError, match="Devedor inativo"):
         simulacoes.criar(
@@ -177,8 +230,9 @@ def test_decisao_comercial_traduz_transicao_invalida_para_conflito(
     session_factory: sessionmaker[Session],
 ) -> None:
     ambiente = _ambiente(session_factory)
-    propostas = PropostaComercialService(lambda: SqlAlchemyUnitOfWork(session_factory))
-    decisoes = DecisaoComercialService(lambda: SqlAlchemyUnitOfWork(session_factory))
+    auditoria = SqlAlchemyAuditoriaRegistro(session_factory)
+    propostas = PropostaComercialService(lambda: SqlAlchemyUnitOfWork(session_factory), auditoria)
+    decisoes = DecisaoComercialService(lambda: SqlAlchemyUnitOfWork(session_factory), auditoria)
     proposta = propostas.criar(
         tenant_id=ambiente.tenant_id,
         carteira_id=ambiente.carteira_id,
@@ -199,7 +253,10 @@ def test_contrato_logico_requer_proposta_aprovada(
     session_factory: sessionmaker[Session],
 ) -> None:
     ambiente = _ambiente(session_factory)
-    propostas = PropostaComercialService(lambda: SqlAlchemyUnitOfWork(session_factory))
+    propostas = PropostaComercialService(
+        lambda: SqlAlchemyUnitOfWork(session_factory),
+        SqlAlchemyAuditoriaRegistro(session_factory),
+    )
     integracao = IntegracaoPropostaAprovadaService(lambda: SqlAlchemyUnitOfWork(session_factory))
     proposta = propostas.criar(
         tenant_id=ambiente.tenant_id,

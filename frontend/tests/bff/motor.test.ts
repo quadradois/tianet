@@ -63,7 +63,7 @@ function loan(carteira_id = WALLET_ID) {
 
 
 function payment() {
-  return { chave_idempotencia: "payment-key", emprestimo_id: LOAN_ID, estado: "processado", id: "00000000-0000-4000-8000-000000000070", memoria: memory(), parcelas_liquidadas: [], recebido_em: "2026-08-14T12:00:00Z", tenant_id: TENANT_ID, valor_amortizacao: "90.00", valor_encargos: "0.00", valor_juros: "10.00", valor_recebido: "100.00" };
+  return { chave_idempotencia: "payment-key", emprestimo_id: LOAN_ID, estado: "processado", id: "00000000-0000-4000-8000-000000000070", memoria: memory(), recebido_em: "2026-08-14T12:00:00Z", tenant_id: TENANT_ID, valor_amortizacao: "90.00", valor_encargos: "0.00", valor_juros: "10.00", valor_recebido: "100.00" };
 }
 
 describe("BFF Motor", () => {

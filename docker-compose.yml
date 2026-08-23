@@ -6,6 +6,7 @@ x-backend: &backend
     DATABASE_URL: postgresql+psycopg://emprestimo:${POSTGRES_PASSWORD:?defina POSTGRES_PASSWORD no .env}@postgres:5432/emprestimo
     APP_ENV: ${APP_ENV:-development}
     JWT_SECRET_KEY: ${JWT_SECRET_KEY:?defina JWT_SECRET_KEY no .env}
+    EVOLUTION_HOST: ${EVOLUTION_HOST:-https://diamondgreen.com.br}
   depends_on:
     postgres:
       condition: service_healthy
@@ -71,6 +72,7 @@ services:
       # Sem RESEND_*, e com APP_ENV != production, o worker usa FakeNotificationChannel.
       RESEND_API_KEY: ${RESEND_API_KEY:-}
       RESEND_FROM: ${RESEND_FROM:-}
+      EVOLUTION_INSTANCE_TOKEN: ${EVOLUTION_INSTANCE_TOKEN:-}
     depends_on:
       postgres:
         condition: service_healthy

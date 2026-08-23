@@ -5,7 +5,7 @@ from __future__ import annotations
 import uuid
 from datetime import date
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, Header, Query
 
 from emprestimo.application.autorizacao import Principal
 from emprestimo.application.configuracoes_financeiras import (
@@ -78,6 +78,7 @@ router = APIRouter(
 )
 def criar_modalidade_financeira(
     payload: ModalidadeFinanceiraCreateRequest,
+    idempotency_key: str = Header(alias="Idempotency-Key", min_length=1, max_length=255),
     principal: Principal = Depends(exigir_permissao(PERMISSAO_MODALIDADE_GERIR)),
     service: ModalidadeFinanceiraService = Depends(get_modalidade_financeira_service),
 ) -> ModalidadeFinanceiraResponse:
@@ -87,6 +88,7 @@ def criar_modalidade_financeira(
         usuario_id=principal.usuario_id,
         codigo=payload.codigo,
         nome=payload.nome,
+        idempotency_key=idempotency_key,
     )
     return _modalidade_response(modalidade)
 
@@ -111,6 +113,7 @@ def listar_modalidades_financeiras(
 )
 def criar_calendario_financeiro(
     payload: CalendarioFinanceiroCreateRequest,
+    idempotency_key: str = Header(alias="Idempotency-Key", min_length=1, max_length=255),
     principal: Principal = Depends(exigir_permissao(PERMISSAO_CALENDARIO_GERIR)),
     service: CalendarioFinanceiroService = Depends(get_calendario_financeiro_service),
 ) -> CalendarioFinanceiroResponse:
@@ -121,6 +124,7 @@ def criar_calendario_financeiro(
         codigo=payload.codigo,
         nome=payload.nome,
         feriados=tuple(payload.feriados),
+        idempotency_key=idempotency_key,
     )
     return _calendario_response(calendario)
 
@@ -145,6 +149,7 @@ def listar_calendarios_financeiros(
 )
 def criar_configuracao_financeira(
     payload: ConfiguracaoFinanceiraCreateRequest,
+    idempotency_key: str = Header(alias="Idempotency-Key", min_length=1, max_length=255),
     principal: Principal = Depends(exigir_permissao(PERMISSAO_CONFIG_GERIR)),
     service: ConfiguracaoFinanceiraService = Depends(get_configuracao_financeira_service),
 ) -> ConfiguracaoFinanceiraResponse:
@@ -172,6 +177,7 @@ def criar_configuracao_financeira(
             payload.politica_arredondamento.modo,
             payload.politica_arredondamento.escala,
         ),
+        idempotency_key=idempotency_key,
     )
     return _configuracao_response(configuracao)
 
@@ -230,6 +236,7 @@ def consultar_configuracao_vigente(
 )
 def capturar_snapshot_configuracao(
     payload: CapturaSnapshotConfiguracaoRequest,
+    idempotency_key: str = Header(alias="Idempotency-Key", min_length=1, max_length=255),
     principal: Principal = Depends(exigir_permissao(PERMISSAO_SNAPSHOT_CAPTURAR)),
     service: CapturaSnapshotConfiguracaoService = Depends(
         get_captura_snapshot_configuracao_service
@@ -240,6 +247,7 @@ def capturar_snapshot_configuracao(
         tenant_id=principal.tenant_id,
         usuario_id=principal.usuario_id,
         motivo=payload.motivo,
+        idempotency_key=idempotency_key,
     )
     return _snapshot_response(snapshot)
 
@@ -271,6 +279,7 @@ def consultar_configuracao_financeira(
 def aprovar_configuracao_financeira(
     configuracao_id: uuid.UUID,
     payload: DecisaoConfiguracaoRequest,
+    idempotency_key: str = Header(alias="Idempotency-Key", min_length=1, max_length=255),
     principal: Principal = Depends(exigir_permissao(PERMISSAO_CONFIG_APROVAR)),
     service: ConfiguracaoFinanceiraService = Depends(get_configuracao_financeira_service),
 ) -> ConfiguracaoFinanceiraResponse:
@@ -280,6 +289,7 @@ def aprovar_configuracao_financeira(
             tenant_id=principal.tenant_id,
             usuario_id=principal.usuario_id,
             motivo=payload.motivo,
+            idempotency_key=idempotency_key,
         )
     )
 
@@ -293,6 +303,7 @@ def aprovar_configuracao_financeira(
 def programar_configuracao_financeira(
     configuracao_id: uuid.UUID,
     payload: ProgramarConfiguracaoRequest,
+    idempotency_key: str = Header(alias="Idempotency-Key", min_length=1, max_length=255),
     principal: Principal = Depends(exigir_permissao(PERMISSAO_CONFIG_ATIVAR)),
     service: ConfiguracaoFinanceiraService = Depends(get_configuracao_financeira_service),
 ) -> ConfiguracaoFinanceiraResponse:
@@ -303,6 +314,7 @@ def programar_configuracao_financeira(
             usuario_id=principal.usuario_id,
             data_ativacao=payload.data_ativacao,
             motivo=payload.motivo,
+            idempotency_key=idempotency_key,
         )
     )
 
@@ -316,6 +328,7 @@ def programar_configuracao_financeira(
 def ativar_configuracao_financeira(
     configuracao_id: uuid.UUID,
     payload: DecisaoConfiguracaoRequest,
+    idempotency_key: str = Header(alias="Idempotency-Key", min_length=1, max_length=255),
     principal: Principal = Depends(exigir_permissao(PERMISSAO_CONFIG_ATIVAR)),
     service: ConfiguracaoFinanceiraService = Depends(get_configuracao_financeira_service),
 ) -> ConfiguracaoFinanceiraResponse:
@@ -325,6 +338,7 @@ def ativar_configuracao_financeira(
             tenant_id=principal.tenant_id,
             usuario_id=principal.usuario_id,
             motivo=payload.motivo,
+            idempotency_key=idempotency_key,
         )
     )
 
@@ -338,6 +352,7 @@ def ativar_configuracao_financeira(
 def inativar_configuracao_financeira(
     configuracao_id: uuid.UUID,
     payload: DecisaoConfiguracaoRequest,
+    idempotency_key: str = Header(alias="Idempotency-Key", min_length=1, max_length=255),
     principal: Principal = Depends(exigir_permissao(PERMISSAO_CONFIG_ATIVAR)),
     service: ConfiguracaoFinanceiraService = Depends(get_configuracao_financeira_service),
 ) -> ConfiguracaoFinanceiraResponse:
@@ -347,6 +362,7 @@ def inativar_configuracao_financeira(
             tenant_id=principal.tenant_id,
             usuario_id=principal.usuario_id,
             motivo=payload.motivo,
+            idempotency_key=idempotency_key,
         )
     )
 

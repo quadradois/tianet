@@ -2,7 +2,7 @@
 
 **ID:** DOMAIN-002
 
-**Versão:** 1.0.0
+**Versão:** 1.1.0
 
 **Status:** Aprovado
 
@@ -47,8 +47,6 @@ A Pessoa não controla valores financeiros.
 Valores pertencem ao Empréstimo.
 
 Pagamentos pertencem ao Empréstimo.
-
-Parcelas pertencem ao Empréstimo.
 
 ---
 
@@ -178,4 +176,5 @@ Pessoa que recebe um empréstimo.
 
 | Versão | Data | Descrição |
 |----------|------------|------------------------------|
+| 1.1.0 | 23/08/2026 | Referencia a Parcelas removida: a entidade foi revogada pela DR-004 (IMP-337). |
 | 1.0.0 | 01/08/2026 | Primeira versão oficial. |

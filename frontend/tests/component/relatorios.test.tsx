@@ -17,7 +17,7 @@ const LOAN_ID = "00000000-0000-4000-8000-000000000010";
 const DEVEDOR_ID = "00000000-0000-4000-8000-000000000011";
 const PAYMENT_ID = "00000000-0000-4000-8000-000000000012";
 
-const summary: SummaryReport = { carteira_id: WALLET_ID, data_referencia: "2026-08-14", operacoes_ativas: 2, operacoes_quitadas: 1, acertos_pendentes: 1, tenant_id: TENANT_ID, total_operacoes: 3, principal_a_receber: "40.00", total_realizado: "10.00" };
+const summary: SummaryReport = { carteira_id: WALLET_ID, data_referencia: "2026-08-14", operacoes_ativas: 2, operacoes_quitadas: 1, acertos_pendentes: 1, tenant_id: TENANT_ID, total_operacoes: 3, principal_a_receber: "40.00", total_realizado: "10.00", projecao_juros: "0.00" };
 const dueDates: DueDatesReport = { carteira_id: WALLET_ID, data_referencia: "2026-08-14", itens: [{ acerto_em: "2026-08-10", devedor_id: DEVEDOR_ID, dia_de_acerto: 10, dias_sem_pagamento: 4, emprestimo_id: LOAN_ID, principal_original: "10.00", situacao: "pendente" }], tenant_id: TENANT_ID, total: 1 };
 const payments: PaymentsReport = { carteira_id: WALLET_ID, fim: "2026-08-31", inicio: "2026-08-01", operacoes_quitadas: [LOAN_ID], pagamentos: [{ emprestimo_id: LOAN_ID, estado: "confirmado", pagamento_id: PAYMENT_ID, recebido_em: "2026-08-12", valor_recebido: "10.00" }], tenant_id: TENANT_ID, total_realizado: "10.00" };
 const cashFlow: CashFlowReport = { carteira_id: WALLET_ID, fim: "2026-08-31", inicio: "2026-08-01", itens: [{ acertos: 1, data: "2026-08-12", pagamento_ids: [PAYMENT_ID], realizado: "10.00" }], tenant_id: TENANT_ID };

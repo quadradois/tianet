@@ -8,6 +8,7 @@ from dataclasses import dataclass, field
 from datetime import UTC, date, datetime
 from decimal import Decimal
 from typing import Any, cast
+from unittest.mock import Mock
 
 import pytest
 
@@ -22,7 +23,7 @@ from emprestimo.application.operacao_diaria import (
     RegistrarAcaoCobranca,
     RegistrarPromessa,
 )
-from emprestimo.application.ports import UnitOfWork
+from emprestimo.application.ports import AuditoriaRegistro, UnitOfWork
 from emprestimo.domain.credit.operacao_diaria import (
     AcaoCobranca,
     CobrancaCaso,
@@ -62,7 +63,7 @@ def test_consultar_fila_retorna_apenas_casos_abertos() -> None:
 
 def test_registrar_acao_cobranca_persiste_com_idempotencia_e_replay() -> None:
     uow = _FakeUoW(casos=[_caso()])
-    service = RegistrarAcaoCobranca(_uow_factory(uow))
+    service = RegistrarAcaoCobranca(_uow_factory(uow), _auditoria())
 
     primeiro = service.registrar(
         tenant_id=TENANT_ID,
@@ -92,7 +93,7 @@ def test_registrar_acao_cobranca_persiste_com_idempotencia_e_replay() -> None:
 
 def test_registrar_acao_cobranca_rejeita_payload_divergente() -> None:
     uow = _FakeUoW(casos=[_caso()])
-    service = RegistrarAcaoCobranca(_uow_factory(uow))
+    service = RegistrarAcaoCobranca(_uow_factory(uow), _auditoria())
     service.registrar(
         tenant_id=TENANT_ID,
         cobranca_caso_id=uow.cobranca_caso.casos[0].id,
@@ -117,7 +118,7 @@ def test_registrar_acao_cross_tenant_responde_404_logico() -> None:
     uow = _FakeUoW(casos=[_caso(tenant_id=uuid.uuid4())])
 
     with pytest.raises(CobrancaCasoNaoEncontradoError):
-        RegistrarAcaoCobranca(_uow_factory(uow)).registrar(
+        RegistrarAcaoCobranca(_uow_factory(uow), _auditoria()).registrar(
             tenant_id=TENANT_ID,
             cobranca_caso_id=uow.cobranca_caso.casos[0].id,
             usuario_id=USUARIO_ID,
@@ -133,7 +134,7 @@ def test_registrar_acao_cross_tenant_responde_404_logico() -> None:
 def test_registrar_promessa_cria_estado_pagamento_informado() -> None:
     uow = _FakeUoW(casos=[_caso()])
 
-    resultado = RegistrarPromessa(_uow_factory(uow)).registrar(
+    resultado = RegistrarPromessa(_uow_factory(uow), _auditoria()).registrar(
         tenant_id=TENANT_ID,
         cobranca_caso_id=uow.cobranca_caso.casos[0].id,
         usuario_id=USUARIO_ID,
@@ -160,7 +161,7 @@ def test_apropriar_pagamento_promessa_usa_pagamento_oficial_e_cumpre_promessa() 
     )
     uow = _FakeUoW(casos=[_caso()], promessas=[promessa], pagamentos=[pagamento])
 
-    resultado = ApropriarPagamentoPromessa(_uow_factory(uow)).apropriar(
+    resultado = ApropriarPagamentoPromessa(_uow_factory(uow), _auditoria()).apropriar(
         tenant_id=TENANT_ID,
         promessa_id=promessa.id,
         pagamento_id=pagamento.id,
@@ -172,6 +173,10 @@ def test_apropriar_pagamento_promessa_usa_pagamento_oficial_e_cumpre_promessa() 
     assert resultado.estado_promessa is PromessaPagamentoState.CUMPRIDA
     assert len(uow.apropriacao_pagamento.salvas) == 1
     assert uow.promessa_pagamento.salvas[-1].estado is PromessaPagamentoState.CUMPRIDA
+
+
+def _auditoria() -> AuditoriaRegistro:
+    return cast(AuditoriaRegistro, Mock())
 
 
 def _uow_factory(uow: _FakeUoW) -> Callable[[], UnitOfWork]:

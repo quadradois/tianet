@@ -11,17 +11,32 @@ import uuid
 from collections.abc import Callable
 from concurrent.futures import Future
 from dataclasses import dataclass
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, date, datetime, timedelta
 
 from sqlalchemy import create_engine, delete, func, select
 from sqlalchemy.orm import Session, sessionmaker
 
-from emprestimo.application.notifications import FakeNotificationChannel, NotificationService
+from emprestimo.application.comprovante import TIPO_JOB_COMPROVANTE, EntregaComprovanteService
+from emprestimo.application.notifications import (
+    TIPO_JOB_AVISO_SOBRA,
+    EntregaAvisoSobraPagamentoService,
+    FakeNotificationChannel,
+    NotificationService,
+)
 from emprestimo.application.scheduler import ClaimScheduler, ResultadoExecucao, SchedulerService
+from emprestimo.application.varredura_cobranca import (
+    TIPO_JOB_VARREDURA_COBRANCA,
+    AgendadorVarreduraCobranca,
+    VarreduraCobrancaService,
+)
 from emprestimo.domain.credit.automacao_ports import NotificationChannel
+from emprestimo.infrastructure.auditoria import SqlAlchemyAuditoriaRegistro
 from emprestimo.infrastructure.db.orm import JobAgendadoORM, SchedulerWorkerHeartbeatORM
 from emprestimo.infrastructure.db.session import database_url
-from emprestimo.infrastructure.notifications import ResendNotificationChannel
+from emprestimo.infrastructure.notifications import (
+    EvolutionWhatsAppNotificationChannel,
+    ResendNotificationChannel,
+)
 from emprestimo.infrastructure.unit_of_work import SqlAlchemyUnitOfWork
 
 logger = logging.getLogger(__name__)
@@ -121,11 +136,13 @@ class SchedulerWorker:
         settings: WorkerSettings,
         *,
         heartbeat: Callable[[int, bool], None] | None = None,
+        before_cycle: Callable[[], None] | None = None,
     ) -> None:
         self._service = service
         self._handlers = handlers
         self._settings = settings
         self._heartbeat = heartbeat or (lambda _ativos, _falha: None)
+        self._before_cycle = before_cycle or (lambda: None)
         self._stop = threading.Event()
         self._executor = _DaemonExecutor()
         self._futures: dict[Future[None], tuple[ClaimScheduler, float, float]] = {}
@@ -139,6 +156,7 @@ class SchedulerWorker:
         self._drain()
 
     def cycle(self) -> int:
+        self._before_cycle()
         self._supervise()
         slots = self._settings.concurrency - len(self._futures)
         claims = self._service.reivindicar(
@@ -264,6 +282,31 @@ class HeartbeatStore:
             session.commit()
 
 
+class SemeadorDiarioCobranca:
+    """Cria jobs diarios no scheduler existente, uma vez por data e processo."""
+
+    def __init__(
+        self,
+        agendador: AgendadorVarreduraCobranca,
+        *,
+        agora: Callable[[], datetime] | None = None,
+    ) -> None:
+        self._agendador = agendador
+        self._agora = agora or (lambda: datetime.now(UTC))
+        self._ultima_data: date | None = None
+
+    def semear(self) -> None:
+        instante = self._agora()
+        data_referencia = instante.date()
+        if self._ultima_data == data_referencia:
+            return
+        self._agendador.agendar_dia(
+            data_referencia=data_referencia,
+            executar_em=instante,
+        )
+        self._ultima_data = data_referencia
+
+
 def main() -> None:
     settings = WorkerSettings.from_env()
     engine = create_engine(
@@ -273,30 +316,69 @@ def main() -> None:
         pool_pre_ping=True,
     )
     session_factory = sessionmaker(bind=engine, expire_on_commit=False)
+    auditoria = SqlAlchemyAuditoriaRegistro(session_factory)
     service = SchedulerService(
         lambda: SqlAlchemyUnitOfWork(session_factory),
+        auditoria,
         lease_duration=timedelta(seconds=settings.lease_seconds),
     )
+    app_env = os.environ.get("APP_ENV", "development")
     api_key = os.environ.get("RESEND_API_KEY")
     remetente = os.environ.get("RESEND_FROM")
     if api_key and remetente:
-        channel: NotificationChannel = ResendNotificationChannel(
+        email_channel: NotificationChannel = ResendNotificationChannel(
             api_key=api_key, remetente=remetente
         )
-    elif os.environ.get("APP_ENV", "development") == "production":
+    elif app_env == "production":
         raise RuntimeError("RESEND_API_KEY e RESEND_FROM sao obrigatorios em producao")
     else:
-        channel = FakeNotificationChannel()
+        email_channel = FakeNotificationChannel()
     notifications = NotificationService(
         lambda: SqlAlchemyUnitOfWork(session_factory),
-        channel,
+        email_channel,
+        auditoria,
     )
+
+    def uow_factory() -> SqlAlchemyUnitOfWork:
+        return SqlAlchemyUnitOfWork(session_factory)
+
+    evolution_token = os.environ.get("EVOLUTION_INSTANCE_TOKEN")
+    if evolution_token:
+        whatsapp_channel: NotificationChannel = EvolutionWhatsAppNotificationChannel(
+            host=os.environ.get("EVOLUTION_HOST", "https://diamondgreen.com.br"),
+            instance_token=evolution_token,
+        )
+    elif app_env == "production":
+        raise RuntimeError("EVOLUTION_INSTANCE_TOKEN e obrigatorio em producao")
+    else:
+        whatsapp_channel = FakeNotificationChannel()
+    comprovantes = EntregaComprovanteService(
+        uow_factory,
+        whatsapp_channel,
+        auditoria,
+    )
+    avisos_sobra = EntregaAvisoSobraPagamentoService(
+        uow_factory,
+        whatsapp_channel,
+        auditoria,
+    )
+    varredura = VarreduraCobrancaService(
+        uow_factory,
+        auditoria,
+    )
+    semeador_cobranca = SemeadorDiarioCobranca(AgendadorVarreduraCobranca(uow_factory, auditoria))
     worker_id = f"scheduler-{uuid.uuid4()}"
     heartbeat = HeartbeatStore(worker_id, session_factory)
     worker = SchedulerWorker(
         service,
-        handlers={"enviar_lembrete": notifications.processar_lembrete},
+        handlers={
+            "enviar_lembrete": notifications.processar_lembrete,
+            TIPO_JOB_COMPROVANTE: comprovantes.processar_comprovante,
+            TIPO_JOB_AVISO_SOBRA: avisos_sobra.processar_aviso,
+            TIPO_JOB_VARREDURA_COBRANCA: varredura.processar_job,
+        },
         settings=settings,
+        before_cycle=semeador_cobranca.semear,
         heartbeat=lambda ativos, falha: heartbeat.registrar(
             ativos,
             concorrencia=settings.concurrency,

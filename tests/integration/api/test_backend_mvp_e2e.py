@@ -23,6 +23,7 @@ from emprestimo.domain.platform.credencial import Credencial
 from emprestimo.domain.platform.perfil import PerfilAcesso
 from emprestimo.domain.platform.tenant import TenantState
 from emprestimo.domain.platform.usuario import Usuario, UsuarioState
+from emprestimo.infrastructure.auditoria import SqlAlchemyAuditoriaRegistro
 from emprestimo.infrastructure.db.orm import (
     AuditoriaLogORM,
     JobAgendadoORM,
@@ -295,7 +296,10 @@ def test_imp_261_e2e_agenda_scheduler_notification(
     assert jobs.json()["total"] == 1
     assert jobs.json()["items"][0]["origem_id"] == lembrete.json()["lembrete_id"]
 
-    scheduler = SchedulerService(lambda: SqlAlchemyUnitOfWork(session_factory))
+    scheduler = SchedulerService(
+        lambda: SqlAlchemyUnitOfWork(session_factory),
+        SqlAlchemyAuditoriaRegistro(session_factory),
+    )
     claims = scheduler.reivindicar(
         slots_livres=1,
         batch_size=1,
@@ -306,6 +310,7 @@ def test_imp_261_e2e_agenda_scheduler_notification(
     notification = NotificationService(
         lambda: SqlAlchemyUnitOfWork(session_factory),
         FakeNotificationChannel(),
+        SqlAlchemyAuditoriaRegistro(session_factory),
     )
     resultado = notification.processar_lembrete(claims[0])
     assert resultado == "finalizado"
@@ -350,26 +355,38 @@ def _proposta_aprovada(ambiente: AmbienteMVP, devedor_id: str) -> dict[str, Any]
     simulacao = ambiente.client.post(
         f"/credit/carteiras/{ambiente.carteira_id}/devedores/{devedor_id}" "/simulacoes-comerciais",
         json={"parametros": _parametros_financeiros()},
-        headers=ambiente.headers,
+        headers={
+            **ambiente.headers,
+            "Idempotency-Key": f"plan020-simulacao-{uuid.uuid4()}",
+        },
     )
     assert simulacao.status_code == 201
 
     proposta = ambiente.client.post(
         f"/credit/carteiras/{ambiente.carteira_id}/devedores/{devedor_id}" "/propostas-comerciais",
         json={"simulacao_id": simulacao.json()["id"], "parametros": _parametros_financeiros()},
-        headers=ambiente.headers,
+        headers={
+            **ambiente.headers,
+            "Idempotency-Key": f"plan020-proposta-{uuid.uuid4()}",
+        },
     )
     assert proposta.status_code == 201
 
     enviada = ambiente.client.post(
         f"/credit/propostas-comerciais/{proposta.json()['id']}/enviar-para-analise",
-        headers=ambiente.headers,
+        headers={
+            **ambiente.headers,
+            "Idempotency-Key": f"plan020-enviar-{uuid.uuid4()}",
+        },
     )
     assert enviada.status_code == 200
 
     aprovada = ambiente.client.post(
         f"/credit/propostas-comerciais/{proposta.json()['id']}/aprovar",
-        headers=ambiente.headers,
+        headers={
+            **ambiente.headers,
+            "Idempotency-Key": f"plan020-aprovar-{uuid.uuid4()}",
+        },
     )
     assert aprovada.status_code == 200
     assert aprovada.json()["estado"] == "aprovada"
@@ -380,19 +397,28 @@ def _contrato_liberado(ambiente: AmbienteMVP, proposta_id: str) -> dict[str, Any
     contrato = ambiente.client.post(
         f"/credit/carteiras/{ambiente.carteira_id}/contratos",
         json={"proposta_comercial_id": proposta_id},
-        headers=ambiente.headers,
+        headers={
+            **ambiente.headers,
+            "Idempotency-Key": f"plan020-contrato-{uuid.uuid4()}",
+        },
     )
     assert contrato.status_code == 201
 
     assinado = ambiente.client.post(
         f"/credit/contratos/{contrato.json()['id']}/assinar",
-        headers=ambiente.headers,
+        headers={
+            **ambiente.headers,
+            "Idempotency-Key": f"plan020-assinar-{uuid.uuid4()}",
+        },
     )
     assert assinado.status_code == 200
 
     liberado = ambiente.client.post(
         f"/credit/contratos/{contrato.json()['id']}/liberar-para-motor",
-        headers=ambiente.headers,
+        headers={
+            **ambiente.headers,
+            "Idempotency-Key": f"plan020-liberar-{uuid.uuid4()}",
+        },
     )
     assert liberado.status_code == 200
     consulta = ambiente.client.get(
@@ -444,20 +470,29 @@ def _criar_template_ativo(ambiente: AmbienteMVP) -> dict[str, Any]:
             "corpo": "Atendimento via {canal_atendimento} em {data_hora}",
             "parametros_permitidos": ["data_hora", "canal_atendimento"],
         },
-        headers=ambiente.headers,
+        headers={
+            **ambiente.headers,
+            "Idempotency-Key": f"plan020-template-{uuid.uuid4()}",
+        },
     )
     assert template.status_code == 201
 
     aprovado = ambiente.client.post(
         f"/credit/notificacoes/templates/{template.json()['id']}/aprovar",
         json={"motivo": "template padrao do E2E MVP"},
-        headers=ambiente.headers,
+        headers={
+            **ambiente.headers,
+            "Idempotency-Key": f"plan020-template-aprovar-{uuid.uuid4()}",
+        },
     )
     assert aprovado.status_code == 200
 
     ativo = ambiente.client.post(
         f"/credit/notificacoes/templates/{template.json()['id']}/ativar",
-        headers=ambiente.headers,
+        headers={
+            **ambiente.headers,
+            "Idempotency-Key": f"plan020-template-ativar-{uuid.uuid4()}",
+        },
     )
     assert ativo.status_code == 200
     return dict(ativo.json())

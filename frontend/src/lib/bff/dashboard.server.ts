@@ -18,6 +18,7 @@ type Summary = components["schemas"]["ResumoCarteiraResponse"];
 type DueDates = components["schemas"]["VencimentosInadimplenciaResponse"];
 type Agenda = components["schemas"]["AgendaOperacionalResponse"];
 type CollectionQueue = components["schemas"]["FilaCobrancaResponse"];
+type CashFlowReport = components["schemas"]["FluxoPrevistoRealizadoResponse"];
 type ReadonlyCookieStore = Pick<CookieStore, "get">;
 
 export type DashboardSectionResult<T> =
@@ -30,6 +31,7 @@ export type DashboardLoads = Readonly<{
   dueDates: Promise<DashboardSectionResult<DueDates>>;
   agenda: Promise<DashboardSectionResult<Agenda>>;
   collection: Promise<DashboardSectionResult<CollectionQueue>>;
+  fluxo: Promise<DashboardSectionResult<CashFlowReport>>;
 }>;
 
 type TypedClient = ReturnType<typeof createBackendClient>;
@@ -113,7 +115,7 @@ function validSummary(value: unknown, context: OperationalContext, referenceDate
   return strings(value, ["data_referencia"])
     && uuids(value, ["tenant_id", "carteira_id"])
     && calendarDate(value.data_referencia)
-    && decimalStrings(value, ["principal_a_receber", "total_realizado"])
+    && decimalStrings(value, ["principal_a_receber", "projecao_juros", "total_realizado"])
     && integers(value, ["total_operacoes", "operacoes_ativas", "operacoes_quitadas", "acertos_pendentes"])
     && value.tenant_id === context.tenant.id && value.carteira_id === context.carteira_padrao.id
     && value.data_referencia === referenceDate;
@@ -162,6 +164,33 @@ function validCollection(value: unknown, context: OperationalContext): value is 
       && dateTime(item.criado_em) && decimalStrings(item, ["total_pendente"])
       && typeof item.estado === "string" && COLLECTION_STATES.has(item.estado)
       && strings(item, ["origem", "titulo"]));
+}
+
+function monthWindow(referenceDate: string): Readonly<{ inicio: string; fim: string }> {
+  const year = Number(referenceDate.slice(0, 4));
+  const month = Number(referenceDate.slice(5, 7));
+  const inicio = `${referenceDate.slice(0, 4)}-${referenceDate.slice(5, 7)}-01`;
+  const lastDay = new Date(Date.UTC(year, month, 0)).getUTCDate();
+  const fim = `${referenceDate.slice(0, 4)}-${referenceDate.slice(5, 7)}-${String(lastDay).padStart(2, "0")}`;
+  return { inicio, fim };
+}
+
+function validCashFlow(
+  value: unknown,
+  context: OperationalContext,
+  inicio: string,
+  fim: string,
+): value is CashFlowReport {
+  if (!isRecord(value) || !matchesItemIdentity(value, context)) return false;
+  return calendarDate(value.inicio) && calendarDate(value.fim)
+    && value.inicio === inicio && value.fim === fim
+    && Array.isArray(value.itens)
+    && value.itens.every((item) => isRecord(item)
+      && calendarDate(item.data)
+      && decimalStrings(item, ["realizado"])
+      && Number.isInteger(item.acertos)
+      && Array.isArray(item.pagamento_ids)
+      && item.pagamento_ids.every((id: unknown) => typeof id === "string" && UUID_PATTERN.test(id)));
 }
 
 function responseCorrelation(response: Response, fallback: string): string {
@@ -248,6 +277,7 @@ export async function beginDashboardLoads(
   const carteiraId = context.carteira_padrao.id;
   const permissions = context.permissoes;
   const reportsAllowed = hasExactPermission(permissions, REPORTS_PERMISSION);
+  const { inicio: fluxoStart, fim: fluxoEnd } = monthWindow(period.referenceDate);
   return {
     summary: reportsAllowed ? execute(dependencies, accessToken, (client, correlation, signal) => client.GET(
       "/credit/carteiras/{carteira_id}/relatorios/resumo",
@@ -265,5 +295,9 @@ export async function beginDashboardLoads(
       "/credit/cobrancas/casos",
       { params: { query: { carteira_id: carteiraId }, header: { "X-Correlation-ID": correlation } }, signal },
     ), (value): value is CollectionQueue => validCollection(value, context)) : denied(),
+    fluxo: reportsAllowed ? execute(dependencies, accessToken, (client, correlation, signal) => client.GET(
+      "/credit/carteiras/{carteira_id}/relatorios/fluxo",
+      { params: { path: { carteira_id: carteiraId }, query: { inicio: fluxoStart, fim: fluxoEnd }, header: { "X-Correlation-ID": correlation } }, signal },
+    ), (value): value is CashFlowReport => validCashFlow(value, context, fluxoStart, fluxoEnd)) : denied(),
   };
 }

@@ -2,13 +2,44 @@ import threading
 import time
 import uuid
 from concurrent.futures import Future
+from datetime import UTC, datetime, timedelta
 from types import SimpleNamespace
 from typing import Any, cast
 
 import pytest
 
 from emprestimo.application.scheduler import ClaimScheduler
-from emprestimo.worker.scheduler_worker import SchedulerWorker, WorkerSettings, _DaemonExecutor
+from emprestimo.application.varredura_cobranca import AgendadorVarreduraCobranca
+from emprestimo.worker.scheduler_worker import (
+    SchedulerWorker,
+    SemeadorDiarioCobranca,
+    WorkerSettings,
+    _DaemonExecutor,
+)
+
+
+def test_semeador_cria_no_maximo_um_lote_por_dia() -> None:
+    instante = [datetime(2026, 8, 22, 8, 0, tzinfo=UTC)]
+    chamadas: list[tuple[object, object]] = []
+    agendador = cast(
+        AgendadorVarreduraCobranca,
+        SimpleNamespace(
+            agendar_dia=lambda **dados: chamadas.append(
+                (dados["data_referencia"], dados["executar_em"])
+            )
+        ),
+    )
+    semeador = SemeadorDiarioCobranca(agendador, agora=lambda: instante[0])
+
+    semeador.semear()
+    semeador.semear()
+    instante[0] += timedelta(days=1)
+    semeador.semear()
+
+    assert [item[0] for item in chamadas] == [
+        datetime(2026, 8, 22, tzinfo=UTC).date(),
+        datetime(2026, 8, 23, tzinfo=UTC).date(),
+    ]
 
 
 def test_worker_valida_limites_de_concorrencia_e_batch() -> None:

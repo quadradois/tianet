@@ -139,7 +139,7 @@ function JobsView({ jobs }: Readonly<{ jobs: JobList }>) {
   );
 }
 
-function NotificationsView({ notifications }: Readonly<{ notifications: NotificationList }>) {
+export function NotificationsView({ notifications }: Readonly<{ notifications: NotificationList }>) {
   if (notifications.items.length === 0) return <p role="status">empty: nenhuma notificacao retornada para a Carteira do contexto.</p>;
   return (
     <div className="grid gap-3">
@@ -150,7 +150,12 @@ function NotificationsView({ notifications }: Readonly<{ notifications: Notifica
             <CardDescription>Notificacao {notification.id}</CardDescription>
           </CardHeader>
           <CardContent className="grid gap-2 text-sm">
-            <p className="break-all">Job: {notification.job_id}; lembrete: {notification.lembrete_id}</p>
+            <p className="break-all">
+              Job: {notification.job_id}
+              {notification.lembrete_id
+                ? `; lembrete: ${notification.lembrete_id}`
+                : "; sem lembrete associado"}
+            </p>
             <p>Provider message: {notification.provider_message_id ?? "Nao informado"}</p>
             <p>Codigo resultado: {notification.codigo_resultado ?? "Sem resultado"}</p>
             <p>Resultado em: {formatDate(notification.resultado_em)}</p>

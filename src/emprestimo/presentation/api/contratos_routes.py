@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import uuid
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, Header, Query
 
 from emprestimo.application.autorizacao import Principal
 from emprestimo.application.contratos import (
@@ -65,6 +65,7 @@ router = APIRouter(
 )
 def criar_contrato(
     payload: ContratoCreditoCreateRequest,
+    idempotency_key: str = Header(alias="Idempotency-Key", min_length=1, max_length=255),
     carteira: Carteira = Depends(get_carteira_do_principal),
     principal: Principal = Depends(exigir_permissao(PERMISSAO_CONTRATO_CRIAR)),
     service: FormalizacaoContratoService = Depends(get_formalizacao_contrato_service),
@@ -74,6 +75,7 @@ def criar_contrato(
         carteira_id=carteira.id,
         proposta_comercial_id=payload.proposta_comercial_id,
         usuario_id=principal.usuario_id,
+        idempotency_key=idempotency_key,
     )
     return _contrato_response(resultado)
 
@@ -158,6 +160,7 @@ def consultar_historico_contrato(
 )
 def assinar_contrato(
     contrato_id: uuid.UUID,
+    idempotency_key: str = Header(alias="Idempotency-Key", min_length=1, max_length=255),
     principal: Principal = Depends(exigir_permissao(PERMISSAO_CONTRATO_ASSINAR)),
     service: AssinaturaContratoService = Depends(get_assinatura_contrato_service),
 ) -> ContratoCreditoResponse:
@@ -166,6 +169,7 @@ def assinar_contrato(
             contrato_id=contrato_id,
             tenant_id=principal.tenant_id,
             usuario_id=principal.usuario_id,
+            idempotency_key=idempotency_key,
         )
     )
 
@@ -178,6 +182,7 @@ def assinar_contrato(
 )
 def liberar_contrato_para_motor(
     contrato_id: uuid.UUID,
+    idempotency_key: str = Header(alias="Idempotency-Key", min_length=1, max_length=255),
     principal: Principal = Depends(exigir_permissao(PERMISSAO_CONTRATO_LIBERAR)),
     service: LiberacaoContratoService = Depends(get_liberacao_contrato_service),
 ) -> ContratoLiberadoLogicoResponse:
@@ -185,6 +190,7 @@ def liberar_contrato_para_motor(
         contrato_id=contrato_id,
         tenant_id=principal.tenant_id,
         usuario_id=principal.usuario_id,
+        idempotency_key=idempotency_key,
     )
     return ContratoLiberadoLogicoResponse(**saida.to_dict())
 
@@ -198,6 +204,7 @@ def liberar_contrato_para_motor(
 def cancelar_contrato(
     contrato_id: uuid.UUID,
     payload: DecisaoContratoRequest,
+    idempotency_key: str = Header(alias="Idempotency-Key", min_length=1, max_length=255),
     principal: Principal = Depends(exigir_permissao(PERMISSAO_CONTRATO_ENCERRAR)),
     service: CancelamentoEncerramentoContratoService = Depends(
         get_cancelamento_encerramento_contrato_service
@@ -209,6 +216,7 @@ def cancelar_contrato(
             tenant_id=principal.tenant_id,
             usuario_id=principal.usuario_id,
             motivo=payload.motivo,
+            idempotency_key=idempotency_key,
         )
     )
 
@@ -222,6 +230,7 @@ def cancelar_contrato(
 def encerrar_contrato(
     contrato_id: uuid.UUID,
     payload: DecisaoContratoRequest,
+    idempotency_key: str = Header(alias="Idempotency-Key", min_length=1, max_length=255),
     principal: Principal = Depends(exigir_permissao(PERMISSAO_CONTRATO_ENCERRAR)),
     service: CancelamentoEncerramentoContratoService = Depends(
         get_cancelamento_encerramento_contrato_service
@@ -233,6 +242,7 @@ def encerrar_contrato(
             tenant_id=principal.tenant_id,
             usuario_id=principal.usuario_id,
             motivo=payload.motivo,
+            idempotency_key=idempotency_key,
         )
     )
 

@@ -19,6 +19,7 @@ from tests.factories import CarteiraFactory, TenantFactory
 
 from emprestimo.application.scheduler import ResultadoExecucao, SchedulerService
 from emprestimo.domain.credit.scheduler import EstadoJob, JobAgendado
+from emprestimo.infrastructure.auditoria import SqlAlchemyAuditoriaRegistro
 from emprestimo.infrastructure.repositories import (
     SqlAlchemyCarteiraRepository,
     SqlAlchemyJobAgendadoRepository,
@@ -48,7 +49,7 @@ def test_imp_266_quality_migrations_gate_e_unico_head_alembic() -> None:
     assert "npm run quality:migrations" in workflow
     assert "DROP SCHEMA IF EXISTS public CASCADE" in validator
     assert "Refusing to run destructive migration validation" in validator
-    assert script.get_current_head() == "0018_comprovante_whatsapp"
+    assert script.get_current_head() == "a2109be3d0df"
 
 
 def test_imp_267_health_correlation_e_erro_tecnico_sem_vazamento(
@@ -127,7 +128,10 @@ def test_imp_268_worker_scheduler_smoke_com_banco_e_shutdown(
         return ResultadoExecucao.SUCESSO
 
     worker = SchedulerWorker(
-        SchedulerService(lambda: SqlAlchemyUnitOfWork(session_factory)),
+        SchedulerService(
+            lambda: SqlAlchemyUnitOfWork(session_factory),
+            SqlAlchemyAuditoriaRegistro(session_factory),
+        ),
         {"enviar_lembrete": handler},
         WorkerSettings(concurrency=1, batch_size=1),
         heartbeat=lambda _ativos, _falha: None,

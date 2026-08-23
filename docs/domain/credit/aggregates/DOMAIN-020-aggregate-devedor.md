@@ -2,7 +2,7 @@
 
 **ID:** DOMAIN-020
 
-**Versão:** 1.0.0
+**Versão:** 1.1.0
 
 **Status:** Proposto
 
@@ -35,7 +35,7 @@ O Devedor é responsável por:
 
 O Devedor não executa cálculos financeiros.
 
-Valores, Parcelas e Pagamentos pertencem ao Empréstimo (DOMAIN-004).
+Valores e Pagamentos pertencem ao Empréstimo (DOMAIN-004).
 
 ---
 
@@ -221,5 +221,6 @@ por ele.
 
 | Versão | Data | Descrição |
 |---------|------|-----------|
+| 1.1.0 | 23/08/2026 | Referencia a Parcelas removida: a entidade foi revogada pela DR-004 (IMP-337). |
 | 1.0.0 | 05/08/2026 | Primeira versão oficial do Aggregate Devedor, criada no ciclo SDD do EPIC-002 (contexto Cadastro). |
 | 1.1.0 | 07/08/2026 | Seção 9 (Identidade externa) — ambiguidade do §179 eliminada conforme ADR-018. Nenhuma regra de domínio alterada. |

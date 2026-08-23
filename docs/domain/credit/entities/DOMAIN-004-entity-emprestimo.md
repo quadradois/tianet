@@ -2,7 +2,7 @@
 
 **ID:** DOMAIN-004
 
-**Versão:** 1.0.0
+**Versão:** 1.1.0
 
 **Status:** Aprovado
 
@@ -46,7 +46,7 @@ Entre suas responsabilidades estão:
 - manter o status da operação;
 - manter a data do último processamento financeiro;
 - manter a data do último pagamento;
-- manter o próximo vencimento;
+- manter o próximo acerto;
 - indicar se existe inadimplência;
 - indicar se a operação está quitada;
 - disponibilizar o estado atual para consultas.
@@ -253,4 +253,5 @@ Execução das regras financeiras pelo Motor Financeiro com o objetivo de atuali
 
 | Versão | Data | Descrição |
 |---------|------|-----------|
+| 1.1.0 | 23/08/2026 | Proximo vencimento substituido pelo proximo acerto, campo derivado na leitura conforme DR-004 (IMP-337). |
 | 1.0.0 | 01/08/2026 | Primeira versão oficial do Empréstimo como estado atual da operação. |

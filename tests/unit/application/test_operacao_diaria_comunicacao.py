@@ -7,6 +7,7 @@ from collections.abc import Callable
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from typing import Any, cast
+from unittest.mock import Mock
 
 import pytest
 
@@ -19,7 +20,7 @@ from emprestimo.application.operacao_diaria import (
     ConsultarHistoricoComunicacao,
     RegistrarComunicacaoManual,
 )
-from emprestimo.application.ports import UnitOfWork
+from emprestimo.application.ports import AuditoriaRegistro, UnitOfWork
 from emprestimo.domain.credit.operacao_diaria import (
     AcaoCobranca,
     AgendaItem,
@@ -38,7 +39,7 @@ USUARIO_ID = uuid.UUID("72000000-0000-0000-0000-000000000005")
 
 def test_registrar_comunicacao_manual_idempotente_e_consultar_historico() -> None:
     uow = _FakeUoW()
-    service = RegistrarComunicacaoManual(_uow_factory(uow))
+    service = RegistrarComunicacaoManual(_uow_factory(uow), _auditoria())
     ocorrido_em = datetime(2026, 9, 10, 12, 0, tzinfo=UTC)
 
     primeiro = service.registrar(
@@ -80,7 +81,7 @@ def test_registrar_comunicacao_manual_idempotente_e_consultar_historico() -> Non
 
 def test_registrar_comunicacao_rejeita_payload_divergente() -> None:
     uow = _FakeUoW()
-    service = RegistrarComunicacaoManual(_uow_factory(uow))
+    service = RegistrarComunicacaoManual(_uow_factory(uow), _auditoria())
     ocorrido_em = datetime(2026, 9, 10, 12, 0, tzinfo=UTC)
     service.registrar(
         tenant_id=TENANT_ID,
@@ -112,7 +113,7 @@ def test_registrar_comunicacao_rejeita_emprestimo_fora_da_cadeia() -> None:
     uow = _FakeUoW(emprestimo=_Emprestimo(TENANT_ID, CARTEIRA_ID, uuid.uuid4()))
 
     with pytest.raises(EmprestimoNaoEncontradoError):
-        RegistrarComunicacaoManual(_uow_factory(uow)).registrar(
+        RegistrarComunicacaoManual(_uow_factory(uow), _auditoria()).registrar(
             tenant_id=TENANT_ID,
             carteira_id=CARTEIRA_ID,
             devedor_id=DEVEDOR_ID,
@@ -131,7 +132,7 @@ def test_registrar_comunicacao_rejeita_agenda_cross_tenant() -> None:
     uow = _FakeUoW(agenda_item=agenda_item)
 
     with pytest.raises(AgendaItemNaoEncontradoError):
-        RegistrarComunicacaoManual(_uow_factory(uow)).registrar(
+        RegistrarComunicacaoManual(_uow_factory(uow), _auditoria()).registrar(
             tenant_id=TENANT_ID,
             carteira_id=CARTEIRA_ID,
             devedor_id=DEVEDOR_ID,
@@ -158,6 +159,10 @@ def test_consultar_historico_nao_commita() -> None:
     assert historico.total == 1
     assert historico.registros[0].resultado == registro.resultado
     assert uow.commits == 0
+
+
+def _auditoria() -> AuditoriaRegistro:
+    return cast(AuditoriaRegistro, Mock())
 
 
 def _uow_factory(uow: _FakeUoW) -> Callable[[], UnitOfWork]:

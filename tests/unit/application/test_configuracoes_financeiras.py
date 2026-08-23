@@ -22,7 +22,7 @@ from emprestimo.application.configuracoes_financeiras import (
     TaxaFinanceiraInput,
 )
 from emprestimo.application.errors import TransicaoEstadoInvalidaError
-from emprestimo.application.ports import UnitOfWork
+from emprestimo.application.ports import AuditoriaRegistro, UnitOfWork
 from emprestimo.domain.credit.configuracoes_financeiras import (
     CalendarioFinanceiro,
     ConfiguracaoFinanceira,
@@ -36,13 +36,20 @@ CARTEIRA_ID = uuid.UUID("22222222-2222-2222-2222-222222222222")
 USUARIO_ID = uuid.UUID("33333333-3333-3333-3333-333333333333")
 
 
+def _auditoria() -> AuditoriaRegistro:
+    return cast(
+        AuditoriaRegistro,
+        SimpleNamespace(registrar=lambda *args, **kwargs: None),
+    )
+
+
 def _uow_factory(uow: _FakeUoW) -> Callable[[], UnitOfWork]:
     return lambda: cast(UnitOfWork, uow)
 
 
 def test_services_configuracoes_financeiras_executam_fluxo_operacional() -> None:
     uow = _FakeUoW()
-    calendario = CalendarioFinanceiroService(_uow_factory(uow)).criar(
+    calendario = CalendarioFinanceiroService(_uow_factory(uow), _auditoria()).criar(
         tenant_id=TENANT_ID,
         carteira_id=CARTEIRA_ID,
         usuario_id=USUARIO_ID,
@@ -51,7 +58,7 @@ def test_services_configuracoes_financeiras_executam_fluxo_operacional() -> None
         feriados=(date(2026, 9, 7),),
     )
 
-    service = ConfiguracaoFinanceiraService(_uow_factory(uow))
+    service = ConfiguracaoFinanceiraService(_uow_factory(uow), _auditoria())
     configuracao = service.criar_rascunho(
         tenant_id=TENANT_ID,
         carteira_id=CARTEIRA_ID,
@@ -90,7 +97,7 @@ def test_services_configuracoes_financeiras_executam_fluxo_operacional() -> None
         modalidade="prazo_fixo",
         data_referencia=date(2026, 9, 10),
     )
-    snapshot = CapturaSnapshotConfiguracaoService(_uow_factory(uow)).capturar(
+    snapshot = CapturaSnapshotConfiguracaoService(_uow_factory(uow), _auditoria()).capturar(
         configuracao_id=configuracao.id,
         tenant_id=TENANT_ID,
         usuario_id=USUARIO_ID,
@@ -117,7 +124,7 @@ def test_service_traduz_transicao_invalida_para_conflito() -> None:
         nome="Brasil padrao",
     )
     uow.calendario_financeiro.save(calendario)
-    configuracao = ConfiguracaoFinanceiraService(_uow_factory(uow)).criar_rascunho(
+    configuracao = ConfiguracaoFinanceiraService(_uow_factory(uow), _auditoria()).criar_rascunho(
         tenant_id=TENANT_ID,
         carteira_id=CARTEIRA_ID,
         usuario_id=USUARIO_ID,
@@ -136,7 +143,7 @@ def test_service_traduz_transicao_invalida_para_conflito() -> None:
     )
 
     with pytest.raises(TransicaoEstadoInvalidaError):
-        ConfiguracaoFinanceiraService(_uow_factory(uow)).ativar(
+        ConfiguracaoFinanceiraService(_uow_factory(uow), _auditoria()).ativar(
             configuracao_id=configuracao.id,
             tenant_id=TENANT_ID,
             usuario_id=USUARIO_ID,

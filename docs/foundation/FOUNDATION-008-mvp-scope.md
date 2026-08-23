@@ -2,7 +2,7 @@
 
 **ID:** FOUNDATION-008
 
-**Versão:** 1.0.0
+**Versão:** 1.1.0
 
 **Status:** Aprovado
 
@@ -50,7 +50,6 @@ O escopo do MVP deverá permanecer estável durante todo o ciclo de desenvolvime
 
 - Contratos de Crédito;
 - Empréstimos;
-- Parcelas;
 - Pagamentos;
 - Motor Financeiro;
 - Memória de Cálculo;
@@ -160,4 +159,5 @@ Este documento será considerado aprovado quando:
 
 | Versão | Data | Descrição |
 |---------|------|-----------|
+| 1.1.0 | 23/08/2026 | Parcelas removidas do escopo do MVP: revogadas pela DR-004 (IMP-337). |
 | 1.0.0 | 01/08/2026 | Primeira versão oficial do Escopo do MVP. |

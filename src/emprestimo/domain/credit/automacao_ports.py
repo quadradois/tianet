@@ -42,6 +42,11 @@ class JobAgendadoRepository(ABC):
     def save(self, job: JobAgendado) -> None: ...
 
     @abstractmethod
+    def save_if_absent(self, job: JobAgendado) -> bool:
+        """Insere uma origem nova; retorna falso quando ela ja existe."""
+        ...
+
+    @abstractmethod
     def find_scoped(self, job_id: uuid.UUID, tenant_id: uuid.UUID) -> JobAgendado | None: ...
 
     @abstractmethod

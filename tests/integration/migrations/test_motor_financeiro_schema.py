@@ -99,7 +99,6 @@ def test_motor_financeiro_schema_upgrade_e_downgrade(engine: Engine) -> None:
                 "valor_amortizacao",
                 "valor_encargos",
                 "chave_idempotencia",
-                "parcelas_liquidadas",
                 "distribuicao",
                 "usuario_id",
                 "estado",

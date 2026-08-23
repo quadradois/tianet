@@ -12,7 +12,9 @@ from emprestimo.domain.common.errors import ViolacaoInvarianteError
 from emprestimo.domain.credit.operacao_diaria import (
     AcaoCobranca,
     CanalComunicacao,
+    CobrancaCaso,
     CompromissoAgenda,
+    EstadoCobranca,
     HistoricoComunicacao,
     Lembrete,
     RegistroComunicacao,
@@ -30,6 +32,36 @@ DEVEDOR_ID = uuid.UUID("33333333-3333-3333-3333-333333333333")
 EMPRESTIMO_ID = uuid.UUID("44444444-4444-4444-4444-444444444444")
 USUARIO_ID = uuid.UUID("55555555-5555-5555-5555-555555555555")
 Lembrete_ID = uuid.UUID("77777777-7777-7777-7777-777777777777")
+
+
+def test_caso_sincroniza_reabre_e_encerra_pendencia_financeira() -> None:
+    estado_inicial: EstadoCobranca = EstadoCobranca.ENCERRADO
+    caso = CobrancaCaso(
+        tenant_id=TENANT_ID,
+        carteira_id=CARTEIRA_ID,
+        devedor_id=DEVEDOR_ID,
+        emprestimo_id=EMPRESTIMO_ID,
+        titulo="Acerto pendente",
+        origem="varredura_diaria",
+        estado=estado_inicial,
+    )
+    instante = datetime.now(UTC)
+
+    caso.sincronizar_pendencia(
+        total_pendente=Decimal("123.45"),
+        emprestimo_id=EMPRESTIMO_ID,
+        agora=instante,
+    )
+
+    estado_reaberto: EstadoCobranca = caso.estado
+    assert estado_reaberto is EstadoCobranca.PENDENTE
+    assert caso.total_pendente == Decimal("123.45")
+    assert caso.atualizado_em == instante
+
+    caso.encerrar_por_acerto(agora=instante + timedelta(minutes=1))
+
+    assert caso.estado is EstadoCobranca.ENCERRADO
+    assert caso.total_pendente == Decimal("0.00")
 
 
 def test_acoes_cobranca_validam_contratos_basicos() -> None:

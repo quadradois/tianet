@@ -71,6 +71,7 @@ def client(session_factory: sessionmaker[Session]) -> Iterator[TestClient]:
     autorizacao.exigir_permissao.return_value = None
     app.dependency_overrides[dependencies.get_autorizacao_service] = lambda: autorizacao
     with TestClient(app) as c:
+        c.headers["Idempotency-Key"] = f"api-contratos-{uuid.uuid4()}"
         yield c
 
 

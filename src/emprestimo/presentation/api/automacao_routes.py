@@ -100,6 +100,7 @@ def obter_job(
 def cancelar_job(
     job_id: uuid.UUID,
     payload: MotivoRequest,
+    idempotency_key: str = Header(alias="Idempotency-Key", min_length=1, max_length=255),
     principal: Principal = Depends(exigir_permissao("automacao.job.cancelar")),
     service: AutomacaoAdminService = Depends(get_automacao_admin_service),
 ) -> JobResponse:
@@ -109,6 +110,7 @@ def cancelar_job(
             job_id=job_id,
             usuario_id=principal.usuario_id,
             motivo=payload.motivo,
+            idempotency_key=idempotency_key,
         )
     )
 
@@ -126,6 +128,7 @@ def cancelar_job(
 def retry_job(
     job_id: uuid.UUID,
     payload: MotivoRequest,
+    idempotency_key: str = Header(alias="Idempotency-Key", min_length=1, max_length=255),
     principal: Principal = Depends(exigir_permissao("automacao.job.retry")),
     service: AutomacaoAdminService = Depends(get_automacao_admin_service),
 ) -> JobResponse:
@@ -135,6 +138,7 @@ def retry_job(
             job_id=job_id,
             usuario_id=principal.usuario_id,
             motivo=payload.motivo,
+            idempotency_key=idempotency_key,
         )
     )
 
@@ -182,6 +186,7 @@ def listar_templates(
 )
 def criar_template(
     payload: TemplateCreateRequest,
+    idempotency_key: str = Header(alias="Idempotency-Key", min_length=1, max_length=255),
     principal: Principal = Depends(exigir_permissao("notificacao.template.gerir")),
     service: TemplateNotificacaoService = Depends(get_template_notificacao_service),
 ) -> TemplateResponse:
@@ -194,7 +199,7 @@ def criar_template(
         parametros_permitidos=payload.parametros_permitidos,
         criado_por_usuario_id=principal.usuario_id,
     )
-    return _template_response(service.criar(item))
+    return _template_response(service.criar(item, idempotency_key=idempotency_key))
 
 
 @router.post(
@@ -209,6 +214,7 @@ def criar_template(
 def aprovar_template(
     template_id: uuid.UUID,
     payload: MotivoRequest,
+    idempotency_key: str = Header(alias="Idempotency-Key", min_length=1, max_length=255),
     principal: Principal = Depends(exigir_permissao("notificacao.template.gerir")),
     service: TemplateNotificacaoService = Depends(get_template_notificacao_service),
 ) -> TemplateResponse:
@@ -218,6 +224,7 @@ def aprovar_template(
             template_id=template_id,
             usuario_id=principal.usuario_id,
             motivo=payload.motivo,
+            idempotency_key=idempotency_key,
         )
     )
 
@@ -232,11 +239,16 @@ def aprovar_template(
 )
 def ativar_template(
     template_id: uuid.UUID,
+    idempotency_key: str = Header(alias="Idempotency-Key", min_length=1, max_length=255),
     principal: Principal = Depends(exigir_permissao("notificacao.template.gerir")),
     service: TemplateNotificacaoService = Depends(get_template_notificacao_service),
 ) -> TemplateResponse:
     return _template_response(
-        service.ativar(tenant_id=principal.tenant_id, template_id=template_id)
+        service.ativar(
+            tenant_id=principal.tenant_id,
+            template_id=template_id,
+            idempotency_key=idempotency_key,
+        )
     )
 
 

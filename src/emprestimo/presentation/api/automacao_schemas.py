@@ -53,7 +53,7 @@ class JobListResponse(BaseModel):
 class NotificacaoResponse(BaseModel):
     id: uuid.UUID
     carteira_id: uuid.UUID
-    lembrete_id: uuid.UUID
+    lembrete_id: uuid.UUID | None = None
     job_id: uuid.UUID
     estado: EstadoSolicitacaoNotificacao
     provider_message_id: str | None

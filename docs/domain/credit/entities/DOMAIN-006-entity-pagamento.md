@@ -2,7 +2,7 @@
 
 **ID:** DOMAIN-006
 
-**Versão:** 1.0.0
+**Versão:** 1.2.0
 
 **Status:** Aprovado
 
@@ -34,8 +34,9 @@ O Pagamento é responsável por:
 
 - registrar a data do recebimento;
 - registrar o valor recebido;
-- registrar a distribuição do valor entre juros e amortização;
-- registrar quais Parcelas foram liquidadas, quando aplicável;
+- registrar a distribuição do valor entre juros, encargos e amortização;
+- registrar como devolução toda sobra que exceder a dívida;
+- registrar os estornos parciais confirmados pelo Credor;
 - registrar o resultado do processamento financeiro;
 - compor o histórico financeiro da operação.
 
@@ -61,6 +62,9 @@ O valor foi recebido pelo Credor.
 
 O Motor Financeiro distribuiu o pagamento conforme as regras da operação.
 
+Quando o valor recebido excede a dívida, a diferença é registrada como
+`valor_devolvido`, fica pendente de estorno e gera aviso ao Credor.
+
 ---
 
 ## Confirmado
@@ -75,7 +79,9 @@ O Pagamento passa a compor definitivamente o histórico da operação.
 
 O registro permanece preservado para auditoria.
 
-Seu efeito financeiro foi revertido conforme as regras da operação.
+O estorno de sobra é parcial por valor: cada lançamento aumenta
+`valor_estornado` sem apagar o valor bruto recebido nem a distribuição que
+liquidou a dívida. O PIX de devolução é feito pelo Credor fora do sistema.
 
 ---
 
@@ -113,13 +119,36 @@ Todo Pagamento deverá registrar quanto foi destinado à amortização.
 
 ## RN-006
 
-Quando existirem Parcelas, o Pagamento deverá registrar quais Parcelas foram liquidadas total ou parcialmente.
+O Pagamento não se vincula a nenhuma obrigação previamente agendada. No
+empréstimo livre não existe cronograma: o que o valor recebido liquida é
+determinado pelo saldo em vigor na data, na ordem juros, encargos e principal.
 
 ---
 
 ## RN-007
 
 Todo Pagamento deverá atualizar o estado atual do Empréstimo através do Motor Financeiro.
+
+---
+
+## RN-008
+
+Quando o valor recebido superar juros, encargos e principal devidos, o Motor
+deve registrar a diferença em `valor_devolvido` e solicitar aviso ao Credor.
+
+---
+
+## RN-009
+
+O estorno da devolução pode ser lançado em uma ou mais partes. A soma
+`valor_estornado` nunca pode superar `valor_devolvido`.
+
+---
+
+## RN-010
+
+O Pagamento está operacionalmente reconciliado quando todo o valor destinado
+à devolução possui estorno registrado (`valor_estornado == valor_devolvido`).
 
 ---
 
@@ -140,16 +169,6 @@ Empréstimo (1)
 ↓
 
 Pagamento (0..N)
-
----
-
-Pagamento (0..N)
-
-↓
-
-Parcela
-
-(apenas quando a modalidade for Prazo Fixo)
 
 ---
 
@@ -185,7 +204,10 @@ O valor recebido deve ser maior que zero.
 
 ## INV-003
 
-A soma dos valores destinados aos juros e à amortização deverá ser exatamente igual ao valor recebido.
+A soma dos valores destinados aos juros, encargos, amortização e devolução
+deverá ser exatamente igual ao valor recebido:
+
+`valor_juros + valor_encargos + valor_amortizacao + valor_devolvido == valor_recebido`
 
 ---
 
@@ -198,6 +220,13 @@ Todo Pagamento confirmado compõe permanentemente o histórico da operação.
 ## INV-005
 
 Nenhum Pagamento poderá alterar diretamente o Empréstimo sem processamento do Motor Financeiro.
+
+---
+
+## INV-006
+
+O valor estornado deve ser não negativo e menor ou igual ao valor destinado à
+devolução. Um estorno acima da sobra pendente deve ser recusado.
 
 ---
 
@@ -215,9 +244,17 @@ Execução realizada pelo Motor Financeiro para distribuir corretamente o valor 
 
 ---
 
-## Estorno
+## Sobra
 
-Processo controlado de reversão dos efeitos financeiros de um Pagamento.
+Parte do valor recebido que não encontra juros, encargos ou principal a liquidar
+e, por isso, é destinada à devolução.
+
+---
+
+## Estorno parcial
+
+Registro, no sistema, de uma parte ou da totalidade da devolução que o Credor
+executa por PIX fora da plataforma. Não apaga o Pagamento original.
 
 ---
 
@@ -225,4 +262,6 @@ Processo controlado de reversão dos efeitos financeiros de um Pagamento.
 
 | Versão | Data | Descrição |
 |---------|------|-----------|
+| 1.2.0 | 23/08/2026 | Residuos de Parcela removidos: responsabilidade de liquidacao, RN-006 e o vinculo do diagrama. RN-006 passa a descrever a liquidacao pelo saldo em vigor (DR-004, IMP-337). |
+| 1.1.0 | 22/08/2026 | IMP-332: sobra destinada à devolução, estorno parcial e reconciliação explícita. |
 | 1.0.0 | 01/08/2026 | Primeira versão oficial da Entity Pagamento. |

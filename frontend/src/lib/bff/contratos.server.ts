@@ -23,7 +23,7 @@ import {
   type ReleasedContract,
 } from "../contratos/contratos-policy";
 
-import { ApiProblem, apiProblemFromResponse, correlationId, createCookieAuthenticatedFetch, type BffDependencies } from "./backend.server";
+import { ApiProblem, apiProblemFromResponse, correlationId, createCookieAuthenticatedFetch, idempotencyKey, type BffDependencies } from "./backend.server";
 import type { OperationalContext } from "./context.server";
 import { sessionCookieName, type CookieStore, unsealSession } from "./session.server";
 
@@ -332,7 +332,7 @@ export async function createContract(
   const body: ContractCreateRequest = { proposta_comercial_id: propostaComercialId };
   return executeMutation(cookies, context, dependencies, CONTRATO_CREATE_PERMISSION, 201, (client, carteiraId, correlation) => client.POST(
     "/credit/carteiras/{carteira_id}/contratos",
-    { body, params: { path: { carteira_id: carteiraId }, header: { "X-Correlation-ID": correlation } } },
+    { body, params: { path: { carteira_id: carteiraId }, header: { "X-Correlation-ID": correlation, "Idempotency-Key": idempotencyKey(true, formString(formData, "idempotency_key", 255)) as string } } },
   ), (value): value is Contract => validContract(value, context), "Contrato formalizado a partir da Proposta aprovada.");
 }
 
@@ -353,7 +353,7 @@ export async function decideContract(
       ? CONTRATO_RELEASE_PERMISSION
       : CONTRATO_CLOSE_PERMISSION;
   return executeMutation(cookies, context, dependencies, permission, 200, (client, _carteiraId, correlation) => {
-    const params = { path: { contrato_id: contratoId }, header: { "X-Correlation-ID": correlation } };
+    const params = { path: { contrato_id: contratoId }, header: { "X-Correlation-ID": correlation, "Idempotency-Key": idempotencyKey(true, formString(formData, "idempotency_key", 255)) as string } };
     if (decision === "assinar") return client.POST("/credit/contratos/{contrato_id}/assinar", { params });
     if (decision === "liberar-para-motor") return client.POST("/credit/contratos/{contrato_id}/liberar-para-motor", { params });
     if (decision === "cancelar") return client.POST("/credit/contratos/{contrato_id}/cancelar", { body, params });

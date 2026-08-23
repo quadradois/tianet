@@ -23,6 +23,25 @@ ALLOWED_PERSISTENCE_BOUNDARIES = {
     SRC_ROOT / "infrastructure" / "repositories" / "__init__.py",
 }
 
+ALLOWED_APPLICATION_MOTOR_BOUNDARIES = {
+    SRC_ROOT
+    / "application"
+    / "varredura_cobranca.py": (
+        "A varredura diaria roda como job no worker, fora da camada de Cobranca, "
+        "e consulta o Motor para persistir total_pendente ja resolvido sem "
+        "reimplementar calculo financeiro."
+    ),
+    SRC_ROOT
+    / "application"
+    / "relatorios.py": (
+        "A projecao de juros do cockpit consulta o Motor para apurar juros "
+        "acumulado no horizonte, em vez de refazer a conta por fora. Delegar ao "
+        "Motor e exatamente o comportamento que este guardrail existe para "
+        "proteger; a alternativa seria o relatorio reimplementar calculo "
+        "financeiro, que e a violacao real."
+    ),
+}
+
 FORBIDDEN_IMPORT_PARTS = {
     "motor_financeiro",
     "memoria_calculo",
@@ -71,15 +90,15 @@ def _is_forbidden_import(name: str) -> bool:
     return bool(parts.intersection(FORBIDDEN_IMPORT_PARTS))
 
 
-def _allows_memoria_reference(path: Path) -> bool:
-    return path in ALLOWED_PERSISTENCE_BOUNDARIES
+def _allows_motor_reference(path: Path) -> bool:
+    return path in ALLOWED_PERSISTENCE_BOUNDARIES or path in ALLOWED_APPLICATION_MOTOR_BOUNDARIES
 
 
 def test_contextos_fora_do_motor_nao_importam_motor_financeiro() -> None:
     violations: list[str] = []
 
     for path in _source_paths_outside_motor():
-        if _allows_memoria_reference(path):
+        if _allows_motor_reference(path):
             continue
         for node in ast.walk(_tree(path)):
             if isinstance(node, ast.Import):
@@ -114,7 +133,7 @@ def test_contextos_fora_do_motor_nao_instanciam_motor_ou_memoria_de_calculo() ->
     violations: list[str] = []
 
     for path in _source_paths_outside_motor():
-        if _allows_memoria_reference(path):
+        if _allows_motor_reference(path):
             continue
         for node in ast.walk(_tree(path)):
             if isinstance(node, ast.Call):

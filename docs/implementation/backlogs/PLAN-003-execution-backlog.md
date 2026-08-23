@@ -2,9 +2,23 @@
 
 **ID:** PLAN-003-EXEC
 
-**Versão:** 1.0.0
+**Versão:** 2.0.0
 
-**Status:** Proposto
+**Status:** **Executado** — IMP-042 a IMP-062 entregues e em produção. **IMP-063 e IMP-064 pendentes de recertificação** na árvore vigente (ver `PLAN-032-execution-backlog.md`, IMP-345).
+
+> **Nota de estado, acrescentada em 2026-08-23 pelo IMP-339.** Este backlog
+> permaneceu marcado como "Proposto" muito depois de ser executado. Domínio,
+> eventos, ports, repositórios, Unit of Work, os cinco serviços de Application,
+> os endpoints e os testes correspondentes a IMP-042..062 existem no código e
+> estão cobertos. O fechamento histórico do EPIC-002 está registrado no handoff
+> de 2026-08-08.
+>
+> **IMP-063 (cobertura ≥ 90%) e IMP-064 (GATE consolidado) não são declarados
+> concluídos aqui de propósito:** a evidência que os certificou pertence a outro
+> commit, e recertificar a árvore vigente é trabalho do IMP-345, no backlog `PLAN-032-execution-backlog.md`.
+> Marcar como concluído sem essa prova seria repetir o erro que este ciclo
+> encontrou no IMP-307 — funcionalidade declarada pronta que não chegava ao
+> usuário.
 
 > **A execução deste backlog deve seguir obrigatoriamente o AGENT-LOOP-EXECUTION-PROTOCOL (ALP-001).**
 
@@ -312,5 +326,6 @@ documental desta missão).
 
 | Versão | Data | Descrição |
 |---------|------|-----------|
+| 2.0.0 | 23/08/2026 | Status corrigido de Proposto para Executado: IMP-042..062 estao entregues ha ciclos. IMP-063/064 declarados pendentes de recertificacao, nao concluidos (IMP-339). |
 | 1.0.0 | 05/08/2026 | Backlog de Execução do PLAN-003 — EPIC-002, IMP-042..IMP-064. |
 | 1.1.0 | 07/08/2026 | IMP-058/IMP-059 — rotas corrigidas de `/devedores/{id}` para o contrato aninhado oficial, conforme ADR-018. |

@@ -254,6 +254,7 @@ def obter_tenant_por_id(
 def atualizar_tenant(
     tenant_id: uuid.UUID,
     payload: TenantUpdateRequest,
+    idempotency_key: str = Header(alias="Idempotency-Key", min_length=1, max_length=255),
     principal: Principal = Depends(_exigir_permissao_tenant(PERMISSAO_TENANT_ATUALIZAR)),
     service: TenantAtualizacaoService = Depends(get_tenant_atualizacao_service),
 ) -> TenantResponse:
@@ -263,7 +264,7 @@ def atualizar_tenant(
     (não vazio, <= 200) permanece no Aggregate — a violação responde
     422 ``regra_violada`` (handler do main.py).
     """
-    tenant = service.atualizar_nome(tenant_id, payload.nome)
+    tenant = service.atualizar_nome(tenant_id, payload.nome, idempotency_key=idempotency_key)
     if tenant is None:
         raise HTTPException(
             status_code=404,
@@ -286,6 +287,7 @@ def atualizar_tenant(
 )
 def inativar_tenant(
     tenant_id: uuid.UUID,
+    idempotency_key: str = Header(alias="Idempotency-Key", min_length=1, max_length=255),
     principal: Principal = Depends(_exigir_permissao_tenant(PERMISSAO_TENANT_INATIVAR)),
     service: TenantEstadoService = Depends(get_tenant_estado_service),
 ) -> TenantResponse:
@@ -295,7 +297,7 @@ def inativar_tenant(
     (traduzido de ``TransicaoEstadoInvalidaError`` no main.py); a regra de
     transição permanece no Aggregate (DOMAIN-017).
     """
-    tenant = service.inativar(tenant_id)
+    tenant = service.inativar(tenant_id, idempotency_key=idempotency_key)
     if tenant is None:
         raise HTTPException(
             status_code=404,
@@ -318,6 +320,7 @@ def inativar_tenant(
 )
 def reativar_tenant(
     tenant_id: uuid.UUID,
+    idempotency_key: str = Header(alias="Idempotency-Key", min_length=1, max_length=255),
     principal: Principal = Depends(_exigir_permissao_tenant(PERMISSAO_TENANT_REATIVAR)),
     service: TenantEstadoService = Depends(get_tenant_estado_service),
 ) -> TenantResponse:
@@ -327,7 +330,7 @@ def reativar_tenant(
     (traduzido de ``TransicaoEstadoInvalidaError`` no main.py); a regra de
     transição permanece no Aggregate (DOMAIN-017).
     """
-    tenant = service.reativar(tenant_id)
+    tenant = service.reativar(tenant_id, idempotency_key=idempotency_key)
     if tenant is None:
         raise HTTPException(
             status_code=404,

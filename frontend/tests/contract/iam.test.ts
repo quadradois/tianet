@@ -5,7 +5,7 @@ import { describe, expect, it } from "vitest";
 
 import openapi from "../../../docs/governance/contracts/openapi/frontend-mvp-backend-openapi.json" with { type: "json" };
 
-const SNAPSHOT_SHA = "d9521145dadfe95295eca3f4e720c621eaeb075b146b83a4bdadad7fdf6b4b95";
+const SNAPSHOT_SHA = "d65e8d85297a0b1dbbe53b67dade22dfe6fb4986267e1f8648b51f865fff1d0b";
 const IAM_OPERATIONS = [
   "GET /iam/perfis",
   "POST /iam/perfis",
@@ -56,11 +56,11 @@ function operationEntries(): [string, OpenApiOperation][] {
 }
 
 describe("contrato OpenAPI IAM permitido", () => {
-  it("preserva snapshot 106/133 e hash oficial", async () => {
+  it("preserva snapshot 107/134 e hash oficial", async () => {
     const bytes = await readFile(new URL("../../../docs/governance/contracts/openapi/frontend-mvp-backend-openapi.json", import.meta.url));
     expect(createHash("sha256").update(bytes).digest("hex")).toBe(SNAPSHOT_SHA);
-    expect(operationEntries()).toHaveLength(106);
-    expect(Object.keys(openapi.components.schemas)).toHaveLength(133);
+    expect(operationEntries()).toHaveLength(107);
+    expect(Object.keys(openapi.components.schemas)).toHaveLength(134);
   });
 
   it("certifica exatamente 11 operacoes IAM permitidas sem credenciais ou lista de Usuarios", () => {
@@ -88,5 +88,14 @@ describe("contrato OpenAPI IAM permitido", () => {
     expect(openapi.components.schemas.PerfilResponse.required.toSorted()).toEqual(["estado", "id", "nome", "permissoes", "tenant_id"].toSorted());
     expect(openapi.components.schemas.PermissoesCatalogoResponse.required.toSorted()).toEqual(["itens", "versao"].toSorted());
     expect(openapi.components.schemas.PermissoesEfetivasResponse.required.toSorted()).toEqual(["perfil_id", "perfil_nome", "permissoes", "usuario_id"].toSorted());
+  });
+
+  it("publica Idempotency-Key nas duas escritas de credencial fora da UI permitida", () => {
+    for (const [name, operation] of operationEntries().filter(([operation]) =>
+      ["PATCH /iam/credencial", "POST /iam/usuarios/{usuario_id}/credencial/redefinir"].includes(operation)
+    )) {
+      const headers = operation.parameters?.filter((parameter) => parameter.in === "header").map((parameter) => parameter.name) ?? [];
+      expect(headers, name).toContain("Idempotency-Key");
+    }
   });
 });

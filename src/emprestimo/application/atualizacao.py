@@ -11,6 +11,12 @@ import json
 import uuid
 from collections.abc import Callable
 
+from emprestimo.application.idempotencia import (
+    concluir_idempotencia,
+    dataclass_do_resultado,
+    iniciar_idempotencia,
+    resultado_de_dataclass,
+)
 from emprestimo.application.ports import AuditoriaRegistro, UnitOfWork
 from emprestimo.domain.platform.tenant import Tenant
 
@@ -26,7 +32,13 @@ class TenantAtualizacaoService:
         self._uow_factory = uow_factory
         self._auditoria = auditoria
 
-    def atualizar_nome(self, tenant_id: uuid.UUID, novo_nome: str) -> Tenant | None:
+    def atualizar_nome(
+        self,
+        tenant_id: uuid.UUID,
+        novo_nome: str,
+        *,
+        idempotency_key: str | None = None,
+    ) -> Tenant | None:
         """Atualiza o nome institucional do Tenant.
 
         Args:
@@ -45,6 +57,20 @@ class TenantAtualizacaoService:
             if tenant is None:
                 return None
 
+            escopo = "tenant-atualizar"
+            replay = iniciar_idempotencia(
+                uow,
+                chave=idempotency_key,
+                escopo=escopo,
+                solicitacao={"tenant_id": tenant_id, "novo_nome": novo_nome},
+            )
+            if replay is not None:
+                return dataclass_do_resultado(
+                    replay,
+                    Tenant,
+                    chave=idempotency_key,
+                )
+
             self._auditoria.registrar(
                 "tenant",
                 tenant.id,
@@ -55,6 +81,12 @@ class TenantAtualizacaoService:
             try:
                 tenant.atualizar_nome(novo_nome)
                 uow.tenant.save(tenant)
+                concluir_idempotencia(
+                    uow,
+                    chave=idempotency_key,
+                    escopo=escopo,
+                    resultado=resultado_de_dataclass(tenant),
+                )
                 uow.commit()
             except Exception as exc:
                 self._auditoria.registrar(

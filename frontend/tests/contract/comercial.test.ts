@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import spec from "../../../docs/governance/contracts/openapi/frontend-mvp-backend-openapi.json" with { type: "json" };
 
-const SNAPSHOT_SHA256 = "d9521145dadfe95295eca3f4e720c621eaeb075b146b83a4bdadad7fdf6b4b95";
+const SNAPSHOT_SHA256 = "d65e8d85297a0b1dbbe53b67dade22dfe6fb4986267e1f8648b51f865fff1d0b";
 type HttpMethod = "get" | "patch" | "post";
 type OpenApiParameter = Readonly<{ name: string }>;
 type OpenApiOperation = Readonly<{
@@ -32,13 +32,13 @@ const OPERATIONS = [
 ] as const;
 
 describe("contrato OpenAPI Comercial", () => {
-  it("mantem inventario 106/133 e SHA governado", async () => {
+  it("mantem inventario 107/134 e SHA governado", async () => {
     const { createHash } = await import("node:crypto");
     const { readFile } = await import("node:fs/promises");
     const bytes = await readFile(new URL("../../../docs/governance/contracts/openapi/frontend-mvp-backend-openapi.json", import.meta.url));
     expect(createHash("sha256").update(bytes).digest("hex")).toBe(SNAPSHOT_SHA256);
-    expect(Object.values(openapi.paths).flatMap((pathItem) => Object.keys(pathItem))).toHaveLength(106);
-    expect(Object.keys(openapi.components.schemas)).toHaveLength(133);
+    expect(Object.values(openapi.paths).flatMap((pathItem) => Object.keys(pathItem))).toHaveLength(107);
+    expect(Object.keys(openapi.components.schemas)).toHaveLength(134);
   });
 
   it("publica exatamente as 12 operacoes Comerciais esperadas", () => {
@@ -50,7 +50,7 @@ describe("contrato OpenAPI Comercial", () => {
       expect(operation.responses[String(success)]).toBeTruthy();
       for (const status of errors) expect(operation.responses[status], `${route} ${status}`).toBeTruthy();
       expect(operation.parameters?.some((parameter) => parameter.name === "X-Correlation-ID")).toBe(true);
-      expect(operation.parameters?.some((parameter) => parameter.name === "Idempotency-Key")).toBe(false);
+      expect(operation.parameters?.some((parameter) => parameter.name === "Idempotency-Key")).toBe(method !== "get");
     }
   });
 

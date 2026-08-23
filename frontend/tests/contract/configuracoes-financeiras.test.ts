@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import openapi from "../../../docs/governance/contracts/openapi/frontend-mvp-backend-openapi.json" with { type: "json" };
 
-const SNAPSHOT_SHA = "d9521145dadfe95295eca3f4e720c621eaeb075b146b83a4bdadad7fdf6b4b95";
+const SNAPSHOT_SHA = "d65e8d85297a0b1dbbe53b67dade22dfe6fb4986267e1f8648b51f865fff1d0b";
 const CONFIG_PATHS = [
   "/credit/configuracoes-financeiras",
   "/credit/configuracoes-financeiras/{configuracao_id}",
@@ -46,24 +46,25 @@ function operations() {
 }
 
 describe("contrato OpenAPI de Configuracoes Financeiras", () => {
-  it("preserva snapshot governado 106/133 e SHA publicado", async () => {
+  it("preserva snapshot governado 107/134 e SHA publicado", async () => {
     const { createHash } = await import("node:crypto");
     const { readFile } = await import("node:fs/promises");
     const bytes = await readFile(new URL("../../../docs/governance/contracts/openapi/frontend-mvp-backend-openapi.json", import.meta.url));
     expect(createHash("sha256").update(bytes).digest("hex")).toBe(SNAPSHOT_SHA);
-    expect(operations()).toHaveLength(106);
-    expect(Object.keys(openapi.components.schemas)).toHaveLength(133);
+    expect(operations()).toHaveLength(107);
+    expect(Object.keys(openapi.components.schemas)).toHaveLength(134);
   });
 
-  it("certifica 13 operacoes Bearer com correlation e sem Idempotency-Key", () => {
+  it("certifica 13 operacoes Bearer e Idempotency-Key nas oito escritas", () => {
     expect(operations().filter((operation) => operation.includes("/credit/configuracoes-financeiras")).sort()).toEqual([...EXPECTED_OPERATIONS].sort());
     for (const route of CONFIG_PATHS) {
       const pathItem = openapi.paths[route];
-      for (const operation of Object.values(pathItem) as OpenApiOperation[]) {
+      for (const [method, operation] of Object.entries(pathItem) as [string, OpenApiOperation][]) {
         expect(operation.security).toEqual([{ BearerAuth: [] }]);
         const headers = operation.parameters?.filter((parameter) => parameter.in === "header").map((parameter) => parameter.name) ?? [];
         expect(headers).toContain("X-Correlation-ID");
-        expect(headers).not.toContain("Idempotency-Key");
+        if (method === "post") expect(headers).toContain("Idempotency-Key");
+        else expect(headers).not.toContain("Idempotency-Key");
       }
     }
   });

@@ -2,7 +2,7 @@
 
 **ID:** FOUNDATION-004
 
-**Versão:** 1.0.0
+**Versão:** 1.1.0
 
 **Status:** Aprovado
 
@@ -118,8 +118,6 @@ Exemplos:
 - Empréstimo Criado;
 - Pagamento Registrado;
 - Juros Calculados;
-- Parcela Gerada;
-- Parcela Vencida;
 - Empréstimo Quitado;
 - Empréstimo Renegociado.
 
@@ -141,4 +139,5 @@ Este documento será considerado aprovado quando:
 
 | Versão | Data | Descrição |
 |---------|------|-----------|
+| 1.1.0 | 23/08/2026 | Eventos Parcela Gerada e Parcela Vencida removidos: a Parcela foi revogada pela DR-004 (IMP-337). |
 | 1.0.0 | 01/08/2026 | Primeira versão oficial do Core Domain. |

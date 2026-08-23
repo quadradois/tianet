@@ -45,7 +45,7 @@ function payload(pathname: string) {
 }
 
 describe("loader server-only do Dashboard", () => {
-  it("inicia os quatro GETs autorizados em paralelo e usa somente a Carteira da sessao", async () => {
+  it("inicia os cinco GETs autorizados em paralelo e usa somente a Carteira da sessao", async () => {
     const selected = config();
     const seen: URL[] = [];
     const release: Array<() => void> = [];
@@ -54,15 +54,18 @@ describe("loader server-only do Dashboard", () => {
       expect(request.headers.get("Authorization")).toBe("Bearer access-sensitive");
       expect(request.headers.get("X-Correlation-ID")).toBeTruthy();
       expect(request.cache).toBe("no-store");
-      await new Promise<void>((resolve) => { release.push(resolve); if (release.length === 4) release.forEach((item) => item()); });
+      await new Promise<void>((resolve) => { release.push(resolve); if (release.length === 5) release.forEach((item) => item()); });
       return Response.json(payload(url.pathname), { headers: { "X-Correlation-ID": "corr-backend" } });
     });
     const loads = await beginDashboardLoads(await cookieStore(selected), context(["relatorios.operacionais.ler", "agenda.ler", "cobranca.caso.ler"]), period, dependencies(selected, backend));
-    await Promise.all([loads.summary, loads.dueDates, loads.agenda, loads.collection]);
-    expect(backend).toHaveBeenCalledTimes(4);
-    expect(seen.map((url) => url.pathname).sort()).toEqual(["/credit/agenda", `/credit/carteiras/${WALLET_ID}/relatorios/resumo`, `/credit/carteiras/${WALLET_ID}/relatorios/vencimentos`, "/credit/cobrancas/casos"]);
+    await Promise.all([loads.summary, loads.dueDates, loads.agenda, loads.collection, loads.fluxo]);
+    expect(backend).toHaveBeenCalledTimes(5);
+    expect(seen.map((url) => url.pathname).sort()).toEqual(["/credit/agenda", `/credit/carteiras/${WALLET_ID}/relatorios/fluxo`, `/credit/carteiras/${WALLET_ID}/relatorios/resumo`, `/credit/carteiras/${WALLET_ID}/relatorios/vencimentos`, "/credit/cobrancas/casos"]);
     for (const url of seen) expect(url.searchParams.get("carteira_id") ?? WALLET_ID).toBe(WALLET_ID);
-    expect(seen.filter((url) => url.pathname.includes("relatorios")).every((url) => url.searchParams.get("data_referencia") === "2026-08-13")).toBe(true);
+    expect(seen.filter((url) => url.pathname.includes("relatorios") && !url.pathname.endsWith("/fluxo")).every((url) => url.searchParams.get("data_referencia") === "2026-08-13")).toBe(true);
+    const fluxo = seen.find((url) => url.pathname.endsWith("/relatorios/fluxo"));
+    expect(fluxo?.searchParams.get("inicio")).toBeTruthy();
+    expect(fluxo?.searchParams.get("fim")).toBeTruthy();
     const agenda = seen.find((url) => url.pathname === "/credit/agenda");
     expect(agenda?.searchParams.get("janela_inicio")).toBe(period.agendaStart);
     expect(agenda?.searchParams.get("janela_fim")).toBe(period.agendaEnd);

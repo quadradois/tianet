@@ -1,4 +1,4 @@
-"""Pagamento (IMP-150, EPIC-005)."""
+"""Pagamento (IMP-150, EPIC-005, IMP-332)."""
 
 from __future__ import annotations
 
@@ -33,8 +33,9 @@ class Pagamento:
     valor_juros: Decimal
     valor_amortizacao: Decimal
     valor_encargos: Decimal = Decimal("0.00")
+    valor_devolvido: Decimal = Decimal("0.00")
+    valor_estornado: Decimal = Decimal("0.00")
     chave_idempotencia: str | None = None
-    parcelas_liquidadas: tuple[uuid.UUID, ...] = ()
     distribuicao: dict[str, object] = field(default_factory=dict)
     usuario_id: uuid.UUID | None = None
     estado: PagamentoState = PagamentoState.PROCESSADO
@@ -53,6 +54,8 @@ class Pagamento:
             "valor_juros",
             "valor_amortizacao",
             "valor_encargos",
+            "valor_devolvido",
+            "valor_estornado",
         ):
             _validar_decimal(campo, getattr(self, campo))
         if self.valor_recebido <= Decimal("0.00"):
@@ -60,29 +63,51 @@ class Pagamento:
                 "EPIC-005",
                 "valor_recebido deve ser maior que zero",
             )
-        for campo in ("valor_juros", "valor_amortizacao", "valor_encargos"):
+        for campo in (
+            "valor_juros",
+            "valor_amortizacao",
+            "valor_encargos",
+            "valor_devolvido",
+            "valor_estornado",
+        ):
             if getattr(self, campo) < Decimal("0.00"):
                 raise ViolacaoInvarianteError(
                     "EPIC-005",
                     f"{campo} nao pode ser negativo",
                 )
-        total_distribuido = self.valor_juros + self.valor_amortizacao + self.valor_encargos
-        if total_distribuido > self.valor_recebido:
+        total_destinado = self.valor_distribuido + self.valor_devolvido
+        if total_destinado != self.valor_recebido:
             raise ViolacaoInvarianteError(
                 "EPIC-005",
-                "distribuicao do pagamento nao pode exceder valor recebido",
+                "distribuicao e devolucao devem ser iguais ao valor recebido",
+            )
+        if self.valor_estornado > self.valor_devolvido:
+            raise ViolacaoInvarianteError(
+                "EPIC-005",
+                "valor estornado nao pode exceder valor devolvido",
             )
         if not isinstance(self.estado, PagamentoState):
             raise ViolacaoInvarianteError(
                 "EPIC-005",
                 f"estado deve ser PagamentoState, recebido {self.estado!r}",
             )
-        object.__setattr__(self, "parcelas_liquidadas", tuple(self.parcelas_liquidadas))
         object.__setattr__(self, "distribuicao", copy.deepcopy(self.distribuicao))
 
     @property
     def valor_distribuido(self) -> Decimal:
         return self.valor_juros + self.valor_amortizacao + self.valor_encargos
+
+    @property
+    def valor_sobra(self) -> Decimal:
+        """Valor destinado a devolucao que ainda nao teve estorno lancado."""
+
+        return self.valor_devolvido - self.valor_estornado
+
+    @property
+    def reconciliado(self) -> bool:
+        """Indica que toda a devolucao reconhecida ja foi registrada."""
+
+        return self.valor_sobra == Decimal("0.00")
 
     def confirmar(self) -> Pagamento:
         """Retorna copia confirmada apos atualizacao do Emprestimo pelo Motor."""
@@ -94,17 +119,29 @@ class Pagamento:
             )
         return self._com_estado(PagamentoState.CONFIRMADO)
 
-    def estornar(self) -> Pagamento:
-        """Retorna copia estornada preservando o registro original."""
+    def estornar(self, valor: Decimal) -> Pagamento:
+        """Registra estorno parcial da devolucao sem apagar o pagamento bruto."""
 
-        if self.estado is PagamentoState.ESTORNADO:
+        _validar_decimal("valor", valor)
+        if valor <= Decimal("0.00"):
             raise ViolacaoInvarianteError(
                 "EPIC-005",
-                "pagamento ja esta estornado",
+                "valor do estorno deve ser maior que zero",
             )
-        return self._com_estado(PagamentoState.ESTORNADO)
+        if valor > self.valor_sobra:
+            raise ViolacaoInvarianteError(
+                "EPIC-005",
+                "valor do estorno nao pode exceder a sobra do pagamento",
+            )
+        return self._com_estorno(self.valor_estornado + valor)
+
+    def _com_estorno(self, valor_estornado: Decimal) -> Pagamento:
+        return self._copia(estado=self.estado, valor_estornado=valor_estornado)
 
     def _com_estado(self, estado: PagamentoState) -> Pagamento:
+        return self._copia(estado=estado, valor_estornado=self.valor_estornado)
+
+    def _copia(self, *, estado: PagamentoState, valor_estornado: Decimal) -> Pagamento:
         return Pagamento(
             id=self.id,
             emprestimo_id=self.emprestimo_id,
@@ -113,8 +150,9 @@ class Pagamento:
             valor_juros=self.valor_juros,
             valor_amortizacao=self.valor_amortizacao,
             valor_encargos=self.valor_encargos,
+            valor_devolvido=self.valor_devolvido,
+            valor_estornado=valor_estornado,
             chave_idempotencia=self.chave_idempotencia,
-            parcelas_liquidadas=self.parcelas_liquidadas,
             distribuicao=self.distribuicao,
             usuario_id=self.usuario_id,
             estado=estado,

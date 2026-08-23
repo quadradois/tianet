@@ -8,7 +8,8 @@ from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
 from enum import StrEnum
 
-from emprestimo.application.ports import UnitOfWork
+from emprestimo.application.auditoria_escrita import auditar_escrita
+from emprestimo.application.ports import AuditoriaRegistro, UnitOfWork
 from emprestimo.domain.credit.scheduler import (
     EstadoTentativaJob,
     JobAgendado,
@@ -36,12 +37,15 @@ class SchedulerService:
     def __init__(
         self,
         uow_factory: Callable[[], UnitOfWork],
+        auditoria: AuditoriaRegistro,
         *,
         lease_duration: timedelta = timedelta(seconds=30),
     ) -> None:
         self._uow_factory = uow_factory
+        self._auditoria = auditoria
         self._lease_duration = lease_duration
 
+    @auditar_escrita("scheduler", "reivindicar")
     def reivindicar(
         self,
         *,
@@ -60,6 +64,7 @@ class SchedulerService:
             uow.commit()
         return [ClaimScheduler(job, tentativa) for job, tentativa in claims]
 
+    @auditar_escrita("scheduler", "renovar")
     def renovar(self, claim: ClaimScheduler, *, agora: datetime | None = None) -> bool:
         instante = agora or datetime.now(UTC)
         with self._uow_factory() as uow:
@@ -73,6 +78,24 @@ class SchedulerService:
             return renovado
 
     def finalizar(
+        self,
+        claim: ClaimScheduler,
+        resultado: ResultadoExecucao,
+        *,
+        erro_codigo: str | None = None,
+        agora: datetime | None = None,
+    ) -> bool:
+        if resultado is ResultadoExecucao.FINALIZADO:
+            return True
+        return self._finalizar(
+            claim,
+            resultado,
+            erro_codigo=erro_codigo,
+            agora=agora,
+        )
+
+    @auditar_escrita("scheduler", "finalizar")
+    def _finalizar(
         self,
         claim: ClaimScheduler,
         resultado: ResultadoExecucao,

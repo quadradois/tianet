@@ -7,6 +7,7 @@ from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from datetime import datetime
 
+from emprestimo.application.auditoria_escrita import auditar_escrita
 from emprestimo.application.errors import (
     CarteiraNaoEncontradaError,
     DevedorNaoEncontradoError,
@@ -15,7 +16,13 @@ from emprestimo.application.errors import (
     TransicaoEstadoInvalidaError,
     UsuarioNaoEncontradoError,
 )
-from emprestimo.application.ports import UnitOfWork
+from emprestimo.application.idempotencia import (
+    concluir_idempotencia,
+    dataclass_do_resultado,
+    iniciar_idempotencia,
+    resultado_de_dataclass,
+)
+from emprestimo.application.ports import AuditoriaRegistro, UnitOfWork
 from emprestimo.domain.common.errors import ViolacaoInvarianteError
 from emprestimo.domain.credit.devedor import DevedorState
 from emprestimo.domain.credit.ports import (
@@ -27,6 +34,10 @@ from emprestimo.domain.credit.proposta_aprovada import PropostaAprovadaLogica
 from emprestimo.domain.credit.proposta_comercial import PropostaComercial
 from emprestimo.domain.credit.proposta_comercial_state import PropostaComercialState
 from emprestimo.domain.credit.simulacao_comercial import SimulacaoComercial
+
+ESCOPO_SIMULACAO = "comercial-simulacao-criar"
+ESCOPO_PROPOSTA_CRIAR = "comercial-proposta-criar"
+ESCOPO_PROPOSTA_ATUALIZAR = "comercial-proposta-atualizar"
 
 
 @dataclass(frozen=True)
@@ -60,9 +71,15 @@ class PropostaComercialResultado:
 class SimulacaoComercialService:
     """Cria simulacoes comerciais nao vinculantes."""
 
-    def __init__(self, uow_factory: Callable[[], UnitOfWork]) -> None:
+    def __init__(
+        self,
+        uow_factory: Callable[[], UnitOfWork],
+        auditoria: AuditoriaRegistro,
+    ) -> None:
         self._uow_factory = uow_factory
+        self._auditoria = auditoria
 
+    @auditar_escrita("simulacao_comercial", "criar")
     def criar(
         self,
         *,
@@ -71,6 +88,7 @@ class SimulacaoComercialService:
         devedor_id: uuid.UUID,
         usuario_id: uuid.UUID,
         parametros: Mapping[str, object],
+        idempotency_key: str | None = None,
     ) -> SimulacaoComercialResultado:
         with self._uow_factory() as uow:
             _validar_contexto(
@@ -80,6 +98,24 @@ class SimulacaoComercialService:
                 devedor_id=devedor_id,
                 usuario_id=usuario_id,
             )
+            replay = iniciar_idempotencia(
+                uow,
+                chave=idempotency_key,
+                escopo=ESCOPO_SIMULACAO,
+                solicitacao={
+                    "tenant_id": tenant_id,
+                    "carteira_id": carteira_id,
+                    "devedor_id": devedor_id,
+                    "usuario_id": usuario_id,
+                    "parametros": parametros,
+                },
+            )
+            if replay is not None:
+                return dataclass_do_resultado(
+                    replay,
+                    SimulacaoComercialResultado,
+                    chave=idempotency_key,
+                )
             simulacao = SimulacaoComercial.criar(
                 tenant_id=tenant_id,
                 carteira_id=carteira_id,
@@ -88,16 +124,29 @@ class SimulacaoComercialService:
                 parametros=parametros,
             )
             uow.simulacao_comercial.save(simulacao)
+            resultado = _simulacao_resultado(simulacao)
+            concluir_idempotencia(
+                uow,
+                chave=idempotency_key,
+                escopo=ESCOPO_SIMULACAO,
+                resultado=resultado_de_dataclass(resultado),
+            )
             uow.commit()
-            return _simulacao_resultado(simulacao)
+            return resultado
 
 
 class PropostaComercialService:
     """Cria e atualiza propostas comerciais antes do estado terminal."""
 
-    def __init__(self, uow_factory: Callable[[], UnitOfWork]) -> None:
+    def __init__(
+        self,
+        uow_factory: Callable[[], UnitOfWork],
+        auditoria: AuditoriaRegistro,
+    ) -> None:
         self._uow_factory = uow_factory
+        self._auditoria = auditoria
 
+    @auditar_escrita("proposta_comercial", "criar")
     def criar(
         self,
         *,
@@ -107,6 +156,7 @@ class PropostaComercialService:
         usuario_id: uuid.UUID,
         parametros: Mapping[str, object],
         simulacao_id: uuid.UUID | None = None,
+        idempotency_key: str | None = None,
     ) -> PropostaComercialResultado:
         with self._uow_factory() as uow:
             _validar_contexto(
@@ -125,6 +175,25 @@ class PropostaComercialService:
                     devedor_id=devedor_id,
                 )
                 parametros = parametros if parametros else simulacao.parametros
+            replay = iniciar_idempotencia(
+                uow,
+                chave=idempotency_key,
+                escopo=ESCOPO_PROPOSTA_CRIAR,
+                solicitacao={
+                    "tenant_id": tenant_id,
+                    "carteira_id": carteira_id,
+                    "devedor_id": devedor_id,
+                    "usuario_id": usuario_id,
+                    "parametros": parametros,
+                    "simulacao_id": simulacao_id,
+                },
+            )
+            if replay is not None:
+                return dataclass_do_resultado(
+                    replay,
+                    PropostaComercialResultado,
+                    chave=idempotency_key,
+                )
             proposta = PropostaComercial.criar(
                 tenant_id=tenant_id,
                 carteira_id=carteira_id,
@@ -134,22 +203,54 @@ class PropostaComercialService:
                 simulacao_id=simulacao_id,
             )
             uow.proposta_comercial.save(proposta)
+            resultado = _proposta_resultado(proposta)
+            concluir_idempotencia(
+                uow,
+                chave=idempotency_key,
+                escopo=ESCOPO_PROPOSTA_CRIAR,
+                resultado=resultado_de_dataclass(resultado),
+            )
             uow.commit()
-            return _proposta_resultado(proposta)
+            return resultado
 
+    @auditar_escrita("proposta_comercial", "atualizar_parametros", identificador="proposta_id")
     def atualizar_parametros(
         self,
         *,
         proposta_id: uuid.UUID,
         tenant_id: uuid.UUID,
         parametros: Mapping[str, object],
+        idempotency_key: str | None = None,
     ) -> PropostaComercialResultado:
         with self._uow_factory() as uow:
             proposta = _proposta_do_tenant(uow, proposta_id=proposta_id, tenant_id=tenant_id)
+            replay = iniciar_idempotencia(
+                uow,
+                chave=idempotency_key,
+                escopo=ESCOPO_PROPOSTA_ATUALIZAR,
+                solicitacao={
+                    "proposta_id": proposta_id,
+                    "tenant_id": tenant_id,
+                    "parametros": parametros,
+                },
+            )
+            if replay is not None:
+                return dataclass_do_resultado(
+                    replay,
+                    PropostaComercialResultado,
+                    chave=idempotency_key,
+                )
             proposta.atualizar_parametros(parametros)
             uow.proposta_comercial.save(proposta)
+            resultado = _proposta_resultado(proposta)
+            concluir_idempotencia(
+                uow,
+                chave=idempotency_key,
+                escopo=ESCOPO_PROPOSTA_ATUALIZAR,
+                resultado=resultado_de_dataclass(resultado),
+            )
             uow.commit()
-            return _proposta_resultado(proposta)
+            return resultado
 
 
 class ConsultaComercialService:
@@ -200,19 +301,41 @@ class ConsultaComercialService:
 class DecisaoComercialService:
     """Orquestra decisoes de fluxo de proposta comercial."""
 
-    def __init__(self, uow_factory: Callable[[], UnitOfWork]) -> None:
+    def __init__(
+        self,
+        uow_factory: Callable[[], UnitOfWork],
+        auditoria: AuditoriaRegistro,
+    ) -> None:
         self._uow_factory = uow_factory
+        self._auditoria = auditoria
 
+    @auditar_escrita("proposta_comercial", "enviar_para_analise", identificador="proposta_id")
     def enviar_para_analise(
-        self, *, proposta_id: uuid.UUID, tenant_id: uuid.UUID, usuario_id: uuid.UUID
+        self,
+        *,
+        proposta_id: uuid.UUID,
+        tenant_id: uuid.UUID,
+        usuario_id: uuid.UUID,
+        idempotency_key: str | None = None,
     ) -> PropostaComercialResultado:
-        return self._decidir(proposta_id, tenant_id, usuario_id, "enviar")
+        return self._decidir(
+            proposta_id, tenant_id, usuario_id, "enviar", idempotency_key=idempotency_key
+        )
 
+    @auditar_escrita("proposta_comercial", "aprovar", identificador="proposta_id")
     def aprovar(
-        self, *, proposta_id: uuid.UUID, tenant_id: uuid.UUID, usuario_id: uuid.UUID
+        self,
+        *,
+        proposta_id: uuid.UUID,
+        tenant_id: uuid.UUID,
+        usuario_id: uuid.UUID,
+        idempotency_key: str | None = None,
     ) -> PropostaComercialResultado:
-        return self._decidir(proposta_id, tenant_id, usuario_id, "aprovar")
+        return self._decidir(
+            proposta_id, tenant_id, usuario_id, "aprovar", idempotency_key=idempotency_key
+        )
 
+    @auditar_escrita("proposta_comercial", "recusar", identificador="proposta_id")
     def recusar(
         self,
         *,
@@ -220,9 +343,18 @@ class DecisaoComercialService:
         tenant_id: uuid.UUID,
         usuario_id: uuid.UUID,
         motivo: str | None = None,
+        idempotency_key: str | None = None,
     ) -> PropostaComercialResultado:
-        return self._decidir(proposta_id, tenant_id, usuario_id, "recusar", motivo=motivo)
+        return self._decidir(
+            proposta_id,
+            tenant_id,
+            usuario_id,
+            "recusar",
+            motivo=motivo,
+            idempotency_key=idempotency_key,
+        )
 
+    @auditar_escrita("proposta_comercial", "cancelar", identificador="proposta_id")
     def cancelar(
         self,
         *,
@@ -230,13 +362,29 @@ class DecisaoComercialService:
         tenant_id: uuid.UUID,
         usuario_id: uuid.UUID,
         motivo: str | None = None,
+        idempotency_key: str | None = None,
     ) -> PropostaComercialResultado:
-        return self._decidir(proposta_id, tenant_id, usuario_id, "cancelar", motivo=motivo)
+        return self._decidir(
+            proposta_id,
+            tenant_id,
+            usuario_id,
+            "cancelar",
+            motivo=motivo,
+            idempotency_key=idempotency_key,
+        )
 
+    @auditar_escrita("proposta_comercial", "expirar", identificador="proposta_id")
     def expirar(
-        self, *, proposta_id: uuid.UUID, tenant_id: uuid.UUID, usuario_id: uuid.UUID
+        self,
+        *,
+        proposta_id: uuid.UUID,
+        tenant_id: uuid.UUID,
+        usuario_id: uuid.UUID,
+        idempotency_key: str | None = None,
     ) -> PropostaComercialResultado:
-        return self._decidir(proposta_id, tenant_id, usuario_id, "expirar")
+        return self._decidir(
+            proposta_id, tenant_id, usuario_id, "expirar", idempotency_key=idempotency_key
+        )
 
     def _decidir(
         self,
@@ -246,12 +394,31 @@ class DecisaoComercialService:
         acao: str,
         *,
         motivo: str | None = None,
+        idempotency_key: str | None = None,
     ) -> PropostaComercialResultado:
         with self._uow_factory() as uow:
             proposta = _proposta_do_tenant(uow, proposta_id=proposta_id, tenant_id=tenant_id)
             usuario = uow.usuario.find_by_id(usuario_id)
             if usuario is None or usuario.tenant_id != tenant_id:
                 raise UsuarioNaoEncontradoError(usuario_id)
+            escopo = f"comercial-proposta-{acao}"
+            replay = iniciar_idempotencia(
+                uow,
+                chave=idempotency_key,
+                escopo=escopo,
+                solicitacao={
+                    "proposta_id": proposta_id,
+                    "tenant_id": tenant_id,
+                    "usuario_id": usuario_id,
+                    "motivo": motivo,
+                },
+            )
+            if replay is not None:
+                return dataclass_do_resultado(
+                    replay,
+                    PropostaComercialResultado,
+                    chave=idempotency_key,
+                )
             try:
                 if acao == "enviar":
                     proposta.enviar_para_analise(usuario_id=usuario_id)
@@ -266,8 +433,15 @@ class DecisaoComercialService:
             except ViolacaoInvarianteError as exc:
                 raise TransicaoEstadoInvalidaError(proposta.id, acao, str(exc)) from exc
             uow.proposta_comercial.save(proposta)
+            resultado = _proposta_resultado(proposta)
+            concluir_idempotencia(
+                uow,
+                chave=idempotency_key,
+                escopo=escopo,
+                resultado=resultado_de_dataclass(resultado),
+            )
             uow.commit()
-            return _proposta_resultado(proposta)
+            return resultado
 
 
 class IntegracaoPropostaAprovadaService:

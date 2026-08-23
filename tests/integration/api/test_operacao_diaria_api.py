@@ -272,6 +272,7 @@ def _relatorios_service() -> SimpleNamespace:
             operacoes_quitadas=0,
             acertos_pendentes=0,
             principal_a_receber=Decimal("100.00"),
+            projecao_juros=Decimal("0.00"),
             total_realizado=Decimal("50.00"),
         ),
         fluxo_previsto_realizado=lambda **_: SimpleNamespace(

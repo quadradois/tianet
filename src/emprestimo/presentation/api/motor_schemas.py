@@ -21,6 +21,12 @@ class PagamentoCreateRequest(BaseModel):
     recebido_em: datetime
 
 
+class EstornoPagamentoRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    valor: Decimal = Field(gt=Decimal("0.00"), decimal_places=2)
+
+
 class QuitacaoRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
@@ -102,9 +108,12 @@ class PagamentoResponse(BaseModel):
     valor_juros: Decimal
     valor_amortizacao: Decimal
     valor_encargos: Decimal
+    valor_devolvido: Decimal
+    valor_estornado: Decimal
+    valor_sobra: Decimal
+    reconciliado: bool
     estado: PagamentoState
     chave_idempotencia: str | None
-    parcelas_liquidadas: list[uuid.UUID]
     memoria: MemoriaCalculoResponse | None = None
 
 

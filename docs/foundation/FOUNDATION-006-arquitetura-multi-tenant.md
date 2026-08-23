@@ -2,7 +2,7 @@
 
 **ID:** FOUNDATION-006
 
-**Versão:** 1.0.0
+**Versão:** 1.1.0
 
 **Status:** Aprovado
 
@@ -20,9 +20,9 @@ A arquitetura Multi-Tenant pertence ao Platform Context e não ao Credit Context
 
 # 2. Contexto
 
-A plataforma foi concebida para atender múltiplas organizações de forma simultânea.
+A plataforma foi concebida para atender múltiplos Credores de forma simultânea.
 
-Cada organização será representada por um Tenant.
+Cada Credor será representado por um Tenant.
 
 Cada Tenant possuirá seus próprios usuários, configurações e Carteiras.
 
@@ -34,9 +34,26 @@ Todo processamento financeiro ocorrerá exclusivamente dentro de uma Carteira pe
 
 ## Tenant
 
-Organização que utiliza a plataforma.
+Credor que utiliza a plataforma — na FOUNDATION-001, a **pessoa** que empresta o
+próprio dinheiro e administra pessoalmente suas operações.
 
-Representa a fronteira de isolamento entre clientes.
+Representa a fronteira de isolamento entre Credores.
+
+> **Por que o Tenant continua existindo se o Credor é uma pessoa.** Tenant é
+> unidade de **isolamento**, não de personalidade jurídica. Ele existe para que
+> os dados de um Credor jamais alcancem outro, independentemente de o titular
+> ser pessoa física ou jurídica. Um Credor individual precisa dessa fronteira
+> exatamente como uma organização precisaria.
+>
+> **Por que o campo `identificador_institucional` sobrevive.** O nome é herança
+> da cerimônia institucional que a FOUNDATION-001 v2.0.0 invalidou, mas o
+> **campo** continua necessário: todo Tenant precisa de um identificador
+> estável e único, e um Credor individual também tem um. Renomeá-lo seria
+> mudança **não aditiva** de contrato público atingindo 72 pontos em `src/` e 9
+> no frontend, além de snapshot, cliente tipado, matriz e cadeia do PLAN-026 —
+> custo alto para ganho puramente estético. **Decisão registrada em 2026-08-23
+> pelo IMP-338: o campo permanece com o nome atual.** Quem estranhar o nome no
+> futuro deve ler este parágrafo em vez de reabrir a questão.
 
 ---
 
@@ -78,7 +95,6 @@ Responsável por:
 - Devedor;
 - Contrato de Crédito;
 - Empréstimo;
-- Parcela;
 - Pagamento;
 - Motor Financeiro.
 
@@ -144,4 +160,5 @@ Este documento será considerado aprovado quando:
 
 | Versão | Data | Descrição |
 |---------|------|-----------|
+| 1.1.0 | 23/08/2026 | Tenant deixa de ser definido como organizacao e passa a representar o Credor da FOUNDATION-001. Registrada a razao de o Tenant existir para um credor individual e a decisao de preservar o nome do campo `identificador_institucional` (IMP-338). |
 | 1.0.0 | 01/08/2026 | Primeira versão oficial da Arquitetura Multi-Tenant. |

@@ -143,13 +143,13 @@ describe("BFF Contratos", () => {
     }
   });
 
-  it("executa criacao, assinatura, liberacao logica, cancelamento e encerramento sem Idempotency-Key", async () => {
+  it("executa criacao, assinatura, liberacao logica, cancelamento e encerramento com Idempotency-Key", async () => {
     const selected = config();
     const paths: string[] = [];
     const backend: FetchLike = async (request) => {
       const url = new URL(request.url);
       paths.push(`${request.method} ${url.pathname}`);
-      expect(request.headers.has("Idempotency-Key")).toBe(false);
+      expect(request.headers.has("Idempotency-Key")).toBe(true);
       if (url.pathname.endsWith("/liberar-para-motor")) return Response.json({ contrato_id: CONTRACT_ID, proposta_comercial_id: PROPOSAL_ID, tenant_id: TENANT_ID, carteira_id: WALLET_ID, devedor_id: DEBTOR_ID, parametros_contratados: { produto: "assistido" }, liberado_por_usuario_id: USER_ID, liberado_em: "2026-08-14T10:30:00Z" });
       return Response.json(contract(WALLET_ID, "assinado"), { status: url.pathname.endsWith("/contratos") ? 201 : 200, headers: { "X-Correlation-ID": "corr-command" } });
     };

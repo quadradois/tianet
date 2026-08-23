@@ -2,7 +2,7 @@
 
 **ID:** DOMAIN-010
 
-**Versão:** 1.0.0
+**Versão:** 2.0.0
 
 **Status:** Aprovado
 
@@ -28,8 +28,8 @@ O Motor Financeiro é responsável por:
 - calcular saldo devedor;
 - calcular valor para quitação;
 - processar pagamentos;
-- distribuir pagamentos entre juros e principal;
-- liquidar Parcelas quando aplicável;
+- distribuir pagamentos entre juros, encargos e principal;
+- registrar o excedente do pagamento e o estorno lançado sobre ele;
 - atualizar o estado atual do Empréstimo;
 - produzir a Memória de Cálculo;
 - identificar inadimplência;
@@ -56,7 +56,6 @@ O Motor Financeiro produzirá:
 
 - Empréstimo atualizado;
 - Pagamento processado;
-- Parcelas atualizadas;
 - Memória de Cálculo;
 - Eventos do domínio.
 
@@ -87,7 +86,12 @@ Na modalidade Livre, os pagamentos deverão priorizar:
 
 ## RN-004
 
-Na modalidade Prazo Fixo, os pagamentos deverão ser aplicados às Parcelas previstas, respeitando as regras de liquidação parcial ou total.
+Os pagamentos são distribuídos na ordem juros, encargos e principal, cada
+destino recebendo no máximo o que está em aberto.
+
+Quando o valor recebido excede o total devido, a diferença é registrada como
+excedente e não fica sem contrapartida: o Credor é avisado e lança o estorno do
+valor, devolvendo-o ao devedor por fora do sistema. Ver DOMAIN-006.
 
 ---
 
@@ -119,4 +123,5 @@ Todo processamento deverá preservar a consistência entre o histórico da opera
 
 | Versão | Data | Descrição |
 |---------|------|-----------|
+| 2.0.0 | 23/08/2026 | Liquidacao de Parcelas removida das responsabilidades e dos produtos do Motor; RN-004 passa a descrever a distribuicao juros/encargos/principal e o tratamento do excedente (IMP-337). |
 | 1.0.0 | 01/08/2026 | Primeira versão oficial do Domain Service Motor Financeiro. |

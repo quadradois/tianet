@@ -214,7 +214,10 @@ def test_pagamento_registra_distribuicao_memoria_evento_e_replay(
         usuario_id=ambiente.usuario_id,
         idempotency_key="emp-para-pagamento",
     )
-    pagamentos = PagamentoService(lambda: SqlAlchemyUnitOfWork(session_factory))
+    pagamentos = PagamentoService(
+        lambda: SqlAlchemyUnitOfWork(session_factory),
+        SqlAlchemyAuditoriaRegistro(session_factory),
+    )
 
     primeiro = pagamentos.registrar(
         emprestimo_id=emprestimo.emprestimo_id,
@@ -280,7 +283,10 @@ def test_pagamento_valor_invalido_nao_persiste_fatos(
     )
 
     with pytest.raises(TransicaoEstadoInvalidaError):
-        PagamentoService(lambda: SqlAlchemyUnitOfWork(session_factory)).registrar(
+        PagamentoService(
+            lambda: SqlAlchemyUnitOfWork(session_factory),
+            SqlAlchemyAuditoriaRegistro(session_factory),
+        ).registrar(
             emprestimo_id=emprestimo.emprestimo_id,
             tenant_id=ambiente.tenant_id,
             usuario_id=ambiente.usuario_id,
@@ -309,7 +315,10 @@ def test_consulta_saldo_retorna_componentes_memoria_e_nao_persiste_consulta(
         usuario_id=ambiente.usuario_id,
         idempotency_key="emp-para-saldo",
     )
-    PagamentoService(lambda: SqlAlchemyUnitOfWork(session_factory)).registrar(
+    PagamentoService(
+        lambda: SqlAlchemyUnitOfWork(session_factory),
+        SqlAlchemyAuditoriaRegistro(session_factory),
+    ).registrar(
         emprestimo_id=emprestimo.emprestimo_id,
         tenant_id=ambiente.tenant_id,
         usuario_id=ambiente.usuario_id,
@@ -356,7 +365,10 @@ def test_quitacao_quita_emprestimo_e_preserva_memorias_eventos(
         usuario_id=ambiente.usuario_id,
         idempotency_key="emp-para-quitacao",
     )
-    service = QuitacaoRenegociacaoService(lambda: SqlAlchemyUnitOfWork(session_factory))
+    service = QuitacaoRenegociacaoService(
+        lambda: SqlAlchemyUnitOfWork(session_factory),
+        SqlAlchemyAuditoriaRegistro(session_factory),
+    )
 
     quitado = service.quitar(
         emprestimo_id=emprestimo.emprestimo_id,
@@ -417,7 +429,8 @@ def test_renegociacao_registra_memoria_evento_e_preserva_estado_ativo(
     )
 
     resultado = QuitacaoRenegociacaoService(
-        lambda: SqlAlchemyUnitOfWork(session_factory)
+        lambda: SqlAlchemyUnitOfWork(session_factory),
+        SqlAlchemyAuditoriaRegistro(session_factory),
     ).renegociar(
         emprestimo_id=emprestimo.emprestimo_id,
         tenant_id=ambiente.tenant_id,
@@ -460,7 +473,10 @@ def _contrato_liberado(
     session_factory: sessionmaker[Session],
     ambiente: _Ambiente,
 ) -> uuid.UUID:
-    proposta = PropostaComercialService(lambda: SqlAlchemyUnitOfWork(session_factory)).criar(
+    proposta = PropostaComercialService(
+        lambda: SqlAlchemyUnitOfWork(session_factory),
+        SqlAlchemyAuditoriaRegistro(session_factory),
+    ).criar(
         tenant_id=ambiente.tenant_id,
         carteira_id=ambiente.carteira_id,
         devedor_id=ambiente.devedor_id,
@@ -473,7 +489,10 @@ def _contrato_liberado(
             "taxa_juros_mensal": "0.0200",
         },
     )
-    decisoes = DecisaoComercialService(lambda: SqlAlchemyUnitOfWork(session_factory))
+    decisoes = DecisaoComercialService(
+        lambda: SqlAlchemyUnitOfWork(session_factory),
+        SqlAlchemyAuditoriaRegistro(session_factory),
+    )
     decisoes.enviar_para_analise(
         proposta_id=proposta.proposta_id,
         tenant_id=ambiente.tenant_id,
@@ -485,14 +504,18 @@ def _contrato_liberado(
         usuario_id=ambiente.usuario_id,
     )
     contrato = FormalizacaoContratoService(
-        lambda: SqlAlchemyUnitOfWork(session_factory)
+        lambda: SqlAlchemyUnitOfWork(session_factory),
+        SqlAlchemyAuditoriaRegistro(session_factory),
     ).criar_de_proposta(
         tenant_id=ambiente.tenant_id,
         carteira_id=ambiente.carteira_id,
         proposta_comercial_id=proposta.proposta_id,
         usuario_id=ambiente.usuario_id,
     )
-    assinatura = AssinaturaContratoService(lambda: SqlAlchemyUnitOfWork(session_factory))
+    assinatura = AssinaturaContratoService(
+        lambda: SqlAlchemyUnitOfWork(session_factory),
+        SqlAlchemyAuditoriaRegistro(session_factory),
+    )
     assinatura.formalizar(
         contrato_id=contrato.contrato_id,
         tenant_id=ambiente.tenant_id,
@@ -503,7 +526,10 @@ def _contrato_liberado(
         tenant_id=ambiente.tenant_id,
         usuario_id=ambiente.usuario_id,
     )
-    LiberacaoContratoService(lambda: SqlAlchemyUnitOfWork(session_factory)).liberar_para_motor(
+    LiberacaoContratoService(
+        lambda: SqlAlchemyUnitOfWork(session_factory),
+        SqlAlchemyAuditoriaRegistro(session_factory),
+    ).liberar_para_motor(
         contrato_id=contrato.contrato_id,
         tenant_id=ambiente.tenant_id,
         usuario_id=ambiente.usuario_id,
