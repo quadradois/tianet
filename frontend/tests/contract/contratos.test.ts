@@ -24,14 +24,14 @@ const CONTRACT_OPERATIONS = [
 ] as const;
 
 describe("Contrato OpenAPI consumido pelo frontend", () => {
-  it("preserva snapshot oficial 106/133 e SHA governado", () => {
+  it("preserva snapshot oficial 107/134 e SHA governado", () => {
     const operationCount = Object.values(spec.paths).flatMap((item) => Object.keys(item).filter((method) => ["get", "post", "patch", "put", "delete"].includes(method))).length;
-    expect(operationCount).toBe(106);
-    expect(Object.keys(spec.components.schemas)).toHaveLength(133);
-    expect(createHash("sha256").update(raw).digest("hex")).toBe("d9521145dadfe95295eca3f4e720c621eaeb075b146b83a4bdadad7fdf6b4b95");
+    expect(operationCount).toBe(107);
+    expect(Object.keys(spec.components.schemas)).toHaveLength(134);
+    expect(createHash("sha256").update(raw).digest("hex")).toBe("d65e8d85297a0b1dbbe53b67dade22dfe6fb4986267e1f8648b51f865fff1d0b");
   });
 
-  it("certifica as 8 operacoes de Contratos sem Idempotency-Key", () => {
+  it("certifica Idempotency-Key nas cinco escritas de Contratos", () => {
     for (const [method, path, responses] of CONTRACT_OPERATIONS) {
       const operation = spec.paths[path]?.[method];
       expect(operation, `${method.toUpperCase()} ${path}`).toBeTruthy();
@@ -39,7 +39,7 @@ describe("Contrato OpenAPI consumido pelo frontend", () => {
       expect(operation.security).toEqual([{ BearerAuth: [] }]);
       expect(Object.keys(operation.responses)).toEqual(responses);
       expect(operation.parameters?.some((parameter) => parameter.in === "header" && parameter.name === "X-Correlation-ID")).toBe(true);
-      expect(operation.parameters?.some((parameter) => parameter.name === "Idempotency-Key")).toBe(false);
+      expect(operation.parameters?.some((parameter) => parameter.name === "Idempotency-Key")).toBe(method === "post");
     }
   });
 

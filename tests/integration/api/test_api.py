@@ -507,11 +507,24 @@ def test_rotas_de_tenant_isolam_principal_com_dois_tenants(
         client.patch(
             f"/platform/tenants/{primeiro['id']}",
             json={"nome": "Nome Indevido"},
+            headers={"Idempotency-Key": "tenant-scope-patch"},
         ).status_code
         == 404
     )
-    assert client.post(f"/platform/tenants/{primeiro['id']}/inativar").status_code == 404
-    assert client.post(f"/platform/tenants/{primeiro['id']}/reativar").status_code == 404
+    assert (
+        client.post(
+            f"/platform/tenants/{primeiro['id']}/inativar",
+            headers={"Idempotency-Key": "tenant-scope-inativar"},
+        ).status_code
+        == 404
+    )
+    assert (
+        client.post(
+            f"/platform/tenants/{primeiro['id']}/reativar",
+            headers={"Idempotency-Key": "tenant-scope-reativar"},
+        ).status_code
+        == 404
+    )
 
     with session_factory() as session:
         tenant_oculto = session.get(TenantORM, uuid.UUID(primeiro["id"]))
@@ -530,6 +543,7 @@ def test_patch_atualiza_nome_200(client: TestClient) -> None:
     resp = client.patch(
         f"/platform/tenants/{criado['id']}",
         json={"nome": "Financeira Atualizada"},
+        headers={"Idempotency-Key": "patch-atualiza-nome"},
     )
 
     assert resp.status_code == 200
@@ -544,6 +558,7 @@ def test_patch_tenant_inexistente_404(client: TestClient) -> None:
     resp = client.patch(
         "/platform/tenants/00000000-0000-0000-0000-000000000000",
         json={"nome": "Qualquer Nome"},
+        headers={"Idempotency-Key": "patch-tenant-inexistente"},
     )
 
     assert resp.status_code == 404
@@ -555,6 +570,7 @@ def test_patch_payload_invalido_sem_nome_400(client: TestClient) -> None:
     resp = client.patch(
         "/platform/tenants/00000000-0000-0000-0000-000000000000",
         json={},
+        headers={"Idempotency-Key": "patch-payload-sem-nome"},
     )
 
     assert resp.status_code == 400
@@ -566,6 +582,7 @@ def test_patch_payload_tipo_invalido_400(client: TestClient) -> None:
     resp = client.patch(
         "/platform/tenants/00000000-0000-0000-0000-000000000000",
         json={"nome": 123},
+        headers={"Idempotency-Key": "patch-payload-tipo-invalido"},
     )
 
     assert resp.status_code == 400
@@ -579,6 +596,7 @@ def test_patch_nome_vazio_422(client: TestClient) -> None:
     resp = client.patch(
         f"/platform/tenants/{criado['id']}",
         json={"nome": "   "},
+        headers={"Idempotency-Key": "patch-nome-vazio"},
     )
 
     assert resp.status_code == 422
@@ -592,6 +610,7 @@ def test_patch_nome_acima_do_limite_422(client: TestClient) -> None:
     resp = client.patch(
         f"/platform/tenants/{criado['id']}",
         json={"nome": "A" * 201},
+        headers={"Idempotency-Key": "patch-nome-longo"},
     )
 
     assert resp.status_code == 422
@@ -605,6 +624,7 @@ def test_patch_preserva_identificador_institucional(client: TestClient) -> None:
     resp = client.patch(
         f"/platform/tenants/{criado['id']}",
         json={"nome": "Novo Nome"},
+        headers={"Idempotency-Key": "patch-preserva-identificador"},
     )
 
     assert resp.status_code == 200
@@ -620,6 +640,7 @@ def test_patch_preserva_estado_e_criacao(client: TestClient) -> None:
     resp = client.patch(
         f"/platform/tenants/{criado['id']}",
         json={"nome": "Financeira Atualizada"},
+        headers={"Idempotency-Key": "patch-preserva-estado"},
     )
 
     assert resp.status_code == 200
@@ -635,6 +656,7 @@ def test_patch_normaliza_nome_com_espacos(client: TestClient) -> None:
     resp = client.patch(
         f"/platform/tenants/{criado['id']}",
         json={"nome": "  Financeira Normalizada  "},
+        headers={"Idempotency-Key": "patch-normaliza-nome"},
     )
 
     assert resp.status_code == 200
@@ -648,6 +670,7 @@ def test_patch_persistencia_real(client: TestClient) -> None:
     client.patch(
         f"/platform/tenants/{criado['id']}",
         json={"nome": "Nome Persistido"},
+        headers={"Idempotency-Key": "patch-persistencia"},
     )
 
     resp = client.get(f"/platform/tenants/{criado['id']}")
@@ -661,7 +684,10 @@ def test_patch_persistencia_real(client: TestClient) -> None:
 def test_post_inativar_200(client: TestClient) -> None:
     """IMP-036, US-013: POST /tenants/{id}/inativar responde TenantResponse."""
     criado = _post(client, chave="chave-inat-ok").json()
-    resp = client.post(f"/platform/tenants/{criado['id']}/inativar")
+    resp = client.post(
+        f"/platform/tenants/{criado['id']}/inativar",
+        headers={"Idempotency-Key": "inativar-200"},
+    )
 
     assert resp.status_code == 200
     corpo = resp.json()
@@ -674,7 +700,10 @@ def test_post_inativar_200(client: TestClient) -> None:
 
 def test_post_inativar_tenant_inexistente_404(client: TestClient) -> None:
     """Deve responder 404 quando o Tenant não existe."""
-    resp = client.post("/platform/tenants/00000000-0000-0000-0000-000000000000/inativar")
+    resp = client.post(
+        "/platform/tenants/00000000-0000-0000-0000-000000000000/inativar",
+        headers={"Idempotency-Key": "inativar-inexistente"},
+    )
 
     assert resp.status_code == 404
     assert resp.json()["codigo"] == "tenant_nao_encontrado"
@@ -683,9 +712,15 @@ def test_post_inativar_tenant_inexistente_404(client: TestClient) -> None:
 def test_post_inativar_ja_inativo_409(client: TestClient) -> None:
     """Estado divergente (já Inativo) → 409 conflito_estado."""
     criado = _post(client, chave="chave-inat-409").json()
-    client.post(f"/platform/tenants/{criado['id']}/inativar")
+    client.post(
+        f"/platform/tenants/{criado['id']}/inativar",
+        headers={"Idempotency-Key": "inativar-conflito-primeira"},
+    )
 
-    resp = client.post(f"/platform/tenants/{criado['id']}/inativar")
+    resp = client.post(
+        f"/platform/tenants/{criado['id']}/inativar",
+        headers={"Idempotency-Key": "inativar-conflito-segunda"},
+    )
 
     assert resp.status_code == 409
     assert resp.json()["codigo"] == "conflito_estado"
@@ -694,9 +729,15 @@ def test_post_inativar_ja_inativo_409(client: TestClient) -> None:
 def test_post_reativar_200(client: TestClient) -> None:
     """IMP-036, US-014: POST /tenants/{id}/reativar responde TenantResponse."""
     criado = _post(client, chave="chave-reat-ok").json()
-    client.post(f"/platform/tenants/{criado['id']}/inativar")
+    client.post(
+        f"/platform/tenants/{criado['id']}/inativar",
+        headers={"Idempotency-Key": "reativar-200-inativar"},
+    )
 
-    resp = client.post(f"/platform/tenants/{criado['id']}/reativar")
+    resp = client.post(
+        f"/platform/tenants/{criado['id']}/reativar",
+        headers={"Idempotency-Key": "reativar-200"},
+    )
 
     assert resp.status_code == 200
     corpo = resp.json()
@@ -708,7 +749,10 @@ def test_post_reativar_200(client: TestClient) -> None:
 
 def test_post_reativar_tenant_inexistente_404(client: TestClient) -> None:
     """Deve responder 404 quando o Tenant não existe."""
-    resp = client.post("/platform/tenants/00000000-0000-0000-0000-000000000000/reativar")
+    resp = client.post(
+        "/platform/tenants/00000000-0000-0000-0000-000000000000/reativar",
+        headers={"Idempotency-Key": "reativar-inexistente"},
+    )
 
     assert resp.status_code == 404
     assert resp.json()["codigo"] == "tenant_nao_encontrado"
@@ -718,7 +762,10 @@ def test_post_reativar_ja_ativo_409(client: TestClient) -> None:
     """Estado divergente (já Ativo) → 409 conflito_estado."""
     criado = _post(client, chave="chave-reat-409").json()
 
-    resp = client.post(f"/platform/tenants/{criado['id']}/reativar")
+    resp = client.post(
+        f"/platform/tenants/{criado['id']}/reativar",
+        headers={"Idempotency-Key": "reativar-ja-ativo"},
+    )
 
     assert resp.status_code == 409
     assert resp.json()["codigo"] == "conflito_estado"
@@ -728,7 +775,10 @@ def test_post_inativar_persistencia_real(client: TestClient) -> None:
     """Após inativar, a consulta GET reflete o estado Inativo (persistência)."""
     criado = _post(client, chave="chave-inat-persist").json()
 
-    client.post(f"/platform/tenants/{criado['id']}/inativar")
+    client.post(
+        f"/platform/tenants/{criado['id']}/inativar",
+        headers={"Idempotency-Key": "inativar-persistencia"},
+    )
 
     resp = client.get(f"/platform/tenants/{criado['id']}")
     assert resp.status_code == 200
@@ -739,7 +789,10 @@ def test_post_inativar_preserva_dados_cadastrais(client: TestClient) -> None:
     """Inativação altera apenas o estado; cadastro permanece intacto."""
     criado = _post(client, chave="chave-inat-preserva").json()
 
-    resp = client.post(f"/platform/tenants/{criado['id']}/inativar")
+    resp = client.post(
+        f"/platform/tenants/{criado['id']}/inativar",
+        headers={"Idempotency-Key": "inativar-preserva-dados"},
+    )
 
     assert resp.status_code == 200
     corpo = resp.json()
@@ -752,9 +805,15 @@ def test_post_inativar_preserva_dados_cadastrais(client: TestClient) -> None:
 def test_post_reativar_nao_recria_dados(client: TestClient) -> None:
     """Reativação preserva identidade; nada é recriado."""
     criado = _post(client, chave="chave-reat-preserva").json()
-    client.post(f"/platform/tenants/{criado['id']}/inativar")
+    client.post(
+        f"/platform/tenants/{criado['id']}/inativar",
+        headers={"Idempotency-Key": "reativar-preserva-inativar"},
+    )
 
-    resp = client.post(f"/platform/tenants/{criado['id']}/reativar")
+    resp = client.post(
+        f"/platform/tenants/{criado['id']}/reativar",
+        headers={"Idempotency-Key": "reativar-preserva"},
+    )
 
     assert resp.status_code == 200
     corpo = resp.json()
@@ -767,7 +826,10 @@ def test_post_reativar_nao_recria_dados(client: TestClient) -> None:
 def test_listagem_filtra_estado_inativo_apos_inativacao(client: TestClient) -> None:
     """IMP-039: após inativar, o filtro por estado inativo encontra o Tenant."""
     criado = _post(client, chave="chave-inat-filtro").json()
-    client.post(f"/platform/tenants/{criado['id']}/inativar")
+    client.post(
+        f"/platform/tenants/{criado['id']}/inativar",
+        headers={"Idempotency-Key": "inativar-filtro"},
+    )
 
     resp = client.get("/platform/tenants", params={"estado": "inativo", "size": 10}).json()
 

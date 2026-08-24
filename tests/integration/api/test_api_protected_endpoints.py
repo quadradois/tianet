@@ -96,6 +96,7 @@ ROTAS_COM_404_DOCUMENTADO = {
     ("get", "/credit/emprestimos/{emprestimo_id}"),
     ("get", "/credit/carteiras/{carteira_id}/emprestimos"),
     ("post", "/credit/emprestimos/{emprestimo_id}/pagamentos"),
+    ("post", "/credit/pagamentos/{pagamento_id}/estornos"),
     ("get", "/credit/emprestimos/{emprestimo_id}/saldo"),
     ("get", "/credit/emprestimos/{emprestimo_id}/memoria-calculo"),
     ("get", "/credit/emprestimos/{emprestimo_id}/quitacao"),
@@ -303,6 +304,14 @@ def endpoints_protegidos() -> list[EndpointProtegido]:
             {
                 "json": {"valor": "100.00", "recebido_em": "2026-09-10T12:00:00Z"},
                 "headers": {"Idempotency-Key": "imp-168-pagamento"},
+            },
+        ),
+        EndpointProtegido(
+            "post",
+            f"/credit/pagamentos/{pagamento_id}/estornos",
+            {
+                "json": {"valor": "10.00"},
+                "headers": {"Idempotency-Key": "imp-332-estorno"},
             },
         ),
         EndpointProtegido(
@@ -562,7 +571,7 @@ def test_todos_endpoints_platform_e_credit_recusam_sem_token(
     client: TestClient,
     endpoints_protegidos: list[EndpointProtegido],
 ) -> None:
-    assert len(endpoints_protegidos) == 63
+    assert len(endpoints_protegidos) == 64
 
     for endpoint in endpoints_protegidos:
         resp = _chamar(client, endpoint)

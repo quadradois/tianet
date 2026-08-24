@@ -13,7 +13,10 @@ from sqlalchemy import create_engine
 from sqlalchemy.engine import Engine
 from sqlalchemy.orm import Session, sessionmaker
 
-DEFAULT_DATABASE_URL = "postgresql+psycopg://emprestimo:emprestimo@localhost:5432/emprestimo"
+# 127.0.0.1 em vez de localhost de proposito: localhost resolve ::1 primeiro e
+# espera o timeout inteiro antes de cair para IPv4, o que faz a suite parecer
+# travada em vez de falhar (caveat 4.1 do handoff de 2026-08-20).
+DEFAULT_DATABASE_URL = "postgresql+psycopg://emprestimo:emprestimo@127.0.0.1:5432/emprestimo"
 
 _engine: Engine | None = None
 _session_factory: sessionmaker[Session] | None = None

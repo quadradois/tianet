@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import uuid
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, Header, Query
 
 from emprestimo.application.autorizacao import Principal
 from emprestimo.application.comercial import (
@@ -69,6 +69,7 @@ router = APIRouter(
 )
 def criar_simulacao_comercial(
     payload: SimulacaoComercialCreateRequest,
+    idempotency_key: str = Header(alias="Idempotency-Key", min_length=1, max_length=255),
     carteira: Carteira = Depends(get_carteira_do_principal),
     devedor: Devedor = Depends(get_devedor_da_carteira),
     principal: Principal = Depends(exigir_permissao(PERMISSAO_SIMULACAO_CRIAR)),
@@ -80,6 +81,7 @@ def criar_simulacao_comercial(
         devedor_id=devedor.id,
         usuario_id=principal.usuario_id,
         parametros=payload.parametros,
+        idempotency_key=idempotency_key,
     )
     return _simulacao_response(resultado)
 
@@ -110,6 +112,7 @@ def consultar_simulacao_comercial(
 )
 def criar_proposta_comercial(
     payload: PropostaComercialCreateRequest,
+    idempotency_key: str = Header(alias="Idempotency-Key", min_length=1, max_length=255),
     carteira: Carteira = Depends(get_carteira_do_principal),
     devedor: Devedor = Depends(get_devedor_da_carteira),
     principal: Principal = Depends(exigir_permissao(PERMISSAO_PROPOSTA_CRIAR)),
@@ -122,6 +125,7 @@ def criar_proposta_comercial(
         usuario_id=principal.usuario_id,
         parametros=payload.parametros,
         simulacao_id=payload.simulacao_id,
+        idempotency_key=idempotency_key,
     )
     return _proposta_response(resultado)
 
@@ -180,6 +184,7 @@ def consultar_proposta_comercial(
 def atualizar_proposta_comercial(
     proposta_id: uuid.UUID,
     payload: PropostaComercialUpdateRequest,
+    idempotency_key: str = Header(alias="Idempotency-Key", min_length=1, max_length=255),
     principal: Principal = Depends(exigir_permissao(PERMISSAO_PROPOSTA_CRIAR)),
     service: PropostaComercialService = Depends(get_proposta_comercial_service),
 ) -> PropostaComercialResponse:
@@ -188,6 +193,7 @@ def atualizar_proposta_comercial(
             proposta_id=proposta_id,
             tenant_id=principal.tenant_id,
             parametros=payload.parametros,
+            idempotency_key=idempotency_key,
         )
     )
 
@@ -200,6 +206,7 @@ def atualizar_proposta_comercial(
 )
 def enviar_proposta_para_analise(
     proposta_id: uuid.UUID,
+    idempotency_key: str = Header(alias="Idempotency-Key", min_length=1, max_length=255),
     principal: Principal = Depends(exigir_permissao(PERMISSAO_PROPOSTA_DECIDIR)),
     service: DecisaoComercialService = Depends(get_decisao_comercial_service),
 ) -> PropostaComercialResponse:
@@ -208,6 +215,7 @@ def enviar_proposta_para_analise(
             proposta_id=proposta_id,
             tenant_id=principal.tenant_id,
             usuario_id=principal.usuario_id,
+            idempotency_key=idempotency_key,
         )
     )
 
@@ -220,6 +228,7 @@ def enviar_proposta_para_analise(
 )
 def aprovar_proposta_comercial(
     proposta_id: uuid.UUID,
+    idempotency_key: str = Header(alias="Idempotency-Key", min_length=1, max_length=255),
     principal: Principal = Depends(exigir_permissao(PERMISSAO_PROPOSTA_DECIDIR)),
     service: DecisaoComercialService = Depends(get_decisao_comercial_service),
 ) -> PropostaComercialResponse:
@@ -228,6 +237,7 @@ def aprovar_proposta_comercial(
             proposta_id=proposta_id,
             tenant_id=principal.tenant_id,
             usuario_id=principal.usuario_id,
+            idempotency_key=idempotency_key,
         )
     )
 
@@ -241,6 +251,7 @@ def aprovar_proposta_comercial(
 def recusar_proposta_comercial(
     proposta_id: uuid.UUID,
     payload: DecisaoComercialRequest,
+    idempotency_key: str = Header(alias="Idempotency-Key", min_length=1, max_length=255),
     principal: Principal = Depends(exigir_permissao(PERMISSAO_PROPOSTA_DECIDIR)),
     service: DecisaoComercialService = Depends(get_decisao_comercial_service),
 ) -> PropostaComercialResponse:
@@ -250,6 +261,7 @@ def recusar_proposta_comercial(
             tenant_id=principal.tenant_id,
             usuario_id=principal.usuario_id,
             motivo=payload.motivo,
+            idempotency_key=idempotency_key,
         )
     )
 
@@ -263,6 +275,7 @@ def recusar_proposta_comercial(
 def cancelar_proposta_comercial(
     proposta_id: uuid.UUID,
     payload: DecisaoComercialRequest,
+    idempotency_key: str = Header(alias="Idempotency-Key", min_length=1, max_length=255),
     principal: Principal = Depends(exigir_permissao(PERMISSAO_PROPOSTA_DECIDIR)),
     service: DecisaoComercialService = Depends(get_decisao_comercial_service),
 ) -> PropostaComercialResponse:
@@ -272,6 +285,7 @@ def cancelar_proposta_comercial(
             tenant_id=principal.tenant_id,
             usuario_id=principal.usuario_id,
             motivo=payload.motivo,
+            idempotency_key=idempotency_key,
         )
     )
 
@@ -284,6 +298,7 @@ def cancelar_proposta_comercial(
 )
 def expirar_proposta_comercial(
     proposta_id: uuid.UUID,
+    idempotency_key: str = Header(alias="Idempotency-Key", min_length=1, max_length=255),
     principal: Principal = Depends(exigir_permissao(PERMISSAO_PROPOSTA_DECIDIR)),
     service: DecisaoComercialService = Depends(get_decisao_comercial_service),
 ) -> PropostaComercialResponse:
@@ -292,6 +307,7 @@ def expirar_proposta_comercial(
             proposta_id=proposta_id,
             tenant_id=principal.tenant_id,
             usuario_id=principal.usuario_id,
+            idempotency_key=idempotency_key,
         )
     )
 

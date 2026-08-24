@@ -26,6 +26,7 @@ from emprestimo.domain.platform.credencial import Credencial
 from emprestimo.domain.platform.perfil import PerfilAcesso
 from emprestimo.domain.platform.tenant import Tenant
 from emprestimo.domain.platform.usuario import Usuario
+from emprestimo.infrastructure.auditoria import SqlAlchemyAuditoriaRegistro
 from emprestimo.infrastructure.db import orm  # noqa: F401
 from emprestimo.infrastructure.db.base import Base
 from emprestimo.infrastructure.repositories import (
@@ -148,6 +149,11 @@ def post_ok(
     json_body: dict[str, Any] | None = None,
     expected: int = 200,
 ) -> dict[str, Any]:
+    # Toda escrita exige Idempotency-Key desde o IMP-333, salvo as excecoes
+    # nomeadas em /auth/. Gerar aqui, uma vez, evita ter de repetir o header em
+    # cada chamada do seed — e cada chave e unica, entao nao ha replay acidental.
+    if not any(chave.lower() == "idempotency-key" for chave in headers):
+        headers = {**headers, "Idempotency-Key": f"seed-jornadas-{uuid.uuid4()}"}
     response = client.post(path, json=json_body, headers=headers)
     assert response.status_code == expected, (path, response.status_code, response.text)
     return dict(response.json())
@@ -383,13 +389,16 @@ def seed_cobranca_agenda(
             "emprestimo_id": loan_id,
         },
     )
-    scheduler = SchedulerService(lambda: SqlAlchemyUnitOfWork(session_factory))
+    auditoria = SqlAlchemyAuditoriaRegistro(session_factory)
+    scheduler = SchedulerService(lambda: SqlAlchemyUnitOfWork(session_factory), auditoria)
     claims = scheduler.reivindicar(
         slots_livres=1, batch_size=1, agora=datetime(2026, 9, 10, 11, 1, tzinfo=UTC)
     )
     if claims:
         NotificationService(
-            lambda: SqlAlchemyUnitOfWork(session_factory), FakeNotificationChannel()
+            lambda: SqlAlchemyUnitOfWork(session_factory),
+            FakeNotificationChannel(),
+            auditoria,
         ).processar_lembrete(claims[0])
     return {
         "case": case_id,

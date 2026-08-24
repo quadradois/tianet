@@ -6,14 +6,23 @@ import hashlib
 import json
 import uuid
 from collections.abc import Callable
+from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
+from decimal import Decimal
 
+from emprestimo.application.auditoria_escrita import auditar_escrita
 from emprestimo.application.errors import (
     NotificacaoNaoEncontradaError,
     TemplateNotificacaoNaoEncontradoError,
     TransicaoEstadoInvalidaError,
 )
-from emprestimo.application.ports import UnitOfWork
+from emprestimo.application.idempotencia import (
+    concluir_idempotencia,
+    dataclass_do_resultado,
+    iniciar_idempotencia,
+    resultado_de_dataclass,
+)
+from emprestimo.application.ports import AuditoriaRegistro, UnitOfWork
 from emprestimo.application.scheduler import ClaimScheduler, ResultadoExecucao
 from emprestimo.domain.common.errors import ViolacaoInvarianteError
 from emprestimo.domain.credit.automacao_ports import (
@@ -30,7 +39,309 @@ from emprestimo.domain.credit.notifications import (
     TemplateNotificacao,
 )
 from emprestimo.domain.credit.operacao_diaria import CanalComunicacao, RegistroComunicacao
-from emprestimo.domain.credit.scheduler import EstadoTentativaJob
+from emprestimo.domain.credit.scheduler import EstadoTentativaJob, JobAgendado
+
+TIPO_JOB_AVISO_SOBRA = "avisar_sobra_pagamento_whatsapp"
+ORIGEM_AVISO_SOBRA = "sobra_pagamento"
+CHAVE_WHATSAPP_CREDOR = "credor_whatsapp"
+
+
+@dataclass(frozen=True)
+class AvisoSobraPagamento:
+    """Snapshot do excedente reconhecido pelo Motor para avisar o Credor."""
+
+    tenant_id: uuid.UUID
+    carteira_id: uuid.UUID
+    devedor_id: uuid.UUID
+    emprestimo_id: uuid.UUID
+    pagamento_id: uuid.UUID
+    valor_recebido: Decimal
+    valor_distribuido: Decimal
+    valor_devolvido: Decimal
+
+
+def montar_texto_aviso_sobra(dados: AvisoSobraPagamento) -> str:
+    return "\n".join(
+        (
+            "Pagamento recebido com valor excedente",
+            f"Pagamento: {dados.pagamento_id}",
+            f"Emprestimo: {dados.emprestimo_id}",
+            f"Valor recebido: R$ {_formatar_valor(dados.valor_recebido)}",
+            f"Valor distribuido: R$ {_formatar_valor(dados.valor_distribuido)}",
+            f"Sobra a devolver: R$ {_formatar_valor(dados.valor_devolvido)}",
+            "Faca o PIX de devolucao por fora e registre o estorno no sistema.",
+        )
+    )
+
+
+class AvisoSobraPagamentoService:
+    """Enfileira o aviso ou audita explicitamente a falta de destinatario."""
+
+    def __init__(
+        self,
+        uow_factory: Callable[[], UnitOfWork],
+        auditoria: AuditoriaRegistro,
+        *,
+        agora: Callable[[], datetime] | None = None,
+    ) -> None:
+        self._uow_factory = uow_factory
+        self._auditoria = auditoria
+        self._agora = agora or (lambda: datetime.now(UTC))
+
+    def enfileirar(self, aviso: AvisoSobraPagamento) -> JobAgendado | None:
+        detalhes = {
+            "tenant_id": str(aviso.tenant_id),
+            "pagamento_id": str(aviso.pagamento_id),
+        }
+        self._auditoria.registrar(
+            "sobra_pagamento_aviso",
+            aviso.pagamento_id,
+            "enfileirar.inicio",
+            "iniciado",
+            detalhes=json.dumps(detalhes, sort_keys=True),
+        )
+        try:
+            return self._enfileirar(aviso)
+        except Exception as exc:
+            self._auditoria.registrar(
+                "sobra_pagamento_aviso",
+                aviso.pagamento_id,
+                "enfileirar.falha",
+                "falhou",
+                detalhes=json.dumps({**detalhes, "erro_tipo": type(exc).__name__}, sort_keys=True),
+            )
+            self._auditoria.registrar(
+                "sobra_pagamento_aviso",
+                aviso.pagamento_id,
+                "enfileirar.rollback",
+                "rollback_aplicado",
+                detalhes=json.dumps(detalhes, sort_keys=True),
+            )
+            raise
+
+    def _enfileirar(self, aviso: AvisoSobraPagamento) -> JobAgendado | None:
+        with self._uow_factory() as uow:
+            existente = uow.job_agendado.find_by_origem(
+                tenant_id=aviso.tenant_id,
+                origem_tipo=ORIGEM_AVISO_SOBRA,
+                origem_id=aviso.pagamento_id,
+            )
+            if existente is not None:
+                return existente
+            numero = next(
+                (
+                    item.valor.strip()
+                    for item in uow.configuracao.find_by_tenant_id(aviso.tenant_id)
+                    if item.chave == CHAVE_WHATSAPP_CREDOR and item.valor.strip()
+                ),
+                None,
+            )
+            if numero is None:
+                self._auditoria.registrar(
+                    "sobra_pagamento_aviso",
+                    aviso.pagamento_id,
+                    "enfileirar.ignorado",
+                    "nao_configurado",
+                    detalhes=json.dumps(
+                        {
+                            "tenant_id": str(aviso.tenant_id),
+                            "motivo": "credor_whatsapp_nao_configurado",
+                            "chave_configuracao": CHAVE_WHATSAPP_CREDOR,
+                        },
+                        sort_keys=True,
+                    ),
+                )
+                return None
+            instante = self._agora()
+            job = JobAgendado(
+                tenant_id=aviso.tenant_id,
+                carteira_id=aviso.carteira_id,
+                tipo=TIPO_JOB_AVISO_SOBRA,
+                executar_em=instante,
+                correlation_id=f"pagamento-sobra:{aviso.pagamento_id}",
+                payload={
+                    "canal": CanalComunicacao.WHATSAPP.value,
+                    "destinatario": numero,
+                    "texto": montar_texto_aviso_sobra(aviso),
+                    "devedor_id": str(aviso.devedor_id),
+                    "emprestimo_id": str(aviso.emprestimo_id),
+                },
+                origem_tipo=ORIGEM_AVISO_SOBRA,
+                origem_id=aviso.pagamento_id,
+            )
+            uow.job_agendado.save(job)
+            uow.commit()
+        self._auditoria.registrar(
+            "sobra_pagamento_aviso",
+            aviso.pagamento_id,
+            "enfileirar.sucesso",
+            "ok",
+            detalhes=json.dumps(
+                {"tenant_id": str(aviso.tenant_id), "job_id": str(job.id)},
+                sort_keys=True,
+            ),
+        )
+        return job
+
+
+class EntregaAvisoSobraPagamentoService:
+    """Entrega o aviso ao Credor pelo mesmo scheduler duravel do comprovante."""
+
+    def __init__(
+        self,
+        uow_factory: Callable[[], UnitOfWork],
+        channel: NotificationChannel,
+        auditoria: AuditoriaRegistro,
+        *,
+        agora: Callable[[], datetime] | None = None,
+    ) -> None:
+        self._uow_factory = uow_factory
+        self._channel = channel
+        self._auditoria = auditoria
+        self._agora = agora or (lambda: datetime.now(UTC))
+
+    def processar_aviso(self, claim: ClaimScheduler) -> ResultadoExecucao:
+        detalhes = {
+            "tenant_id": str(claim.job.tenant_id),
+            "job_id": str(claim.job.id),
+            "pagamento_id": str(claim.job.origem_id),
+        }
+        self._auditoria.registrar(
+            "sobra_pagamento_aviso",
+            claim.job.origem_id,
+            "entregar.inicio",
+            "iniciado",
+            detalhes=json.dumps(detalhes, sort_keys=True),
+        )
+        try:
+            resultado = self._processar(claim)
+        except Exception as exc:
+            self._auditoria.registrar(
+                "sobra_pagamento_aviso",
+                claim.job.origem_id,
+                "entregar.falha",
+                "falhou",
+                detalhes=json.dumps(
+                    {**detalhes, "erro_tipo": type(exc).__name__},
+                    sort_keys=True,
+                ),
+            )
+            raise
+        self._auditoria.registrar(
+            "sobra_pagamento_aviso",
+            claim.job.origem_id,
+            "entregar.resultado",
+            resultado.value,
+            detalhes=json.dumps({**detalhes, "resultado": resultado.value}, sort_keys=True),
+        )
+        return resultado
+
+    def _processar(self, claim: ClaimScheduler) -> ResultadoExecucao:
+        payload = _payload_aviso_sobra(claim)
+        if payload is None:
+            return ResultadoExecucao.FALHA_PERMANENTE
+        destinatario, texto = payload
+        with self._uow_factory() as uow:
+            pagamento = uow.pagamento.find_by_id(claim.job.origem_id)
+            if pagamento is None or pagamento.valor_devolvido <= Decimal("0.00"):
+                return ResultadoExecucao.FALHA_PERMANENTE
+            emprestimo = uow.emprestimo.find_by_id(pagamento.emprestimo_id)
+            if (
+                emprestimo is None
+                or emprestimo.tenant_id != claim.job.tenant_id
+                or emprestimo.carteira_id != claim.job.carteira_id
+            ):
+                return ResultadoExecucao.FALHA_PERMANENTE
+        if claim.cancelamento.is_set():
+            return ResultadoExecucao.FALHA_TEMPORARIA
+        resultado = self._channel.enviar(
+            destinatario=destinatario,
+            assunto="Pagamento com valor excedente",
+            corpo=texto,
+            chave_idempotente=_chave_aviso_sobra(claim),
+        )
+        if resultado.resultado is ResultadoCanal.ACEITA and not resultado.provider_message_id:
+            resultado = ResultadoEnvio(
+                ResultadoCanal.DESCONHECIDO,
+                codigo="accepted_without_provider_message_id",
+            )
+        if resultado.resultado is not ResultadoCanal.ACEITA:
+            return {
+                ResultadoCanal.FALHA_TEMPORARIA: ResultadoExecucao.FALHA_TEMPORARIA,
+                ResultadoCanal.FALHA_PERMANENTE: ResultadoExecucao.FALHA_PERMANENTE,
+                ResultadoCanal.DESCONHECIDO: ResultadoExecucao.RESULTADO_DESCONHECIDO,
+            }[resultado.resultado]
+
+        with self._uow_factory() as uow:
+            job = uow.job_agendado.find_scoped(claim.job.id, claim.job.tenant_id)
+            pagamento = uow.pagamento.find_by_id(claim.job.origem_id)
+            if job is None or pagamento is None:
+                return ResultadoExecucao.RESULTADO_DESCONHECIDO
+            emprestimo = uow.emprestimo.find_by_id(pagamento.emprestimo_id)
+            if emprestimo is None:
+                return ResultadoExecucao.RESULTADO_DESCONHECIDO
+            instante = self._agora()
+            job.concluir(claim.tentativa.lease_token, agora=instante)
+            claim.tentativa.finalizar(EstadoTentativaJob.SUCESSO, agora=instante)
+            uow.registro_comunicacao.save(
+                RegistroComunicacao(
+                    tenant_id=job.tenant_id,
+                    carteira_id=job.carteira_id,
+                    responsavel_id=None,
+                    ator_tipo="service",
+                    ator_identificador="scheduler-worker",
+                    canal=CanalComunicacao.WHATSAPP,
+                    ocorrido_em=instante,
+                    resumo="Aviso de sobra de pagamento aceito pelo provedor",
+                    resultado="aceita",
+                    devedor_id=emprestimo.devedor_id,
+                    emprestimo_id=emprestimo.id,
+                    provider_message_id=resultado.provider_message_id,
+                )
+            )
+            uow.tentativa_job.save(claim.tentativa)
+            if not uow.job_agendado.finalizar_com_fencing(job, claim.tentativa.lease_token):
+                return ResultadoExecucao.RESULTADO_DESCONHECIDO
+            uow.commit()
+        return ResultadoExecucao.FINALIZADO
+
+
+def _payload_aviso_sobra(claim: ClaimScheduler) -> tuple[str, str] | None:
+    if (
+        claim.job.tipo != TIPO_JOB_AVISO_SOBRA
+        or claim.job.origem_tipo != ORIGEM_AVISO_SOBRA
+        or claim.job.payload.get("canal") != CanalComunicacao.WHATSAPP.value
+    ):
+        return None
+    destinatario = claim.job.payload.get("destinatario")
+    texto = claim.job.payload.get("texto")
+    if (
+        not isinstance(destinatario, str)
+        or not destinatario.strip()
+        or not isinstance(texto, str)
+        or not texto.strip()
+    ):
+        return None
+    return destinatario, texto
+
+
+def _chave_aviso_sobra(claim: ClaimScheduler) -> str:
+    bruto = json.dumps(
+        {
+            "tenant_id": str(claim.job.tenant_id),
+            "origem_tipo": claim.job.origem_tipo,
+            "origem_id": str(claim.job.origem_id),
+            "finalidade": "aviso_sobra_pagamento_whatsapp",
+            "versao_solicitacao": 1,
+        },
+        sort_keys=True,
+        separators=(",", ":"),
+    )
+    return f"notification/{hashlib.sha256(bruto.encode()).hexdigest()}"
+
+
+def _formatar_valor(valor: Decimal) -> str:
+    return f"{valor:,.2f}".replace(",", "_").replace(".", ",").replace("_", ".")
 
 
 class FakeNotificationChannel(NotificationChannel):
@@ -74,10 +385,13 @@ class NotificationService:
         self,
         uow_factory: Callable[[], UnitOfWork],
         channel: NotificationChannel,
+        auditoria: AuditoriaRegistro,
     ) -> None:
         self._uow_factory = uow_factory
         self._channel = channel
+        self._auditoria = auditoria
 
+    @auditar_escrita("solicitacao_notificacao", "preparar")
     def preparar(self, solicitacao: SolicitacaoNotificacao) -> SolicitacaoNotificacao:
         with self._uow_factory() as uow:
             existente = uow.solicitacao_notificacao.find_by_chave(solicitacao.chave_idempotente)
@@ -93,6 +407,7 @@ class NotificationService:
             uow.commit()
             return solicitacao
 
+    @auditar_escrita("solicitacao_notificacao", "processar_lembrete")
     def processar_lembrete(self, claim: ClaimScheduler) -> ResultadoExecucao:
         """Executa envio sem manter transacao aberta durante a chamada externa."""
 
@@ -237,6 +552,7 @@ class NotificationService:
             uow.commit()
         return ResultadoExecucao.FINALIZADO
 
+    @auditar_escrita("solicitacao_notificacao", "enviar_preparada", identificador="solicitacao_id")
     def enviar_preparada(
         self,
         solicitacao: SolicitacaoNotificacao,
@@ -257,6 +573,7 @@ class NotificationService:
             uow.commit()
         return solicitacao
 
+    @auditar_escrita("solicitacao_notificacao", "conciliar", identificador="solicitacao_id")
     def conciliar(
         self,
         *,
@@ -297,6 +614,8 @@ class NotificationService:
             if not alterada:
                 return persistida
             if evidencia.resultado is ResultadoCanal.ACEITA:
+                if persistida.lembrete_id is None or persistida.template_id is None:
+                    raise NotificacaoNaoEncontradaError(solicitacao_id)
                 lembrete = uow.lembrete.find_by_id(persistida.lembrete_id)
                 job = uow.job_agendado.find_scoped(persistida.job_id, tenant_id)
                 template = uow.template_notificacao.find_scoped(persistida.template_id, tenant_id)
@@ -347,11 +666,36 @@ class NotificationService:
 
 
 class TemplateNotificacaoService:
-    def __init__(self, uow_factory: Callable[[], UnitOfWork]) -> None:
+    def __init__(self, uow_factory: Callable[[], UnitOfWork], auditoria: AuditoriaRegistro) -> None:
         self._uow_factory = uow_factory
+        self._auditoria = auditoria
 
-    def criar(self, template: TemplateNotificacao) -> TemplateNotificacao:
+    @auditar_escrita("template_notificacao", "criar")
+    def criar(
+        self, template: TemplateNotificacao, *, idempotency_key: str | None = None
+    ) -> TemplateNotificacao:
         with self._uow_factory() as uow:
+            escopo = "notificacao-template-criar"
+            replay = iniciar_idempotencia(
+                uow,
+                chave=idempotency_key,
+                escopo=escopo,
+                solicitacao={
+                    "tenant_id": template.tenant_id,
+                    "codigo": template.codigo,
+                    "versao": template.versao,
+                    "assunto": template.assunto,
+                    "corpo": template.corpo,
+                    "parametros_permitidos": template.parametros_permitidos,
+                    "criado_por_usuario_id": template.criado_por_usuario_id,
+                },
+            )
+            if replay is not None:
+                return dataclass_do_resultado(
+                    replay,
+                    TemplateNotificacao,
+                    chave=idempotency_key,
+                )
             existente = uow.template_notificacao.find_by_codigo_versao(
                 template.tenant_id,
                 template.codigo,
@@ -364,9 +708,16 @@ class TemplateNotificacaoService:
                     "codigo e versao ja existem no tenant",
                 )
             uow.template_notificacao.save(template)
+            concluir_idempotencia(
+                uow,
+                chave=idempotency_key,
+                escopo=escopo,
+                resultado=resultado_de_dataclass(template),
+            )
             uow.commit()
         return template
 
+    @auditar_escrita("template_notificacao", "aprovar", identificador="template_id")
     def aprovar(
         self,
         *,
@@ -374,11 +725,30 @@ class TemplateNotificacaoService:
         template_id: uuid.UUID,
         usuario_id: uuid.UUID,
         motivo: str,
+        idempotency_key: str | None = None,
     ) -> TemplateNotificacao:
         with self._uow_factory() as uow:
             template = uow.template_notificacao.find_scoped(template_id, tenant_id)
             if template is None:
                 raise TemplateNotificacaoNaoEncontradoError(template_id)
+            escopo = "notificacao-template-aprovar"
+            replay = iniciar_idempotencia(
+                uow,
+                chave=idempotency_key,
+                escopo=escopo,
+                solicitacao={
+                    "tenant_id": tenant_id,
+                    "template_id": template_id,
+                    "usuario_id": usuario_id,
+                    "motivo": motivo,
+                },
+            )
+            if replay is not None:
+                return dataclass_do_resultado(
+                    replay,
+                    TemplateNotificacao,
+                    chave=idempotency_key,
+                )
             try:
                 template.aprovar(
                     usuario_id=usuario_id,
@@ -390,14 +760,40 @@ class TemplateNotificacaoService:
                     template_id, "aprovar_template", str(exc)
                 ) from exc
             uow.template_notificacao.save(template)
+            concluir_idempotencia(
+                uow,
+                chave=idempotency_key,
+                escopo=escopo,
+                resultado=resultado_de_dataclass(template),
+            )
             uow.commit()
             return template
 
-    def ativar(self, *, tenant_id: uuid.UUID, template_id: uuid.UUID) -> TemplateNotificacao:
+    @auditar_escrita("template_notificacao", "ativar", identificador="template_id")
+    def ativar(
+        self,
+        *,
+        tenant_id: uuid.UUID,
+        template_id: uuid.UUID,
+        idempotency_key: str | None = None,
+    ) -> TemplateNotificacao:
         with self._uow_factory() as uow:
             template = uow.template_notificacao.find_scoped(template_id, tenant_id)
             if template is None:
                 raise TemplateNotificacaoNaoEncontradoError(template_id)
+            escopo = "notificacao-template-ativar"
+            replay = iniciar_idempotencia(
+                uow,
+                chave=idempotency_key,
+                escopo=escopo,
+                solicitacao={"tenant_id": tenant_id, "template_id": template_id},
+            )
+            if replay is not None:
+                return dataclass_do_resultado(
+                    replay,
+                    TemplateNotificacao,
+                    chave=idempotency_key,
+                )
             try:
                 template.ativar(agora=datetime.now(UTC))
             except ViolacaoInvarianteError as exc:
@@ -405,6 +801,12 @@ class TemplateNotificacaoService:
                     template_id, "ativar_template", str(exc)
                 ) from exc
             uow.template_notificacao.save(template)
+            concluir_idempotencia(
+                uow,
+                chave=idempotency_key,
+                escopo=escopo,
+                resultado=resultado_de_dataclass(template),
+            )
             uow.commit()
             return template
 

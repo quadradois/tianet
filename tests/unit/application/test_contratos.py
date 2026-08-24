@@ -7,12 +7,13 @@ from collections.abc import Callable
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from typing import cast
+from unittest.mock import Mock
 
 import pytest
 
 from emprestimo.application.contratos import FormalizacaoContratoService
 from emprestimo.application.errors import TransicaoEstadoInvalidaError
-from emprestimo.application.ports import UnitOfWork
+from emprestimo.application.ports import AuditoriaRegistro, UnitOfWork
 from emprestimo.domain.common.errors import ViolacaoInvarianteError
 from emprestimo.domain.credit.contrato_credito import ContratoCredito
 from emprestimo.domain.credit.devedor import DevedorState
@@ -27,7 +28,7 @@ USUARIO_ID = uuid.UUID("10000000-0000-0000-0000-000000000005")
 
 def test_formalizacao_cria_contrato_com_trilha_inicial_auditavel() -> None:
     uow = _FakeUoW(proposta=_PropostaAprovada())
-    service = FormalizacaoContratoService(_uow_factory(uow))
+    service = FormalizacaoContratoService(_uow_factory(uow), cast(AuditoriaRegistro, Mock()))
 
     resultado = service.criar_de_proposta(
         tenant_id=TENANT_ID,
@@ -46,7 +47,7 @@ def test_formalizacao_cria_contrato_com_trilha_inicial_auditavel() -> None:
 
 def test_formalizacao_rejeita_proposta_nao_aprovada_sem_commit() -> None:
     uow = _FakeUoW(proposta=_PropostaNaoAprovada())
-    service = FormalizacaoContratoService(_uow_factory(uow))
+    service = FormalizacaoContratoService(_uow_factory(uow), cast(AuditoriaRegistro, Mock()))
 
     with pytest.raises(TransicaoEstadoInvalidaError):
         service.criar_de_proposta(

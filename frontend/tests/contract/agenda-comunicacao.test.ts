@@ -33,11 +33,11 @@ function header(operation: { parameters?: { in: string; name: string; required?:
 }
 
 describe("Agenda/Comunicacao OpenAPI consumida pelo frontend", () => {
-  it("preserva snapshot oficial 106/133 e SHA governado", () => {
+  it("preserva snapshot oficial 107/134 e SHA governado", () => {
     const operationCount = Object.values(spec.paths).flatMap((item) => Object.keys(item).filter((method) => ["get", "post", "patch", "put", "delete"].includes(method))).length;
-    expect(operationCount).toBe(106);
-    expect(Object.keys(spec.components.schemas)).toHaveLength(133);
-    expect(createHash("sha256").update(raw).digest("hex")).toBe("d9521145dadfe95295eca3f4e720c621eaeb075b146b83a4bdadad7fdf6b4b95");
+    expect(operationCount).toBe(107);
+    expect(Object.keys(spec.components.schemas)).toHaveLength(134);
+    expect(createHash("sha256").update(raw).digest("hex")).toBe("d65e8d85297a0b1dbbe53b67dade22dfe6fb4986267e1f8648b51f865fff1d0b");
   });
 
   it("certifica as 12 operacoes oficiais e Idempotency-Key exata", () => {

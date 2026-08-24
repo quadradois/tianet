@@ -7,6 +7,7 @@ from datetime import datetime, timedelta
 from typing import Any, cast
 
 from sqlalchemy import delete, func, or_, select, update
+from sqlalchemy.dialects.postgresql import insert as postgresql_insert
 from sqlalchemy.engine import CursorResult
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
@@ -52,6 +53,16 @@ class SqlAlchemyJobAgendadoRepository(JobAgendadoRepository):
     def save(self, job: JobAgendado) -> None:
         self._session.merge(_job_orm(job))
         self._session.flush()
+
+    def save_if_absent(self, job: JobAgendado) -> bool:
+        inserido = self._session.scalar(
+            postgresql_insert(JobAgendadoORM)
+            .values(id=job.id, **_job_values(job))
+            .on_conflict_do_nothing(constraint="uq_job_origem_tenant")
+            .returning(JobAgendadoORM.id)
+        )
+        self._session.flush()
+        return inserido is not None
 
     def find_scoped(self, job_id: uuid.UUID, tenant_id: uuid.UUID) -> JobAgendado | None:
         row = self._session.scalar(

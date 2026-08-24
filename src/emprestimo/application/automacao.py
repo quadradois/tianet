@@ -11,6 +11,12 @@ from emprestimo.application.errors import (
     JobAgendadoNaoEncontradoError,
     TransicaoEstadoInvalidaError,
 )
+from emprestimo.application.idempotencia import (
+    concluir_idempotencia,
+    dataclass_do_resultado,
+    iniciar_idempotencia,
+    resultado_de_dataclass,
+)
 from emprestimo.application.ports import AuditoriaRegistro, UnitOfWork
 from emprestimo.domain.common.errors import ViolacaoInvarianteError
 from emprestimo.domain.credit.automacao_ports import AutomacaoFiltros, ResultadoPaginado
@@ -44,6 +50,7 @@ class AutomacaoAdminService:
         job_id: uuid.UUID,
         usuario_id: uuid.UUID,
         motivo: str,
+        idempotency_key: str | None = None,
     ) -> JobAgendado:
         return self._mutar(
             tenant_id=tenant_id,
@@ -51,6 +58,7 @@ class AutomacaoAdminService:
             usuario_id=usuario_id,
             motivo=motivo,
             acao="cancelar",
+            idempotency_key=idempotency_key,
         )
 
     def retry(
@@ -60,6 +68,7 @@ class AutomacaoAdminService:
         job_id: uuid.UUID,
         usuario_id: uuid.UUID,
         motivo: str,
+        idempotency_key: str | None = None,
     ) -> JobAgendado:
         return self._mutar(
             tenant_id=tenant_id,
@@ -67,6 +76,7 @@ class AutomacaoAdminService:
             usuario_id=usuario_id,
             motivo=motivo,
             acao="retry",
+            idempotency_key=idempotency_key,
         )
 
     def _mutar(
@@ -77,6 +87,7 @@ class AutomacaoAdminService:
         usuario_id: uuid.UUID,
         motivo: str,
         acao: str,
+        idempotency_key: str | None = None,
     ) -> JobAgendado:
         if not motivo.strip():
             raise TransicaoEstadoInvalidaError(job_id, acao, "motivo obrigatorio")
@@ -92,6 +103,24 @@ class AutomacaoAdminService:
                 job = uow.job_agendado.find_scoped(job_id, tenant_id)
                 if job is None:
                     raise JobAgendadoNaoEncontradoError(job_id)
+                escopo = f"automacao-job-{acao}"
+                replay = iniciar_idempotencia(
+                    uow,
+                    chave=idempotency_key,
+                    escopo=escopo,
+                    solicitacao={
+                        "tenant_id": tenant_id,
+                        "job_id": job_id,
+                        "usuario_id": usuario_id,
+                        "motivo": motivo,
+                    },
+                )
+                if replay is not None:
+                    return dataclass_do_resultado(
+                        replay,
+                        JobAgendado,
+                        chave=idempotency_key,
+                    )
                 anterior = job.estado
                 try:
                     if acao == "cancelar":
@@ -108,6 +137,12 @@ class AutomacaoAdminService:
                 except ViolacaoInvarianteError as exc:
                     raise TransicaoEstadoInvalidaError(job_id, acao, str(exc)) from exc
                 uow.job_agendado.save(job)
+                concluir_idempotencia(
+                    uow,
+                    chave=idempotency_key,
+                    escopo=escopo,
+                    resultado=resultado_de_dataclass(job),
+                )
                 uow.commit()
             self._auditoria.registrar(
                 "job_agendado",

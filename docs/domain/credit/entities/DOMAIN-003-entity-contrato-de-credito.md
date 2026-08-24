@@ -2,7 +2,7 @@
 
 **ID:** DOMAIN-003
 
-**Versão:** 1.0.0
+**Versão:** 1.1.0
 
 **Status:** Aprovado
 
@@ -41,8 +41,7 @@ O Contrato de Crédito é responsável por:
 - definir a modalidade da operação;
 - definir a periodicidade financeira;
 - definir a data da contratação;
-- definir o primeiro vencimento;
-- definir o dia de vencimento;
+- definir o dia de acerto;
 - registrar as condições negociadas entre as partes;
 - servir como referência para a criação do Empréstimo.
 
@@ -124,7 +123,7 @@ Todo Contrato deve possuir uma Periodicidade.
 
 ## RN-007
 
-Todo Contrato deve definir o primeiro vencimento.
+Todo Contrato deve definir o dia de acerto do Empréstimo.
 
 ---
 
@@ -216,4 +215,5 @@ Processo de criação de um Empréstimo a partir de um Contrato formalizado.
 
 | Versão | Data | Descrição |
 |---------|------|-----------|
+| 1.1.0 | 23/08/2026 | Primeiro vencimento e dia de vencimento substituidos pelo dia de acerto do emprestimo livre (DR-004, IMP-337). |
 | 1.0.0 | 01/08/2026 | Primeira versão oficial do Contrato de Crédito. |

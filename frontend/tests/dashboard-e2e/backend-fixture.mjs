@@ -43,7 +43,7 @@ function operationalContext(mode) {
 }
 
 function summary(referenceDate, empty = false) {
-  return { carteira_id: IDS.wallet, data_referencia: referenceDate, operacoes_ativas: empty ? 0 : 7, operacoes_quitadas: empty ? 0 : 3, acertos_pendentes: 1, tenant_id: IDS.tenant, total_operacoes: empty ? 0 : 10, principal_a_receber: empty ? "0.00" : "12345.67", total_realizado: empty ? "0.00" : "4567.89" };
+  return { carteira_id: IDS.wallet, data_referencia: referenceDate, operacoes_ativas: empty ? 0 : 7, operacoes_quitadas: empty ? 0 : 3, acertos_pendentes: 1, tenant_id: IDS.tenant, total_operacoes: empty ? 0 : 10, projecao_juros: empty ? "0.00" : "250.00", principal_a_receber: empty ? "0.00" : "12345.67", total_realizado: empty ? "0.00" : "4567.89" };
 }
 
 function dueDates(referenceDate, empty = false) {
@@ -60,6 +60,18 @@ function agenda(empty = false) {
 function collection(empty = false, many = false) {
   const count = empty ? 0 : many ? 18 : 2;
   return { total: count, items: Array.from({ length: count }, (_, index) => ({ carteira_id: IDS.wallet, caso_id: id(100 + index), criado_em: `2026-08-13T10:${String(index).padStart(2, "0")}:00Z`, devedor_id: id(200 + index), emprestimo_id: null, estado: "pendente", origem: "manual", tenant_id: IDS.tenant, titulo: `Caso operacional ${index + 1} com descricao extensa para validar overflow contido`, total_pendente: `${index + 1}00.00` })) };
+}
+
+function fluxo(empty = false, inicio = "2026-08-01", fim = "2026-08-31") {
+  const dias = empty
+    ? []
+    : [
+        { data: "2026-08-01", acertos: 1, pagamento_ids: ["11111111-1111-1111-1111-111111111111"], realizado: "480.00" },
+        { data: "2026-08-02", acertos: 1, pagamento_ids: ["22222222-2222-2222-2222-222222222222"], realizado: "510.00" },
+        { data: "2026-08-03", acertos: 1, pagamento_ids: ["33333333-3333-3333-3333-333333333333"], realizado: "530.00" },
+      ];
+  const totalRealizado = dias.reduce((acc, d) => acc + Number(d.realizado), 0).toFixed(2);
+  return { tenant_id: IDS.tenant, carteira_id: IDS.wallet, inicio, fim, itens: dias, total_previsto: totalRealizado, total_realizado: totalRealizado };
 }
 
 const server = createServer(async (request, response) => {
@@ -104,6 +116,13 @@ const server = createServer(async (request, response) => {
   if (request.method === "GET" && url.pathname === "/credit/cobrancas/casos") {
     if (url.searchParams.get("carteira_id") !== IDS.wallet) return send(response, 400, { codigo: "periodo_invalido", mensagem: "Query invalida." }, correlation);
     return send(response, 200, collection(mode === "vazio", mode === "estados"), correlation);
+  }
+  if (request.method === "GET" && url.pathname.endsWith("/relatorios/fluxo")) {
+    const carteiraId = url.searchParams.get("carteira_id");
+    const inicio = url.searchParams.get("inicio");
+    const fim = url.searchParams.get("fim");
+    if (carteiraId !== IDS.wallet || !/^\d{4}-\d{2}-\d{2}$/.test(inicio ?? "") || !/^\d{4}-\d{2}-\d{2}$/.test(fim ?? "")) return send(response, 400, { codigo: "periodo_invalido", mensagem: "Query invalida." }, correlation);
+    return send(response, 200, fluxo(empty, inicio, fim), correlation);
   }
   return send(response, 404, { codigo: "recurso_indisponivel", mensagem: "Recurso indisponivel." }, correlation);
 });

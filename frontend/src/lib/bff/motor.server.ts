@@ -221,8 +221,6 @@ function validPayment(value: unknown, context: OperationalContext, loanId: strin
     && PAYMENT_STATES.has(value.estado)
     && Object.hasOwn(value, "chave_idempotencia")
     && (value.chave_idempotencia === null || typeof value.chave_idempotencia === "string")
-    && Array.isArray(value.parcelas_liquidadas)
-    && value.parcelas_liquidadas.every((item) => typeof item === "string" && UUID_PATTERN.test(item))
     && (!Object.hasOwn(value, "memoria") || value.memoria === null || validMemory(value.memoria));
 }
 

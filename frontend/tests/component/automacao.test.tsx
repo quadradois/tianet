@@ -2,8 +2,12 @@ import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it } from "vitest";
 
-import { AutomacaoProblemState } from "../../src/components/automacao/automacao";
+import {
+  AutomacaoProblemState,
+  NotificationsView,
+} from "../../src/components/automacao/automacao";
 import { AutomacaoActions, type AutomacaoActionsProps } from "../../src/components/automacao/automacao-actions.client";
+import type { NotificationList } from "../../src/lib/automacao/automacao-policy";
 
 const action = async () => ({ correlationId: "corr-automacao", kind: "success" as const, message: "ok", status: 200 });
 const actions: AutomacaoActionsProps = {
@@ -35,6 +39,43 @@ describe("Automacao UI", () => {
     expect(within(alert).getAllByText(/Automacao nao encontrada ou indisponivel/).length).toBeGreaterThanOrEqual(1);
     expect(alert).toHaveTextContent("Correlation ID: corr-404");
     expect(alert).not.toHaveTextContent("stack interna");
+  });
+
+  it("explica notificacao transacional sem renderizar lembrete vazio", () => {
+    const jobId = "00000000-0000-4000-8000-000000000081";
+    const reminderId = "00000000-0000-4000-8000-000000000084";
+    const notifications: NotificationList = {
+      items: [
+        {
+          carteira_id: "00000000-0000-4000-8000-000000000003",
+          codigo_resultado: null,
+          estado: "aceita",
+          id: "00000000-0000-4000-8000-000000000082",
+          job_id: jobId,
+          provider_message_id: "evolution-1",
+          resultado_em: "2026-08-22T12:00:00Z",
+        },
+        {
+          carteira_id: "00000000-0000-4000-8000-000000000003",
+          codigo_resultado: null,
+          estado: "aceita",
+          id: "00000000-0000-4000-8000-000000000083",
+          job_id: jobId,
+          lembrete_id: reminderId,
+          provider_message_id: "resend-1",
+          resultado_em: "2026-08-22T12:00:00Z",
+        },
+      ],
+      page: 1,
+      pages: 1,
+      size: 20,
+      total: 2,
+    };
+
+    render(<NotificationsView notifications={notifications} />);
+
+    expect(screen.getByText(`Job: ${jobId}; sem lembrete associado`)).toBeInTheDocument();
+    expect(screen.getByText(`Job: ${jobId}; lembrete: ${reminderId}`)).toBeInTheDocument();
   });
 
   it("mantem 403, 409, 422 e 500 correlacionados", () => {

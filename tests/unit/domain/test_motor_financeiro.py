@@ -102,6 +102,70 @@ def test_pagamento_registra_distribuicao_processada_pelo_motor() -> None:
     assert pagamento.id is not None
     assert pagamento.estado.value == "processado"
     assert pagamento.valor_distribuido == Decimal("1000.00")
+    assert pagamento.valor_devolvido == Decimal("0.00")
+    assert pagamento.valor_estornado == Decimal("0.00")
+    assert pagamento.reconciliado
+
+
+def test_motor_registra_sobra_de_pagamento_acima_do_saldo() -> None:
+    emprestimo_cls = _classe("emprestimo.domain.credit.emprestimo", "Emprestimo")
+    motor_cls = _classe("emprestimo.domain.credit.motor_financeiro", "MotorFinanceiro")
+    emprestimo = emprestimo_cls.criar_de_contrato_liberado(
+        _contrato_liberado(valor="10000.00", taxa_mensal="0.0300")
+    )
+    emprestimo.criado_em = datetime(2026, 8, 1, 12, 0, tzinfo=UTC)
+
+    resultado = motor_cls().registrar_pagamento(
+        emprestimo=emprestimo,
+        valor=Decimal("12000.00"),
+        recebido_em=datetime(2026, 9, 1, 12, 0, tzinfo=UTC),
+        chave_idempotencia="pagamento-excedente",
+        usuario_id=USUARIO_ID,
+    )
+
+    assert resultado.pagamento.valor_distribuido == Decimal("10300.00")
+    assert resultado.pagamento.valor_devolvido == Decimal("1700.00")
+    assert resultado.pagamento.valor_estornado == Decimal("0.00")
+    assert resultado.pagamento.valor_sobra == Decimal("1700.00")
+    assert not resultado.pagamento.reconciliado
+    assert resultado.memoria.resultados["devolvido"] == "1700.00"
+
+
+def test_estorno_parcial_reconcilia_e_recusa_valor_maior_que_sobra() -> None:
+    emprestimo_cls = _classe("emprestimo.domain.credit.emprestimo", "Emprestimo")
+    motor_cls = _classe("emprestimo.domain.credit.motor_financeiro", "MotorFinanceiro")
+    emprestimo = emprestimo_cls.criar_de_contrato_liberado(
+        _contrato_liberado(valor="10000.00", taxa_mensal="0.0300")
+    )
+    emprestimo.criado_em = datetime(2026, 8, 1, 12, 0, tzinfo=UTC)
+    pagamento = (
+        motor_cls()
+        .registrar_pagamento(
+            emprestimo=emprestimo,
+            valor=Decimal("12000.00"),
+            recebido_em=datetime(2026, 9, 1, 12, 0, tzinfo=UTC),
+            chave_idempotencia="pagamento-estorno-parcial",
+            usuario_id=USUARIO_ID,
+        )
+        .pagamento
+    )
+
+    parcial = pagamento.estornar(Decimal("700.00"))
+
+    assert parcial.valor_estornado == Decimal("700.00")
+    assert parcial.valor_sobra == Decimal("1000.00")
+    assert not parcial.reconciliado
+    with pytest.raises(ViolacaoInvarianteError):
+        parcial.estornar(Decimal("1000.01"))
+
+    reconciliado = parcial.estornar(Decimal("1000.00"))
+
+    assert reconciliado.valor_recebido - reconciliado.valor_devolvido == (
+        reconciliado.valor_distribuido
+    )
+    assert reconciliado.valor_estornado == Decimal("1700.00")
+    assert reconciliado.valor_sobra == Decimal("0.00")
+    assert reconciliado.reconciliado
 
 
 def test_pagamento_rejeita_valor_zero_ou_distribuicao_maior_que_recebido() -> None:
@@ -291,6 +355,7 @@ def test_registra_pagamento_positivo_e_distribui_juros_antes_da_amortizacao() ->
         "distribuir_juros",
         "distribuir_encargos",
         "amortizar_principal",
+        "detectar_sobra",
     ]
     assert resultado.evento.tipo == "pagamento_registrado"
     assert resultado.evento.memoria_calculo_id == resultado.memoria.id

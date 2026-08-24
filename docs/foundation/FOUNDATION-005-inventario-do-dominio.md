@@ -2,7 +2,7 @@
 
 **ID:** FOUNDATION-005
 
-**Versão:** 1.0.0
+**Versão:** 1.1.0
 
 **Status:** Aprovado
 
@@ -101,7 +101,7 @@ Todo novo conceito deverá ser registrado aqui antes de ser modelado como Aggreg
 | Conceito | Definição | Contexto |
 |----------|-----------|----------|
 | Taxa de Juros | Percentual aplicado ao principal | Configurações |
-| Modalidade de Empréstimo | Define como a operação será amortizada (Livre ou Prazo Fixo) | Configurações |
+| Modalidade de Empréstimo | Define como a operação será administrada (apenas Livre desde a DR-004) | Configurações |
 | Regra de Cálculo | Estratégia utilizada pelo Motor Financeiro | Configurações |
 | Calendário Financeiro | Regras para definição dos períodos financeiros | Configurações |
 
@@ -111,4 +111,5 @@ Todo novo conceito deverá ser registrado aqui antes de ser modelado como Aggreg
 
 | Versão | Data | Descrição |
 |---------|------|-----------|
+| 1.1.0 | 23/08/2026 | Modalidade Prazo Fixo removida do inventario: revogada pela DR-004 (IMP-337). |
 | 1.0.0 | 01/08/2026 | Primeira versão oficial do Inventário do Domínio. |

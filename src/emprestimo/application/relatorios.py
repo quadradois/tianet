@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import calendar
 import uuid
 from collections.abc import Callable, Iterable
 from dataclasses import dataclass
@@ -11,6 +12,7 @@ from decimal import Decimal
 from emprestimo.application.errors import CarteiraNaoEncontradaError
 from emprestimo.application.ports import UnitOfWork
 from emprestimo.domain.credit.emprestimo import Emprestimo, EmprestimoState
+from emprestimo.domain.credit.motor_financeiro import MotorFinanceiro
 from emprestimo.domain.credit.pagamento import Pagamento, PagamentoState
 from emprestimo.domain.credit.ports import EmprestimoFiltros, Paginacao
 
@@ -25,6 +27,7 @@ class ResumoCarteiraResultado:
     operacoes_quitadas: int
     acertos_pendentes: int
     principal_a_receber: Decimal
+    projecao_juros: Decimal
     total_realizado: Decimal
 
 
@@ -161,6 +164,7 @@ class RelatoriosOperacionaisService:
                     for pagamento in pagamentos
                     if pagamento.estado is not PagamentoState.ESTORNADO
                 ),
+                projecao_juros=_projecao_juros_12m(emprestimos, pagamentos, data_referencia),
             )
 
     def vencimentos_inadimplencia(
@@ -372,6 +376,42 @@ def _somar_decimal(valores: Iterable[Decimal]) -> Decimal:
     total = Decimal("0.00")
     for valor in valores:
         total += valor
+    return total
+
+
+def _adicionar_meses_data(valor: date, meses: int) -> date:
+    mes_base = valor.month - 1 + meses
+    ano = valor.year + mes_base // 12
+    mes = mes_base % 12 + 1
+    dia = min(valor.day, calendar.monthrange(ano, mes)[1])
+    return date(ano, mes, dia)
+
+
+def _projecao_juros_12m(
+    emprestimos: tuple[Emprestimo, ...],
+    pagamentos: tuple[Pagamento, ...],
+    data_referencia: date,
+) -> Decimal:
+    """Projecao de juros a 12 meses (run-rate) sobre o saldo atual de cada ativo.
+
+    Usa o Motor Financeiro para apurar o juros acumulado no horizonte de 12
+    meses e subtrai o juros ja em aberto hoje. Nao simula amortizacoes futuras:
+    e uma estimativa de juros sobre o principal em aberto, rotulada como
+    "projecao" no cockpit.
+    """
+    motor = MotorFinanceiro()
+    horizonte = _adicionar_meses_data(data_referencia, 12)
+    total = Decimal("0.00")
+    for emprestimo in emprestimos:
+        if emprestimo.estado is not EmprestimoState.ATIVO:
+            continue
+        motor.carregar_historico(
+            emprestimo_id=emprestimo.id,
+            pagamentos=tuple(p for p in pagamentos if p.emprestimo_id == emprestimo.id),
+        )
+        saldo_hoje = motor.consultar_saldo(emprestimo=emprestimo, data_referencia=data_referencia)
+        saldo_futuro = motor.consultar_saldo(emprestimo=emprestimo, data_referencia=horizonte)
+        total += max(saldo_futuro.juros - saldo_hoje.juros, Decimal("0.00"))
     return total
 
 

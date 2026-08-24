@@ -98,7 +98,8 @@ def test_cobranca_manual_registra_acao_promessa_apropriacao_e_replay(
     )
     assert [item.caso_id for item in fila.items] == [caso_id]
 
-    acoes = RegistrarAcaoCobranca(lambda: SqlAlchemyUnitOfWork(session_factory))
+    auditoria = SqlAlchemyAuditoriaRegistro(session_factory)
+    acoes = RegistrarAcaoCobranca(lambda: SqlAlchemyUnitOfWork(session_factory), auditoria)
     acao = acoes.registrar(
         tenant_id=contexto.ambiente.tenant_id,
         cobranca_caso_id=caso_id,
@@ -116,7 +117,7 @@ def test_cobranca_manual_registra_acao_promessa_apropriacao_e_replay(
         idempotency_key="od-acao-1",
     )
 
-    promessas = RegistrarPromessa(lambda: SqlAlchemyUnitOfWork(session_factory))
+    promessas = RegistrarPromessa(lambda: SqlAlchemyUnitOfWork(session_factory), auditoria)
     promessa = promessas.registrar(
         tenant_id=contexto.ambiente.tenant_id,
         cobranca_caso_id=caso_id,
@@ -127,7 +128,7 @@ def test_cobranca_manual_registra_acao_promessa_apropriacao_e_replay(
         pagamento_informado=True,
     )
     apropriacao = ApropriarPagamentoPromessa(
-        lambda: SqlAlchemyUnitOfWork(session_factory)
+        lambda: SqlAlchemyUnitOfWork(session_factory), auditoria
     ).apropriar(
         tenant_id=contexto.ambiente.tenant_id,
         promessa_id=promessa.promessa_id,
@@ -141,10 +142,26 @@ def test_cobranca_manual_registra_acao_promessa_apropriacao_e_replay(
     assert apropriacao.estado_promessa is PromessaPagamentoState.CUMPRIDA
     assert apropriacao.valor == contexto.pagamento.valor_recebido
     with session_factory() as session:
-        total_acoes = session.scalar(select(func.count()).select_from(AcaoCobrancaORM))
-        total_promessas = session.scalar(select(func.count()).select_from(PromessaPagamentoORM))
+        total_acoes = session.scalar(
+            select(func.count())
+            .select_from(AcaoCobrancaORM)
+            .where(
+                AcaoCobrancaORM.tenant_id == contexto.ambiente.tenant_id,
+                AcaoCobrancaORM.carteira_id == contexto.ambiente.carteira_id,
+            )
+        )
+        total_promessas = session.scalar(
+            select(func.count())
+            .select_from(PromessaPagamentoORM)
+            .where(
+                PromessaPagamentoORM.tenant_id == contexto.ambiente.tenant_id,
+                PromessaPagamentoORM.carteira_id == contexto.ambiente.carteira_id,
+            )
+        )
         total_apropriacoes = session.scalar(
-            select(func.count()).select_from(ApropriacaoPagamentoORM)
+            select(func.count())
+            .select_from(ApropriacaoPagamentoORM)
+            .where(ApropriacaoPagamentoORM.promessa_id == promessa.promessa_id)
         )
         total_chaves = session.scalar(
             select(func.count())
@@ -162,10 +179,13 @@ def test_agenda_operacional_cria_lembrete_consulta_e_transiciona(
 ) -> None:
     contexto = _contexto_motor(session_factory)
     previsto_para = datetime.now(UTC) + timedelta(days=2)
-    compromissos = CriarCompromissoAgenda(lambda: SqlAlchemyUnitOfWork(session_factory))
-    lembretes = CriarLembreteAgenda(lambda: SqlAlchemyUnitOfWork(session_factory))
-    manter_compromisso = ManterCompromissoAgenda(lambda: SqlAlchemyUnitOfWork(session_factory))
-    manter_lembrete = ManterLembreteAgenda(lambda: SqlAlchemyUnitOfWork(session_factory))
+    auditoria = SqlAlchemyAuditoriaRegistro(session_factory)
+    compromissos = CriarCompromissoAgenda(lambda: SqlAlchemyUnitOfWork(session_factory), auditoria)
+    lembretes = CriarLembreteAgenda(lambda: SqlAlchemyUnitOfWork(session_factory), auditoria)
+    manter_compromisso = ManterCompromissoAgenda(
+        lambda: SqlAlchemyUnitOfWork(session_factory), auditoria
+    )
+    manter_lembrete = ManterLembreteAgenda(lambda: SqlAlchemyUnitOfWork(session_factory), auditoria)
 
     compromisso = compromissos.criar(
         tenant_id=contexto.ambiente.tenant_id,
@@ -240,8 +260,22 @@ def test_agenda_operacional_cria_lembrete_consulta_e_transiciona(
     assert concluido.estado is EstadoCompromisso.CONCLUIDO
     assert lembrete_enviado.estado is EstadoLembrete.ENVIADO
     with session_factory() as session:
-        total_agenda = session.scalar(select(func.count()).select_from(AgendaItemORM))
-        total_lembretes = session.scalar(select(func.count()).select_from(LembreteORM))
+        total_agenda = session.scalar(
+            select(func.count())
+            .select_from(AgendaItemORM)
+            .where(
+                AgendaItemORM.tenant_id == contexto.ambiente.tenant_id,
+                AgendaItemORM.carteira_id == contexto.ambiente.carteira_id,
+            )
+        )
+        total_lembretes = session.scalar(
+            select(func.count())
+            .select_from(LembreteORM)
+            .where(
+                LembreteORM.tenant_id == contexto.ambiente.tenant_id,
+                LembreteORM.carteira_id == contexto.ambiente.carteira_id,
+            )
+        )
         total_chaves = session.scalar(
             select(func.count())
             .select_from(IdempotencyKeyORM)
@@ -266,7 +300,10 @@ def test_comunicacao_manual_registra_replay_e_consulta_historico(
     session_factory: sessionmaker[Session],
 ) -> None:
     contexto = _contexto_motor(session_factory)
-    comunicacoes = RegistrarComunicacaoManual(lambda: SqlAlchemyUnitOfWork(session_factory))
+    comunicacoes = RegistrarComunicacaoManual(
+        lambda: SqlAlchemyUnitOfWork(session_factory),
+        SqlAlchemyAuditoriaRegistro(session_factory),
+    )
     ocorrido_em = datetime(2026, 9, 10, 13, 0, tzinfo=UTC)
 
     registro = comunicacoes.registrar(
@@ -304,7 +341,14 @@ def test_comunicacao_manual_registra_replay_e_consulta_historico(
     assert historico.total == 1
     assert historico.registros[0].registro_id == registro.registro_id
     with session_factory() as session:
-        total_registros = session.scalar(select(func.count()).select_from(RegistroComunicacaoORM))
+        total_registros = session.scalar(
+            select(func.count())
+            .select_from(RegistroComunicacaoORM)
+            .where(
+                RegistroComunicacaoORM.tenant_id == contexto.ambiente.tenant_id,
+                RegistroComunicacaoORM.carteira_id == contexto.ambiente.carteira_id,
+            )
+        )
         chave = session.scalar(
             select(IdempotencyKeyORM).where(IdempotencyKeyORM.chave == "od-comunicacao-1")
         )
@@ -321,7 +365,10 @@ def test_registrar_acao_cobranca_cross_tenant_preserva_404_logico(
     caso_id = _caso_cobranca(session_factory, contexto_a)
 
     with pytest.raises(CobrancaCasoNaoEncontradoError):
-        RegistrarAcaoCobranca(lambda: SqlAlchemyUnitOfWork(session_factory)).registrar(
+        RegistrarAcaoCobranca(
+            lambda: SqlAlchemyUnitOfWork(session_factory),
+            SqlAlchemyAuditoriaRegistro(session_factory),
+        ).registrar(
             tenant_id=contexto_b.ambiente.tenant_id,
             cobranca_caso_id=caso_id,
             usuario_id=contexto_b.ambiente.usuario_id,
@@ -351,7 +398,10 @@ def _contexto_motor(session_factory: sessionmaker[Session]) -> _ContextoMotor:
         usuario_id=ambiente.usuario_id,
         idempotency_key=f"od-emp-{uuid.uuid4()}",
     )
-    pagamento = PagamentoService(lambda: SqlAlchemyUnitOfWork(session_factory)).registrar(
+    pagamento = PagamentoService(
+        lambda: SqlAlchemyUnitOfWork(session_factory),
+        SqlAlchemyAuditoriaRegistro(session_factory),
+    ).registrar(
         emprestimo_id=emprestimo.emprestimo_id,
         tenant_id=ambiente.tenant_id,
         usuario_id=ambiente.usuario_id,
@@ -389,7 +439,10 @@ def _contrato_liberado(
     session_factory: sessionmaker[Session],
     ambiente: _Ambiente,
 ) -> uuid.UUID:
-    proposta = PropostaComercialService(lambda: SqlAlchemyUnitOfWork(session_factory)).criar(
+    proposta = PropostaComercialService(
+        lambda: SqlAlchemyUnitOfWork(session_factory),
+        SqlAlchemyAuditoriaRegistro(session_factory),
+    ).criar(
         tenant_id=ambiente.tenant_id,
         carteira_id=ambiente.carteira_id,
         devedor_id=ambiente.devedor_id,
@@ -402,7 +455,10 @@ def _contrato_liberado(
             "taxa_juros_mensal": "0.0200",
         },
     )
-    decisoes = DecisaoComercialService(lambda: SqlAlchemyUnitOfWork(session_factory))
+    decisoes = DecisaoComercialService(
+        lambda: SqlAlchemyUnitOfWork(session_factory),
+        SqlAlchemyAuditoriaRegistro(session_factory),
+    )
     decisoes.enviar_para_analise(
         proposta_id=proposta.proposta_id,
         tenant_id=ambiente.tenant_id,
@@ -414,14 +470,18 @@ def _contrato_liberado(
         usuario_id=ambiente.usuario_id,
     )
     contrato = FormalizacaoContratoService(
-        lambda: SqlAlchemyUnitOfWork(session_factory)
+        lambda: SqlAlchemyUnitOfWork(session_factory),
+        SqlAlchemyAuditoriaRegistro(session_factory),
     ).criar_de_proposta(
         tenant_id=ambiente.tenant_id,
         carteira_id=ambiente.carteira_id,
         proposta_comercial_id=proposta.proposta_id,
         usuario_id=ambiente.usuario_id,
     )
-    assinatura = AssinaturaContratoService(lambda: SqlAlchemyUnitOfWork(session_factory))
+    assinatura = AssinaturaContratoService(
+        lambda: SqlAlchemyUnitOfWork(session_factory),
+        SqlAlchemyAuditoriaRegistro(session_factory),
+    )
     assinatura.formalizar(
         contrato_id=contrato.contrato_id,
         tenant_id=ambiente.tenant_id,
@@ -432,7 +492,10 @@ def _contrato_liberado(
         tenant_id=ambiente.tenant_id,
         usuario_id=ambiente.usuario_id,
     )
-    LiberacaoContratoService(lambda: SqlAlchemyUnitOfWork(session_factory)).liberar_para_motor(
+    LiberacaoContratoService(
+        lambda: SqlAlchemyUnitOfWork(session_factory),
+        SqlAlchemyAuditoriaRegistro(session_factory),
+    ).liberar_para_motor(
         contrato_id=contrato.contrato_id,
         tenant_id=ambiente.tenant_id,
         usuario_id=ambiente.usuario_id,

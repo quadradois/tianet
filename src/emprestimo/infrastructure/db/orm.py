@@ -511,6 +511,17 @@ class PagamentoORM(Base):
             name="ck_pagamento_amortizacao_nao_negativa",
         ),
         CheckConstraint("valor_encargos >= 0", name="ck_pagamento_encargos_nao_negativo"),
+        CheckConstraint("valor_devolvido >= 0", name="ck_pagamento_devolvido_nao_negativo"),
+        CheckConstraint("valor_estornado >= 0", name="ck_pagamento_estornado_nao_negativo"),
+        CheckConstraint(
+            "valor_juros + valor_amortizacao + valor_encargos + valor_devolvido "
+            "= valor_recebido",
+            name="ck_pagamento_valor_reconciliado",
+        ),
+        CheckConstraint(
+            "valor_estornado <= valor_devolvido",
+            name="ck_pagamento_estorno_dentro_devolucao",
+        ),
     )
 
     id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True)
@@ -524,8 +535,13 @@ class PagamentoORM(Base):
     valor_juros: Mapped[Decimal] = mapped_column(Numeric(18, 2), nullable=False)
     valor_amortizacao: Mapped[Decimal] = mapped_column(Numeric(18, 2), nullable=False)
     valor_encargos: Mapped[Decimal] = mapped_column(Numeric(18, 2), nullable=False)
+    valor_devolvido: Mapped[Decimal] = mapped_column(
+        Numeric(18, 2), nullable=False, default=Decimal("0.00")
+    )
+    valor_estornado: Mapped[Decimal] = mapped_column(
+        Numeric(18, 2), nullable=False, default=Decimal("0.00")
+    )
     chave_idempotencia: Mapped[str] = mapped_column(String(255), nullable=False)
-    parcelas_liquidadas: Mapped[list[str]] = mapped_column(JSON, nullable=False)
     distribuicao: Mapped[dict[str, object]] = mapped_column(JSON, nullable=False)
     usuario_id: Mapped[uuid.UUID] = mapped_column(
         Uuid, ForeignKey("usuario.id"), nullable=False, index=True
@@ -1123,14 +1139,16 @@ class SolicitacaoNotificacaoORM(Base):
     id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True)
     tenant_id: Mapped[uuid.UUID] = mapped_column(Uuid, ForeignKey("tenant.id"), nullable=False)
     carteira_id: Mapped[uuid.UUID] = mapped_column(Uuid, ForeignKey("carteira.id"), nullable=False)
-    lembrete_id: Mapped[uuid.UUID] = mapped_column(Uuid, ForeignKey("lembrete.id"), nullable=False)
+    lembrete_id: Mapped[uuid.UUID | None] = mapped_column(
+        Uuid, ForeignKey("lembrete.id"), nullable=True
+    )
     job_id: Mapped[uuid.UUID] = mapped_column(Uuid, ForeignKey("job_agendado.id"), nullable=False)
     tentativa_job_id: Mapped[uuid.UUID] = mapped_column(
         Uuid, ForeignKey("tentativa_job.id"), nullable=False
     )
     contato_id: Mapped[uuid.UUID] = mapped_column(Uuid, ForeignKey("contato.id"), nullable=False)
-    template_id: Mapped[uuid.UUID] = mapped_column(
-        Uuid, ForeignKey("template_notificacao.id"), nullable=False
+    template_id: Mapped[uuid.UUID | None] = mapped_column(
+        Uuid, ForeignKey("template_notificacao.id"), nullable=True
     )
     chave_idempotente: Mapped[str] = mapped_column(String(255), nullable=False, unique=True)
     payload_canonico: Mapped[dict[str, object]] = mapped_column(JSON, nullable=False)

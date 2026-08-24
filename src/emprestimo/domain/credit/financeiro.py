@@ -24,7 +24,6 @@ class TipoRegraCalculo(Enum):
     """Tipos de regra reconhecidos pelo Motor Financeiro."""
 
     JUROS_SIMPLES_PERIODO_REAL = "juros_simples_periodo_real"
-    PRAZO_FIXO = "prazo_fixo"
     LIVRE = "livre"
 
 

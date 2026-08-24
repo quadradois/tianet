@@ -2,7 +2,7 @@
 
 **ID:** US-010
 
-**Versão:** 1.0.0
+**Versão:** 1.1.0
 
 **Status:** Aprovado
 
@@ -12,7 +12,7 @@
 
 **Como** Administrador da Plataforma
 
-**Quero** consultar uma organização (Tenant) utilizando seu identificador institucional
+**Quero** consultar um Credor (Tenant) utilizando seu identificador institucional
 
 **Para** localizar rapidamente uma organização sem conhecer seu identificador interno.
 
@@ -72,4 +72,5 @@ A resposta deverá utilizar DTO específico da camada Presentation.
 
 | Versão | Data | Descrição |
 |---------|------|-----------|
+| 1.1.0 | 23/08/2026 | Tenant descrito como Credor, nao como organizacao, conforme FOUNDATION-001 (IMP-338). |
 | 1.0.0 | 02/08/2026 | Primeira versão oficial da User Story Consultar Tenant por Identificador Institucional. |

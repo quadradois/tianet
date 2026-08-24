@@ -2,7 +2,7 @@
 
 **ID:** DOMAIN-008
 
-**Versão:** 1.0.0
+**Versão:** 1.1.0
 
 **Status:** Aprovado
 
@@ -40,13 +40,13 @@ Toda operação de crédito deverá possuir exatamente uma Periodicidade.
 
 A Periodicidade define apenas a recorrência das obrigações financeiras.
 
-Ela não define datas específicas de vencimento.
+Ela não define datas específicas de acerto.
 
 ---
 
 ## RN-003
 
-As datas efetivas de vencimento serão determinadas em conjunto com o Calendário Financeiro e as regras do Contrato de Crédito.
+As datas efetivas de acerto são determinadas pelo dia de acerto do Empréstimo em conjunto com o Calendário Financeiro.
 
 ---
 
@@ -87,4 +87,5 @@ Diária
 
 | Versão | Data | Descrição |
 |---------|------|-----------|
+| 1.1.0 | 23/08/2026 | Linguagem de vencimento substituida por acerto, conforme o emprestimo livre da DR-004 (IMP-337). |
 | 1.0.0 | 01/08/2026 | Primeira versão oficial do VO Periodicidade. |

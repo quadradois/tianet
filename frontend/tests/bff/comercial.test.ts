@@ -144,6 +144,7 @@ describe("BFF Comercial", () => {
     const backend: FetchLike = async (request) => {
       const url = new URL(request.url);
       paths.push(`${request.method} ${url.pathname}`);
+      expect(request.headers.get("Idempotency-Key")).toBeTruthy();
       if (url.pathname.endsWith("/simulacoes-comerciais")) return Response.json(simulation(), { status: 201, headers: { "X-Correlation-ID": "corr-command" } });
       if (url.pathname.endsWith("/propostas-comerciais") && request.method === "POST") return Response.json(proposal(), { status: 201, headers: { "X-Correlation-ID": "corr-command" } });
       return Response.json(proposal(WALLET_ID, "em_analise"), { headers: { "X-Correlation-ID": "corr-command" } });

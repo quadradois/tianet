@@ -23,6 +23,7 @@ from datetime import date
 from decimal import Decimal
 from typing import Protocol
 
+from emprestimo.application.auditoria_escrita import auditar_escrita
 from emprestimo.application.comprovante import ComprovanteLancamento
 from emprestimo.application.errors import (
     CarteiraNaoEncontradaError,
@@ -31,7 +32,7 @@ from emprestimo.application.errors import (
     TransicaoEstadoInvalidaError,
     UsuarioNaoEncontradoError,
 )
-from emprestimo.application.ports import UnitOfWork
+from emprestimo.application.ports import AuditoriaRegistro, UnitOfWork
 from emprestimo.domain.common.errors import ViolacaoInvarianteError
 from emprestimo.domain.credit.contato import Contato, TipoContato
 from emprestimo.domain.credit.contrato_credito import ContratoCredito
@@ -135,11 +136,14 @@ class LancamentoService:
         uow_factory: Callable[[], UnitOfWork],
         criar_emprestimo: CriadorDeEmprestimo,
         enfileirar_comprovante: Callable[[ComprovanteLancamento], object],
+        auditoria: AuditoriaRegistro,
     ) -> None:
         self._uow_factory = uow_factory
         self._criar_emprestimo = criar_emprestimo
         self._enfileirar_comprovante = enfileirar_comprovante
+        self._auditoria = auditoria
 
+    @auditar_escrita("lancamento", "lancar")
     def lancar(
         self,
         *,

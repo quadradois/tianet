@@ -2172,6 +2172,29 @@
         "title": "EstadoTemplateNotificacao",
         "type": "string"
       },
+      "EstornoPagamentoRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "valor": {
+            "anyOf": [
+              {
+                "exclusiveMinimum": 0.0,
+                "type": "number"
+              },
+              {
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d{0,2}0*$",
+                "type": "string"
+              }
+            ],
+            "title": "Valor"
+          }
+        },
+        "required": [
+          "valor"
+        ],
+        "title": "EstornoPagamentoRequest",
+        "type": "object"
+      },
       "EventoContratoResponse": {
         "properties": {
           "contrato_id": {
@@ -2922,9 +2945,16 @@
             "type": "string"
           },
           "lembrete_id": {
-            "format": "uuid",
-            "title": "Lembrete Id",
-            "type": "string"
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Lembrete Id"
           },
           "provider_message_id": {
             "anyOf": [
@@ -2953,7 +2983,6 @@
         "required": [
           "id",
           "carteira_id",
-          "lembrete_id",
           "job_id",
           "estado",
           "provider_message_id",
@@ -3064,18 +3093,14 @@
               }
             ]
           },
-          "parcelas_liquidadas": {
-            "items": {
-              "format": "uuid",
-              "type": "string"
-            },
-            "title": "Parcelas Liquidadas",
-            "type": "array"
-          },
           "recebido_em": {
             "format": "date-time",
             "title": "Recebido Em",
             "type": "string"
+          },
+          "reconciliado": {
+            "title": "Reconciliado",
+            "type": "boolean"
           },
           "tenant_id": {
             "format": "uuid",
@@ -3087,9 +3112,19 @@
             "title": "Valor Amortizacao",
             "type": "string"
           },
+          "valor_devolvido": {
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Valor Devolvido",
+            "type": "string"
+          },
           "valor_encargos": {
             "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
             "title": "Valor Encargos",
+            "type": "string"
+          },
+          "valor_estornado": {
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Valor Estornado",
             "type": "string"
           },
           "valor_juros": {
@@ -3100,6 +3135,11 @@
           "valor_recebido": {
             "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
             "title": "Valor Recebido",
+            "type": "string"
+          },
+          "valor_sobra": {
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Valor Sobra",
             "type": "string"
           }
         },
@@ -3112,9 +3152,12 @@
           "valor_juros",
           "valor_amortizacao",
           "valor_encargos",
+          "valor_devolvido",
+          "valor_estornado",
+          "valor_sobra",
+          "reconciliado",
           "estado",
-          "chave_idempotencia",
-          "parcelas_liquidadas"
+          "chave_idempotencia"
         ],
         "title": "PagamentoResponse",
         "type": "object"
@@ -4119,6 +4162,11 @@
             "title": "Principal A Receber",
             "type": "string"
           },
+          "projecao_juros": {
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Projecao Juros",
+            "type": "string"
+          },
           "tenant_id": {
             "format": "uuid",
             "title": "Tenant Id",
@@ -4143,6 +4191,7 @@
           "operacoes_quitadas",
           "acertos_pendentes",
           "principal_a_receber",
+          "projecao_juros",
           "total_realizado"
         ],
         "title": "ResumoCarteiraResponse",
@@ -7333,6 +7382,17 @@
             }
           },
           {
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": true,
+            "schema": {
+              "maxLength": 255,
+              "minLength": 1,
+              "title": "Idempotency-Key",
+              "type": "string"
+            }
+          },
+          {
             "description": "Identificador tecnico de correlacao aceito ou gerado pela API.",
             "in": "header",
             "name": "X-Correlation-ID",
@@ -7503,6 +7563,17 @@
             "schema": {
               "format": "uuid",
               "title": "Job Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": true,
+            "schema": {
+              "maxLength": 255,
+              "minLength": 1,
+              "title": "Idempotency-Key",
               "type": "string"
             }
           },
@@ -7877,6 +7948,17 @@
             "schema": {
               "format": "uuid",
               "title": "Carteira Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": true,
+            "schema": {
+              "maxLength": 255,
+              "minLength": 1,
+              "title": "Idempotency-Key",
               "type": "string"
             }
           },
@@ -9794,6 +9876,17 @@
             }
           },
           {
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": true,
+            "schema": {
+              "maxLength": 255,
+              "minLength": 1,
+              "title": "Idempotency-Key",
+              "type": "string"
+            }
+          },
+          {
             "description": "Identificador tecnico de correlacao aceito ou gerado pela API.",
             "in": "header",
             "name": "X-Correlation-ID",
@@ -10160,6 +10253,17 @@
             "schema": {
               "format": "uuid",
               "title": "Devedor Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": true,
+            "schema": {
+              "maxLength": 255,
+              "minLength": 1,
+              "title": "Idempotency-Key",
               "type": "string"
             }
           },
@@ -12545,6 +12649,17 @@
         "operationId": "criar_configuracao_financeira_credit_configuracoes_financeiras_post",
         "parameters": [
           {
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": true,
+            "schema": {
+              "maxLength": 255,
+              "minLength": 1,
+              "title": "Idempotency-Key",
+              "type": "string"
+            }
+          },
+          {
             "description": "Identificador tecnico de correlacao aceito ou gerado pela API.",
             "in": "header",
             "name": "X-Correlation-ID",
@@ -12828,6 +12943,17 @@
       "post": {
         "operationId": "criar_calendario_financeiro_credit_configuracoes_financeiras_calendarios_post",
         "parameters": [
+          {
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": true,
+            "schema": {
+              "maxLength": 255,
+              "minLength": 1,
+              "title": "Idempotency-Key",
+              "type": "string"
+            }
+          },
           {
             "description": "Identificador tecnico de correlacao aceito ou gerado pela API.",
             "in": "header",
@@ -13113,6 +13239,17 @@
         "operationId": "criar_modalidade_financeira_credit_configuracoes_financeiras_modalidades_post",
         "parameters": [
           {
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": true,
+            "schema": {
+              "maxLength": 255,
+              "minLength": 1,
+              "title": "Idempotency-Key",
+              "type": "string"
+            }
+          },
+          {
             "description": "Identificador tecnico de correlacao aceito ou gerado pela API.",
             "in": "header",
             "name": "X-Correlation-ID",
@@ -13276,6 +13413,17 @@
       "post": {
         "operationId": "capturar_snapshot_configuracao_credit_configuracoes_financeiras_snapshots_post",
         "parameters": [
+          {
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": true,
+            "schema": {
+              "maxLength": 255,
+              "minLength": 1,
+              "title": "Idempotency-Key",
+              "type": "string"
+            }
+          },
           {
             "description": "Identificador tecnico de correlacao aceito ou gerado pela API.",
             "in": "header",
@@ -13807,6 +13955,17 @@
             }
           },
           {
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": true,
+            "schema": {
+              "maxLength": 255,
+              "minLength": 1,
+              "title": "Idempotency-Key",
+              "type": "string"
+            }
+          },
+          {
             "description": "Identificador tecnico de correlacao aceito ou gerado pela API.",
             "in": "header",
             "name": "X-Correlation-ID",
@@ -13977,6 +14136,17 @@
             "schema": {
               "format": "uuid",
               "title": "Configuracao Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": true,
+            "schema": {
+              "maxLength": 255,
+              "minLength": 1,
+              "title": "Idempotency-Key",
               "type": "string"
             }
           },
@@ -14155,6 +14325,17 @@
             }
           },
           {
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": true,
+            "schema": {
+              "maxLength": 255,
+              "minLength": 1,
+              "title": "Idempotency-Key",
+              "type": "string"
+            }
+          },
+          {
             "description": "Identificador tecnico de correlacao aceito ou gerado pela API.",
             "in": "header",
             "name": "X-Correlation-ID",
@@ -14325,6 +14506,17 @@
             "schema": {
               "format": "uuid",
               "title": "Configuracao Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": true,
+            "schema": {
+              "maxLength": 255,
+              "minLength": 1,
+              "title": "Idempotency-Key",
               "type": "string"
             }
           },
@@ -14649,6 +14841,17 @@
             }
           },
           {
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": true,
+            "schema": {
+              "maxLength": 255,
+              "minLength": 1,
+              "title": "Idempotency-Key",
+              "type": "string"
+            }
+          },
+          {
             "description": "Identificador tecnico de correlacao aceito ou gerado pela API.",
             "in": "header",
             "name": "X-Correlation-ID",
@@ -14809,6 +15012,17 @@
             "schema": {
               "format": "uuid",
               "title": "Contrato Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": true,
+            "schema": {
+              "maxLength": 255,
+              "minLength": 1,
+              "title": "Idempotency-Key",
               "type": "string"
             }
           },
@@ -15162,6 +15376,17 @@
             }
           },
           {
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": true,
+            "schema": {
+              "maxLength": 255,
+              "minLength": 1,
+              "title": "Idempotency-Key",
+              "type": "string"
+            }
+          },
+          {
             "description": "Identificador tecnico de correlacao aceito ou gerado pela API.",
             "in": "header",
             "name": "X-Correlation-ID",
@@ -15482,6 +15707,17 @@
             "schema": {
               "format": "uuid",
               "title": "Contrato Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": true,
+            "schema": {
+              "maxLength": 255,
+              "minLength": 1,
+              "title": "Idempotency-Key",
               "type": "string"
             }
           },
@@ -17098,6 +17334,17 @@
         "operationId": "criar_template_credit_notificacoes_templates_post",
         "parameters": [
           {
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": true,
+            "schema": {
+              "maxLength": 255,
+              "minLength": 1,
+              "title": "Idempotency-Key",
+              "type": "string"
+            }
+          },
+          {
             "description": "Identificador tecnico de correlacao aceito ou gerado pela API.",
             "in": "header",
             "name": "X-Correlation-ID",
@@ -17272,6 +17519,17 @@
             }
           },
           {
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": true,
+            "schema": {
+              "maxLength": 255,
+              "minLength": 1,
+              "title": "Idempotency-Key",
+              "type": "string"
+            }
+          },
+          {
             "description": "Identificador tecnico de correlacao aceito ou gerado pela API.",
             "in": "header",
             "name": "X-Correlation-ID",
@@ -17442,6 +17700,17 @@
             "schema": {
               "format": "uuid",
               "title": "Template Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": true,
+            "schema": {
+              "maxLength": 255,
+              "minLength": 1,
+              "title": "Idempotency-Key",
               "type": "string"
             }
           },
@@ -17926,6 +18195,191 @@
         ]
       }
     },
+    "/credit/pagamentos/{pagamento_id}/estornos": {
+      "post": {
+        "operationId": "estornar_pagamento_credit_pagamentos__pagamento_id__estornos_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "pagamento_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Pagamento Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": true,
+            "schema": {
+              "maxLength": 255,
+              "minLength": 1,
+              "title": "Idempotency-Key",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Identificador tecnico de correlacao aceito ou gerado pela API.",
+            "in": "header",
+            "name": "X-Correlation-ID",
+            "required": false,
+            "schema": {
+              "maxLength": 128,
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EstornoPagamentoRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PagamentoResponse"
+                }
+              }
+            },
+            "description": "Successful Response",
+            "headers": {
+              "X-Correlation-ID": {
+                "description": "Identificador tecnico de correlacao da requisicao.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErroResponse"
+                }
+              }
+            },
+            "description": "Payload, parametros ou headers invalidos para a operacao.",
+            "headers": {
+              "X-Correlation-ID": {
+                "description": "Identificador tecnico de correlacao da requisicao.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErroResponse"
+                }
+              }
+            },
+            "description": "Autenticacao recusada por token ausente, invalido ou expirado.",
+            "headers": {
+              "X-Correlation-ID": {
+                "description": "Identificador tecnico de correlacao da requisicao.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErroResponse"
+                }
+              }
+            },
+            "description": "Principal autenticado nao possui permissao para a operacao.",
+            "headers": {
+              "X-Correlation-ID": {
+                "description": "Identificador tecnico de correlacao da requisicao.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErroResponse"
+                }
+              }
+            },
+            "description": "Recurso inexistente ou indisponivel para o Tenant autenticado.",
+            "headers": {
+              "X-Correlation-ID": {
+                "description": "Identificador tecnico de correlacao da requisicao.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErroResponse"
+                }
+              }
+            },
+            "description": "Transicao de estado invalida para o recurso atual.",
+            "headers": {
+              "X-Correlation-ID": {
+                "description": "Identificador tecnico de correlacao da requisicao.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErroResponse"
+                }
+              }
+            },
+            "description": "Erro tecnico inesperado com resposta segura e correlacionavel.",
+            "headers": {
+              "X-Correlation-ID": {
+                "description": "Identificador tecnico de correlacao da requisicao.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "summary": "Registrar estorno parcial de pagamento",
+        "tags": [
+          "financial-engine"
+        ]
+      }
+    },
     "/credit/propostas-comerciais/{proposta_id}": {
       "get": {
         "operationId": "consultar_proposta_comercial_credit_propostas_comerciais__proposta_id__get",
@@ -18081,6 +18535,17 @@
             "schema": {
               "format": "uuid",
               "title": "Proposta Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": true,
+            "schema": {
+              "maxLength": 255,
+              "minLength": 1,
+              "title": "Idempotency-Key",
               "type": "string"
             }
           },
@@ -18259,6 +18724,17 @@
             }
           },
           {
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": true,
+            "schema": {
+              "maxLength": 255,
+              "minLength": 1,
+              "title": "Idempotency-Key",
+              "type": "string"
+            }
+          },
+          {
             "description": "Identificador tecnico de correlacao aceito ou gerado pela API.",
             "in": "header",
             "name": "X-Correlation-ID",
@@ -18419,6 +18895,17 @@
             "schema": {
               "format": "uuid",
               "title": "Proposta Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": true,
+            "schema": {
+              "maxLength": 255,
+              "minLength": 1,
+              "title": "Idempotency-Key",
               "type": "string"
             }
           },
@@ -18761,6 +19248,17 @@
             }
           },
           {
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": true,
+            "schema": {
+              "maxLength": 255,
+              "minLength": 1,
+              "title": "Idempotency-Key",
+              "type": "string"
+            }
+          },
+          {
             "description": "Identificador tecnico de correlacao aceito ou gerado pela API.",
             "in": "header",
             "name": "X-Correlation-ID",
@@ -18925,6 +19423,17 @@
             }
           },
           {
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": true,
+            "schema": {
+              "maxLength": 255,
+              "minLength": 1,
+              "title": "Idempotency-Key",
+              "type": "string"
+            }
+          },
+          {
             "description": "Identificador tecnico de correlacao aceito ou gerado pela API.",
             "in": "header",
             "name": "X-Correlation-ID",
@@ -19085,6 +19594,17 @@
             "schema": {
               "format": "uuid",
               "title": "Proposta Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": true,
+            "schema": {
+              "maxLength": 255,
+              "minLength": 1,
+              "title": "Idempotency-Key",
               "type": "string"
             }
           },
@@ -19582,6 +20102,17 @@
       "patch": {
         "operationId": "alterar_credencial_iam_credencial_patch",
         "parameters": [
+          {
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": true,
+            "schema": {
+              "maxLength": 255,
+              "minLength": 1,
+              "title": "Idempotency-Key",
+              "type": "string"
+            }
+          },
           {
             "description": "Identificador tecnico de correlacao aceito ou gerado pela API.",
             "in": "header",
@@ -21076,6 +21607,17 @@
             }
           },
           {
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": true,
+            "schema": {
+              "maxLength": 255,
+              "minLength": 1,
+              "title": "Idempotency-Key",
+              "type": "string"
+            }
+          },
+          {
             "description": "Identificador tecnico de correlacao aceito ou gerado pela API.",
             "in": "header",
             "name": "X-Correlation-ID",
@@ -22291,6 +22833,17 @@
             }
           },
           {
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": true,
+            "schema": {
+              "maxLength": 255,
+              "minLength": 1,
+              "title": "Idempotency-Key",
+              "type": "string"
+            }
+          },
+          {
             "description": "Identificador tecnico de correlacao aceito ou gerado pela API.",
             "in": "header",
             "name": "X-Correlation-ID",
@@ -22466,6 +23019,17 @@
             }
           },
           {
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": true,
+            "schema": {
+              "maxLength": 255,
+              "minLength": 1,
+              "title": "Idempotency-Key",
+              "type": "string"
+            }
+          },
+          {
             "description": "Identificador tecnico de correlacao aceito ou gerado pela API.",
             "in": "header",
             "name": "X-Correlation-ID",
@@ -22627,6 +23191,17 @@
             "schema": {
               "format": "uuid",
               "title": "Tenant Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": true,
+            "schema": {
+              "maxLength": 255,
+              "minLength": 1,
+              "title": "Idempotency-Key",
               "type": "string"
             }
           },

@@ -109,6 +109,26 @@ describe("BFF Automacao", () => {
     expect(backend).not.toHaveBeenCalled();
   });
 
+  it("aceita notificacao transacional com lembrete ausente ou nulo", async () => {
+    const selected = config();
+    const semLembrete: Record<string, unknown> = { ...notification() };
+    delete semLembrete.lembrete_id;
+    const loads = await beginAutomacaoLoads(
+      await cookieStore(selected),
+      context(["notificacao.consultar"]),
+      { jobId: null, notificationId: null, page: 1, size: 20 },
+      dependencies(
+        selected,
+        async () => Response.json(page([semLembrete, { ...notification(), lembrete_id: null }])),
+      ),
+    );
+
+    await expect(loads.notifications).resolves.toMatchObject({
+      data: { items: [semLembrete, { lembrete_id: null }], total: 2 },
+      kind: "ready",
+    });
+  });
+
   it("rejeita payload 2xx incompleto ou de outra Carteira", async () => {
     const selected = config();
     const missing = await beginAutomacaoLoads(await cookieStore(selected), context(["automacao.job.consultar"]), { jobId: null, notificationId: null, page: 1, size: 20 }, dependencies(selected, async () => Response.json(page([{ ...job(), correlation_id: undefined }]))));
@@ -131,7 +151,7 @@ describe("BFF Automacao", () => {
     }
   });
 
-  it("executa comandos de job e template sem Idempotency-Key inventada", async () => {
+  it("executa comandos de job e template com Idempotency-Key", async () => {
     const selected = config();
     const seen: Array<[string, boolean]> = [];
     const backend: FetchLike = async (request) => {
@@ -148,15 +168,15 @@ describe("BFF Automacao", () => {
     await expect(approveTemplate(cookie, ctx, form({ template_id: TEMPLATE_ID }), dependencies(selected, backend))).resolves.toMatchObject({ kind: "success" });
     await expect(activateTemplate(cookie, ctx, form({ template_id: TEMPLATE_ID }), dependencies(selected, backend))).resolves.toMatchObject({ kind: "success" });
     expect(seen).toEqual([
-      [`/credit/automacao/jobs/${JOB_ID}/cancelar`, false],
-      [`/credit/automacao/jobs/${JOB_ID}/retry`, false],
-      ["/credit/notificacoes/templates", false],
-      [`/credit/notificacoes/templates/${TEMPLATE_ID}/aprovar`, false],
-      [`/credit/notificacoes/templates/${TEMPLATE_ID}/ativar`, false],
+      [`/credit/automacao/jobs/${JOB_ID}/cancelar`, true],
+      [`/credit/automacao/jobs/${JOB_ID}/retry`, true],
+      ["/credit/notificacoes/templates", true],
+      [`/credit/notificacoes/templates/${TEMPLATE_ID}/aprovar`, true],
+      [`/credit/notificacoes/templates/${TEMPLATE_ID}/ativar`, true],
     ]);
   });
 
-  it("envia Idempotency-Key apenas na conciliacao de notificacao", async () => {
+  it("preserva a Idempotency-Key informada na conciliacao de notificacao", async () => {
     const selected = config();
     const backend: FetchLike = async (request) => {
       const url = new URL(request.url);

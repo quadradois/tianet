@@ -7,6 +7,7 @@ from collections.abc import Callable
 from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
 from typing import Any, cast
+from unittest.mock import Mock
 
 import pytest
 
@@ -23,7 +24,7 @@ from emprestimo.application.operacao_diaria import (
     ManterCompromissoAgenda,
     ManterLembreteAgenda,
 )
-from emprestimo.application.ports import UnitOfWork
+from emprestimo.application.ports import AuditoriaRegistro, UnitOfWork
 from emprestimo.domain.credit.operacao_diaria import (
     AgendaItem,
     EstadoCompromisso,
@@ -66,7 +67,7 @@ def test_consultar_agenda_filtra_janela_estado_e_nao_commita() -> None:
 
 def test_criar_compromisso_idempotente_nao_duplica() -> None:
     uow = _FakeUoW()
-    service = CriarCompromissoAgenda(_uow_factory(uow))
+    service = CriarCompromissoAgenda(_uow_factory(uow), _auditoria())
     previsto_para = datetime.now(UTC) + timedelta(days=1)
 
     primeiro = service.criar(
@@ -97,8 +98,8 @@ def test_criar_compromisso_idempotente_nao_duplica() -> None:
 
 def test_replay_criacao_agenda_retorna_snapshot_original_apos_mutacao() -> None:
     uow = _FakeUoW()
-    criar = CriarCompromissoAgenda(_uow_factory(uow))
-    manter = ManterCompromissoAgenda(_uow_factory(uow))
+    criar = CriarCompromissoAgenda(_uow_factory(uow), _auditoria())
+    manter = ManterCompromissoAgenda(_uow_factory(uow), _auditoria())
     previsto_para = datetime.now(UTC) + timedelta(days=1)
     original = criar.criar(
         tenant_id=TENANT_ID,
@@ -142,7 +143,7 @@ def test_criar_compromisso_rejeita_emprestimo_fora_da_cadeia() -> None:
     )
 
     with pytest.raises(EmprestimoNaoEncontradoError):
-        CriarCompromissoAgenda(_uow_factory(uow)).criar(
+        CriarCompromissoAgenda(_uow_factory(uow), _auditoria()).criar(
             tenant_id=TENANT_ID,
             carteira_id=CARTEIRA_ID,
             devedor_id=DEVEDOR_ID,
@@ -156,7 +157,7 @@ def test_criar_compromisso_rejeita_emprestimo_fora_da_cadeia() -> None:
 
 def test_criar_compromisso_rejeita_payload_divergente() -> None:
     uow = _FakeUoW()
-    service = CriarCompromissoAgenda(_uow_factory(uow))
+    service = CriarCompromissoAgenda(_uow_factory(uow), _auditoria())
     previsto_para = datetime.now(UTC) + timedelta(days=1)
     service.criar(
         tenant_id=TENANT_ID,
@@ -183,8 +184,8 @@ def test_criar_compromisso_rejeita_payload_divergente() -> None:
 def test_criar_lembrete_e_cancelar_com_replay() -> None:
     item = _agenda_item()
     uow = _FakeUoW(agenda_items=[item])
-    lembretes = CriarLembreteAgenda(_uow_factory(uow))
-    manter = ManterLembreteAgenda(_uow_factory(uow))
+    lembretes = CriarLembreteAgenda(_uow_factory(uow), _auditoria())
+    manter = ManterLembreteAgenda(_uow_factory(uow), _auditoria())
     horario = item.previsto_para - timedelta(hours=1)
 
     criado = lembretes.criar(
@@ -222,7 +223,7 @@ def test_reagendar_e_concluir_lembrete() -> None:
         horario=item.previsto_para - timedelta(hours=1),
     )
     uow = _FakeUoW(agenda_items=[item], lembretes=[lembrete])
-    manter = ManterLembreteAgenda(_uow_factory(uow))
+    manter = ManterLembreteAgenda(_uow_factory(uow), _auditoria())
 
     reagendado = manter.reagendar(
         tenant_id=TENANT_ID,
@@ -249,7 +250,7 @@ def test_lembrete_concluido_rejeita_envio_e_cancelamento() -> None:
         horario=item.previsto_para - timedelta(hours=1),
     )
     uow = _FakeUoW(agenda_items=[item], lembretes=[lembrete])
-    manter = ManterLembreteAgenda(_uow_factory(uow))
+    manter = ManterLembreteAgenda(_uow_factory(uow), _auditoria())
 
     concluido = manter.concluir(
         tenant_id=TENANT_ID,
@@ -282,7 +283,7 @@ def test_lembrete_enviado_rejeita_conclusao() -> None:
         horario=item.previsto_para - timedelta(hours=1),
     )
     uow = _FakeUoW(agenda_items=[item], lembretes=[lembrete])
-    manter = ManterLembreteAgenda(_uow_factory(uow))
+    manter = ManterLembreteAgenda(_uow_factory(uow), _auditoria())
 
     enviado = manter.enviar(
         tenant_id=TENANT_ID,
@@ -304,7 +305,7 @@ def test_lembrete_enviado_rejeita_conclusao() -> None:
 def test_reagendar_concluir_e_rejeitar_cancelamento_de_concluido() -> None:
     item = _agenda_item()
     uow = _FakeUoW(agenda_items=[item])
-    manter = ManterCompromissoAgenda(_uow_factory(uow))
+    manter = ManterCompromissoAgenda(_uow_factory(uow), _auditoria())
 
     reagendado = manter.reagendar(
         tenant_id=TENANT_ID,
@@ -336,7 +337,7 @@ def test_agenda_cross_tenant_responde_404_logico() -> None:
     uow = _FakeUoW(agenda_items=[item])
 
     with pytest.raises(AgendaItemNaoEncontradoError):
-        ManterCompromissoAgenda(_uow_factory(uow)).concluir(
+        ManterCompromissoAgenda(_uow_factory(uow), _auditoria()).concluir(
             tenant_id=TENANT_ID,
             agenda_item_id=item.id,
             usuario_id=USUARIO_ID,
@@ -345,6 +346,10 @@ def test_agenda_cross_tenant_responde_404_logico() -> None:
 
     assert uow.agenda_item.salvos == []
     assert uow.rollbacks == 1
+
+
+def _auditoria() -> AuditoriaRegistro:
+    return cast(AuditoriaRegistro, Mock())
 
 
 def _uow_factory(uow: _FakeUoW) -> Callable[[], UnitOfWork]:

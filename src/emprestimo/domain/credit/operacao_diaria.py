@@ -125,6 +125,39 @@ class CobrancaCaso:
                 "total_pendente nao pode ser negativo",
             )
 
+    def sincronizar_pendencia(
+        self,
+        *,
+        total_pendente: Decimal,
+        emprestimo_id: uuid.UUID | None,
+        agora: datetime,
+    ) -> None:
+        """Atualiza o snapshot financeiro e reabre um caso encerrado."""
+
+        if not isinstance(total_pendente, Decimal) or total_pendente <= Decimal("0.00"):
+            raise ViolacaoInvarianteError(
+                "EPIC-007",
+                "total_pendente sincronizado deve ser Decimal positivo",
+            )
+        if emprestimo_id is not None:
+            _validar_uuid("emprestimo_id", emprestimo_id)
+        if not isinstance(agora, datetime) or agora.tzinfo is None:
+            raise ViolacaoInvarianteError("EPIC-007", "agora deve possuir timezone")
+        self.total_pendente = total_pendente
+        self.emprestimo_id = emprestimo_id
+        if self.estado is EstadoCobranca.ENCERRADO:
+            self.estado = EstadoCobranca.PENDENTE
+        self.atualizado_em = agora
+
+    def encerrar_por_acerto(self, *, agora: datetime) -> None:
+        """Encerra a pendencia quando o juro exigivel do acerto foi coberto."""
+
+        if not isinstance(agora, datetime) or agora.tzinfo is None:
+            raise ViolacaoInvarianteError("EPIC-007", "agora deve possuir timezone")
+        self.estado = EstadoCobranca.ENCERRADO
+        self.total_pendente = Decimal("0.00")
+        self.atualizado_em = agora
+
 
 @dataclass
 class AcaoCobranca:
@@ -428,12 +461,9 @@ class RegistroComunicacao:
             _validar_uuid("cobranca_acao_id", self.cobranca_acao_id)
         if self.notification_id is not None:
             _validar_uuid("notification_id", self.notification_id)
-            if (
-                self.template_id is None
-                or self.template_versao is None
-                or self.template_versao < 1
-                or not self.provider_message_id
-            ):
+            template_incompleto = (self.template_id is None) != (self.template_versao is None)
+            versao_invalida = self.template_versao is not None and self.template_versao < 1
+            if template_incompleto or versao_invalida or not self.provider_message_id:
                 raise ViolacaoInvarianteError(
                     "EPIC-010", "comunicacao automatica exige evidencia estruturada"
                 )

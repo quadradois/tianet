@@ -79,7 +79,7 @@ function installment() {
 }
 
 function payment() {
-  return { chave_idempotencia: "idem-payment-294", emprestimo_id: IDS.loan, estado: "processado", id: IDS.payment, memoria: memory("pagamento"), parcelas_liquidadas: [IDS.installment], recebido_em: "2026-08-14T12:00:00Z", tenant_id: IDS.tenant, valor_amortizacao: "90.00", valor_encargos: "0.00", valor_juros: "10.00", valor_recebido: "100.00" };
+  return { chave_idempotencia: "idem-payment-294", emprestimo_id: IDS.loan, estado: "processado", id: IDS.payment, memoria: memory("pagamento"), recebido_em: "2026-08-14T12:00:00Z", tenant_id: IDS.tenant, valor_amortizacao: "90.00", valor_encargos: "0.00", valor_juros: "10.00", valor_recebido: "100.00" };
 }
 
 function plan() {

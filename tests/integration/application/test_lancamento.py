@@ -27,6 +27,7 @@ from emprestimo.domain.credit.automacao_ports import AutomacaoFiltros
 from emprestimo.domain.credit.contrato_credito_state import ContratoCreditoState
 from emprestimo.domain.credit.documento import Documento
 from emprestimo.domain.credit.proposta_comercial_state import PropostaComercialState
+from emprestimo.infrastructure.auditoria import SqlAlchemyAuditoriaRegistro
 from emprestimo.infrastructure.repositories import (
     SqlAlchemyCarteiraRepository,
     SqlAlchemyTenantRepository,
@@ -79,11 +80,15 @@ def _servico(
     *,
     enfileirar: Callable[[ComprovanteLancamento], object] | None = None,
 ) -> LancamentoService:
-    comprovantes = ComprovanteService(lambda: SqlAlchemyUnitOfWork(session_factory))
+    comprovantes = ComprovanteService(
+        lambda: SqlAlchemyUnitOfWork(session_factory),
+        SqlAlchemyAuditoriaRegistro(session_factory),
+    )
     return LancamentoService(
         lambda: SqlAlchemyUnitOfWork(session_factory),
         criar_emprestimo_e_plano_em,
         enfileirar or comprovantes.enfileirar,
+        SqlAlchemyAuditoriaRegistro(session_factory),
     )
 
 
@@ -275,7 +280,10 @@ def test_falha_ao_enfileirar_nao_desfaz_o_lancamento_commitado(
     session_factory: sessionmaker[Session],
 ) -> None:
     ambiente = _ambiente(session_factory)
-    comprovantes = ComprovanteService(lambda: SqlAlchemyUnitOfWork(session_factory))
+    comprovantes = ComprovanteService(
+        lambda: SqlAlchemyUnitOfWork(session_factory),
+        SqlAlchemyAuditoriaRegistro(session_factory),
+    )
     tentativas = 0
 
     def fila_instavel(comprovante: ComprovanteLancamento) -> object:

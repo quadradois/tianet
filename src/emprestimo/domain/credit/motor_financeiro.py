@@ -127,6 +127,7 @@ class MotorFinanceiro:
         valor_encargos = min(remanescente, saldo.encargos)
         remanescente -= valor_encargos
         valor_amortizacao = min(remanescente, saldo.principal)
+        valor_devolvido = remanescente - valor_amortizacao
         pagamento = Pagamento(
             emprestimo_id=emprestimo.id,
             valor_recebido=valor,
@@ -134,6 +135,7 @@ class MotorFinanceiro:
             valor_juros=_quantizar(valor_juros),
             valor_amortizacao=_quantizar(valor_amortizacao),
             valor_encargos=_quantizar(valor_encargos),
+            valor_devolvido=_quantizar(valor_devolvido),
             chave_idempotencia=chave_idempotencia,
             usuario_id=usuario_id,
         )
@@ -164,6 +166,7 @@ class MotorFinanceiro:
                 "valor_juros": str(pagamento.valor_juros),
                 "valor_amortizacao": str(pagamento.valor_amortizacao),
                 "valor_encargos": str(pagamento.valor_encargos),
+                "valor_devolvido": str(pagamento.valor_devolvido),
             },
         )
         emprestimo.registrar_evento(evento)
@@ -497,12 +500,22 @@ class MotorFinanceiro:
                     saidas={"valor_amortizacao": str(pagamento.valor_amortizacao)},
                     arredondamento="ROUND_HALF_UP:0.01",
                 ),
+                PassoCalculo(
+                    nome="detectar_sobra",
+                    entradas={
+                        "valor_disponivel": str(remanescente),
+                        "valor_amortizacao": str(pagamento.valor_amortizacao),
+                    },
+                    saidas={"valor_devolvido": str(pagamento.valor_devolvido)},
+                    arredondamento="ROUND_HALF_UP:0.01",
+                ),
             ),
             arredondamentos=("ROUND_HALF_UP:0.01",),
             resultados={
                 "juros": str(pagamento.valor_juros),
                 "amortizacao": str(pagamento.valor_amortizacao),
                 "encargos": str(pagamento.valor_encargos),
+                "devolvido": str(pagamento.valor_devolvido),
             },
         )
 

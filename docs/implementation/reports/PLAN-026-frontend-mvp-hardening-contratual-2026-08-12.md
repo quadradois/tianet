@@ -219,7 +219,31 @@ operacoes, 133 schemas, 669593 bytes, SHA-256
 Ainda em 2026-08-20 o IMP-307 acrescentou `whatsapp` ao enum de canal de
 comunicacao. Mudanca **aditiva**, sem alteracao de superficie: 106 operacoes,
 133 schemas, 669615 bytes, SHA-256
-`d9521145dadfe95295eca3f4e720c621eaeb075b146b83a4bdadad7fdf6b4b95`.
+`d9521145dadfe95295eca3f4e720c621eaeb075b146b83a4bdad7fdf6b4b95`.
+
+Em 2026-08-22 o IMP-332 acrescentou o estorno parcial de Pagamento e explicitou
+devolucao, estorno, sobra e reconciliacao em `PagamentoResponse`. Mudanca
+**aditiva**: 107 operacoes, 134 schemas, SHA-256
+`ce27826a5b05235ede9e590f04174878c614a3235d0602622df8d17c5fcae0d0`.
+
+Ainda em 2026-08-22 o IMP-333 tornou `Idempotency-Key` obrigatoria nas 31
+escritas de negocio que ainda nao a publicavam. O contrato manteve **107
+operacoes e 134 schemas**, e o inventario de rotas com o header passou de 32
+para 63. As quatro escritas restantes (`POST /auth/ativar`, `/auth/login`,
+`/auth/refresh` e `/auth/logout`) sao excecoes nominais e justificadas no
+guardrail estrutural. O snapshot e o cliente tipado foram regerados; SHA-256
+`fa872ddc172c9e989f8c760822c46f5e2d2db85df83ecddd30baf7a6e83e8649`.
+
+Em 2026-08-23 o IMP-333 foi seguido pelo IMP-336, que retirou o ultimo residuo
+do plano de parcelas do contrato publico: o campo `parcelas_liquidadas` saiu de
+`PagamentoResponse`, junto com a coluna correspondente em `pagamento` (migration
+`a2109be3d0df`) e o enum orfao `TipoRegraCalculo.PRAZO_FIXO`. **A mudanca e nao
+aditiva** — o campo era obrigatorio na resposta —, amparada pela resolucao da
+DR-004, que removeu o plano de parcelas do produto. O contrato manteve **107
+operacoes e 134 schemas**, porque nenhum schema foi criado ou destruido; apenas
+um campo obrigatorio deixou de existir. Snapshot e cliente tipado regerados;
+SHA-256
+`d65e8d85297a0b1dbbe53b67dade22dfe6fb4986267e1f8648b51f865fff1d0b`.
 Este e o hash **vigente**.
 
 Correcao de registro (2026-08-20): ate esta versao, o hash `75a15e1f...` estava
@@ -241,6 +265,8 @@ hardening foi desfeito.
 
 | Versao | Data | Descricao |
 |---|---|---|
+| 1.6.0 | 2026-08-22 | IMP-333: `Idempotency-Key` passou de 32 para 63 rotas; guardrail estrutural deixa somente quatro excecoes auth nominais; snapshot 107/134 regerado. |
+| 1.5.0 | 2026-08-22 | Registrado o snapshot aditivo do IMP-332: estorno parcial e reconciliacao explicita de Pagamento, com 107 operacoes e 134 schemas. |
 | 1.4.0 | 2026-08-20 | Registrada a regeracao do IMP-328: `parcela_id` sai de sete schemas, sem mudanca de superficie. |
 | 1.3.0 | 2026-08-20 | Corrigido o registro de snapshots: o hash vigente estava atribuido ao inventario errado. Reconstruidas as cinco regeracoes (IMP-306, 324, 325, 326, 327) com hash e contagem conferidos no historico do arquivo. |
 | 1.2.0 | 2026-08-17 | Registrada a regeracao do snapshot pela DR-004/PLAN-030: lancamento passa a receber dia de acerto. |

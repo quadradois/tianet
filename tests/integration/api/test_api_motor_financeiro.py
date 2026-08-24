@@ -9,6 +9,7 @@ from decimal import Decimal
 from unittest.mock import Mock
 
 import pytest
+from sqlalchemy import select
 from sqlalchemy.orm import Session, sessionmaker
 from starlette.testclient import TestClient
 from tests.factories import CarteiraFactory, TenantFactory, UsuarioFactory
@@ -18,8 +19,11 @@ from emprestimo.application.errors import AcessoNegadoError
 from emprestimo.domain.credit.contato import Contato, TipoContato
 from emprestimo.domain.credit.devedor import Devedor
 from emprestimo.domain.credit.documento import Documento
+from emprestimo.domain.platform.configuracao import Configuracao
+from emprestimo.infrastructure.db.orm import AuditoriaLogORM, JobAgendadoORM
 from emprestimo.infrastructure.repositories import (
     SqlAlchemyCarteiraRepository,
+    SqlAlchemyConfiguracaoRepository,
     SqlAlchemyDevedorRepository,
     SqlAlchemyTenantRepository,
     SqlAlchemyUsuarioRepository,
@@ -128,6 +132,119 @@ def test_api_motor_fluxo_financeiro_completo(client: TestClient, contexto: tuple
     assert Decimal(consulta_quitacao.json()["valor_quitacao"]["valor_total"]) > Decimal("0.00")
     assert renegociacao.status_code == 200
     assert renegociacao.json()["memoria"]["tipo"] == "renegociacao"
+
+
+def test_pagamento_excedente_enfileira_aviso_e_estorno_reconcilia(
+    client: TestClient,
+    contexto: tuple[str, str],
+    session: Session,
+) -> None:
+    carteira_id, devedor_id = contexto
+    SqlAlchemyConfiguracaoRepository(session).save(
+        Configuracao(
+            tenant_id=TENANT_ID,
+            chave="credor_whatsapp",
+            valor="5511999999999",
+        )
+    )
+    session.commit()
+    emprestimo_id = _emprestimo_ativo(client, carteira_id, devedor_id)
+
+    pagamento = client.post(
+        f"/credit/emprestimos/{emprestimo_id}/pagamentos",
+        json={"valor": "12000.00", "recebido_em": "2026-09-10T12:00:00Z"},
+        headers={"Idempotency-Key": "api-motor-pagamento-excedente"},
+    )
+
+    assert pagamento.status_code == 200
+    corpo = pagamento.json()
+    sobra = Decimal(corpo["valor_devolvido"])
+    distribuido = (
+        Decimal(corpo["valor_juros"])
+        + Decimal(corpo["valor_amortizacao"])
+        + Decimal(corpo["valor_encargos"])
+    )
+    assert sobra > Decimal("0.00")
+    assert Decimal(corpo["valor_recebido"]) - sobra == distribuido
+    assert Decimal(corpo["valor_estornado"]) == Decimal("0.00")
+    assert Decimal(corpo["valor_sobra"]) == sobra
+    assert corpo["reconciliado"] is False
+    session.expire_all()
+    job = session.scalar(
+        select(JobAgendadoORM).where(
+            JobAgendadoORM.origem_tipo == "sobra_pagamento",
+            JobAgendadoORM.origem_id == uuid.UUID(corpo["id"]),
+        )
+    )
+    assert job is not None
+    assert job.tipo == "avisar_sobra_pagamento_whatsapp"
+    assert job.payload["destinatario"] == "5511999999999"
+
+    acima_da_sobra = client.post(
+        f"/credit/pagamentos/{corpo['id']}/estornos",
+        json={"valor": str(sobra + Decimal("0.01"))},
+        headers={"Idempotency-Key": "api-motor-estorno-acima"},
+    )
+    estorno = client.post(
+        f"/credit/pagamentos/{corpo['id']}/estornos",
+        json={"valor": str(sobra)},
+        headers={"Idempotency-Key": "api-motor-estorno-total"},
+    )
+
+    assert acima_da_sobra.status_code == 409
+    assert estorno.status_code == 200
+    assert Decimal(estorno.json()["valor_estornado"]) == sobra
+    assert Decimal(estorno.json()["valor_sobra"]) == Decimal("0.00")
+    assert estorno.json()["reconciliado"] is True
+    session.expire_all()
+    acoes = set(
+        session.scalars(
+            select(AuditoriaLogORM.acao).where(
+                AuditoriaLogORM.entidade == "pagamento",
+                AuditoriaLogORM.entidade_id == uuid.UUID(corpo["id"]),
+            )
+        ).all()
+    )
+    assert {"estornar.inicio", "estornar.sucesso", "estornar.falha"} <= acoes
+
+
+def test_pagamento_excedente_sem_whatsapp_nao_enfileira_e_audita_motivo(
+    client: TestClient,
+    contexto: tuple[str, str],
+    session: Session,
+) -> None:
+    carteira_id, devedor_id = contexto
+    emprestimo_id = _emprestimo_ativo(client, carteira_id, devedor_id)
+
+    pagamento = client.post(
+        f"/credit/emprestimos/{emprestimo_id}/pagamentos",
+        json={"valor": "12000.00", "recebido_em": "2026-09-10T12:00:00Z"},
+        headers={"Idempotency-Key": "api-motor-sem-whatsapp-credor"},
+    )
+
+    assert pagamento.status_code == 200
+    pagamento_id = uuid.UUID(pagamento.json()["id"])
+    session.expire_all()
+    assert (
+        session.scalar(
+            select(JobAgendadoORM).where(
+                JobAgendadoORM.origem_tipo == "sobra_pagamento",
+                JobAgendadoORM.origem_id == pagamento_id,
+            )
+        )
+        is None
+    )
+    auditoria = session.scalar(
+        select(AuditoriaLogORM).where(
+            AuditoriaLogORM.entidade == "sobra_pagamento_aviso",
+            AuditoriaLogORM.entidade_id == pagamento_id,
+            AuditoriaLogORM.acao == "enfileirar.ignorado",
+        )
+    )
+    assert auditoria is not None
+    assert auditoria.status == "nao_configurado"
+    assert auditoria.detalhes is not None
+    assert "credor_whatsapp_nao_configurado" in auditoria.detalhes
 
 
 def test_api_motor_quitacao_executa_e_replay(client: TestClient, contexto: tuple[str, str]) -> None:
@@ -321,20 +438,34 @@ def _contrato_liberado(client: TestClient, carteira_id: str, devedor_id: str) ->
                 "moeda": "BRL",
             }
         },
+        headers={"Idempotency-Key": f"api-motor-proposta-{uuid.uuid4()}"},
     )
     assert proposta.status_code == 201
     proposta_id = proposta.json()["id"]
-    enviada = client.post(f"/credit/propostas-comerciais/{proposta_id}/enviar-para-analise")
-    aprovada = client.post(f"/credit/propostas-comerciais/{proposta_id}/aprovar")
+    enviada = client.post(
+        f"/credit/propostas-comerciais/{proposta_id}/enviar-para-analise",
+        headers={"Idempotency-Key": f"api-motor-enviar-{uuid.uuid4()}"},
+    )
+    aprovada = client.post(
+        f"/credit/propostas-comerciais/{proposta_id}/aprovar",
+        headers={"Idempotency-Key": f"api-motor-aprovar-{uuid.uuid4()}"},
+    )
     contrato = client.post(
         f"/credit/carteiras/{carteira_id}/contratos",
         json={"proposta_comercial_id": proposta_id},
+        headers={"Idempotency-Key": f"api-motor-contrato-{uuid.uuid4()}"},
     )
     assert enviada.status_code == 200
     assert aprovada.status_code == 200
     assert contrato.status_code == 201
-    assinado = client.post(f"/credit/contratos/{contrato.json()['id']}/assinar")
-    liberado = client.post(f"/credit/contratos/{contrato.json()['id']}/liberar-para-motor")
+    assinado = client.post(
+        f"/credit/contratos/{contrato.json()['id']}/assinar",
+        headers={"Idempotency-Key": f"api-motor-assinar-{uuid.uuid4()}"},
+    )
+    liberado = client.post(
+        f"/credit/contratos/{contrato.json()['id']}/liberar-para-motor",
+        headers={"Idempotency-Key": f"api-motor-liberar-{uuid.uuid4()}"},
+    )
     assert assinado.status_code == 200
     assert liberado.status_code == 200
     return str(contrato.json()["id"])

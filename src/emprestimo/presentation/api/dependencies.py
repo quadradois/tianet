@@ -65,6 +65,7 @@ from emprestimo.application.health import HealthService
 from emprestimo.application.historico_devedor import DevedorHistoricoService
 from emprestimo.application.lancamento import LancamentoService
 from emprestimo.application.notifications import (
+    AvisoSobraPagamentoService,
     FakeNotificationChannel,
     NotificationService,
     TemplateNotificacaoService,
@@ -340,14 +341,20 @@ def get_simulacao_comercial_service(
     session: Session = Depends(_get_session),
 ) -> SimulacaoComercialService:
     session_factory = get_session_factory()
-    return SimulacaoComercialService(uow_factory=lambda: SqlAlchemyUnitOfWork(session_factory))
+    return SimulacaoComercialService(
+        uow_factory=lambda: SqlAlchemyUnitOfWork(session_factory),
+        auditoria=SqlAlchemyAuditoriaRegistro(session_factory),
+    )
 
 
 def get_proposta_comercial_service(
     session: Session = Depends(_get_session),
 ) -> PropostaComercialService:
     session_factory = get_session_factory()
-    return PropostaComercialService(uow_factory=lambda: SqlAlchemyUnitOfWork(session_factory))
+    return PropostaComercialService(
+        uow_factory=lambda: SqlAlchemyUnitOfWork(session_factory),
+        auditoria=SqlAlchemyAuditoriaRegistro(session_factory),
+    )
 
 
 def get_consulta_comercial_service(
@@ -361,7 +368,10 @@ def get_decisao_comercial_service(
     session: Session = Depends(_get_session),
 ) -> DecisaoComercialService:
     session_factory = get_session_factory()
-    return DecisaoComercialService(uow_factory=lambda: SqlAlchemyUnitOfWork(session_factory))
+    return DecisaoComercialService(
+        uow_factory=lambda: SqlAlchemyUnitOfWork(session_factory),
+        auditoria=SqlAlchemyAuditoriaRegistro(session_factory),
+    )
 
 
 def get_integracao_proposta_aprovada_service(
@@ -377,7 +387,10 @@ def get_formalizacao_contrato_service(
     session: Session = Depends(_get_session),
 ) -> FormalizacaoContratoService:
     session_factory = get_session_factory()
-    return FormalizacaoContratoService(uow_factory=lambda: SqlAlchemyUnitOfWork(session_factory))
+    return FormalizacaoContratoService(
+        uow_factory=lambda: SqlAlchemyUnitOfWork(session_factory),
+        auditoria=SqlAlchemyAuditoriaRegistro(session_factory),
+    )
 
 
 def get_consulta_contrato_service(
@@ -391,14 +404,20 @@ def get_assinatura_contrato_service(
     session: Session = Depends(_get_session),
 ) -> AssinaturaContratoService:
     session_factory = get_session_factory()
-    return AssinaturaContratoService(uow_factory=lambda: SqlAlchemyUnitOfWork(session_factory))
+    return AssinaturaContratoService(
+        uow_factory=lambda: SqlAlchemyUnitOfWork(session_factory),
+        auditoria=SqlAlchemyAuditoriaRegistro(session_factory),
+    )
 
 
 def get_liberacao_contrato_service(
     session: Session = Depends(_get_session),
 ) -> LiberacaoContratoService:
     session_factory = get_session_factory()
-    return LiberacaoContratoService(uow_factory=lambda: SqlAlchemyUnitOfWork(session_factory))
+    return LiberacaoContratoService(
+        uow_factory=lambda: SqlAlchemyUnitOfWork(session_factory),
+        auditoria=SqlAlchemyAuditoriaRegistro(session_factory),
+    )
 
 
 def get_cancelamento_encerramento_contrato_service(
@@ -406,7 +425,8 @@ def get_cancelamento_encerramento_contrato_service(
 ) -> CancelamentoEncerramentoContratoService:
     session_factory = get_session_factory()
     return CancelamentoEncerramentoContratoService(
-        uow_factory=lambda: SqlAlchemyUnitOfWork(session_factory)
+        uow_factory=lambda: SqlAlchemyUnitOfWork(session_factory),
+        auditoria=SqlAlchemyAuditoriaRegistro(session_factory),
     )
 
 
@@ -434,7 +454,30 @@ def get_pagamento_service(
 ) -> Any:
     session_factory = get_session_factory()
     service_cls = _motor_service_class("PagamentoService")
-    return service_cls(uow_factory=lambda: SqlAlchemyUnitOfWork(session_factory))
+
+    def uow_factory() -> SqlAlchemyUnitOfWork:
+        return SqlAlchemyUnitOfWork(session_factory)
+
+    avisos = AvisoSobraPagamentoService(
+        uow_factory,
+        SqlAlchemyAuditoriaRegistro(session_factory),
+    )
+    return service_cls(
+        uow_factory=uow_factory,
+        auditoria=SqlAlchemyAuditoriaRegistro(session_factory),
+        enfileirar_aviso=avisos.enfileirar,
+    )
+
+
+def get_estorno_pagamento_service(
+    session: Session = Depends(_get_session),
+) -> Any:
+    session_factory = get_session_factory()
+    service_cls = _motor_service_class("EstornoPagamentoService")
+    return service_cls(
+        uow_factory=lambda: SqlAlchemyUnitOfWork(session_factory),
+        auditoria=SqlAlchemyAuditoriaRegistro(session_factory),
+    )
 
 
 def get_consulta_saldo_service(
@@ -450,7 +493,10 @@ def get_quitacao_renegociacao_service(
 ) -> Any:
     session_factory = get_session_factory()
     service_cls = _motor_service_class("QuitacaoRenegociacaoService")
-    return service_cls(uow_factory=lambda: SqlAlchemyUnitOfWork(session_factory))
+    return service_cls(
+        uow_factory=lambda: SqlAlchemyUnitOfWork(session_factory),
+        auditoria=SqlAlchemyAuditoriaRegistro(session_factory),
+    )
 
 
 def get_consultar_fila_cobranca_service(
@@ -466,7 +512,10 @@ def get_registrar_acao_cobranca_service(
 ) -> RegistrarAcaoCobranca:
     del session
     session_factory = get_session_factory()
-    return RegistrarAcaoCobranca(uow_factory=lambda: SqlAlchemyUnitOfWork(session_factory))
+    return RegistrarAcaoCobranca(
+        uow_factory=lambda: SqlAlchemyUnitOfWork(session_factory),
+        auditoria=SqlAlchemyAuditoriaRegistro(session_factory),
+    )
 
 
 def get_registrar_promessa_service(
@@ -474,7 +523,10 @@ def get_registrar_promessa_service(
 ) -> RegistrarPromessa:
     del session
     session_factory = get_session_factory()
-    return RegistrarPromessa(uow_factory=lambda: SqlAlchemyUnitOfWork(session_factory))
+    return RegistrarPromessa(
+        uow_factory=lambda: SqlAlchemyUnitOfWork(session_factory),
+        auditoria=SqlAlchemyAuditoriaRegistro(session_factory),
+    )
 
 
 def get_apropriar_pagamento_promessa_service(
@@ -482,7 +534,10 @@ def get_apropriar_pagamento_promessa_service(
 ) -> ApropriarPagamentoPromessa:
     del session
     session_factory = get_session_factory()
-    return ApropriarPagamentoPromessa(uow_factory=lambda: SqlAlchemyUnitOfWork(session_factory))
+    return ApropriarPagamentoPromessa(
+        uow_factory=lambda: SqlAlchemyUnitOfWork(session_factory),
+        auditoria=SqlAlchemyAuditoriaRegistro(session_factory),
+    )
 
 
 def get_consultar_agenda_operacional_service(
@@ -498,7 +553,10 @@ def get_criar_compromisso_agenda_service(
 ) -> CriarCompromissoAgenda:
     del session
     session_factory = get_session_factory()
-    return CriarCompromissoAgenda(uow_factory=lambda: SqlAlchemyUnitOfWork(session_factory))
+    return CriarCompromissoAgenda(
+        uow_factory=lambda: SqlAlchemyUnitOfWork(session_factory),
+        auditoria=SqlAlchemyAuditoriaRegistro(session_factory),
+    )
 
 
 def get_criar_lembrete_agenda_service(
@@ -506,7 +564,10 @@ def get_criar_lembrete_agenda_service(
 ) -> CriarLembreteAgenda:
     del session
     session_factory = get_session_factory()
-    return CriarLembreteAgenda(uow_factory=lambda: SqlAlchemyUnitOfWork(session_factory))
+    return CriarLembreteAgenda(
+        uow_factory=lambda: SqlAlchemyUnitOfWork(session_factory),
+        auditoria=SqlAlchemyAuditoriaRegistro(session_factory),
+    )
 
 
 def get_manter_compromisso_agenda_service(
@@ -514,7 +575,10 @@ def get_manter_compromisso_agenda_service(
 ) -> ManterCompromissoAgenda:
     del session
     session_factory = get_session_factory()
-    return ManterCompromissoAgenda(uow_factory=lambda: SqlAlchemyUnitOfWork(session_factory))
+    return ManterCompromissoAgenda(
+        uow_factory=lambda: SqlAlchemyUnitOfWork(session_factory),
+        auditoria=SqlAlchemyAuditoriaRegistro(session_factory),
+    )
 
 
 def get_manter_lembrete_agenda_service(
@@ -522,7 +586,10 @@ def get_manter_lembrete_agenda_service(
 ) -> ManterLembreteAgenda:
     del session
     session_factory = get_session_factory()
-    return ManterLembreteAgenda(uow_factory=lambda: SqlAlchemyUnitOfWork(session_factory))
+    return ManterLembreteAgenda(
+        uow_factory=lambda: SqlAlchemyUnitOfWork(session_factory),
+        auditoria=SqlAlchemyAuditoriaRegistro(session_factory),
+    )
 
 
 def get_registrar_comunicacao_manual_service(
@@ -530,7 +597,10 @@ def get_registrar_comunicacao_manual_service(
 ) -> RegistrarComunicacaoManual:
     del session
     session_factory = get_session_factory()
-    return RegistrarComunicacaoManual(uow_factory=lambda: SqlAlchemyUnitOfWork(session_factory))
+    return RegistrarComunicacaoManual(
+        uow_factory=lambda: SqlAlchemyUnitOfWork(session_factory),
+        auditoria=SqlAlchemyAuditoriaRegistro(session_factory),
+    )
 
 
 def get_consultar_historico_comunicacao_service(
@@ -554,7 +624,10 @@ def get_modalidade_financeira_service(
 ) -> ModalidadeFinanceiraService:
     del session
     session_factory = get_session_factory()
-    return ModalidadeFinanceiraService(uow_factory=lambda: SqlAlchemyUnitOfWork(session_factory))
+    return ModalidadeFinanceiraService(
+        uow_factory=lambda: SqlAlchemyUnitOfWork(session_factory),
+        auditoria=SqlAlchemyAuditoriaRegistro(session_factory),
+    )
 
 
 def get_calendario_financeiro_service(
@@ -562,7 +635,10 @@ def get_calendario_financeiro_service(
 ) -> CalendarioFinanceiroService:
     del session
     session_factory = get_session_factory()
-    return CalendarioFinanceiroService(uow_factory=lambda: SqlAlchemyUnitOfWork(session_factory))
+    return CalendarioFinanceiroService(
+        uow_factory=lambda: SqlAlchemyUnitOfWork(session_factory),
+        auditoria=SqlAlchemyAuditoriaRegistro(session_factory),
+    )
 
 
 def get_configuracao_financeira_service(
@@ -570,7 +646,10 @@ def get_configuracao_financeira_service(
 ) -> ConfiguracaoFinanceiraService:
     del session
     session_factory = get_session_factory()
-    return ConfiguracaoFinanceiraService(uow_factory=lambda: SqlAlchemyUnitOfWork(session_factory))
+    return ConfiguracaoFinanceiraService(
+        uow_factory=lambda: SqlAlchemyUnitOfWork(session_factory),
+        auditoria=SqlAlchemyAuditoriaRegistro(session_factory),
+    )
 
 
 def get_consulta_configuracao_vigente_service(
@@ -589,7 +668,8 @@ def get_captura_snapshot_configuracao_service(
     del session
     session_factory = get_session_factory()
     return CapturaSnapshotConfiguracaoService(
-        uow_factory=lambda: SqlAlchemyUnitOfWork(session_factory)
+        uow_factory=lambda: SqlAlchemyUnitOfWork(session_factory),
+        auditoria=SqlAlchemyAuditoriaRegistro(session_factory),
     )
 
 
@@ -622,6 +702,7 @@ def get_notification_service(
     return NotificationService(
         uow_factory=lambda: SqlAlchemyUnitOfWork(session_factory),
         channel=get_notification_channel(),
+        auditoria=SqlAlchemyAuditoriaRegistro(session_factory),
     )
 
 
@@ -630,7 +711,10 @@ def get_template_notificacao_service(
 ) -> TemplateNotificacaoService:
     del session
     session_factory = get_session_factory()
-    return TemplateNotificacaoService(uow_factory=lambda: SqlAlchemyUnitOfWork(session_factory))
+    return TemplateNotificacaoService(
+        uow_factory=lambda: SqlAlchemyUnitOfWork(session_factory),
+        auditoria=SqlAlchemyAuditoriaRegistro(session_factory),
+    )
 
 
 def get_lancamento_service(
@@ -646,11 +730,13 @@ def get_lancamento_service(
     criar_emprestimo = _motor_service_class("criar_emprestimo_e_plano_em")
     comprovantes = ComprovanteService(
         uow_factory=lambda: SqlAlchemyUnitOfWork(session_factory),
+        auditoria=SqlAlchemyAuditoriaRegistro(session_factory),
     )
     return LancamentoService(
         uow_factory=lambda: SqlAlchemyUnitOfWork(session_factory),
         criar_emprestimo=criar_emprestimo,
         enfileirar_comprovante=comprovantes.enfileirar,
+        auditoria=SqlAlchemyAuditoriaRegistro(session_factory),
     )
 
 

@@ -5,18 +5,26 @@ from __future__ import annotations
 import uuid
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass
-from datetime import date
+from datetime import date, datetime
 from decimal import Decimal
 
+from emprestimo.application.auditoria_escrita import auditar_escrita
 from emprestimo.application.errors import (
     CalendarioFinanceiroNaoEncontradoError,
     CarteiraNaoEncontradaError,
     ConfiguracaoFinanceiraNaoEncontradaError,
+    IdempotenciaConflitoError,
     ModalidadeFinanceiraNaoEncontradaError,
     TransicaoEstadoInvalidaError,
     UsuarioNaoEncontradoError,
 )
-from emprestimo.application.ports import UnitOfWork
+from emprestimo.application.idempotencia import (
+    concluir_idempotencia,
+    dataclass_do_resultado,
+    iniciar_idempotencia,
+    resultado_de_dataclass,
+)
+from emprestimo.application.ports import AuditoriaRegistro, UnitOfWork
 from emprestimo.domain.common.errors import ViolacaoInvarianteError
 from emprestimo.domain.credit.configuracoes_financeiras import (
     CalendarioFinanceiro,
@@ -50,9 +58,11 @@ class ParametroFinanceiroInput:
 class ModalidadeFinanceiraService:
     """Cria, lista e valida modalidades permitidas por tenant/carteira."""
 
-    def __init__(self, uow_factory: Callable[[], UnitOfWork]) -> None:
+    def __init__(self, uow_factory: Callable[[], UnitOfWork], auditoria: AuditoriaRegistro) -> None:
         self._uow_factory = uow_factory
+        self._auditoria = auditoria
 
+    @auditar_escrita("modalidade_financeira", "criar")
     def criar(
         self,
         *,
@@ -61,10 +71,30 @@ class ModalidadeFinanceiraService:
         codigo: str,
         nome: str,
         carteira_id: uuid.UUID | None = None,
+        idempotency_key: str | None = None,
     ) -> ModalidadeFinanceira:
         with self._uow_factory() as uow:
             _validar_contexto(uow, tenant_id=tenant_id, usuario_id=usuario_id)
             _validar_carteira(uow, tenant_id=tenant_id, carteira_id=carteira_id)
+            escopo = "configuracao-financeira-modalidade-criar"
+            replay = iniciar_idempotencia(
+                uow,
+                chave=idempotency_key,
+                escopo=escopo,
+                solicitacao={
+                    "tenant_id": tenant_id,
+                    "usuario_id": usuario_id,
+                    "codigo": codigo,
+                    "nome": nome,
+                    "carteira_id": carteira_id,
+                },
+            )
+            if replay is not None:
+                return dataclass_do_resultado(
+                    replay,
+                    ModalidadeFinanceira,
+                    chave=idempotency_key,
+                )
             modalidade = ModalidadeFinanceira(
                 tenant_id=tenant_id,
                 carteira_id=carteira_id,
@@ -72,6 +102,12 @@ class ModalidadeFinanceiraService:
                 nome=nome,
             )
             uow.modalidade_financeira.save(modalidade)
+            concluir_idempotencia(
+                uow,
+                chave=idempotency_key,
+                escopo=escopo,
+                resultado=resultado_de_dataclass(modalidade),
+            )
             uow.commit()
             return modalidade
 
@@ -89,9 +125,11 @@ class ModalidadeFinanceiraService:
 class CalendarioFinanceiroService:
     """Administra calendarios e resolve periodos operacionais."""
 
-    def __init__(self, uow_factory: Callable[[], UnitOfWork]) -> None:
+    def __init__(self, uow_factory: Callable[[], UnitOfWork], auditoria: AuditoriaRegistro) -> None:
         self._uow_factory = uow_factory
+        self._auditoria = auditoria
 
+    @auditar_escrita("calendario_financeiro", "criar")
     def criar(
         self,
         *,
@@ -101,10 +139,31 @@ class CalendarioFinanceiroService:
         nome: str,
         feriados: tuple[date, ...] = (),
         carteira_id: uuid.UUID | None = None,
+        idempotency_key: str | None = None,
     ) -> CalendarioFinanceiro:
         with self._uow_factory() as uow:
             _validar_contexto(uow, tenant_id=tenant_id, usuario_id=usuario_id)
             _validar_carteira(uow, tenant_id=tenant_id, carteira_id=carteira_id)
+            escopo = "configuracao-financeira-calendario-criar"
+            replay = iniciar_idempotencia(
+                uow,
+                chave=idempotency_key,
+                escopo=escopo,
+                solicitacao={
+                    "tenant_id": tenant_id,
+                    "usuario_id": usuario_id,
+                    "codigo": codigo,
+                    "nome": nome,
+                    "feriados": feriados,
+                    "carteira_id": carteira_id,
+                },
+            )
+            if replay is not None:
+                return dataclass_do_resultado(
+                    replay,
+                    CalendarioFinanceiro,
+                    chave=idempotency_key,
+                )
             calendario = CalendarioFinanceiro(
                 tenant_id=tenant_id,
                 carteira_id=carteira_id,
@@ -113,6 +172,12 @@ class CalendarioFinanceiroService:
                 feriados=feriados,
             )
             uow.calendario_financeiro.save(calendario)
+            concluir_idempotencia(
+                uow,
+                chave=idempotency_key,
+                escopo=escopo,
+                resultado=resultado_de_dataclass(calendario),
+            )
             uow.commit()
             return calendario
 
@@ -139,9 +204,11 @@ class CalendarioFinanceiroService:
 class ConfiguracaoFinanceiraService:
     """Orquestra ciclo de vida da configuracao financeira."""
 
-    def __init__(self, uow_factory: Callable[[], UnitOfWork]) -> None:
+    def __init__(self, uow_factory: Callable[[], UnitOfWork], auditoria: AuditoriaRegistro) -> None:
         self._uow_factory = uow_factory
+        self._auditoria = auditoria
 
+    @auditar_escrita("configuracao_financeira", "criar_rascunho")
     def criar_rascunho(
         self,
         *,
@@ -156,11 +223,40 @@ class ConfiguracaoFinanceiraService:
         carteira_id: uuid.UUID | None = None,
         vigencia_fim: date | None = None,
         correlation_id: str | None = None,
+        idempotency_key: str | None = None,
     ) -> ConfiguracaoFinanceira:
         with self._uow_factory() as uow:
             _validar_contexto(uow, tenant_id=tenant_id, usuario_id=usuario_id)
             _validar_carteira(uow, tenant_id=tenant_id, carteira_id=carteira_id)
             _calendario_do_tenant(uow, calendario_id=calendario_id, tenant_id=tenant_id)
+            escopo = "configuracao-financeira-criar"
+            replay = iniciar_idempotencia(
+                uow,
+                chave=idempotency_key,
+                escopo=escopo,
+                solicitacao={
+                    "tenant_id": tenant_id,
+                    "usuario_id": usuario_id,
+                    "calendario_id": calendario_id,
+                    "modalidade": modalidade,
+                    "vigencia_inicio": vigencia_inicio,
+                    "vigencia_fim": vigencia_fim,
+                    "taxas": [taxa.__dict__ for taxa in taxas],
+                    "parametros": [parametro.__dict__ for parametro in parametros],
+                    "politica_arredondamento": {
+                        "modo": politica_arredondamento.modo,
+                        "escala": politica_arredondamento.escala,
+                    },
+                    "carteira_id": carteira_id,
+                    "correlation_id": correlation_id,
+                },
+            )
+            if replay is not None:
+                return dataclass_do_resultado(
+                    replay,
+                    ConfiguracaoFinanceira,
+                    chave=idempotency_key,
+                )
             configuracao = ConfiguracaoFinanceira.criar_rascunho(
                 tenant_id=tenant_id,
                 carteira_id=carteira_id,
@@ -184,9 +280,16 @@ class ConfiguracaoFinanceiraService:
                 correlation_id=correlation_id,
             )
             uow.configuracao_financeira.save(configuracao)
+            concluir_idempotencia(
+                uow,
+                chave=idempotency_key,
+                escopo=escopo,
+                resultado=resultado_de_dataclass(configuracao),
+            )
             uow.commit()
             return configuracao
 
+    @auditar_escrita("configuracao_financeira", "aprovar", identificador="configuracao_id")
     def aprovar(
         self,
         *,
@@ -194,6 +297,7 @@ class ConfiguracaoFinanceiraService:
         tenant_id: uuid.UUID,
         usuario_id: uuid.UUID,
         motivo: str | None = None,
+        idempotency_key: str | None = None,
     ) -> ConfiguracaoFinanceira:
         return self._decidir(
             configuracao_id=configuracao_id,
@@ -201,8 +305,10 @@ class ConfiguracaoFinanceiraService:
             usuario_id=usuario_id,
             acao="aprovar",
             motivo=motivo,
+            idempotency_key=idempotency_key,
         )
 
+    @auditar_escrita("configuracao_financeira", "programar", identificador="configuracao_id")
     def programar(
         self,
         *,
@@ -211,6 +317,7 @@ class ConfiguracaoFinanceiraService:
         usuario_id: uuid.UUID,
         data_ativacao: date,
         motivo: str | None = None,
+        idempotency_key: str | None = None,
     ) -> ConfiguracaoFinanceira:
         return self._decidir(
             configuracao_id=configuracao_id,
@@ -219,8 +326,10 @@ class ConfiguracaoFinanceiraService:
             acao="programar",
             data_ativacao=data_ativacao,
             motivo=motivo,
+            idempotency_key=idempotency_key,
         )
 
+    @auditar_escrita("configuracao_financeira", "ativar", identificador="configuracao_id")
     def ativar(
         self,
         *,
@@ -228,6 +337,7 @@ class ConfiguracaoFinanceiraService:
         tenant_id: uuid.UUID,
         usuario_id: uuid.UUID,
         motivo: str | None = None,
+        idempotency_key: str | None = None,
     ) -> ConfiguracaoFinanceira:
         return self._decidir(
             configuracao_id=configuracao_id,
@@ -235,8 +345,10 @@ class ConfiguracaoFinanceiraService:
             usuario_id=usuario_id,
             acao="ativar",
             motivo=motivo,
+            idempotency_key=idempotency_key,
         )
 
+    @auditar_escrita("configuracao_financeira", "substituir", identificador="configuracao_id")
     def substituir(
         self,
         *,
@@ -244,6 +356,7 @@ class ConfiguracaoFinanceiraService:
         tenant_id: uuid.UUID,
         usuario_id: uuid.UUID,
         motivo: str | None = None,
+        idempotency_key: str | None = None,
     ) -> ConfiguracaoFinanceira:
         return self._decidir(
             configuracao_id=configuracao_id,
@@ -251,8 +364,10 @@ class ConfiguracaoFinanceiraService:
             usuario_id=usuario_id,
             acao="substituir",
             motivo=motivo,
+            idempotency_key=idempotency_key,
         )
 
+    @auditar_escrita("configuracao_financeira", "inativar", identificador="configuracao_id")
     def inativar(
         self,
         *,
@@ -260,6 +375,7 @@ class ConfiguracaoFinanceiraService:
         tenant_id: uuid.UUID,
         usuario_id: uuid.UUID,
         motivo: str | None = None,
+        idempotency_key: str | None = None,
     ) -> ConfiguracaoFinanceira:
         return self._decidir(
             configuracao_id=configuracao_id,
@@ -267,6 +383,7 @@ class ConfiguracaoFinanceiraService:
             usuario_id=usuario_id,
             acao="inativar",
             motivo=motivo,
+            idempotency_key=idempotency_key,
         )
 
     def consultar(
@@ -314,6 +431,7 @@ class ConfiguracaoFinanceiraService:
         acao: str,
         motivo: str | None = None,
         data_ativacao: date | None = None,
+        idempotency_key: str | None = None,
     ) -> ConfiguracaoFinanceira:
         with self._uow_factory() as uow:
             configuracao = _configuracao_do_tenant(
@@ -322,6 +440,25 @@ class ConfiguracaoFinanceiraService:
                 tenant_id=tenant_id,
             )
             _validar_contexto(uow, tenant_id=tenant_id, usuario_id=usuario_id)
+            escopo = f"configuracao-financeira-{acao}"
+            replay = iniciar_idempotencia(
+                uow,
+                chave=idempotency_key,
+                escopo=escopo,
+                solicitacao={
+                    "configuracao_id": configuracao_id,
+                    "tenant_id": tenant_id,
+                    "usuario_id": usuario_id,
+                    "motivo": motivo,
+                    "data_ativacao": data_ativacao,
+                },
+            )
+            if replay is not None:
+                return dataclass_do_resultado(
+                    replay,
+                    ConfiguracaoFinanceira,
+                    chave=idempotency_key,
+                )
             try:
                 if acao == "aprovar":
                     configuracao.aprovar(usuario_id=usuario_id, motivo=motivo)
@@ -344,6 +481,12 @@ class ConfiguracaoFinanceiraService:
             except ViolacaoInvarianteError as exc:
                 raise TransicaoEstadoInvalidaError(configuracao_id, acao, str(exc)) from exc
             uow.configuracao_financeira.save(configuracao)
+            concluir_idempotencia(
+                uow,
+                chave=idempotency_key,
+                escopo=escopo,
+                resultado=resultado_de_dataclass(configuracao),
+            )
             uow.commit()
             return configuracao
 
@@ -386,9 +529,11 @@ class ConsultaConfiguracaoVigenteService:
 class CapturaSnapshotConfiguracaoService:
     """Produz e persiste snapshot contratual imutavel."""
 
-    def __init__(self, uow_factory: Callable[[], UnitOfWork]) -> None:
+    def __init__(self, uow_factory: Callable[[], UnitOfWork], auditoria: AuditoriaRegistro) -> None:
         self._uow_factory = uow_factory
+        self._auditoria = auditoria
 
+    @auditar_escrita("snapshot_configuracao_financeira", "capturar")
     def capturar(
         self,
         *,
@@ -396,6 +541,7 @@ class CapturaSnapshotConfiguracaoService:
         tenant_id: uuid.UUID,
         usuario_id: uuid.UUID,
         motivo: str | None = None,
+        idempotency_key: str | None = None,
     ) -> SnapshotConfiguracaoContratualV1:
         with self._uow_factory() as uow:
             _validar_contexto(uow, tenant_id=tenant_id, usuario_id=usuario_id)
@@ -404,6 +550,20 @@ class CapturaSnapshotConfiguracaoService:
                 configuracao_id=configuracao_id,
                 tenant_id=tenant_id,
             )
+            escopo = "configuracao-financeira-snapshot-capturar"
+            replay = iniciar_idempotencia(
+                uow,
+                chave=idempotency_key,
+                escopo=escopo,
+                solicitacao={
+                    "configuracao_id": configuracao_id,
+                    "tenant_id": tenant_id,
+                    "usuario_id": usuario_id,
+                    "motivo": motivo,
+                },
+            )
+            if replay is not None:
+                return _snapshot_do_resultado(replay, chave=idempotency_key)
             try:
                 snapshot = configuracao.capturar_snapshot(usuario_id=usuario_id, motivo=motivo)
             except ViolacaoInvarianteError as exc:
@@ -414,6 +574,12 @@ class CapturaSnapshotConfiguracaoService:
                 ) from exc
             uow.configuracao_financeira.save(configuracao)
             uow.configuracao_financeira.save_snapshot(snapshot)
+            concluir_idempotencia(
+                uow,
+                chave=idempotency_key,
+                escopo=escopo,
+                resultado={"snapshot": snapshot.to_dict()},
+            )
             uow.commit()
             return snapshot
 
@@ -474,3 +640,32 @@ def _configuracao_do_tenant(
     if configuracao is None or configuracao.tenant_id != tenant_id:
         raise ConfiguracaoFinanceiraNaoEncontradaError(configuracao_id)
     return configuracao
+
+
+def _snapshot_do_resultado(
+    resultado: Mapping[str, object], *, chave: str | None
+) -> SnapshotConfiguracaoContratualV1:
+    dados = resultado.get("snapshot")
+    if not isinstance(dados, Mapping):
+        raise IdempotenciaConflitoError(chave or "<ausente>", "resultado de snapshot ausente")
+    try:
+        carteira_raw = dados.get("carteira_id")
+        parametros = dados["parametros"]
+        if not isinstance(parametros, Mapping):
+            raise TypeError
+        return SnapshotConfiguracaoContratualV1(
+            configuracao_id=uuid.UUID(str(dados["configuracao_id"])),
+            tenant_id=uuid.UUID(str(dados["tenant_id"])),
+            carteira_id=uuid.UUID(str(carteira_raw)) if carteira_raw else None,
+            modalidade=str(dados["modalidade"]),
+            versao=int(str(dados["versao"])),
+            parametros=parametros,
+            hash_parametros=str(dados["hash_parametros"]),
+            capturado_em=datetime.fromisoformat(str(dados["capturado_em"])),
+            capturado_por_usuario_id=uuid.UUID(str(dados["capturado_por_usuario_id"])),
+            motivo=str(dados["motivo"]) if dados.get("motivo") is not None else None,
+        )
+    except (KeyError, TypeError, ValueError) as exc:
+        raise IdempotenciaConflitoError(
+            chave or "<ausente>", "resultado de snapshot invalido"
+        ) from exc

@@ -47,11 +47,11 @@ const NOTIFICATION_STATES = new Set(["preparada", "aceita", "falha_temporaria", 
 const TEMPLATE_STATES = new Set(["rascunho", "aprovado", "ativo", "inativo"]);
 
 const AUTOMACAO_OPERATION_CONTRACT = [
-  "sem-idempotency:/credit/automacao/jobs/{job_id}/cancelar",
-  "sem-idempotency:/credit/automacao/jobs/{job_id}/retry",
-  "sem-idempotency:/credit/notificacoes/templates",
-  "sem-idempotency:/credit/notificacoes/templates/{template_id}/aprovar",
-  "sem-idempotency:/credit/notificacoes/templates/{template_id}/ativar",
+  "Idempotency-Key:/credit/automacao/jobs/{job_id}/cancelar",
+  "Idempotency-Key:/credit/automacao/jobs/{job_id}/retry",
+  "Idempotency-Key:/credit/notificacoes/templates",
+  "Idempotency-Key:/credit/notificacoes/templates/{template_id}/aprovar",
+  "Idempotency-Key:/credit/notificacoes/templates/{template_id}/ativar",
   "Idempotency-Key:/credit/notificacoes/{notification_id}/conciliar",
 ] as const;
 void AUTOMACAO_OPERATION_CONTRACT;
@@ -173,10 +173,14 @@ function validJob(value: unknown, context: OperationalContext): value is Job {
 }
 
 function validNotification(value: unknown, context: OperationalContext): value is Notification {
+  const reminderIsValid = isRecord(value)
+    && (!Object.hasOwn(value, "lembrete_id")
+      || value.lembrete_id === null
+      || uuid(value.lembrete_id));
   return isRecord(value)
     && uuid(value.id)
     && value.carteira_id === context.carteira_padrao.id
-    && uuid(value.lembrete_id)
+    && reminderIsValid
     && uuid(value.job_id)
     && typeof value.estado === "string" && NOTIFICATION_STATES.has(value.estado)
     && Object.hasOwn(value, "provider_message_id")
@@ -289,13 +293,13 @@ function mutationKey(formData: FormData): string {
 export async function cancelJob(cookies: CookieStore, context: OperationalContext, formData: FormData, dependencies: BffDependencies): Promise<AutomacaoActionState> {
   const jobId = formString(formData, "job_id", 64);
   if (!isUuid(jobId)) return validationProblem("Informe job_id valido.");
-  return executeMutation(cookies, context, dependencies, JOB_CANCEL_PERMISSION, `/credit/automacao/jobs/${encodeURIComponent(jobId)}/cancelar`, { expectedStatus: 202, method: "POST" }, (value): value is Job => validJob(value, context), "Job recebeu pedido de cancelamento.");
+  return executeMutation(cookies, context, dependencies, JOB_CANCEL_PERMISSION, `/credit/automacao/jobs/${encodeURIComponent(jobId)}/cancelar`, { expectedStatus: 202, idempotency: mutationKey(formData), method: "POST" }, (value): value is Job => validJob(value, context), "Job recebeu pedido de cancelamento.");
 }
 
 export async function retryJob(cookies: CookieStore, context: OperationalContext, formData: FormData, dependencies: BffDependencies): Promise<AutomacaoActionState> {
   const jobId = formString(formData, "job_id", 64);
   if (!isUuid(jobId)) return validationProblem("Informe job_id valido.");
-  return executeMutation(cookies, context, dependencies, JOB_RETRY_PERMISSION, `/credit/automacao/jobs/${encodeURIComponent(jobId)}/retry`, { expectedStatus: 202, method: "POST" }, (value): value is Job => validJob(value, context), "Retry tecnico solicitado.");
+  return executeMutation(cookies, context, dependencies, JOB_RETRY_PERMISSION, `/credit/automacao/jobs/${encodeURIComponent(jobId)}/retry`, { expectedStatus: 202, idempotency: mutationKey(formData), method: "POST" }, (value): value is Job => validJob(value, context), "Retry tecnico solicitado.");
 }
 
 export async function createTemplate(cookies: CookieStore, context: OperationalContext, formData: FormData, dependencies: BffDependencies): Promise<AutomacaoActionState> {
@@ -306,19 +310,19 @@ export async function createTemplate(cookies: CookieStore, context: OperationalC
   const versao = versaoRaw ? Number(versaoRaw) : NaN;
   if (!codigo || !assunto || !corpo || !Number.isInteger(versao) || versao < 1) return validationProblem("Informe template valido.");
   const body: TemplateCreateRequest = { assunto, codigo, corpo, parametros_permitidos: [], versao };
-  return executeMutation(cookies, context, dependencies, TEMPLATE_MANAGE_PERMISSION, "/credit/notificacoes/templates", { body, expectedStatus: 201, method: "POST" }, validTemplate, "Template criado.");
+  return executeMutation(cookies, context, dependencies, TEMPLATE_MANAGE_PERMISSION, "/credit/notificacoes/templates", { body, expectedStatus: 201, idempotency: mutationKey(formData), method: "POST" }, validTemplate, "Template criado.");
 }
 
 export async function approveTemplate(cookies: CookieStore, context: OperationalContext, formData: FormData, dependencies: BffDependencies): Promise<AutomacaoActionState> {
   const templateId = formString(formData, "template_id", 64);
   if (!isUuid(templateId)) return validationProblem("Informe template_id valido.");
-  return executeMutation(cookies, context, dependencies, TEMPLATE_MANAGE_PERMISSION, `/credit/notificacoes/templates/${encodeURIComponent(templateId)}/aprovar`, { method: "POST" }, validTemplate, "Template aprovado.");
+  return executeMutation(cookies, context, dependencies, TEMPLATE_MANAGE_PERMISSION, `/credit/notificacoes/templates/${encodeURIComponent(templateId)}/aprovar`, { idempotency: mutationKey(formData), method: "POST" }, validTemplate, "Template aprovado.");
 }
 
 export async function activateTemplate(cookies: CookieStore, context: OperationalContext, formData: FormData, dependencies: BffDependencies): Promise<AutomacaoActionState> {
   const templateId = formString(formData, "template_id", 64);
   if (!isUuid(templateId)) return validationProblem("Informe template_id valido.");
-  return executeMutation(cookies, context, dependencies, TEMPLATE_MANAGE_PERMISSION, `/credit/notificacoes/templates/${encodeURIComponent(templateId)}/ativar`, { method: "POST" }, validTemplate, "Template ativado.");
+  return executeMutation(cookies, context, dependencies, TEMPLATE_MANAGE_PERMISSION, `/credit/notificacoes/templates/${encodeURIComponent(templateId)}/ativar`, { idempotency: mutationKey(formData), method: "POST" }, validTemplate, "Template ativado.");
 }
 
 export async function reconcileNotification(cookies: CookieStore, context: OperationalContext, formData: FormData, dependencies: BffDependencies): Promise<AutomacaoActionState> {

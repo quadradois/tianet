@@ -7,6 +7,7 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import datetime
 
+from emprestimo.application.auditoria_escrita import auditar_escrita
 from emprestimo.application.errors import (
     CarteiraNaoEncontradaError,
     ContratoCreditoNaoEncontradoError,
@@ -15,7 +16,13 @@ from emprestimo.application.errors import (
     TransicaoEstadoInvalidaError,
     UsuarioNaoEncontradoError,
 )
-from emprestimo.application.ports import UnitOfWork
+from emprestimo.application.idempotencia import (
+    concluir_idempotencia,
+    dataclass_do_resultado,
+    iniciar_idempotencia,
+    resultado_de_dataclass,
+)
+from emprestimo.application.ports import AuditoriaRegistro, UnitOfWork
 from emprestimo.domain.common.errors import ViolacaoInvarianteError
 from emprestimo.domain.credit.contrato_credito import ContratoCredito
 from emprestimo.domain.credit.contrato_credito_state import ContratoCreditoState
@@ -27,6 +34,8 @@ from emprestimo.domain.credit.ports import (
     ContratoCreditoResultadoPaginado,
     Paginacao,
 )
+
+ESCOPO_CONTRATO_CRIAR = "contrato-criar"
 
 
 @dataclass(frozen=True)
@@ -54,9 +63,11 @@ class ContratoCreditoResultado:
 class FormalizacaoContratoService:
     """Cria contrato de credito a partir de proposta aprovada."""
 
-    def __init__(self, uow_factory: Callable[[], UnitOfWork]) -> None:
+    def __init__(self, uow_factory: Callable[[], UnitOfWork], auditoria: AuditoriaRegistro) -> None:
         self._uow_factory = uow_factory
+        self._auditoria = auditoria
 
+    @auditar_escrita("contrato_credito", "criar", identificador="proposta_id")
     def criar_de_proposta(
         self,
         *,
@@ -64,6 +75,7 @@ class FormalizacaoContratoService:
         carteira_id: uuid.UUID,
         proposta_comercial_id: uuid.UUID,
         usuario_id: uuid.UUID,
+        idempotency_key: str | None = None,
     ) -> ContratoCreditoResultado:
         with self._uow_factory() as uow:
             _validar_carteira_usuario(
@@ -85,6 +97,23 @@ class FormalizacaoContratoService:
                 carteira_id=carteira_id,
                 devedor_id=proposta.devedor_id,
             )
+            replay = iniciar_idempotencia(
+                uow,
+                chave=idempotency_key,
+                escopo=ESCOPO_CONTRATO_CRIAR,
+                solicitacao={
+                    "tenant_id": tenant_id,
+                    "carteira_id": carteira_id,
+                    "proposta_comercial_id": proposta_comercial_id,
+                    "usuario_id": usuario_id,
+                },
+            )
+            if replay is not None:
+                return dataclass_do_resultado(
+                    replay,
+                    ContratoCreditoResultado,
+                    chave=idempotency_key,
+                )
             if uow.contrato_credito.find_by_proposta_id(proposta_comercial_id) is not None:
                 raise TransicaoEstadoInvalidaError(
                     proposta_comercial_id,
@@ -102,8 +131,15 @@ class FormalizacaoContratoService:
                     proposta_comercial_id, "criar_contrato", str(exc)
                 ) from exc
             uow.contrato_credito.save(contrato)
+            resultado = _contrato_resultado(contrato)
+            concluir_idempotencia(
+                uow,
+                chave=idempotency_key,
+                escopo=ESCOPO_CONTRATO_CRIAR,
+                resultado=resultado_de_dataclass(resultado),
+            )
             uow.commit()
-            return _contrato_resultado(contrato)
+            return resultado
 
 
 class ConsultaContratoService:
@@ -152,25 +188,60 @@ class ConsultaContratoService:
 class AssinaturaContratoService:
     """Registra formalizacao e assinatura contratual."""
 
-    def __init__(self, uow_factory: Callable[[], UnitOfWork]) -> None:
+    def __init__(self, uow_factory: Callable[[], UnitOfWork], auditoria: AuditoriaRegistro) -> None:
         self._uow_factory = uow_factory
+        self._auditoria = auditoria
 
+    @auditar_escrita("contrato_credito", "formalizar", identificador="contrato_id")
     def formalizar(
-        self, *, contrato_id: uuid.UUID, tenant_id: uuid.UUID, usuario_id: uuid.UUID
+        self,
+        *,
+        contrato_id: uuid.UUID,
+        tenant_id: uuid.UUID,
+        usuario_id: uuid.UUID,
+        idempotency_key: str | None = None,
     ) -> ContratoCreditoResultado:
-        return self._decidir(contrato_id, tenant_id, usuario_id, "formalizar")
+        return self._decidir(contrato_id, tenant_id, usuario_id, "formalizar", idempotency_key)
 
+    @auditar_escrita("contrato_credito", "assinar", identificador="contrato_id")
     def assinar(
-        self, *, contrato_id: uuid.UUID, tenant_id: uuid.UUID, usuario_id: uuid.UUID
+        self,
+        *,
+        contrato_id: uuid.UUID,
+        tenant_id: uuid.UUID,
+        usuario_id: uuid.UUID,
+        idempotency_key: str | None = None,
     ) -> ContratoCreditoResultado:
-        return self._decidir(contrato_id, tenant_id, usuario_id, "assinar")
+        return self._decidir(contrato_id, tenant_id, usuario_id, "assinar", idempotency_key)
 
     def _decidir(
-        self, contrato_id: uuid.UUID, tenant_id: uuid.UUID, usuario_id: uuid.UUID, acao: str
+        self,
+        contrato_id: uuid.UUID,
+        tenant_id: uuid.UUID,
+        usuario_id: uuid.UUID,
+        acao: str,
+        idempotency_key: str | None = None,
     ) -> ContratoCreditoResultado:
         with self._uow_factory() as uow:
             contrato = _contrato_do_tenant(uow, contrato_id=contrato_id, tenant_id=tenant_id)
             _validar_usuario(uow, tenant_id=tenant_id, usuario_id=usuario_id)
+            escopo = f"contrato-{acao}"
+            replay = iniciar_idempotencia(
+                uow,
+                chave=idempotency_key,
+                escopo=escopo,
+                solicitacao={
+                    "contrato_id": contrato_id,
+                    "tenant_id": tenant_id,
+                    "usuario_id": usuario_id,
+                },
+            )
+            if replay is not None:
+                return dataclass_do_resultado(
+                    replay,
+                    ContratoCreditoResultado,
+                    chave=idempotency_key,
+                )
             try:
                 if acao == "formalizar":
                     contrato.formalizar(usuario_id=usuario_id)
@@ -181,27 +252,64 @@ class AssinaturaContratoService:
             except ViolacaoInvarianteError as exc:
                 raise TransicaoEstadoInvalidaError(contrato.id, acao, str(exc)) from exc
             uow.contrato_credito.save(contrato)
+            resultado = _contrato_resultado(contrato)
+            concluir_idempotencia(
+                uow,
+                chave=idempotency_key,
+                escopo=escopo,
+                resultado=resultado_de_dataclass(resultado),
+            )
             uow.commit()
-            return _contrato_resultado(contrato)
+            return resultado
 
 
 class LiberacaoContratoService:
     """Entrega contrato liberado como saida logica para Motor futuro."""
 
-    def __init__(self, uow_factory: Callable[[], UnitOfWork]) -> None:
+    def __init__(self, uow_factory: Callable[[], UnitOfWork], auditoria: AuditoriaRegistro) -> None:
         self._uow_factory = uow_factory
+        self._auditoria = auditoria
 
+    @auditar_escrita("contrato_credito", "liberar", identificador="contrato_id")
     def liberar_para_motor(
-        self, *, contrato_id: uuid.UUID, tenant_id: uuid.UUID, usuario_id: uuid.UUID
+        self,
+        *,
+        contrato_id: uuid.UUID,
+        tenant_id: uuid.UUID,
+        usuario_id: uuid.UUID,
+        idempotency_key: str | None = None,
     ) -> ContratoLiberadoLogico:
         with self._uow_factory() as uow:
             contrato = _contrato_do_tenant(uow, contrato_id=contrato_id, tenant_id=tenant_id)
             _validar_usuario(uow, tenant_id=tenant_id, usuario_id=usuario_id)
+            escopo = "contrato-liberar-para-motor"
+            replay = iniciar_idempotencia(
+                uow,
+                chave=idempotency_key,
+                escopo=escopo,
+                solicitacao={
+                    "contrato_id": contrato_id,
+                    "tenant_id": tenant_id,
+                    "usuario_id": usuario_id,
+                },
+            )
+            if replay is not None:
+                return dataclass_do_resultado(
+                    replay,
+                    ContratoLiberadoLogico,
+                    chave=idempotency_key,
+                )
             try:
                 saida = contrato.liberar_para_motor(usuario_id=usuario_id)
             except ViolacaoInvarianteError as exc:
                 raise TransicaoEstadoInvalidaError(contrato.id, "liberar", str(exc)) from exc
             uow.contrato_credito.save(contrato)
+            concluir_idempotencia(
+                uow,
+                chave=idempotency_key,
+                escopo=escopo,
+                resultado=resultado_de_dataclass(saida),
+            )
             uow.commit()
             return saida
 
@@ -209,9 +317,11 @@ class LiberacaoContratoService:
 class CancelamentoEncerramentoContratoService:
     """Cancela ou encerra contratos conforme estado."""
 
-    def __init__(self, uow_factory: Callable[[], UnitOfWork]) -> None:
+    def __init__(self, uow_factory: Callable[[], UnitOfWork], auditoria: AuditoriaRegistro) -> None:
         self._uow_factory = uow_factory
+        self._auditoria = auditoria
 
+    @auditar_escrita("contrato_credito", "cancelar", identificador="contrato_id")
     def cancelar(
         self,
         *,
@@ -219,9 +329,18 @@ class CancelamentoEncerramentoContratoService:
         tenant_id: uuid.UUID,
         usuario_id: uuid.UUID,
         motivo: str | None = None,
+        idempotency_key: str | None = None,
     ) -> ContratoCreditoResultado:
-        return self._decidir(contrato_id, tenant_id, usuario_id, "cancelar", motivo=motivo)
+        return self._decidir(
+            contrato_id,
+            tenant_id,
+            usuario_id,
+            "cancelar",
+            motivo=motivo,
+            idempotency_key=idempotency_key,
+        )
 
+    @auditar_escrita("contrato_credito", "encerrar", identificador="contrato_id")
     def encerrar(
         self,
         *,
@@ -229,8 +348,16 @@ class CancelamentoEncerramentoContratoService:
         tenant_id: uuid.UUID,
         usuario_id: uuid.UUID,
         motivo: str | None = None,
+        idempotency_key: str | None = None,
     ) -> ContratoCreditoResultado:
-        return self._decidir(contrato_id, tenant_id, usuario_id, "encerrar", motivo=motivo)
+        return self._decidir(
+            contrato_id,
+            tenant_id,
+            usuario_id,
+            "encerrar",
+            motivo=motivo,
+            idempotency_key=idempotency_key,
+        )
 
     def _decidir(
         self,
@@ -240,10 +367,29 @@ class CancelamentoEncerramentoContratoService:
         acao: str,
         *,
         motivo: str | None = None,
+        idempotency_key: str | None = None,
     ) -> ContratoCreditoResultado:
         with self._uow_factory() as uow:
             contrato = _contrato_do_tenant(uow, contrato_id=contrato_id, tenant_id=tenant_id)
             _validar_usuario(uow, tenant_id=tenant_id, usuario_id=usuario_id)
+            escopo = f"contrato-{acao}"
+            replay = iniciar_idempotencia(
+                uow,
+                chave=idempotency_key,
+                escopo=escopo,
+                solicitacao={
+                    "contrato_id": contrato_id,
+                    "tenant_id": tenant_id,
+                    "usuario_id": usuario_id,
+                    "motivo": motivo,
+                },
+            )
+            if replay is not None:
+                return dataclass_do_resultado(
+                    replay,
+                    ContratoCreditoResultado,
+                    chave=idempotency_key,
+                )
             try:
                 if acao == "cancelar":
                     contrato.cancelar(usuario_id=usuario_id, motivo=motivo)
@@ -252,8 +398,15 @@ class CancelamentoEncerramentoContratoService:
             except ViolacaoInvarianteError as exc:
                 raise TransicaoEstadoInvalidaError(contrato.id, acao, str(exc)) from exc
             uow.contrato_credito.save(contrato)
+            resultado = _contrato_resultado(contrato)
+            concluir_idempotencia(
+                uow,
+                chave=idempotency_key,
+                escopo=escopo,
+                resultado=resultado_de_dataclass(resultado),
+            )
             uow.commit()
-            return _contrato_resultado(contrato)
+            return resultado
 
 
 def _validar_carteira_usuario(

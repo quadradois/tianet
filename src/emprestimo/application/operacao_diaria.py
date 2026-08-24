@@ -11,6 +11,7 @@ from datetime import date, datetime
 from decimal import Decimal
 from typing import cast
 
+from emprestimo.application.auditoria_escrita import auditar_escrita
 from emprestimo.application.errors import (
     AgendaItemNaoEncontradoError,
     CarteiraNaoEncontradaError,
@@ -25,7 +26,7 @@ from emprestimo.application.errors import (
     TransicaoEstadoInvalidaError,
     UsuarioNaoEncontradoError,
 )
-from emprestimo.application.ports import UnitOfWork
+from emprestimo.application.ports import AuditoriaRegistro, UnitOfWork
 from emprestimo.domain.common.errors import ViolacaoInvarianteError
 from emprestimo.domain.credit.operacao_diaria import (
     AcaoCobranca,
@@ -279,9 +280,11 @@ class ConsultarAgendaOperacional:
 class RegistrarAcaoCobranca:
     """Registra uma acao manual de cobranca na cadeia canonica do caso."""
 
-    def __init__(self, uow_factory: Callable[[], UnitOfWork]) -> None:
+    def __init__(self, uow_factory: Callable[[], UnitOfWork], auditoria: AuditoriaRegistro) -> None:
         self._uow_factory = uow_factory
+        self._auditoria = auditoria
 
+    @auditar_escrita("acao_cobranca", "registrar", identificador="cobranca_caso_id")
     def registrar(
         self,
         *,
@@ -343,9 +346,11 @@ class RegistrarAcaoCobranca:
 class RegistrarPromessa:
     """Registra promessa operacional, sem calcular efeito financeiro."""
 
-    def __init__(self, uow_factory: Callable[[], UnitOfWork]) -> None:
+    def __init__(self, uow_factory: Callable[[], UnitOfWork], auditoria: AuditoriaRegistro) -> None:
         self._uow_factory = uow_factory
+        self._auditoria = auditoria
 
+    @auditar_escrita("promessa_pagamento", "registrar", identificador="cobranca_caso_id")
     def registrar(
         self,
         *,
@@ -413,9 +418,11 @@ class RegistrarPromessa:
 class ApropriarPagamentoPromessa:
     """Associa pagamento oficial do Motor a uma promessa operacional."""
 
-    def __init__(self, uow_factory: Callable[[], UnitOfWork]) -> None:
+    def __init__(self, uow_factory: Callable[[], UnitOfWork], auditoria: AuditoriaRegistro) -> None:
         self._uow_factory = uow_factory
+        self._auditoria = auditoria
 
+    @auditar_escrita("apropriacao_pagamento", "apropriar", identificador="pagamento_id")
     def apropriar(
         self,
         *,
@@ -481,9 +488,11 @@ class ApropriarPagamentoPromessa:
 class CriarCompromissoAgenda:
     """Cria compromisso operacional idempotente."""
 
-    def __init__(self, uow_factory: Callable[[], UnitOfWork]) -> None:
+    def __init__(self, uow_factory: Callable[[], UnitOfWork], auditoria: AuditoriaRegistro) -> None:
         self._uow_factory = uow_factory
+        self._auditoria = auditoria
 
+    @auditar_escrita("agenda_item", "criar")
     def criar(
         self,
         *,
@@ -556,9 +565,11 @@ class CriarCompromissoAgenda:
 class CriarLembreteAgenda:
     """Cria lembrete associado a um compromisso de agenda."""
 
-    def __init__(self, uow_factory: Callable[[], UnitOfWork]) -> None:
+    def __init__(self, uow_factory: Callable[[], UnitOfWork], auditoria: AuditoriaRegistro) -> None:
         self._uow_factory = uow_factory
+        self._auditoria = auditoria
 
+    @auditar_escrita("lembrete", "criar")
     def criar(
         self,
         *,
@@ -636,9 +647,11 @@ class CriarLembreteAgenda:
 class ManterCompromissoAgenda:
     """Executa transicoes de estado do compromisso operacional."""
 
-    def __init__(self, uow_factory: Callable[[], UnitOfWork]) -> None:
+    def __init__(self, uow_factory: Callable[[], UnitOfWork], auditoria: AuditoriaRegistro) -> None:
         self._uow_factory = uow_factory
+        self._auditoria = auditoria
 
+    @auditar_escrita("agenda_item", "reagendar", identificador="agenda_item_id")
     def reagendar(
         self,
         *,
@@ -659,6 +672,7 @@ class ManterCompromissoAgenda:
             aplicar=lambda item: item.reagendar(novo_horario=novo_horario),
         )
 
+    @auditar_escrita("agenda_item", "concluir", identificador="agenda_item_id")
     def concluir(
         self,
         *,
@@ -678,6 +692,7 @@ class ManterCompromissoAgenda:
             aplicar=lambda item: item.concluir(),
         )
 
+    @auditar_escrita("agenda_item", "cancelar", identificador="agenda_item_id")
     def cancelar(
         self,
         *,
@@ -749,9 +764,11 @@ class ManterCompromissoAgenda:
 class ManterLembreteAgenda:
     """Executa transicoes de lembrete sem notificacao externa."""
 
-    def __init__(self, uow_factory: Callable[[], UnitOfWork]) -> None:
+    def __init__(self, uow_factory: Callable[[], UnitOfWork], auditoria: AuditoriaRegistro) -> None:
         self._uow_factory = uow_factory
+        self._auditoria = auditoria
 
+    @auditar_escrita("lembrete", "enviar", identificador="lembrete_id")
     def enviar(
         self,
         *,
@@ -770,6 +787,7 @@ class ManterLembreteAgenda:
             aplicar=lambda lembrete: lembrete.enviar(),
         )
 
+    @auditar_escrita("lembrete", "concluir", identificador="lembrete_id")
     def concluir(
         self,
         *,
@@ -789,6 +807,7 @@ class ManterLembreteAgenda:
             aplicar=lambda lembrete: lembrete.concluir(),
         )
 
+    @auditar_escrita("lembrete", "reagendar", identificador="lembrete_id")
     def reagendar(
         self,
         *,
@@ -809,6 +828,7 @@ class ManterLembreteAgenda:
             aplicar=lambda lembrete: _reagendar_lembrete(lembrete, novo_horario),
         )
 
+    @auditar_escrita("lembrete", "cancelar", identificador="lembrete_id")
     def cancelar(
         self,
         *,
@@ -875,9 +895,11 @@ class ManterLembreteAgenda:
 class RegistrarComunicacaoManual:
     """Registra comunicacao manual imutavel na cadeia operacional."""
 
-    def __init__(self, uow_factory: Callable[[], UnitOfWork]) -> None:
+    def __init__(self, uow_factory: Callable[[], UnitOfWork], auditoria: AuditoriaRegistro) -> None:
         self._uow_factory = uow_factory
+        self._auditoria = auditoria
 
+    @auditar_escrita("registro_comunicacao", "registrar")
     def registrar(
         self,
         *,

@@ -2,7 +2,7 @@
 
 **ID:** DOMAIN-013
 
-**Versão:** 1.0.0
+**Versão:** 1.1.0
 
 **Status:** Aprovado
 
@@ -23,7 +23,7 @@ A partir deste momento, o Empréstimo passa para o estado **Quitado**.
 O evento deverá ser publicado quando:
 
 - o saldo principal da operação atingir zero;
-- não existirem parcelas pendentes, quando aplicável;
+- os juros do período em aberto estiverem cobertos;
 - todas as regras financeiras forem satisfeitas;
 - o Empréstimo for atualizado para o estado Quitado.
 
@@ -60,4 +60,5 @@ Exemplos de consumidores deste evento:
 
 | Versão | Data | Descrição |
 |---------|------|-----------|
+| 1.1.0 | 23/08/2026 | Condicao de parcelas pendentes substituida pelos juros do periodo em aberto, conforme o emprestimo livre da DR-004 (IMP-337). |
 | 1.0.0 | 01/08/2026 | Primeira versão oficial do evento Empréstimo Quitado. |

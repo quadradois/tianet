@@ -26,6 +26,7 @@ from emprestimo.domain.credit.contato import Contato, TipoContato
 from emprestimo.domain.credit.contrato_credito_state import ContratoCreditoState
 from emprestimo.domain.credit.devedor import Devedor
 from emprestimo.domain.credit.documento import Documento
+from emprestimo.infrastructure.auditoria import SqlAlchemyAuditoriaRegistro
 from emprestimo.infrastructure.repositories import (
     SqlAlchemyCarteiraRepository,
     SqlAlchemyDevedorRepository,
@@ -48,9 +49,12 @@ def test_fluxo_contratos_cria_assina_libera_e_gera_saida_logica(
 ) -> None:
     ambiente = _ambiente(session_factory)
     proposta_id = _proposta_aprovada(session_factory, ambiente)
-    formalizacao = FormalizacaoContratoService(lambda: SqlAlchemyUnitOfWork(session_factory))
-    assinatura = AssinaturaContratoService(lambda: SqlAlchemyUnitOfWork(session_factory))
-    liberacao = LiberacaoContratoService(lambda: SqlAlchemyUnitOfWork(session_factory))
+    auditoria = SqlAlchemyAuditoriaRegistro(session_factory)
+    formalizacao = FormalizacaoContratoService(
+        lambda: SqlAlchemyUnitOfWork(session_factory), auditoria
+    )
+    assinatura = AssinaturaContratoService(lambda: SqlAlchemyUnitOfWork(session_factory), auditoria)
+    liberacao = LiberacaoContratoService(lambda: SqlAlchemyUnitOfWork(session_factory), auditoria)
 
     contrato = formalizacao.criar_de_proposta(
         tenant_id=ambiente.tenant_id,
@@ -101,7 +105,10 @@ def test_consulta_contratos_lista_isolada_por_tenant(
 def test_contrato_rejeita_proposta_nao_aprovada(session_factory: sessionmaker[Session]) -> None:
     ambiente = _ambiente(session_factory)
     proposta_id = (
-        PropostaComercialService(lambda: SqlAlchemyUnitOfWork(session_factory))
+        PropostaComercialService(
+            lambda: SqlAlchemyUnitOfWork(session_factory),
+            SqlAlchemyAuditoriaRegistro(session_factory),
+        )
         .criar(
             tenant_id=ambiente.tenant_id,
             carteira_id=ambiente.carteira_id,
@@ -111,7 +118,10 @@ def test_contrato_rejeita_proposta_nao_aprovada(session_factory: sessionmaker[Se
         )
         .proposta_id
     )
-    formalizacao = FormalizacaoContratoService(lambda: SqlAlchemyUnitOfWork(session_factory))
+    formalizacao = FormalizacaoContratoService(
+        lambda: SqlAlchemyUnitOfWork(session_factory),
+        SqlAlchemyAuditoriaRegistro(session_factory),
+    )
 
     with pytest.raises(TransicaoEstadoInvalidaError):
         formalizacao.criar_de_proposta(
@@ -126,7 +136,10 @@ def test_contrato_rejeita_devedor_inativo(session_factory: sessionmaker[Session]
     ambiente = _ambiente(session_factory)
     proposta_id = _proposta_aprovada(session_factory, ambiente)
     _inativar_devedor(session_factory, ambiente.devedor_id)
-    formalizacao = FormalizacaoContratoService(lambda: SqlAlchemyUnitOfWork(session_factory))
+    formalizacao = FormalizacaoContratoService(
+        lambda: SqlAlchemyUnitOfWork(session_factory),
+        SqlAlchemyAuditoriaRegistro(session_factory),
+    )
 
     with pytest.raises(ViolacaoInvarianteError, match="Devedor inativo"):
         formalizacao.criar_de_proposta(
@@ -142,7 +155,10 @@ def test_contrato_rejeita_liberacao_sem_assinatura(
 ) -> None:
     ambiente = _ambiente(session_factory)
     contrato_id = _contrato_criado(session_factory, ambiente)
-    liberacao = LiberacaoContratoService(lambda: SqlAlchemyUnitOfWork(session_factory))
+    liberacao = LiberacaoContratoService(
+        lambda: SqlAlchemyUnitOfWork(session_factory),
+        SqlAlchemyAuditoriaRegistro(session_factory),
+    )
 
     with pytest.raises(TransicaoEstadoInvalidaError):
         liberacao.liberar_para_motor(
@@ -156,7 +172,8 @@ def test_cancelar_contrato_nao_liberado(session_factory: sessionmaker[Session]) 
     ambiente = _ambiente(session_factory)
     contrato_id = _contrato_criado(session_factory, ambiente)
     cancelamento = CancelamentoEncerramentoContratoService(
-        lambda: SqlAlchemyUnitOfWork(session_factory)
+        lambda: SqlAlchemyUnitOfWork(session_factory),
+        SqlAlchemyAuditoriaRegistro(session_factory),
     )
 
     contrato = cancelamento.cancelar(
@@ -170,8 +187,9 @@ def test_cancelar_contrato_nao_liberado(session_factory: sessionmaker[Session]) 
 
 
 def _proposta_aprovada(session_factory: sessionmaker[Session], ambiente: _Ambiente) -> uuid.UUID:
-    propostas = PropostaComercialService(lambda: SqlAlchemyUnitOfWork(session_factory))
-    decisoes = DecisaoComercialService(lambda: SqlAlchemyUnitOfWork(session_factory))
+    auditoria = SqlAlchemyAuditoriaRegistro(session_factory)
+    propostas = PropostaComercialService(lambda: SqlAlchemyUnitOfWork(session_factory), auditoria)
+    decisoes = DecisaoComercialService(lambda: SqlAlchemyUnitOfWork(session_factory), auditoria)
     proposta = propostas.criar(
         tenant_id=ambiente.tenant_id,
         carteira_id=ambiente.carteira_id,
@@ -194,7 +212,10 @@ def _proposta_aprovada(session_factory: sessionmaker[Session], ambiente: _Ambien
 
 def _contrato_criado(session_factory: sessionmaker[Session], ambiente: _Ambiente) -> uuid.UUID:
     proposta_id = _proposta_aprovada(session_factory, ambiente)
-    formalizacao = FormalizacaoContratoService(lambda: SqlAlchemyUnitOfWork(session_factory))
+    formalizacao = FormalizacaoContratoService(
+        lambda: SqlAlchemyUnitOfWork(session_factory),
+        SqlAlchemyAuditoriaRegistro(session_factory),
+    )
     return formalizacao.criar_de_proposta(
         tenant_id=ambiente.tenant_id,
         carteira_id=ambiente.carteira_id,

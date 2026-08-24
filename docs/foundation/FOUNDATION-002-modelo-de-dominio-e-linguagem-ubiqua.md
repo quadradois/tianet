@@ -2,7 +2,7 @@
 
 **ID:** FOUNDATION-002
 
-**Versão:** 1.1.0
+**Versão:** 2.0.0
 
 **Status:** Aprovado
 
@@ -74,13 +74,12 @@ Reflete o resultado consolidado do último processamento realizado pelo Motor Fi
 
 ---
 
-## Parcela
+## Acerto
 
-Obrigação financeira prevista em operações na modalidade Prazo Fixo.
+Encontro mensal, no dia combinado, em que o Devedor deve no mínimo o juro
+do período. Amortizar o principal é voluntário.
 
-Não representa um pagamento.
-
-Representa aquilo que deverá ser pago.
+Substituiu a Parcela, revogada pela DR-004. Ver DOMAIN-005.
 
 ---
 
@@ -116,10 +115,9 @@ Value Object que representa a recorrência das obrigações financeiras.
 
 Value Object que define como a operação será administrada.
 
-Na versão 1:
+Desde a DR-004 existe uma única modalidade:
 
 - Livre
-- Prazo Fixo
 
 ---
 
@@ -171,9 +169,9 @@ Estado em que existem obrigações financeiras vencidas e não liquidadas.
 
 ## Tenant
 
-Organização que utiliza a plataforma.
+Credor que utiliza a plataforma.
 
-Representa a fronteira de isolamento entre clientes.
+Representa a fronteira de isolamento entre Credores. Ver FOUNDATION-006.
 
 É o Aggregate Root do Platform Context.
 
@@ -205,7 +203,7 @@ Processo de verificação da identidade de um Usuário para acesso à plataforma
 
 ## Configuração
 
-Parâmetro específico de um Tenant que define o comportamento da plataforma para sua organização.
+Parâmetro específico de um Tenant que define o comportamento da plataforma para aquele Credor.
 
 ---
 
@@ -256,5 +254,6 @@ Este documento será considerado aprovado quando:
 
 | Versão | Data | Descrição |
 |---------|------|-----------|
+| 2.0.0 | 23/08/2026 | Linguagem ubiqua reconciliada: Tenant deixa de ser organizacao e passa a ser o Credor, e Configuracao acompanha (IMP-338); a Parcela sai do vocabulario e da lugar ao Acerto, e a modalidade Prazo Fixo e removida, ambas revogadas pela DR-004 (IMP-337). |
 | 1.0.0 | 01/08/2026 | Primeira versão oficial do Modelo de Domínio e Linguagem Ubíqua. |
 | 1.1.0 | 01/08/2026 | Incorporação oficial dos conceitos do Platform Context (Tenant, Usuário, Perfil de Acesso, Permissão, Autenticação e Configuração), mantendo íntegros os conceitos do Credit Context. Consistente com FOUNDATION-006, DOMAIN-017, DOMAIN-018 e DOMAIN-019. |

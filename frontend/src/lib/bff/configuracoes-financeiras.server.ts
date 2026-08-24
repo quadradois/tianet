@@ -25,7 +25,7 @@ import {
   type SnapshotConfiguracao,
 } from "@/lib/configuracoes-financeiras/configuracoes-policy";
 
-import { ApiProblem, apiProblemFromResponse, correlationId, createCookieAuthenticatedFetch, type BffDependencies } from "./backend.server";
+import { ApiProblem, apiProblemFromResponse, correlationId, createCookieAuthenticatedFetch, idempotencyKey, type BffDependencies } from "./backend.server";
 import type { OperationalContext } from "./context.server";
 import { sessionCookieName, type CookieStore, unsealSession } from "./session.server";
 
@@ -60,24 +60,28 @@ const CORRELATION_PATTERN = /^[A-Za-z0-9._:-]{1,128}$/;
 const STATES: ReadonlySet<string> = new Set<ConfiguracaoState>(["rascunho", "aprovada", "programada", "ativa", "substituida", "inativa"]);
 
 const CONFIGURACOES_HEADER_CONTRACT = [
-  { path: "/credit/configuracoes-financeiras", idempotent: false },
+  { path: "/credit/configuracoes-financeiras", idempotent: true },
   { path: "/credit/configuracoes-financeiras/{configuracao_id}", idempotent: false },
-  { path: "/credit/configuracoes-financeiras/{configuracao_id}/aprovar", idempotent: false },
-  { path: "/credit/configuracoes-financeiras/{configuracao_id}/ativar", idempotent: false },
-  { path: "/credit/configuracoes-financeiras/{configuracao_id}/inativar", idempotent: false },
-  { path: "/credit/configuracoes-financeiras/{configuracao_id}/programar", idempotent: false },
-  { path: "/credit/configuracoes-financeiras/calendarios", idempotent: false },
-  { path: "/credit/configuracoes-financeiras/modalidades", idempotent: false },
-  { path: "/credit/configuracoes-financeiras/snapshots", idempotent: false },
+  { path: "/credit/configuracoes-financeiras/{configuracao_id}/aprovar", idempotent: true },
+  { path: "/credit/configuracoes-financeiras/{configuracao_id}/ativar", idempotent: true },
+  { path: "/credit/configuracoes-financeiras/{configuracao_id}/inativar", idempotent: true },
+  { path: "/credit/configuracoes-financeiras/{configuracao_id}/programar", idempotent: true },
+  { path: "/credit/configuracoes-financeiras/calendarios", idempotent: true },
+  { path: "/credit/configuracoes-financeiras/modalidades", idempotent: true },
+  { path: "/credit/configuracoes-financeiras/snapshots", idempotent: true },
   { path: "/credit/configuracoes-financeiras/vigente", idempotent: false },
 ] as const;
 void CONFIGURACOES_HEADER_CONTRACT;
 
 const CONFIGURACOES_IDEMPOTENCY_MARKERS = [
-  "sem-idempotency:/credit/configuracoes-financeiras",
-  "sem-idempotency:/credit/configuracoes-financeiras/{configuracao_id}/aprovar",
-  "sem-idempotency:/credit/configuracoes-financeiras/{configuracao_id}/programar",
-  "sem-idempotency:/credit/configuracoes-financeiras/snapshots",
+  "Idempotency-Key:/credit/configuracoes-financeiras",
+  "Idempotency-Key:/credit/configuracoes-financeiras/{configuracao_id}/aprovar",
+  "Idempotency-Key:/credit/configuracoes-financeiras/{configuracao_id}/ativar",
+  "Idempotency-Key:/credit/configuracoes-financeiras/{configuracao_id}/inativar",
+  "Idempotency-Key:/credit/configuracoes-financeiras/{configuracao_id}/programar",
+  "Idempotency-Key:/credit/configuracoes-financeiras/calendarios",
+  "Idempotency-Key:/credit/configuracoes-financeiras/modalidades",
+  "Idempotency-Key:/credit/configuracoes-financeiras/snapshots",
 ] as const;
 void CONFIGURACOES_IDEMPOTENCY_MARKERS;
 
@@ -391,7 +395,7 @@ export async function createModalidade(cookies: CookieStore, context: Operationa
   const body: ModalidadeCreateRequest = { codigo, nome, carteira_id: context.carteira_padrao.id };
   return executeMutation(cookies, context, dependencies, MODALIDADE_MANAGE_PERMISSION, 201, (client, correlation) => client.POST(
     "/credit/configuracoes-financeiras/modalidades",
-    { body, params: { header: { "X-Correlation-ID": correlation } } },
+    { body, params: { header: { "X-Correlation-ID": correlation, "Idempotency-Key": idempotencyKey(true, formString(formData, "idempotency_key", 255)) as string } } },
   ), (value): value is ModalidadeFinanceira => validModalidade(value, context), "Modalidade financeira cadastrada.");
 }
 
@@ -406,7 +410,7 @@ export async function createCalendario(cookies: CookieStore, context: Operationa
   const body: CalendarioCreateRequest = { codigo, nome, carteira_id: context.carteira_padrao.id, ...(feriados && feriados.every(isCalendarDate) ? { feriados } : {}) };
   return executeMutation(cookies, context, dependencies, CALENDARIO_MANAGE_PERMISSION, 201, (client, correlation) => client.POST(
     "/credit/configuracoes-financeiras/calendarios",
-    { body, params: { header: { "X-Correlation-ID": correlation } } },
+    { body, params: { header: { "X-Correlation-ID": correlation, "Idempotency-Key": idempotencyKey(true, formString(formData, "idempotency_key", 255)) as string } } },
   ), (value): value is CalendarioFinanceiro => validCalendario(value, context), "Calendario financeiro cadastrado.");
 }
 
@@ -433,7 +437,7 @@ export async function createConfiguracao(cookies: CookieStore, context: Operatio
   };
   return executeMutation(cookies, context, dependencies, CONFIGURACOES_MANAGE_PERMISSION, 201, (client, correlation) => client.POST(
     "/credit/configuracoes-financeiras",
-    { body, params: { header: { "X-Correlation-ID": correlation } } },
+    { body, params: { header: { "X-Correlation-ID": correlation, "Idempotency-Key": idempotencyKey(true, formString(formData, "idempotency_key", 255)) as string } } },
   ), (value): value is ConfiguracaoFinanceira => validConfiguracao(value, context), "Configuracao financeira criada em rascunho.");
 }
 
@@ -452,7 +456,7 @@ export async function approveConfiguracao(cookies: CookieStore, context: Operati
   const body = decisaoBody(formData);
   return executeMutation(cookies, context, dependencies, CONFIGURACOES_APPROVE_PERMISSION, 200, (client, correlation) => client.POST(
     "/credit/configuracoes-financeiras/{configuracao_id}/aprovar",
-    { body, params: { path: { configuracao_id: id }, header: { "X-Correlation-ID": correlation } } },
+    { body, params: { path: { configuracao_id: id }, header: { "X-Correlation-ID": correlation, "Idempotency-Key": idempotencyKey(true, formString(formData, "idempotency_key", 255)) as string } } },
   ), (value): value is ConfiguracaoFinanceira => validConfiguracao(value, context), "Configuracao financeira aprovada.");
 }
 
@@ -463,7 +467,7 @@ export async function programConfiguracao(cookies: CookieStore, context: Operati
   const body: ProgramarRequest = { data_ativacao: dataAtivacao, motivo: formString(formData, "motivo", 500) ?? null };
   return executeMutation(cookies, context, dependencies, CONFIGURACOES_ACTIVATE_PERMISSION, 200, (client, correlation) => client.POST(
     "/credit/configuracoes-financeiras/{configuracao_id}/programar",
-    { body, params: { path: { configuracao_id: id }, header: { "X-Correlation-ID": correlation } } },
+    { body, params: { path: { configuracao_id: id }, header: { "X-Correlation-ID": correlation, "Idempotency-Key": idempotencyKey(true, formString(formData, "idempotency_key", 255)) as string } } },
   ), (value): value is ConfiguracaoFinanceira => validConfiguracao(value, context), "Configuracao financeira programada.");
 }
 
@@ -472,7 +476,7 @@ export async function activateConfiguracao(cookies: CookieStore, context: Operat
   if (!id) return actionProblem(new ApiProblem({ status: 400, codigo: "formulario_invalido", mensagem: "Identificador da Configuracao invalido.", correlationId: correlationId() }));
   return executeMutation(cookies, context, dependencies, CONFIGURACOES_ACTIVATE_PERMISSION, 200, (client, correlation) => client.POST(
     "/credit/configuracoes-financeiras/{configuracao_id}/ativar",
-    { body: { motivo: null }, params: { path: { configuracao_id: id }, header: { "X-Correlation-ID": correlation } } },
+    { body: { motivo: null }, params: { path: { configuracao_id: id }, header: { "X-Correlation-ID": correlation, "Idempotency-Key": idempotencyKey(true, formString(formData, "idempotency_key", 255)) as string } } },
   ), (value): value is ConfiguracaoFinanceira => validConfiguracao(value, context), "Configuracao financeira ativada.");
 }
 
@@ -481,7 +485,7 @@ export async function inactivateConfiguracao(cookies: CookieStore, context: Oper
   if (!id) return actionProblem(new ApiProblem({ status: 400, codigo: "formulario_invalido", mensagem: "Identificador da Configuracao invalido.", correlationId: correlationId() }));
   return executeMutation(cookies, context, dependencies, CONFIGURACOES_ACTIVATE_PERMISSION, 200, (client, correlation) => client.POST(
     "/credit/configuracoes-financeiras/{configuracao_id}/inativar",
-    { body: { motivo: null }, params: { path: { configuracao_id: id }, header: { "X-Correlation-ID": correlation } } },
+    { body: { motivo: null }, params: { path: { configuracao_id: id }, header: { "X-Correlation-ID": correlation, "Idempotency-Key": idempotencyKey(true, formString(formData, "idempotency_key", 255)) as string } } },
   ), (value): value is ConfiguracaoFinanceira => validConfiguracao(value, context), "Configuracao financeira inativada.");
 }
 
@@ -491,6 +495,6 @@ export async function captureSnapshot(cookies: CookieStore, context: Operational
   const body: SnapshotRequest = { configuracao_id: id, motivo: formString(formData, "motivo", 500) ?? null };
   return executeMutation(cookies, context, dependencies, SNAPSHOT_CAPTURE_PERMISSION, 200, (client, correlation) => client.POST(
     "/credit/configuracoes-financeiras/snapshots",
-    { body, params: { header: { "X-Correlation-ID": correlation } } },
+    { body, params: { header: { "X-Correlation-ID": correlation, "Idempotency-Key": idempotencyKey(true, formString(formData, "idempotency_key", 255)) as string } } },
   ), (value): value is SnapshotConfiguracao => validSnapshot(value, context), "Snapshot contratual capturado.");
 }

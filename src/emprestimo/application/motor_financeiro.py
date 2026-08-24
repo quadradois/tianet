@@ -4,19 +4,23 @@ from __future__ import annotations
 
 import hashlib
 import json
+import logging
 import uuid
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from datetime import UTC, date, datetime
 from decimal import Decimal, InvalidOperation
 
+from emprestimo.application.auditoria_escrita import auditar_escrita
 from emprestimo.application.errors import (
     ContratoCreditoNaoEncontradoError,
     EmprestimoNaoEncontradoError,
     IdempotenciaConflitoError,
+    PagamentoNaoEncontradoError,
     TransicaoEstadoInvalidaError,
     UsuarioNaoEncontradoError,
 )
+from emprestimo.application.notifications import AvisoSobraPagamento
 from emprestimo.application.ports import AuditoriaRegistro, UnitOfWork
 from emprestimo.domain.common.errors import ViolacaoInvarianteError
 from emprestimo.domain.credit.dia_de_acerto import proximo_acerto, validar_dia_de_acerto
@@ -28,11 +32,16 @@ from emprestimo.domain.credit.motor_financeiro import MotorFinanceiro
 from emprestimo.domain.credit.pagamento import Pagamento, PagamentoState
 from emprestimo.domain.credit.ports import EmprestimoFiltros, Paginacao
 
+logger = logging.getLogger(__name__)
+
 ESCOPO_IDEMPOTENCIA = "motor-criacao-emprestimo"
 """Escopo da Idempotency-Key para criacao de Emprestimo."""
 
 ESCOPO_IDEMPOTENCIA_PAGAMENTO = "motor-pagamento"
 """Escopo da Idempotency-Key para registro de Pagamento."""
+
+ESCOPO_IDEMPOTENCIA_ESTORNO = "motor-pagamento-estorno"
+"""Escopo da Idempotency-Key para estorno parcial de Pagamento."""
 
 ESCOPO_IDEMPOTENCIA_QUITACAO = "motor-quitacao"
 """Escopo da Idempotency-Key para quitacao de Emprestimo."""
@@ -85,9 +94,12 @@ class PagamentoResultado:
     valor_juros: Decimal
     valor_amortizacao: Decimal
     valor_encargos: Decimal
+    valor_devolvido: Decimal
+    valor_estornado: Decimal
+    valor_sobra: Decimal
+    reconciliado: bool
     estado: PagamentoState
     chave_idempotencia: str | None
-    parcelas_liquidadas: tuple[uuid.UUID, ...]
     memoria: MemoriaCalculo | None
 
 
@@ -350,11 +362,16 @@ class PagamentoService:
     def __init__(
         self,
         uow_factory: Callable[[], UnitOfWork],
+        auditoria: AuditoriaRegistro,
         motor_factory: Callable[[], MotorFinanceiro] = MotorFinanceiro,
+        enfileirar_aviso: Callable[[AvisoSobraPagamento], object] | None = None,
     ) -> None:
         self._uow_factory = uow_factory
+        self._auditoria = auditoria
         self._motor_factory = motor_factory
+        self._enfileirar_aviso = enfileirar_aviso
 
+    @auditar_escrita("pagamento", "registrar", identificador="emprestimo_id")
     def registrar(
         self,
         *,
@@ -408,11 +425,13 @@ class PagamentoService:
                         _idempotencia_resultado_json("pagamento_id", existente.id),
                     )
                     uow.commit()
-                return _pagamento_resultado(
+                resultado = _pagamento_resultado(
                     emprestimo,
                     existente,
                     _memoria_pagamento_existente(uow, emprestimo_id, existente.id),
                 )
+                self._enfileirar_aviso_apos_commit(emprestimo, existente)
+                return resultado
             if replay:
                 raise IdempotenciaConflitoError(idempotency_key, "resultado de pagamento ausente")
             pagamentos = uow.pagamento.find_by_emprestimo_id(emprestimo_id)
@@ -449,11 +468,159 @@ class PagamentoService:
                 _idempotencia_resultado_json("pagamento_id", processado.pagamento.id),
             )
             uow.commit()
-            return _pagamento_resultado(
+            resultado = _pagamento_resultado(
                 emprestimo,
                 processado.pagamento,
                 processado.memoria,
             )
+            self._enfileirar_aviso_apos_commit(emprestimo, processado.pagamento)
+            return resultado
+
+    def _enfileirar_aviso_apos_commit(
+        self,
+        emprestimo: Emprestimo,
+        pagamento: Pagamento,
+    ) -> None:
+        if self._enfileirar_aviso is None or pagamento.valor_devolvido <= Decimal("0.00"):
+            return
+        aviso = AvisoSobraPagamento(
+            tenant_id=emprestimo.tenant_id,
+            carteira_id=emprestimo.carteira_id,
+            devedor_id=emprestimo.devedor_id,
+            emprestimo_id=emprestimo.id,
+            pagamento_id=pagamento.id,
+            valor_recebido=pagamento.valor_recebido,
+            valor_distribuido=pagamento.valor_distribuido,
+            valor_devolvido=pagamento.valor_devolvido,
+        )
+        try:
+            self._enfileirar_aviso(aviso)
+        except Exception:
+            logger.exception(
+                "aviso_sobra_pagamento_enqueue_failed",
+                extra={"pagamento_id": str(pagamento.id)},
+            )
+
+
+class EstornoPagamentoService:
+    """Registra a devolucao parcial feita pelo Credor fora do sistema."""
+
+    def __init__(
+        self,
+        uow_factory: Callable[[], UnitOfWork],
+        auditoria: AuditoriaRegistro,
+    ) -> None:
+        self._uow_factory = uow_factory
+        self._auditoria = auditoria
+
+    def estornar(
+        self,
+        *,
+        pagamento_id: uuid.UUID,
+        tenant_id: uuid.UUID,
+        usuario_id: uuid.UUID,
+        valor: Decimal,
+        idempotency_key: str,
+    ) -> PagamentoResultado:
+        detalhes = {
+            "pagamento_id": str(pagamento_id),
+            "tenant_id": str(tenant_id),
+            "usuario_id": str(usuario_id),
+            "valor": _valor_decimal(valor),
+            "idempotency_key": idempotency_key,
+        }
+        self._auditoria.registrar(
+            "pagamento",
+            pagamento_id,
+            "estornar.inicio",
+            "iniciado",
+            detalhes=json.dumps(detalhes, sort_keys=True),
+        )
+        try:
+            with self._uow_factory() as uow:
+                pagamento = uow.pagamento.find_by_id(pagamento_id)
+                if pagamento is None:
+                    raise PagamentoNaoEncontradoError(pagamento_id)
+                emprestimo = _emprestimo_do_tenant(
+                    uow,
+                    emprestimo_id=pagamento.emprestimo_id,
+                    tenant_id=tenant_id,
+                )
+                _validar_usuario_do_tenant(
+                    uow,
+                    usuario_id=usuario_id,
+                    tenant_id=tenant_id,
+                )
+                solicitacao_hash = _hash_operacao(
+                    operacao="estorno_pagamento",
+                    pagamento_id=pagamento_id,
+                    tenant_id=tenant_id,
+                    usuario_id=usuario_id,
+                    valor=_valor_decimal(valor),
+                )
+                replay = _replay_ou_registrar_chave(
+                    uow,
+                    idempotency_key=idempotency_key,
+                    escopo=ESCOPO_IDEMPOTENCIA_ESTORNO,
+                    solicitacao_hash=solicitacao_hash,
+                    motivo_em_andamento="estorno de pagamento em andamento",
+                )
+                if not replay:
+                    try:
+                        pagamento = pagamento.estornar(valor)
+                    except ViolacaoInvarianteError as exc:
+                        raise TransicaoEstadoInvalidaError(
+                            pagamento_id,
+                            "estornar_pagamento",
+                            str(exc),
+                        ) from exc
+                    uow.pagamento.save(pagamento)
+                    uow.idempotencia.concluir(
+                        idempotency_key,
+                        ESCOPO_IDEMPOTENCIA_ESTORNO,
+                        _idempotencia_resultado_json("pagamento_id", pagamento.id),
+                    )
+                    uow.commit()
+                resultado = _pagamento_resultado(
+                    emprestimo,
+                    pagamento,
+                    _memoria_pagamento_existente(uow, emprestimo.id, pagamento.id),
+                )
+            self._auditoria.registrar(
+                "pagamento",
+                pagamento_id,
+                "estornar.replay" if replay else "estornar.sucesso",
+                "ok",
+                detalhes=json.dumps(
+                    {
+                        **detalhes,
+                        "valor_estornado": _valor_decimal(resultado.valor_estornado),
+                        "valor_sobra": _valor_decimal(resultado.valor_sobra),
+                        "reconciliado": resultado.reconciliado,
+                    },
+                    sort_keys=True,
+                ),
+            )
+            return resultado
+        except Exception as exc:
+            self._auditoria.registrar(
+                "pagamento",
+                pagamento_id,
+                "estornar.falha",
+                "falhou",
+                detalhes=json.dumps(
+                    {**detalhes, "erro_tipo": type(exc).__name__},
+                    sort_keys=True,
+                ),
+            )
+            self._auditoria.registrar(
+                "pagamento",
+                pagamento_id,
+                "estornar.rollback",
+                "rollback_aplicado",
+                detalhes=json.dumps(detalhes, sort_keys=True),
+            )
+            raise
 
 
 class ConsultaSaldoService:
@@ -514,9 +681,11 @@ class QuitacaoRenegociacaoService:
     def __init__(
         self,
         uow_factory: Callable[[], UnitOfWork],
+        auditoria: AuditoriaRegistro,
         motor_factory: Callable[[], MotorFinanceiro] = MotorFinanceiro,
     ) -> None:
         self._uow_factory = uow_factory
+        self._auditoria = auditoria
         self._motor_factory = motor_factory
 
     def calcular_valor_quitacao(
@@ -551,6 +720,7 @@ class QuitacaoRenegociacaoService:
                 memoria=quitacao.memoria,
             )
 
+    @auditar_escrita("emprestimo", "quitar", identificador="emprestimo_id")
     def quitar(
         self,
         *,
@@ -658,6 +828,7 @@ class QuitacaoRenegociacaoService:
                 memoria_quitacao=calculada.memoria,
             )
 
+    @auditar_escrita("emprestimo", "renegociar", identificador="emprestimo_id")
     def renegociar(
         self,
         *,
@@ -853,9 +1024,12 @@ def _pagamento_resultado(
         valor_juros=pagamento.valor_juros,
         valor_amortizacao=pagamento.valor_amortizacao,
         valor_encargos=pagamento.valor_encargos,
+        valor_devolvido=pagamento.valor_devolvido,
+        valor_estornado=pagamento.valor_estornado,
+        valor_sobra=pagamento.valor_sobra,
+        reconciliado=pagamento.reconciliado,
         estado=pagamento.estado,
         chave_idempotencia=pagamento.chave_idempotencia,
-        parcelas_liquidadas=pagamento.parcelas_liquidadas,
         memoria=memoria,
     )
 

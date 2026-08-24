@@ -19,7 +19,7 @@ export default defineConfig({
   webServer: [
     { command: `node tests/agenda-e2e/backend-fixture.mjs --port ${backendPort}`, reuseExistingServer: false, timeout: 30_000, url: `http://127.0.0.1:${backendPort}/health` },
     {
-      command: `npm run build && npm run start -- --hostname 127.0.0.1 --port ${frontendPort}`,
+      command: `node scripts/require-build.mjs && npm run start -- --hostname 127.0.0.1 --port ${frontendPort}`,
       env: {
         FRONTEND_BACKEND_URL: `http://127.0.0.1:${backendPort}`,
         FRONTEND_ORIGIN: baseURL,

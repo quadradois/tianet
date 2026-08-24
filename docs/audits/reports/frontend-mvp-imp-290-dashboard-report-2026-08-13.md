@@ -86,10 +86,10 @@ Capturas reais do build de producao, sem indicador de dev:
 
 | Evidencia | Dimensoes | SHA-256 |
 |---|---:|---|
-| Dashboard loaded desktop | 1440x900 | `392606692c261a05bd76c08b2eef712c316b6f2fc608f019f9bd326c3235c243` |
-| Dashboard loaded mobile | 390x844 | `e8a5b67e6e51393adf5ced0d75e52b0e72cbdf0564d6b9c71dcaa4c8c00bf7bb` |
-| Estados desktop (dark) | 1440x900 | `242ae052ad2708901a3c2b86ea36f7affdc842da82b0ea446ae75059f0c7bea3` |
-| Estados mobile (dark) | 390x844 | `f9cdb1898f5f48f0c15abd85e570b94d2c7d263a615d15d2b85ef3a75d76e266` |
+| Dashboard loaded desktop | 1440x900 | `0099c055175e0be4eb6b94872b6d0223247285992e08865a2117b32efd2fab12` |
+| Dashboard loaded mobile | 390x844 | `9af8557159fc46f5be189b2f93a87603f1181171d0ea379b96878608baa96b06` |
+| Estados desktop (dark) | 1440x900 | `bc9114210e9fd7a9bdd85ae6de41146284560958aed62a08c3fe8579a7c5acfd` |
+| Estados mobile (dark) | 390x844 | `114af4b7d33d9d4421838228e50c6031ddf6b43f84cf46c9da84e34cede4e972` |
 
 O fluxo suporta o objetivo do operador: contexto Tenant/Carteira visivel,
 seletor temporal canonico, hierarquia das quatro secoes e falha parcial sem

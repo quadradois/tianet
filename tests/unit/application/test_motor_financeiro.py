@@ -161,7 +161,7 @@ def test_pagamento_service_registra_pagamento_com_memoria_evento_e_commit() -> N
     uow = _FakeUoW(contrato=_ContratoLiberado(), emprestimo_existente=emprestimo)
     uow.commits = 0
 
-    resultado = PagamentoService(_uow_factory(uow)).registrar(
+    resultado = PagamentoService(_uow_factory(uow), _auditoria()).registrar(
         emprestimo_id=emprestimo.id,
         tenant_id=TENANT_ID,
         usuario_id=USUARIO_ID,
@@ -183,7 +183,7 @@ def test_pagamento_service_registra_pagamento_com_memoria_evento_e_commit() -> N
 def test_pagamento_service_replay_por_chave_nao_duplica() -> None:
     emprestimo = Emprestimo.criar_de_contrato_liberado(_contrato_liberado_logico())
     uow = _FakeUoW(contrato=_ContratoLiberado(), emprestimo_existente=emprestimo)
-    service = PagamentoService(_uow_factory(uow))
+    service = PagamentoService(_uow_factory(uow), _auditoria())
     primeiro = service.registrar(
         emprestimo_id=emprestimo.id,
         tenant_id=TENANT_ID,
@@ -211,7 +211,7 @@ def test_pagamento_service_replay_por_chave_nao_duplica() -> None:
 def test_pagamento_service_rejeita_replay_com_payload_divergente() -> None:
     emprestimo = Emprestimo.criar_de_contrato_liberado(_contrato_liberado_logico())
     uow = _FakeUoW(contrato=_ContratoLiberado(), emprestimo_existente=emprestimo)
-    service = PagamentoService(_uow_factory(uow))
+    service = PagamentoService(_uow_factory(uow), _auditoria())
     service.registrar(
         emprestimo_id=emprestimo.id,
         tenant_id=TENANT_ID,
@@ -238,7 +238,7 @@ def test_pagamento_service_rejeita_valor_invalido_sem_commit() -> None:
     uow.commits = 0
 
     with pytest.raises(TransicaoEstadoInvalidaError, match="positivo"):
-        PagamentoService(_uow_factory(uow)).registrar(
+        PagamentoService(_uow_factory(uow), _auditoria()).registrar(
             emprestimo_id=emprestimo.id,
             tenant_id=TENANT_ID,
             usuario_id=USUARIO_ID,
@@ -259,7 +259,7 @@ def test_pagamento_service_rejeita_emprestimo_quitado() -> None:
     uow.commits = 0
 
     with pytest.raises(TransicaoEstadoInvalidaError, match="nao pode ser processado"):
-        PagamentoService(_uow_factory(uow)).registrar(
+        PagamentoService(_uow_factory(uow), _auditoria()).registrar(
             emprestimo_id=emprestimo.id,
             tenant_id=TENANT_ID,
             usuario_id=USUARIO_ID,
@@ -275,7 +275,7 @@ def test_pagamento_service_rejeita_emprestimo_quitado() -> None:
 def test_consulta_saldo_retorna_componentes_e_memoria_sem_commit() -> None:
     emprestimo = Emprestimo.criar_de_contrato_liberado(_contrato_liberado_logico())
     uow = _FakeUoW(contrato=_ContratoLiberado(), emprestimo_existente=emprestimo)
-    PagamentoService(_uow_factory(uow)).registrar(
+    PagamentoService(_uow_factory(uow), _auditoria()).registrar(
         emprestimo_id=emprestimo.id,
         tenant_id=TENANT_ID,
         usuario_id=USUARIO_ID,
@@ -319,7 +319,9 @@ def test_quitacao_calcula_valor_sem_commit() -> None:
     uow.commits = 0
     memorias_antes = len(uow.memoria_calculo.salvas)
 
-    resultado = QuitacaoRenegociacaoService(_uow_factory(uow)).calcular_valor_quitacao(
+    resultado = QuitacaoRenegociacaoService(
+        _uow_factory(uow), _auditoria()
+    ).calcular_valor_quitacao(
         emprestimo_id=emprestimo.id,
         tenant_id=TENANT_ID,
         data_referencia=date(2026, 10, 10),
@@ -336,7 +338,7 @@ def test_quitacao_quita_emprestimo_preserva_memorias_e_eventos() -> None:
     uow = _FakeUoW(contrato=_ContratoLiberado(), emprestimo_existente=emprestimo)
     uow.commits = 0
 
-    resultado = QuitacaoRenegociacaoService(_uow_factory(uow)).quitar(
+    resultado = QuitacaoRenegociacaoService(_uow_factory(uow), _auditoria()).quitar(
         emprestimo_id=emprestimo.id,
         tenant_id=TENANT_ID,
         usuario_id=USUARIO_ID,
@@ -362,7 +364,7 @@ def test_quitacao_quita_emprestimo_preserva_memorias_e_eventos() -> None:
 def test_quitacao_replay_por_chave_nao_duplica_pagamento() -> None:
     emprestimo = Emprestimo.criar_de_contrato_liberado(_contrato_liberado_logico())
     uow = _FakeUoW(contrato=_ContratoLiberado(), emprestimo_existente=emprestimo)
-    service = QuitacaoRenegociacaoService(_uow_factory(uow))
+    service = QuitacaoRenegociacaoService(_uow_factory(uow), _auditoria())
     primeiro = service.quitar(
         emprestimo_id=emprestimo.id,
         tenant_id=TENANT_ID,
@@ -387,7 +389,7 @@ def test_quitacao_replay_por_chave_nao_duplica_pagamento() -> None:
 def test_quitacao_service_rejeita_replay_com_payload_divergente() -> None:
     emprestimo = Emprestimo.criar_de_contrato_liberado(_contrato_liberado_logico())
     uow = _FakeUoW(contrato=_ContratoLiberado(), emprestimo_existente=emprestimo)
-    service = QuitacaoRenegociacaoService(_uow_factory(uow))
+    service = QuitacaoRenegociacaoService(_uow_factory(uow), _auditoria())
     service.quitar(
         emprestimo_id=emprestimo.id,
         tenant_id=TENANT_ID,
@@ -410,7 +412,7 @@ def test_renegociacao_preserva_memoria_evento_e_estado() -> None:
     emprestimo, uow = _emprestimo_com_pagamento()
     uow.commits = 0
 
-    resultado = QuitacaoRenegociacaoService(_uow_factory(uow)).renegociar(
+    resultado = QuitacaoRenegociacaoService(_uow_factory(uow), _auditoria()).renegociar(
         emprestimo_id=emprestimo.id,
         tenant_id=TENANT_ID,
         usuario_id=USUARIO_ID,
@@ -429,7 +431,7 @@ def test_renegociacao_preserva_memoria_evento_e_estado() -> None:
 def test_renegociacao_service_replay_idempotente_e_conflito_divergente() -> None:
     emprestimo, uow = _emprestimo_com_pagamento()
     uow.commits = 0
-    service = QuitacaoRenegociacaoService(_uow_factory(uow))
+    service = QuitacaoRenegociacaoService(_uow_factory(uow), _auditoria())
     primeiro = service.renegociar(
         emprestimo_id=emprestimo.id,
         tenant_id=TENANT_ID,
@@ -471,7 +473,7 @@ def test_renegociacao_rejeita_parametros_vazios_sem_commit() -> None:
     uow.commits = 0
 
     with pytest.raises(TransicaoEstadoInvalidaError, match="nao vazios"):
-        QuitacaoRenegociacaoService(_uow_factory(uow)).renegociar(
+        QuitacaoRenegociacaoService(_uow_factory(uow), _auditoria()).renegociar(
             emprestimo_id=emprestimo.id,
             tenant_id=TENANT_ID,
             usuario_id=USUARIO_ID,
@@ -487,7 +489,7 @@ def test_renegociacao_rejeita_parametros_vazios_sem_commit() -> None:
 def _emprestimo_com_pagamento() -> tuple[Emprestimo, _FakeUoW]:
     emprestimo = Emprestimo.criar_de_contrato_liberado(_contrato_liberado_logico())
     uow = _FakeUoW(contrato=_ContratoLiberado(), emprestimo_existente=emprestimo)
-    PagamentoService(_uow_factory(uow)).registrar(
+    PagamentoService(_uow_factory(uow), _auditoria()).registrar(
         emprestimo_id=emprestimo.id,
         tenant_id=TENANT_ID,
         usuario_id=USUARIO_ID,
@@ -496,6 +498,10 @@ def _emprestimo_com_pagamento() -> tuple[Emprestimo, _FakeUoW]:
         idempotency_key="pag-helper",
     )
     return emprestimo, uow
+
+
+def _auditoria() -> AuditoriaRegistro:
+    return cast(AuditoriaRegistro, _AuditoriaFake())
 
 
 def _uow_factory(uow: _FakeUoW) -> Callable[[], UnitOfWork]:

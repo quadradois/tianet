@@ -14,6 +14,12 @@ from emprestimo.application.errors import (
     TransicaoEstadoInvalidaError,
     UsuarioNaoEncontradoError,
 )
+from emprestimo.application.idempotencia import (
+    concluir_idempotencia,
+    dataclass_do_resultado,
+    iniciar_idempotencia,
+    resultado_de_dataclass,
+)
 from emprestimo.application.ports import AuditoriaRegistro, UnitOfWork
 from emprestimo.domain.platform.credencial import Credencial
 from emprestimo.domain.platform.perfil import PerfilAcesso
@@ -134,6 +140,7 @@ class CredenciaisService:
         usuario_id: uuid.UUID,
         segredo_atual: str,
         novo_segredo: str,
+        idempotency_key: str | None = None,
     ) -> CredencialResultado:
         """Altera a propria credencial exigindo a credencial atual vigente."""
         self._registrar_inicio("alterar_propria", usuario_id, tenant_id=tenant_id)
@@ -143,6 +150,25 @@ class CredenciaisService:
                 if usuario.estado is not UsuarioState.ATIVO:
                     raise CredencialInvalidaError()
 
+                escopo = "iam-credencial-alterar-propria"
+                replay = iniciar_idempotencia(
+                    uow,
+                    chave=idempotency_key,
+                    escopo=escopo,
+                    solicitacao={
+                        "tenant_id": tenant_id,
+                        "usuario_id": usuario_id,
+                        "segredo_atual": segredo_atual,
+                        "novo_segredo": novo_segredo,
+                    },
+                )
+                if replay is not None:
+                    return dataclass_do_resultado(
+                        replay,
+                        CredencialResultado,
+                        chave=idempotency_key,
+                    )
+
                 credencial = uow.credencial.find_by_usuario_id(usuario.id)
                 if credencial is None or not credencial.verificar(segredo_atual):
                     raise CredencialInvalidaError()
@@ -150,10 +176,17 @@ class CredenciaisService:
                 credencial.redefinir(novo_segredo)
                 uow.credencial.save(credencial)
                 self._revogar_sessoes(uow, usuario.id)
+                resultado = CredencialResultado(usuario.id, usuario.tenant_id, usuario.estado)
+                concluir_idempotencia(
+                    uow,
+                    chave=idempotency_key,
+                    escopo=escopo,
+                    resultado=resultado_de_dataclass(resultado),
+                )
                 uow.commit()
 
             self._registrar_sucesso("alterar_propria", usuario_id, tenant_id=tenant_id)
-            return CredencialResultado(usuario.id, usuario.tenant_id, usuario.estado)
+            return resultado
         except Exception as exc:
             self._registrar_falha("alterar_propria", usuario_id, exc, tenant_id=tenant_id)
             raise
@@ -165,6 +198,7 @@ class CredenciaisService:
         solicitante_id: uuid.UUID,
         usuario_id: uuid.UUID,
         novo_segredo: str,
+        idempotency_key: str | None = None,
     ) -> CredencialResultado:
         """Redefine credencial de Usuario do mesmo Tenant.
 
@@ -188,6 +222,24 @@ class CredenciaisService:
 
                 usuario = self._usuario_do_tenant(uow, usuario_id, tenant_id)
                 self._validar_usuario_ativo_para_redefinicao(usuario.id, usuario.estado)
+                escopo = "iam-credencial-redefinir"
+                replay = iniciar_idempotencia(
+                    uow,
+                    chave=idempotency_key,
+                    escopo=escopo,
+                    solicitacao={
+                        "tenant_id": tenant_id,
+                        "solicitante_id": solicitante_id,
+                        "usuario_id": usuario_id,
+                        "novo_segredo": novo_segredo,
+                    },
+                )
+                if replay is not None:
+                    return dataclass_do_resultado(
+                        replay,
+                        CredencialResultado,
+                        chave=idempotency_key,
+                    )
                 credencial = uow.credencial.find_by_usuario_id(usuario.id)
                 if credencial is None:
                     credencial = Credencial.definir(usuario_id=usuario.id, segredo=novo_segredo)
@@ -196,6 +248,13 @@ class CredenciaisService:
 
                 uow.credencial.save(credencial)
                 self._revogar_sessoes(uow, usuario.id)
+                resultado = CredencialResultado(usuario.id, usuario.tenant_id, usuario.estado)
+                concluir_idempotencia(
+                    uow,
+                    chave=idempotency_key,
+                    escopo=escopo,
+                    resultado=resultado_de_dataclass(resultado),
+                )
                 uow.commit()
 
             self._registrar_sucesso(
@@ -204,7 +263,7 @@ class CredenciaisService:
                 tenant_id=tenant_id,
                 solicitante_id=solicitante_id,
             )
-            return CredencialResultado(usuario.id, usuario.tenant_id, usuario.estado)
+            return resultado
         except Exception as exc:
             self._registrar_falha(
                 "redefinir_usuario",

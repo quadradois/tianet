@@ -17,6 +17,7 @@ from emprestimo.presentation.api.dependencies import (
     get_consulta_emprestimo_service,
     get_consulta_saldo_service,
     get_criacao_emprestimo_service,
+    get_estorno_pagamento_service,
     get_pagamento_service,
     get_principal_atual,
     get_quitacao_renegociacao_service,
@@ -24,6 +25,7 @@ from emprestimo.presentation.api.dependencies import (
 from emprestimo.presentation.api.motor_schemas import (
     EmprestimoListagemResponse,
     EmprestimoResponse,
+    EstornoPagamentoRequest,
     MemoriaCalculoResponse,
     PagamentoCreateRequest,
     PagamentoResponse,
@@ -146,6 +148,29 @@ def registrar_pagamento(
         usuario_id=principal.usuario_id,
         valor=payload.valor,
         recebido_em=payload.recebido_em,
+        idempotency_key=_exigir_idempotency_key(idempotency_key),
+    )
+    return _pagamento_response(resultado)
+
+
+@router.post(
+    "/pagamentos/{pagamento_id}/estornos",
+    response_model=PagamentoResponse,
+    summary="Registrar estorno parcial de pagamento",
+    responses=combinar_respostas(RESPOSTA_CONFLITO_ESTADO),
+)
+def estornar_pagamento(
+    pagamento_id: uuid.UUID,
+    payload: EstornoPagamentoRequest,
+    idempotency_key: str = Header(alias="Idempotency-Key", min_length=1, max_length=255),
+    principal: Principal = Depends(exigir_permissao(PERMISSAO_PAGAMENTO_REGISTRAR)),
+    service: Any = Depends(get_estorno_pagamento_service),
+) -> PagamentoResponse:
+    resultado = service.estornar(
+        pagamento_id=pagamento_id,
+        tenant_id=principal.tenant_id,
+        usuario_id=principal.usuario_id,
+        valor=payload.valor,
         idempotency_key=_exigir_idempotency_key(idempotency_key),
     )
     return _pagamento_response(resultado)
@@ -323,9 +348,12 @@ def _pagamento_response(resultado: Any) -> PagamentoResponse:
         valor_juros=resultado.valor_juros,
         valor_amortizacao=resultado.valor_amortizacao,
         valor_encargos=resultado.valor_encargos,
+        valor_devolvido=resultado.valor_devolvido,
+        valor_estornado=resultado.valor_estornado,
+        valor_sobra=resultado.valor_sobra,
+        reconciliado=resultado.reconciliado,
         estado=resultado.estado,
         chave_idempotencia=resultado.chave_idempotencia,
-        parcelas_liquidadas=list(resultado.parcelas_liquidadas),
         memoria=_memoria_response(resultado.memoria) if resultado.memoria else None,
     )
 

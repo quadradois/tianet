@@ -59,6 +59,15 @@ escopo, e o Evento 6 corresponde a inativacao de Tenant ja existente.
   adapter precisara ler recibos armazenados, ou a porta muda.
 - **Conexao e pre-requisito das duas direcoes**: nao se envia nada sem instancia
   conectada, o que exige criar tenant, criar instancia e escanear o QR.
+- **O contrato nao descreve o formato de `POST /send/text`** (adicionado em
+  2026-08-22, no IMP-346): ele fixa o nivel de autenticacao da rota e o
+  comportamento de tenant inativo, mas nao traz exemplo de requisicao nem de
+  resposta. O adapter foi escrito com payload `{number, text, id}` e aceite por
+  `data.Info.ID`, extrapolados da documentacao publica do Evolution Go. **Nao
+  esta validado contra o servidor.** Se divergir, envios bem-sucedidos viram
+  `DESCONHECIDO` — sem risco de duplicata, porque esse resultado nao dispara
+  retry, mas com prejuizo de escrituracao. Conferir no primeiro envio real e
+  atualizar o contrato com o formato observado.
 
 Consequencias ja incorporadas ao desenho:
 
@@ -67,8 +76,8 @@ Consequencias ja incorporadas ao desenho:
   (`src/emprestimo/domain/credit/automacao_ports.py`), ao lado do Resend;
 - as conversas com o cliente serao registradas em `RegistroComunicacao`, que ja
   possui `ator_tipo`, `ator_identificador` e `provider_message_id`;
-- `CanalComunicacao` ainda **nao** possui o valor `whatsapp` — precisa ser
-  acrescentado.
+- `CanalComunicacao` **ja possui** o valor `whatsapp`, formalizado pela migration
+  `0018` em 2026-08-20.
 
 ## 2.2 Agente de IA "TiaNet"
 

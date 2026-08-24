@@ -88,10 +88,10 @@ def ambiente(session: Session) -> AmbienteIam:
 
 
 def _headers(token: str, chave: str | None = None) -> dict[str, str]:
-    headers = {"Authorization": f"Bearer {token}"}
-    if chave:
-        headers["Idempotency-Key"] = chave
-    return headers
+    return {
+        "Authorization": f"Bearer {token}",
+        "Idempotency-Key": chave or f"api-iam-{uuid.uuid4()}",
+    }
 
 
 def test_ativacao_descartavel_define_credencial_sem_persistir_segredo(

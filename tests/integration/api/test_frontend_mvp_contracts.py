@@ -252,10 +252,62 @@ def test_imp_280_auth_publica_request_body_especifico(
     assert _response_ref(operacao, "400") == "#/components/schemas/ErroResponse"
 
 
-def test_imp_281_idempotency_key_runtime_e_openapi_sao_obrigatorios() -> None:
+EXCECOES_IDEMPOTENCIA_ESCRITAS: dict[tuple[str, str], str] = {
+    ("post", "/auth/ativar"): (
+        "Consome token de ativacao descartavel e define segredo; o replay de uma "
+        "credencial de bootstrap nao equivale ao replay de uma escrita financeira."
+    ),
+    ("post", "/auth/login"): (
+        "Cada login autentica novamente e emite uma sessao nova; repetir a chave nao "
+        "deve reutilizar tokens de uma autenticacao anterior."
+    ),
+    ("post", "/auth/refresh"): (
+        "Refresh rotaciona token e sessao por seguranca; replayar o resultado anterior "
+        "reintroduziria uma credencial ja rotacionada."
+    ),
+    ("post", "/auth/logout"): (
+        "Logout revoga a sessao apresentada e e naturalmente convergente; nao existe "
+        "resultado de negocio reutilizavel por Idempotency-Key."
+    ),
+}
+
+
+def _escritas_sem_idempotency_key(
+    contrato: dict[str, object],
+) -> set[tuple[str, str]]:
+    paths = contrato["paths"]
+    assert isinstance(paths, dict)
+    sem_header: set[tuple[str, str]] = set()
+    for path, item in paths.items():
+        assert isinstance(path, str)
+        assert isinstance(item, dict)
+        parametros_path = item.get("parameters", [])
+        assert isinstance(parametros_path, list)
+        for metodo in {"post", "patch", "put", "delete"} & item.keys():
+            operacao = item[metodo]
+            assert isinstance(operacao, dict)
+            parametros_operacao = operacao.get("parameters", [])
+            assert isinstance(parametros_operacao, list)
+            parametros = [*parametros_path, *parametros_operacao]
+            protegido = any(
+                isinstance(parametro, dict)
+                and parametro.get("in") == "header"
+                and parametro.get("name") == "Idempotency-Key"
+                and parametro.get("required") is True
+                for parametro in parametros
+            )
+            if not protegido:
+                sem_header.add((metodo, path))
+    return sem_header
+
+
+def test_imp_333_toda_escrita_exige_idempotency_key_salvo_excecao_justificada() -> None:
     app = create_app()
     contrato = app.openapi()
-    inventario: list[tuple[str, str, bool]] = []
+    excecoes = set(EXCECOES_IDEMPOTENCIA_ESCRITAS)
+
+    assert all(motivo.strip() for motivo in EXCECOES_IDEMPOTENCIA_ESCRITAS.values())
+    assert _escritas_sem_idempotency_key(contrato) == excecoes
 
     for inclusao in app.routes:
         router = getattr(inclusao, "original_router", None)
@@ -264,26 +316,63 @@ def test_imp_281_idempotency_key_runtime_e_openapi_sao_obrigatorios() -> None:
         for rota in router.routes:
             if not isinstance(rota, APIRoute):
                 continue
+            assert rota.methods is not None
+            metodos_escrita = {
+                metodo.lower()
+                for metodo in rota.methods
+                if metodo.lower() in {"post", "patch", "put", "delete"}
+            }
+            if not metodos_escrita:
+                continue
             campos = [
                 campo for campo in rota.dependant.header_params if campo.alias == "Idempotency-Key"
             ]
-            for campo in campos:
-                assert rota.methods is not None
-                for metodo in rota.methods:
-                    inventario.append((rota.path, metodo.lower(), campo.field_info.is_required()))
+            for metodo in metodos_escrita:
+                if (metodo, rota.path) in excecoes:
+                    assert not campos
+                    continue
+                assert len(campos) == 1
+                assert campos[0].field_info.is_required()
+                parametros = contrato["paths"][rota.path][metodo]["parameters"]
+                header = next(
+                    parametro
+                    for parametro in parametros
+                    if parametro["in"] == "header" and parametro["name"] == "Idempotency-Key"
+                )
+                assert header["required"] is True
+                assert header["schema"]["minLength"] == 1
+                assert header["schema"]["maxLength"] == 255
 
-    assert len(inventario) == 31
-    assert all(required for _, _, required in inventario)
-    for path, metodo, _ in inventario:
-        parametros = contrato["paths"][path][metodo]["parameters"]
-        header = next(
-            parametro
-            for parametro in parametros
-            if parametro["in"] == "header" and parametro["name"] == "Idempotency-Key"
-        )
-        assert header["required"] is True
-        assert header["schema"]["minLength"] == 1
-        assert header["schema"]["maxLength"] == 255
+
+def test_imp_333_guardrail_reprova_escrita_nova_sem_chave_e_sem_excecao() -> None:
+    contrato = create_app().openapi()
+    contrato["paths"]["/prova/escrita-sem-chave"] = {
+        "post": {"operationId": "prova_guardrail", "responses": {"204": {}}}
+    }
+
+    sem_header = _escritas_sem_idempotency_key(contrato)
+    assert ("post", "/prova/escrita-sem-chave") in sem_header
+    with pytest.raises(AssertionError):
+        assert sem_header == set(EXCECOES_IDEMPOTENCIA_ESCRITAS)
+
+
+def test_imp_281_headers_idempotency_key_publicados_tem_limites_congelados() -> None:
+    contrato = create_app().openapi()
+    for path, item in contrato["paths"].items():
+        for metodo in {"post", "patch", "put", "delete"} & item.keys():
+            parametros = contrato["paths"][path][metodo]["parameters"]
+            headers = [
+                parametro
+                for parametro in parametros
+                if parametro["in"] == "header" and parametro["name"] == "Idempotency-Key"
+            ]
+            if (metodo, path) in EXCECOES_IDEMPOTENCIA_ESCRITAS:
+                assert not headers
+                continue
+            assert len(headers) == 1
+            assert headers[0]["required"] is True
+            assert headers[0]["schema"]["minLength"] == 1
+            assert headers[0]["schema"]["maxLength"] == 255
 
 
 def _response_ref(operacao: dict[str, object], status: str) -> str | None:

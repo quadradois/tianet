@@ -22,7 +22,7 @@ import {
   type Simulation,
 } from "../comercial/comercial-policy";
 
-import { ApiProblem, apiProblemFromResponse, correlationId, createCookieAuthenticatedFetch, type BffDependencies } from "./backend.server";
+import { ApiProblem, apiProblemFromResponse, correlationId, createCookieAuthenticatedFetch, idempotencyKey, type BffDependencies } from "./backend.server";
 import type { OperationalContext } from "./context.server";
 import { sessionCookieName, type CookieStore, unsealSession } from "./session.server";
 
@@ -336,7 +336,7 @@ export async function createCommercialSimulation(
   const body: SimulationCreateRequest = { parametros };
   return executeMutation(cookies, context, dependencies, COMERCIAL_SIMULATION_CREATE_PERMISSION, 201, (client, carteiraId, correlation) => client.POST(
     "/credit/carteiras/{carteira_id}/devedores/{devedor_id}/simulacoes-comerciais",
-    { body, params: { path: { carteira_id: carteiraId, devedor_id: devedorId }, header: { "X-Correlation-ID": correlation } } },
+    { body, params: { path: { carteira_id: carteiraId, devedor_id: devedorId }, header: { "X-Correlation-ID": correlation, "Idempotency-Key": idempotencyKey(true, formString(formData, "idempotency_key", 255)) as string } } },
   ), (value): value is Simulation => validSimulation(value, context, devedorId), "Simulacao comercial registrada.");
 }
 
@@ -355,7 +355,7 @@ export async function createCommercialProposal(
   const body: ProposalCreateRequest = { parametros, ...(simulacaoId ? { simulacao_id: simulacaoId } : {}) };
   return executeMutation(cookies, context, dependencies, COMERCIAL_PROPOSAL_CREATE_PERMISSION, 201, (client, carteiraId, correlation) => client.POST(
     "/credit/carteiras/{carteira_id}/devedores/{devedor_id}/propostas-comerciais",
-    { body, params: { path: { carteira_id: carteiraId, devedor_id: devedorId }, header: { "X-Correlation-ID": correlation } } },
+    { body, params: { path: { carteira_id: carteiraId, devedor_id: devedorId }, header: { "X-Correlation-ID": correlation, "Idempotency-Key": idempotencyKey(true, formString(formData, "idempotency_key", 255)) as string } } },
   ), (value): value is Proposal => validProposal(value, context, devedorId), "Proposta comercial criada.");
 }
 
@@ -372,7 +372,7 @@ export async function updateCommercialProposal(
   const body: ProposalUpdateRequest = { parametros };
   return executeMutation(cookies, context, dependencies, COMERCIAL_PROPOSAL_CREATE_PERMISSION, 200, (client, _carteiraId, correlation) => client.PATCH(
     "/credit/propostas-comerciais/{proposta_id}",
-    { body, params: { path: { proposta_id: propostaId }, header: { "X-Correlation-ID": correlation } } },
+    { body, params: { path: { proposta_id: propostaId }, header: { "X-Correlation-ID": correlation, "Idempotency-Key": idempotencyKey(true, formString(formData, "idempotency_key", 255)) as string } } },
   ), (value): value is Proposal => validProposal(value, context), "Proposta comercial atualizada.");
 }
 
@@ -388,7 +388,7 @@ export async function decideCommercialProposal(
   const motivo = formString(formData, "motivo", 500);
   const body: DecisionRequest = { ...(motivo ? { motivo } : {}) };
   return executeMutation(cookies, context, dependencies, COMERCIAL_PROPOSAL_DECIDE_PERMISSION, 200, (client, _carteiraId, correlation) => {
-    const params = { path: { proposta_id: propostaId }, header: { "X-Correlation-ID": correlation } };
+    const params = { path: { proposta_id: propostaId }, header: { "X-Correlation-ID": correlation, "Idempotency-Key": idempotencyKey(true, formString(formData, "idempotency_key", 255)) as string } };
     if (decision === "enviar-para-analise") return client.POST("/credit/propostas-comerciais/{proposta_id}/enviar-para-analise", { params });
     if (decision === "aprovar") return client.POST("/credit/propostas-comerciais/{proposta_id}/aprovar", { params });
     if (decision === "recusar") return client.POST("/credit/propostas-comerciais/{proposta_id}/recusar", { body, params });

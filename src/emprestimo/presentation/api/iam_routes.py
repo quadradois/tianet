@@ -186,6 +186,7 @@ def _exigir_permissao_usuario(
 )
 def alterar_credencial(
     payload: AlterarCredencialRequest,
+    idempotency_key: str = Header(alias="Idempotency-Key", min_length=1, max_length=255),
     principal: Principal = Depends(get_principal_atual),
     service: CredenciaisService = Depends(get_credenciais_service),
 ) -> CredencialResponse:
@@ -194,6 +195,7 @@ def alterar_credencial(
         usuario_id=principal.usuario_id,
         segredo_atual=payload.segredo_atual,
         novo_segredo=payload.novo_segredo,
+        idempotency_key=_chave(idempotency_key),
     )
     return CredencialResponse(
         usuario_id=resultado.usuario_id,
@@ -210,6 +212,7 @@ def alterar_credencial(
 def redefinir_credencial(
     usuario_id: uuid.UUID,
     payload: RedefinirCredencialRequest,
+    idempotency_key: str = Header(alias="Idempotency-Key", min_length=1, max_length=255),
     principal: Principal = Depends(_exigir_permissao_usuario("credencial.redefinir")),
     service: CredenciaisService = Depends(get_credenciais_service),
 ) -> CredencialResponse:
@@ -218,6 +221,7 @@ def redefinir_credencial(
         solicitante_id=principal.usuario_id,
         usuario_id=usuario_id,
         novo_segredo=payload.novo_segredo,
+        idempotency_key=_chave(idempotency_key),
     )
     return CredencialResponse(
         usuario_id=resultado.usuario_id,

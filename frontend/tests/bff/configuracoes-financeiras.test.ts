@@ -161,13 +161,13 @@ describe("BFF de Configuracoes Financeiras", () => {
     }
   });
 
-  it("executa os comandos oficiais sem inventar Idempotency-Key", async () => {
+  it("executa os oito comandos oficiais com Idempotency-Key", async () => {
     const selected = config();
     const seen: string[] = [];
     const backend = vi.fn<FetchLike>(async (request) => {
       const url = new URL(request.url);
       seen.push(`${request.method} ${url.pathname}`);
-      expect(request.headers.get("Idempotency-Key")).toBeNull();
+      expect(request.headers.get("Idempotency-Key")).toBeTruthy();
       expect(request.headers.get("X-Correlation-ID")).toBeTruthy();
       if (url.pathname.endsWith("/modalidades")) return Response.json(modalidade(), { status: 201, headers: { "X-Correlation-ID": "corr-command" } });
       if (url.pathname.endsWith("/calendarios")) return Response.json(calendario(), { status: 201, headers: { "X-Correlation-ID": "corr-command" } });
