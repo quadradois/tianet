@@ -2,9 +2,9 @@
 
 **ID:** PLAN-032-EXEC
 
-**Versao:** 1.4.0
+**Versao:** 1.5.0
 
-**Status:** Em execucao - 17 de 18 concluidos (IMP-330..344, IMP-346, IMP-350); resta apenas o gate final IMP-345
+**Status:** **CONCLUIDO** - 18 de 18 itens elegiveis. MVP recertificado em 2026-08-25 sobre arvore limpa em `c2fc926`, com 33 gates verdes e cobertura em 90,02%. Handoff em `docs/governance/handoffs/2026-08-25-handoff-plan-032-mvp-recertificado.md`.
 
 **Decisoes do fundador em 2026-08-22:** IMP-332 resolvido pelo fluxo de aviso e
 estorno (nao por rejeicao); IMP-331 resolvido pela varredura diaria no worker
@@ -963,7 +963,7 @@ Estado mantido pelo loop de execucao. `Pendente` -> `Em revisao` -> `Concluido`;
 | IMP-332 | Sobra: aviso e estorno | A | **Concluido** | 2 |
 | IMP-344 | Fechar a arvore atual | E | **Concluido** | 1 |
 | IMP-350 | Cobrir o caminho de entrega da notificacao | E | **Concluido** - achou defeito real de producao | 1 |
-| IMP-345 | Recertificacao do MVP | E | Pendente | 0 |
+| IMP-345 | Recertificacao do MVP | E | **Concluido** - 33 gates verdes sobre arvore limpa | 1 |
 
 **Fora do MVP, nao entram no loop:** IMP-347, IMP-348, IMP-349.
 
@@ -1208,6 +1208,7 @@ deles.
 
 | Versao | Data | Descricao |
 |---|---|---|
+| 1.5.0 | 2026-08-25 | IMP-345 executado e plano concluido: recertificacao completa sobre arvore limpa, 33 gates verdes, cobertura em 90,02% medida com `--precision=2`. Handoff novo publicado e ponteiro `~/HANDOFF-VIGENTE.md` atualizado. Divergencia de local declarada: o item pedia `docs/handoffs/`, que nao existe — o local real e documentado no `docs/README.md` e `docs/governance/handoffs/`. |
 | 1.4.0 | 2026-08-25 | IMP-350 aberto e concluido por decisao do fundador sobre a §9.9: cobrir o caminho de entrega em vez de aceitar 89,55%. Achou defeito real de producao — `audit_log.status` em VARCHAR(20) nao cabia `resultado_desconhecido`, derrubando a entrega do aviso de sobra. Migration `c47f1a2b8e30`, remendo do comprovante removido, guardrail de vocabulario adicionado. |
 | 1.3.0 | 2026-08-25 | Fase D fechada: IMP-341 (as tres vozes do token alinhadas, com o beco sem saida das 24 h registrado como IMP-349), IMP-342 (politica minima no funil do dominio, nao nos quatro schemas) e IMP-343 (heartbeat com consumidor, `degraded` respondendo 200). IMP-330 reconciliado de `Devolvido` para `Concluido` com a cadeia de SHA verificada. Resta o IMP-345. |
 | 1.2.0 | 2026-08-22 | Provedor de WhatsApp corrigido: nao era decisao aberta — Evolution Go ja esta definido, em uso e com contrato auditado em `docs/whatsapp/CRM_EVOLUTION_CONTRACT.md`. IMP-346 reescrito com o contrato real e desbloqueado; ordem de execucao refeita; IMP-339 ganhou o ponteiro do `contexto-externo.md` no `CLAUDE.md` como correcao de causa raiz. |
