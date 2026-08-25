@@ -257,7 +257,9 @@ class AuditoriaLogORM(Base):
     entidade: Mapped[str] = mapped_column(String(50), nullable=False)
     entidade_id: Mapped[uuid.UUID | None] = mapped_column(Uuid, nullable=True)
     acao: Mapped[str] = mapped_column(String(120), nullable=False)
-    status: Mapped[str] = mapped_column(String(20), nullable=False)
+    # IMP-350: 20 nao cabia `resultado_desconhecido` (22). Ver a migration
+    # c47f1a2b8e30 — o limite curto derrubava a entrega do aviso de sobra.
+    status: Mapped[str] = mapped_column(String(40), nullable=False)
     detalhes: Mapped[str | None] = mapped_column(String(2000), nullable=True)
     criado_em: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False

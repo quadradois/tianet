@@ -164,11 +164,11 @@ class EntregaComprovanteService:
             "comprovante_entrega",
             claim.tentativa.execution_id,
             "entregar.resultado",
-            (
-                "desconhecido"
-                if resultado is ResultadoExecucao.RESULTADO_DESCONHECIDO
-                else resultado.value
-            ),
+            # IMP-350: aqui havia um mapeamento para "desconhecido" porque
+            # `audit_log.status` era VARCHAR(20) e nao cabia os 22 caracteres de
+            # `resultado_desconhecido`. A coluna foi alargada; o remendo saiu, e
+            # a trilha passa a gravar o mesmo vocabulario que o dominio usa.
+            resultado.value,
             detalhes=json.dumps(
                 {**detalhes, "resultado": resultado.value},
                 sort_keys=True,
