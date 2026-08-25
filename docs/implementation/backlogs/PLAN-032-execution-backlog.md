@@ -2,9 +2,9 @@
 
 **ID:** PLAN-032-EXEC
 
-**Versao:** 1.3.0
+**Versao:** 1.4.0
 
-**Status:** Em execucao - 16 de 17 concluidos (IMP-330..344, IMP-346); resta apenas o gate final IMP-345
+**Status:** Em execucao - 17 de 18 concluidos (IMP-330..344, IMP-346, IMP-350); resta apenas o gate final IMP-345
 
 **Decisoes do fundador em 2026-08-22:** IMP-332 resolvido pelo fluxo de aviso e
 estorno (nao por rejeicao); IMP-331 resolvido pela varredura diaria no worker
@@ -846,6 +846,40 @@ Republicados a partir dos bytes reais. Foi isso que levou `docs:test` de 172 par
   commitadas do branch e nao foi tocado por nenhum item deste plano. E a mesma
   feature de "Projecao de juros" das outras duas dividas.
 
+### IMP-350 - Cobrir o caminho de entrega da notificacao
+
+- **Origem:** decisao do fundador em 2026-08-25, sobre a medicao da §9.9. A
+  alternativa era aceitar 89,55% como linha de base; a escolha foi cobrir antes
+  de fechar, porque as duas piores coberturas eram justamente o caminho de
+  entrega — `notifications.py` (52%) e `scheduler_worker.py` (65%).
+- **O que a cobertura estava escondendo:** `EntregaComprovanteService` tinha
+  teste de integracao desde o IMP-330; `EntregaAvisoSobraPagamentoService`, do
+  IMP-332, **nao tinha nenhum**. O handler estava registrado no worker e rodava
+  sem que nada exercitasse a cadeia. Mesmo buraco do IMP-330, no item seguinte.
+- **Defeito de producao encontrado ao escrever o teste, nao suposto:**
+  `audit_log.status` era `VARCHAR(20)` e `ResultadoExecucao.RESULTADO_DESCONHECIDO`
+  vale `resultado_desconhecido` — **22 caracteres**. O caminho de resultado
+  desconhecido do aviso de sobra estourava a coluna com
+  `StringDataRightTruncation` e derrubava a entrega.
+- **Por que ninguem tinha visto:** o `comprovante.py` contornava no call site,
+  mapeando aquele caso para `desconhecido` antes de auditar — o IMP-330
+  descobriu porque *tinha* teste do caminho desconhecido. O `notifications.py`,
+  escrito depois, copiou o padrao de auditoria e **nao** copiou o remendo.
+- **Correcao na causa, nao no sintoma:** copiar o contorno seria o menor diff e
+  deixaria a armadilha armada para o proximo servico. A migration
+  `c47f1a2b8e30` alarga `status` para `VARCHAR(40)`, o remendo do comprovante
+  sai, e a trilha passa a gravar o mesmo vocabulario que o dominio usa.
+- **Guardrail para nao repetir:**
+  `tests/unit/architecture/test_auditoria_guardrails.py` le o limite da coluna
+  no proprio ORM e falha assim que um vocabulario novo nao couber — antes de
+  virar erro de banco num caminho pouco exercitado.
+- **Evidencia:** `tests/integration/application/test_entrega_aviso_sobra.py`,
+  quatro cenarios contra PostgreSQL real — entrega aceita com registro de
+  comunicacao, falha temporaria com retry reusando a mesma chave idempotente,
+  falha permanente terminal, e resultado sem prova de entrega nao virando
+  registro. O sentido negativo nao precisou de mutacao artificial: a primeira
+  execucao do teste, antes da migration, falhou com o `DataError` real.
+
 ### IMP-345 - Recertificacao completa do MVP
 
 - **Objetivo:** regenerar, sobre arvore limpa, a evidencia que o handoff vigente
@@ -928,6 +962,7 @@ Estado mantido pelo loop de execucao. `Pendente` -> `Em revisao` -> `Concluido`;
 | IMP-330 | Entrega do comprovante | A | **Concluido** - reconciliado em 2026-08-25, ver §9.6 | 2 |
 | IMP-332 | Sobra: aviso e estorno | A | **Concluido** | 2 |
 | IMP-344 | Fechar a arvore atual | E | **Concluido** | 1 |
+| IMP-350 | Cobrir o caminho de entrega da notificacao | E | **Concluido** - achou defeito real de producao | 1 |
 | IMP-345 | Recertificacao do MVP | E | Pendente | 0 |
 
 **Fora do MVP, nao entram no loop:** IMP-347, IMP-348, IMP-349.
@@ -1173,6 +1208,7 @@ deles.
 
 | Versao | Data | Descricao |
 |---|---|---|
+| 1.4.0 | 2026-08-25 | IMP-350 aberto e concluido por decisao do fundador sobre a §9.9: cobrir o caminho de entrega em vez de aceitar 89,55%. Achou defeito real de producao — `audit_log.status` em VARCHAR(20) nao cabia `resultado_desconhecido`, derrubando a entrega do aviso de sobra. Migration `c47f1a2b8e30`, remendo do comprovante removido, guardrail de vocabulario adicionado. |
 | 1.3.0 | 2026-08-25 | Fase D fechada: IMP-341 (as tres vozes do token alinhadas, com o beco sem saida das 24 h registrado como IMP-349), IMP-342 (politica minima no funil do dominio, nao nos quatro schemas) e IMP-343 (heartbeat com consumidor, `degraded` respondendo 200). IMP-330 reconciliado de `Devolvido` para `Concluido` com a cadeia de SHA verificada. Resta o IMP-345. |
 | 1.2.0 | 2026-08-22 | Provedor de WhatsApp corrigido: nao era decisao aberta — Evolution Go ja esta definido, em uso e com contrato auditado em `docs/whatsapp/CRM_EVOLUTION_CONTRACT.md`. IMP-346 reescrito com o contrato real e desbloqueado; ordem de execucao refeita; IMP-339 ganhou o ponteiro do `contexto-externo.md` no `CLAUDE.md` como correcao de causa raiz. |
 | 1.1.0 | 2026-08-22 | Decisoes do fundador no IMP-331 (varredura diaria) e IMP-332 (aviso e estorno). Descoberto que nao existe transporte de WhatsApp: aberto IMP-346 como pre-requisito de IMP-330 e IMP-332. Visao de notificacoes diarias registrada como IMP-347 pos-MVP. Checklist de execucao e protocolo do loop adicionados. |
@@ -1348,7 +1384,20 @@ Onde esta o buraco, do pior para o melhor (abaixo de 80%):
 levaria o numero a 90% sem cobrir nada que importa — `notifications.py` e
 `scheduler_worker.py` sozinhos concentram 247 linhas nao exercitadas, e sao
 justamente o caminho de entrega que o IMP-330 mostrou ser capaz de falhar em
-silencio. **Decisao de escopo do fundador:** aceitar 89,55% como linha de base
-declarada do MVP, ou abrir item para cobrir o caminho de notificacao antes do
-fechamento. O numero esta aqui para que a escolha seja consciente, nao herdada
-de um arredondamento.
+silencio.
+
+**Decisao do fundador, em 2026-08-25:** cobrir o caminho de notificacao antes do
+fechamento, em vez de aceitar a linha de base. Executado no IMP-350.
+
+**Resultado, medido com `--precision=2` nos tres momentos:**
+
+| Momento | Cobertura | `notifications.py` | `scheduler_worker.py` |
+|---|---|---|---|
+| Antes | 89,55% | 52,50% | 64,81% |
+| Depois do teste de entrega do aviso | 89,92% | 64,72% | 64,81% |
+| Depois do teste da cadeia do heartbeat | **90,02%** | 64,72% | 69,91% |
+
+A meta esta batida **por medicao, nao por arredondamento** — e a distancia entre
+89,55% e 90,02% custou dois testes que acharam um defeito de producao e um
+acoplamento entre suites. Foi o caminho mais barato ate a meta? Nao. Foi o que
+cobriu o que o numero estava escondendo.
