@@ -11,11 +11,13 @@ Fluxo (TASK-043):
 8. Confirmar provisionamento — Tenant Ativo (UC-007).
 
 Idempotência (AD-002, IMP-015): a Idempotency-Key é registrada na mesma
-transação; replay com a mesma chave retorna exatamente o mesmo resultado,
-e chave com payload divergente responde conflito. O registro de idempotência
-e o de auditoria compartilham a transação com os repositórios de domínio,
-exceto os eventos de falha/rollback da auditoria, que persistem em sessão
-independente (sobrevivem ao rollback).
+transação; replay com a mesma chave retorna o mesmo resultado, e chave com
+payload divergente responde conflito. A única exceção é o `token_ativacao`,
+que o replay devolve como `None` — ver IMP-341 e o campo homônimo.
+
+O registro de idempotência e o de auditoria compartilham a transação com os
+repositórios de domínio, exceto os eventos de falha/rollback da auditoria, que
+persistem em sessão independente (sobrevivem ao rollback).
 """
 
 from __future__ import annotations
@@ -63,7 +65,20 @@ class TenantProvisionado:
     estado: TenantState
     criado_em: datetime
     usuario_administrador_id: uuid.UUID | None = None
+
     token_ativacao: str | None = None
+    """Segredo de ativação — entregue **uma única vez**, na primeira resposta.
+
+    O registro de idempotência não o serializa, de propósito: guardar segredo em
+    claro numa tabela de replay é pior do que perder a primeira resposta. Por
+    isso o replay devolve `None` (IMP-341).
+
+    Perdida a primeira resposta — ou expirado o token, que vale 24 h —, a saída
+    é administrativa, não uma reemissão automática:
+    `POST /iam/usuarios/{id}/credencial/redefinir` (permissão
+    `credencial.redefinir`), ou a CLI `bootstrap_plataforma` quando não há
+    nenhum administrador ativo no Tenant.
+    """
 
 
 def _solicitacao_hash(identificador_institucional: str, nome: str, email_administrador: str) -> str:
@@ -247,5 +262,7 @@ def _desserializar_resultado(conteudo: str | None) -> TenantProvisionado:
             if dados.get("usuario_administrador_id")
             else None
         ),
+        # IMP-341: ausente por decisão, não por esquecimento — `_serializar_resultado`
+        # não grava o segredo. Ver `TenantProvisionado.token_ativacao`.
         token_ativacao=None,
     )

@@ -6,6 +6,13 @@ import net from "node:net";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
+// IMP-343: o /health passou a somar o heartbeat do worker aos `checks`. Esta
+// stack sobe API + banco e **nao** sobe worker, entao `degraded` e o estado
+// correto aqui — nao um defeito. O que a sonda precisa provar continua sendo o
+// mesmo: a API responde 200 e o banco real esta de pe (asercao logo abaixo).
+// Fixar `healthy` exigiria worker no ar so para o teste de prontidao.
+const STATUS_PRONTO = ["healthy", "degraded"];
+
 const repositoryRoot = fileURLToPath(new URL("../../../", import.meta.url));
 const frontendRoot = resolve(repositoryRoot, "frontend");
 const statePath = resolve(frontendRoot, "test-results/jornadas/state.json");
@@ -163,7 +170,7 @@ async function globalSetup() {
       const response = await fetch(`${apiUrl}/health`);
       assert.equal(response.status, 200);
       const health = await response.json();
-      assert.equal(health.status, "healthy");
+      assert.ok(STATUS_PRONTO.includes(health.status), `status inesperado: ${health.status}`);
       assert.equal(health.service, "api");
       assert.equal(health.checks.database, "healthy");
       return true;

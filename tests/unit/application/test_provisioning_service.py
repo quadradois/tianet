@@ -196,6 +196,9 @@ def test_replay_com_mesma_chave_retorna_mesmo_resultado() -> None:
     assert segundo.tenant_id == primeiro.tenant_id
     assert segundo.identificador_institucional == primeiro.identificador_institucional
     assert primeiro.token_ativacao is not None
+    # IMP-341: o segredo sai uma unica vez. O registro de idempotencia nao o
+    # serializa de proposito, entao o replay devolve None em vez de reemitir.
+    # Recuperacao e administrativa (credencial.redefinir ou a CLI de bootstrap).
     assert segundo.token_ativacao is None
     assert ctx.unicidade.chamadas == 1  # não reprovisiona
     assert len(ctx.uow.tenant.salvos) == 2  # nenhuma duplicação

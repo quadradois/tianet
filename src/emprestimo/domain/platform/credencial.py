@@ -16,12 +16,64 @@ ITERACOES_CREDENCIAL = 210_000
 SALT_BYTES = 16
 
 
+COMPRIMENTO_MINIMO_CREDENCIAL = 10
+"""Piso de comprimento da credencial (IMP-342). Politica minima, nao elaborada."""
+
+_CREDENCIAIS_PROIBIDAS = frozenset(
+    {
+        "0123456789",
+        "1234567890",
+        "administrador",
+        "emprestimo",
+        "password123",
+        "qwertyuiop",
+        "senha123456",
+        "tianet2026",
+    }
+)
+"""Trivialidades que passariam pelo comprimento minimo (IMP-342)."""
+
+
+def _repeticao_unica(segredo: str) -> bool:
+    return len(set(segredo)) == 1
+
+
+def _sequencia_continua(segredo: str) -> bool:
+    codigos = [ord(caractere) for caractere in segredo.lower()]
+    passos = {b - a for a, b in zip(codigos, codigos[1:], strict=False)}
+    return passos in ({1}, {-1})
+
+
+def _trivial(segredo: str) -> bool:
+    return (
+        segredo.lower() in _CREDENCIAIS_PROIBIDAS
+        or _repeticao_unica(segredo)
+        or _sequencia_continua(segredo)
+    )
+
+
 def _normalizar_segredo(segredo: str) -> str:
+    """Aplica a politica minima de credencial no unico funil por onde todo segredo novo passa.
+
+    `definir` e `redefinir` chamam esta funcao; validar aqui cobre API, CLI de
+    bootstrap e qualquer chamador futuro sem repetir regra na Presentation.
+    A mensagem de erro nunca ecoa o segredo recebido.
+    """
     segredo_normalizado = segredo.strip()
     if not segredo_normalizado:
         raise ViolacaoInvarianteError(
             "FEATURE-010",
             "credencial nao pode ser vazia",
+        )
+    if len(segredo_normalizado) < COMPRIMENTO_MINIMO_CREDENCIAL:
+        raise ViolacaoInvarianteError(
+            "FEATURE-010",
+            f"credencial deve ter ao menos {COMPRIMENTO_MINIMO_CREDENCIAL} caracteres",
+        )
+    if _trivial(segredo_normalizado):
+        raise ViolacaoInvarianteError(
+            "FEATURE-010",
+            "credencial trivial: evite repeticao, sequencia continua ou senha comum",
         )
     return segredo_normalizado
 

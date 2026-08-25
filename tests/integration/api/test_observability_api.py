@@ -40,10 +40,13 @@ def test_healthcheck_publico_retorna_saude_minima_sem_dados_sensiveis(
 
     assert resp.status_code == 200
     assert resp.headers[CORRELATION_ID_HEADER] == "trace-health-1"
+    # IMP-343: banco real, worker sem ninguem batendo ponto na suite. O contrato
+    # que isso prova e duplo: a consulta ao heartbeat roda contra PostgreSQL, e
+    # worker parado degrada sem devolver 503.
     assert resp.json() == {
-        "status": "healthy",
+        "status": "degraded",
         "service": "api",
-        "checks": {"database": "healthy"},
+        "checks": {"database": "healthy", "worker": "unhealthy"},
     }
     conteudo = resp.text.lower()
     for proibido in ["postgresql://", "tenant", "usuario", "token", "secret", "stack"]:

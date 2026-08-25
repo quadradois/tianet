@@ -120,10 +120,12 @@ def test_health(client: TestClient) -> None:
     resp = client.get("/health")
 
     assert resp.status_code == 200
+    # IMP-343: a suite nao sobe worker, entao o heartbeat esta ausente e o
+    # /health degrada — sem tirar a API de rotacao (200, nao 503).
     assert resp.json() == {
-        "status": "healthy",
+        "status": "degraded",
         "service": "api",
-        "checks": {"database": "healthy"},
+        "checks": {"database": "healthy", "worker": "unhealthy"},
     }
     assert resp.headers["X-Correlation-ID"]
 

@@ -2,9 +2,9 @@
 
 **ID:** PLAN-032-EXEC
 
-**Versao:** 1.2.0
+**Versao:** 1.3.0
 
-**Status:** Em execucao - 14 de 17 concluidos (IMP-330..340, IMP-344, IMP-346); restam IMP-341, 342, 343 e o gate final IMP-345
+**Status:** Em execucao - 16 de 17 concluidos (IMP-330..344, IMP-346); resta apenas o gate final IMP-345
 
 **Decisoes do fundador em 2026-08-22:** IMP-332 resolvido pelo fluxo de aviso e
 estorno (nao por rejeicao); IMP-331 resolvido pela varredura diaria no worker
@@ -680,18 +680,97 @@ contrato, nao ao codigo inteiro nem a documentacao.
   comportamento como esperado.
 - **Criterio de pronto:** ou existe caminho de reemissao, ou a docstring, o
   contrato e o teste passam a dizer a mesma coisa. Hoje dizem tres coisas.
+- **Execucao (2026-08-25):** escolhida a segunda via, e nao por ser a mais
+  barata. Serializar o segredo no registro de idempotencia guardaria credencial
+  em claro numa tabela de replay — trocaria uma inconsistencia de documentacao
+  por um problema de seguranca. O `None` estava certo; o que estava errado era
+  ninguem dizer isso.
+  As tres vozes foram alinhadas: a docstring do modulo declara a excecao, o
+  campo `TenantProvisionado.token_ativacao` ganhou docstring propria com o
+  motivo e a saida, e o `assert segundo.token_ativacao is None` do teste deixou
+  de ser comportamento fixado sem explicacao.
+- **Caminho de recuperacao, que ja existia e nao estava escrito:**
+  `POST /iam/usuarios/{id}/credencial/redefinir` (permissao
+  `credencial.redefinir`) ou a CLI `bootstrap_plataforma`. Nada foi construido
+  para isto — foi reuso do que o codebase ja tinha.
+- **Achado maior que o item, declarado e nao silenciado:** `TokenAtivacao`
+  expira em **24 h** e nao ha reemissao. O beco sem saida nao e so do replay: um
+  administrador que demore mais de um dia para ativar cai no mesmo lugar. Pior,
+  `redefinir_usuario` usa `principal.tenant_id`, entao so um administrador **do
+  proprio Tenant** redefine — e se o primeiro nunca ativou, nao existe esse
+  administrador. A saida real, hoje, e a CLI de bootstrap, com acesso ao
+  servidor. Suficiente para o MVP de um credor individual; **insuficiente no dia
+  em que houver mais de um Tenant**. Registrado como IMP-349, fora deste plano.
 
 ### IMP-342 - Politica minima de senha
 
 - **Objetivo:** `presentation/api/schemas.py` aceita segredo de um caractere.
 - **Escopo:** comprimento minimo e rejeicao de trivialidades. Nada alem —
   politica elaborada nao e MVP.
+- **Execucao (2026-08-25):** a politica **nao** foi para `schemas.py`. O
+  objetivo do item cita o schema porque foi ali que o buraco apareceu, mas
+  `min_length=1` esta em quatro campos e a Presentation nao e o unico caminho:
+  a CLI `bootstrap_plataforma` define credencial sem passar por Pydantic. Corrigir
+  nos quatro schemas deixaria a CLI aberta e criaria quatro lugares para
+  divergir.
+  A regra foi para `_normalizar_segredo`, em `domain/platform/credencial.py` — o
+  funil unico por onde `definir` e `redefinir` passam, e portanto todo segredo
+  novo do sistema, venha da API, da CLI ou de qualquer chamador futuro.
+- **Regra:** minimo de 10 caracteres; recusa repeticao de um unico caractere,
+  sequencia continua (`1234567890`, `abcdefghij`) e uma lista curta de senhas
+  comuns. A mensagem de erro nunca ecoa o segredo recebido.
+- **Efeito no contrato publico:** **nenhum**. `min_length=1` continua no
+  OpenAPI e a recusa vem do dominio como 422, no padrao de violacao de
+  invariante do projeto. Decisao deliberada: mexer nos schemas obrigaria a
+  regerar o snapshot e propagar SHA pela governanca — o exato ponto que quebrou
+  no IMP-330. O preco e que o contrato publico declara um minimo mais frouxo do
+  que o sistema aceita; anotado como divida de contrato, nao como esquecimento.
+- **Evidencia:** `tests/unit/domain/test_credencial.py` — sete entradas
+  recusadas por parametrizacao, mais a prova de que `redefinir` passa pelo mesmo
+  funil que `definir`. Nenhum teste existente precisou ser afrouxado: as senhas
+  de fixture ja cumpriam a politica.
 
 ### IMP-343 - Heartbeat do worker com consumidor
 
 - **Objetivo:** o `scheduler_worker.py` persiste heartbeat que ninguem le.
   Expor por endpoint de saude ou remover a escrita.
 - **Prioridade:** a mais baixa da fase. Pode cair para pos-MVP sem prejuizo.
+- **Execucao (2026-08-25):** exposto, nao removido. O heartbeat ja gravava
+  `estado` no vocabulario `healthy`/`degraded`/`unhealthy` — o mesmo
+  `HealthStatus` do `HealthService`. Nao foi preciso inventar contrato: bastou
+  ler a linha mais recente e somar ao dicionario `checks` que o `/health` ja
+  devolvia. Endpoint novo nao se justificava.
+- **A decisao que importa, e o motivo:** worker parado degrada, **nao** derruba.
+  `http_status` passou de `200 if healthy` para `503 if unhealthy`, entao
+  `degraded` responde 200. Um 503 tiraria a API de rotacao por causa de um
+  worker atrasado — e no `docker-compose.yml` o `worker` depende de `api`
+  saudavel, entao 503 fecharia um **deadlock circular** na subida do ambiente.
+  Quem precisa da distincao le `checks`, nao o codigo HTTP.
+- **Heartbeat velho vale menos que o estado que carrega:** silencio acima de
+  2 min conta como parado, mesmo que a ultima linha diga `healthy`. Sem isso, um
+  worker morto continuaria se declarando saudavel para sempre.
+- **Falha de schema acusa o banco, nao o worker — e levou duas tentativas.**
+  A primeira versao copiava o `except Exception: return "unhealthy"` do check de
+  banco. Errado: quando esta consulta roda o `SELECT 1` ja passou, entao falha
+  aqui e defeito de schema — migracao que nao rodou —, nao worker parado.
+  Engolir faria **deploy incompleto parecer worker offline**, a mesma doenca do
+  `handler_ausente` do IMP-330 e do `2>/dev/null || true` do hook.
+  A segunda versao removeu o `try/except` inteiro, para o erro "subir e
+  aparecer". **Tambem errado, e o smoke de infraestrutura provou:** virou `500`,
+  que significa *erro inesperado*, quando o caso e *dependencia indisponivel*.
+  Trocar mascaramento por erro nao classificado nao e ganho.
+  A versao que ficou captura `SQLAlchemyError` em `verificar` e atribui a falha
+  a **`database: unhealthy`**, com **503**. O diagnostico aponta para a
+  migracao, que e onde o problema esta. Prova em
+  `test_schema_faltando_acusa_o_banco_e_nao_o_worker`.
+- **Efeito no contrato publico:** **nenhum**. `checks` ja era
+  `dict[str, HealthStatus]` e `status` ja aceitava `degraded` no schema — o
+  vocabulario existia e nunca tinha sido usado.
+- **Evidencia:** `tests/unit/application/test_health_service.py` cobre os cinco
+  caminhos (batendo ponto, degradado, heartbeat velho, worker que nunca existiu,
+  banco fora). O teste de integracao do `/health` passou a exigir
+  `degraded` + `worker: unhealthy` + **200** contra PostgreSQL real: a suite nao
+  tem worker, entao o cenario real do ambiente virou a asercao.
 
 ---
 
@@ -796,6 +875,13 @@ Registrados para nao voltarem como surpresa; **nao** bloqueiam a conclusao.
 - **IMP-348 - Dispatcher para `EventPublisher`.** A interface existe em
   `application/ports.py` e nao tem implementacao nem consumidor. Evolucao
   prevista na ADR-005, sem demanda de produto no MVP.
+- **IMP-349 - Reemissao do token de ativacao.** Achado durante o IMP-341, ver a
+  nota daquele item. `TokenAtivacao` expira em 24 h, nao ha reemissao, e
+  `credencial.redefinir` so alcanca usuarios do proprio Tenant do solicitante.
+  Um administrador que perca a primeira resposta — ou simplesmente demore um dia
+  — depende da CLI `bootstrap_plataforma`, e portanto de acesso ao servidor.
+  **Aceitavel enquanto ha um credor e um Tenant; vira bloqueio no primeiro
+  cliente novo.** Fica registrado para nao voltar como surpresa.
 
 ---
 
@@ -835,16 +921,16 @@ Estado mantido pelo loop de execucao. `Pendente` -> `Em revisao` -> `Concluido`;
 | IMP-338 | Tenant como credor individual | C | **Concluido** - feito pelo revisor | 1 (+1 bloqueio) |
 | IMP-339 | CLAUDE.md e status do PLAN-003 | C | **Concluido** - feito pelo revisor | 1 |
 | IMP-340 | Bootstrap reproduzivel | D | **Concluido** - feito pelo revisor | 1 (+1 bloqueio) |
-| IMP-341 | Recuperacao do token inicial | D | Pendente | 0 |
-| IMP-342 | Politica minima de senha | D | Pendente | 0 |
-| IMP-343 | Heartbeat com consumidor | D | Pendente | 0 |
+| IMP-341 | Recuperacao do token inicial | D | **Concluido** - achado registrado como IMP-349 | 1 |
+| IMP-342 | Politica minima de senha | D | **Concluido** - regra no dominio, nao no schema | 1 |
+| IMP-343 | Heartbeat com consumidor | D | **Concluido** - `degraded` responde 200 | 1 |
 | IMP-346 | Transporte WhatsApp (Evolution Go) | A | **Concluido** - com caveat de formato | 1 |
-| IMP-330 | Entrega do comprovante | A | **Devolvido** - contrato publico dessincronizado | 1 |
+| IMP-330 | Entrega do comprovante | A | **Concluido** - reconciliado em 2026-08-25, ver §9.6 | 2 |
 | IMP-332 | Sobra: aviso e estorno | A | **Concluido** | 2 |
 | IMP-344 | Fechar a arvore atual | E | **Concluido** | 1 |
 | IMP-345 | Recertificacao do MVP | E | Pendente | 0 |
 
-**Fora do MVP, nao entram no loop:** IMP-347, IMP-348.
+**Fora do MVP, nao entram no loop:** IMP-347, IMP-348, IMP-349.
 
 ## 9.1 Protocolo do loop
 
@@ -1087,6 +1173,7 @@ deles.
 
 | Versao | Data | Descricao |
 |---|---|---|
+| 1.3.0 | 2026-08-25 | Fase D fechada: IMP-341 (as tres vozes do token alinhadas, com o beco sem saida das 24 h registrado como IMP-349), IMP-342 (politica minima no funil do dominio, nao nos quatro schemas) e IMP-343 (heartbeat com consumidor, `degraded` respondendo 200). IMP-330 reconciliado de `Devolvido` para `Concluido` com a cadeia de SHA verificada. Resta o IMP-345. |
 | 1.2.0 | 2026-08-22 | Provedor de WhatsApp corrigido: nao era decisao aberta — Evolution Go ja esta definido, em uso e com contrato auditado em `docs/whatsapp/CRM_EVOLUTION_CONTRACT.md`. IMP-346 reescrito com o contrato real e desbloqueado; ordem de execucao refeita; IMP-339 ganhou o ponteiro do `contexto-externo.md` no `CLAUDE.md` como correcao de causa raiz. |
 | 1.1.0 | 2026-08-22 | Decisoes do fundador no IMP-331 (varredura diaria) e IMP-332 (aviso e estorno). Descoberto que nao existe transporte de WhatsApp: aberto IMP-346 como pre-requisito de IMP-330 e IMP-332. Visao de notificacoes diarias registrada como IMP-347 pos-MVP. Checklist de execucao e protocolo do loop adicionados. |
 | 1.0.0 | 2026-08-22 | Abertura do plano a partir do raio-X AS-IS/TO-BE, com os achados reverificados no codigo desta arvore. |
@@ -1141,3 +1228,127 @@ mais preciso do que era.
 **Armadilha de ambiente, para quem for usar:** suite interrompida deixa servidor
 vivo, e a proxima tentativa falha com "porta ja em uso" — parece defeito de
 configuracao e nao e. Listar quem escuta em 3101-3112 e 3201-3212 e encerrar.
+
+### 9.6 IMP-330 reconciliado: por que a devolucao nao virou rodada nova (2026-08-25)
+
+O IMP-330 estava `Devolvido` por **contrato publico dessincronizado** — a
+cadeia de SHA do snapshot OpenAPI quebrada, com `npm run docs:test` em 154/173
+(§9.2). A devolucao era sobre a governanca do contrato, nao sobre o codigo.
+
+Verificado nesta arvore antes de mudar o estado, porque estado de checklist sem
+prova e so opiniao registrada em tabela:
+
+- o handler existe e esta registrado: `TIPO_JOB_COMPROVANTE:
+  comprovantes.processar_comprovante` no dicionario de `scheduler_worker.py`,
+  ao lado do transporte `EvolutionWhatsAppNotificationChannel`. O
+  `handler_ausente` que transformava **todo comprovante emitido em falha
+  permanente silenciosa** nao tem mais como acontecer para este tipo de job;
+- `npm run docs:test` voltou a **173/173**;
+- a cadeia de SHA foi reparada na auditoria de CI (§9.3/§9.5), o PR #22 fechou
+  verde e o `Quality` do `master` pos-merge passou em 7m47s
+  (run `32742329381`).
+
+Ou seja: o que a devolucao pedia foi entregue por outro caminho — a auditoria
+do CI —, e nao por uma segunda rodada do item. A contagem foi para 2 porque a
+rodada existiu; o estado foi para `Concluido` porque a prova existe. Registrar
+os dois evita que a tabela conte uma historia mais limpa do que a real.
+
+### 9.7 Armadilha de verificacao manual: `| tail` esconde o exit code (2026-08-25)
+
+Rodei `uv run pytest -q 2>&1 | tail -25` e li **`exited with code 0`** com tres
+`FAILED` impressos logo acima. O exit code era do `tail`, nao do `pytest` — em
+pipeline, o shell reporta o status do **ultimo** comando.
+
+Nao afeta o CI nem o hook, que chamam os gates direto. Afeta quem verifica na
+mao e confia no codigo de saida sem ler a saida — e a leitura apressada aqui
+teria declarado suite verde com tres testes vermelhos.
+
+Forma correta, quando se quer o resultado resumido **e** o veredito:
+
+```bash
+uv run pytest -q > /tmp/pytest.log 2>&1; echo "EXIT=$?"; tail -6 /tmp/pytest.log
+```
+
+Mesma familia dos outros achados deste plano: o sinal existia, so estava sendo
+descartado no caminho.
+
+### 9.8 O alcance do IMP-343: quem consumia `/health` sem ninguem saber (2026-08-25)
+
+Somar um check ao `/health` parecia mudanca de uma linha. Nao era: **`/health` e
+a sonda de prontidao de duas stacks de teste**, e nenhuma delas aparece numa
+busca por "health" no `src/`.
+
+`test:jornadas` quebrou com `FastAPI /health did not become ready` — sintoma a
+milhas da causa. A sonda em `real-stack.mjs` exigia `status === "healthy"`, e a
+stack de jornadas sobe API + banco **sem worker**, entao o status legitimo virou
+`degraded`.
+
+**A varredura foi por todos os consumidores, nao pelo que quebrou.** Dezesseis
+ocorrencias de `/health` em `frontend/tests`: treze sao fixtures que apenas
+*respondem* (mocks, nao afetados) e **duas** sao sondas reais —
+`jornadas-e2e/real-stack.mjs` e `infrastructure/real-stack-smoke.mjs`. Corrigir
+so a que falhou deixaria a segunda quebrando na proxima execucao.
+
+**Um contrato de governanca fixava o literal.** `test-plan-025-contracts.js`
+exigia a string `health.status, "healthy"` dentro do smoke — mudar o smoke sem
+mexer nele reprovaria o `docs:test`, pelo mesmo mecanismo da §9.5. O literal foi
+trocado por duas asercoes que verificam o que a regra quer: readiness real do
+banco, e status restrito (nao qualquer valor). Testado nos dois sentidos —
+afrouxar reprova com `contrato ausente: STATUS_PRONTO.includes(health.status)`,
+restaurar volta a 173/173.
+
+**O smoke provava menos do que afirmava.** Ele subia a API contra um PostgreSQL
+**sem migrations** e chamava aquilo de `ready`. Passava porque o `/health` so
+fazia `SELECT 1`, que funciona em banco vazio. Assim que o healthcheck passou a
+ler uma tabela de verdade, o smoke devolveu 500 — e o defeito nao era do
+healthcheck, era do smoke afirmando prontidao que nunca tinha verificado.
+Agora ele roda `alembic upgrade head` antes de servir, como o servico `migrate`
+do `docker-compose.yml` faz, e o contrato exige isso para nao regredir.
+
+**Licao para o proximo check somado ao `/health`:** o endpoint tem consumidores
+fora do `src/` e fora do frontend de producao. Antes de mexer, varra
+`frontend/tests` inteiro e separe quem *responde* de quem *consome*.
+
+### 9.9 Cobertura medida: 89,55%, e a meta do IMP-063 e 90% (2026-08-25)
+
+O IMP-345 pede a medicao "contra a meta de 90% do IMP-063, hoje nao
+confirmavel". Medida, sobre a suite completa com PostgreSQL 16 real:
+
+```
+TOTAL   12032 stmts   1257 miss   89.55%
+```
+
+**O relatorio padrao imprime `90%`.** `--cov-report=term-missing` arredonda, e a
+leitura direta daquele numero teria declarado a meta batida. Ela **nao esta**:
+faltam 0,45 ponto, cerca de **54 statements**. Registrar isso e o ponto — a
+diferenca entre 89,55 e 90 e pequena demais para importar tecnicamente e grande
+demais para ser arredondada em silencio num criterio de conclusao.
+
+Comando que nao arredonda:
+
+```bash
+uv run coverage report --precision=2
+```
+
+Onde esta o buraco, do pior para o melhor (abaixo de 80%):
+
+| Modulo | Cobertura | Nao cobertos |
+|---|---|---|
+| `application/automacao.py` | 36,67% | 38 de 60 |
+| `application/notifications.py` | 52,50% | 171 de 360 |
+| `worker/scheduler_worker.py` | 64,81% | 76 de 216 |
+| `application/idempotencia.py` | 64,84% | 45 de 128 |
+| `presentation/api/configuracoes_financeiras_routes.py` | 66,22% | 25 de 74 |
+| `application/configuracoes_financeiras.py` | 69,48% | 65 de 213 |
+| `domain/credit/scheduler.py` | 77,16% | 37 de 162 |
+| `domain/credit/promessa.py` | 78,15% | 33 de 151 |
+| `domain/platform/perfil.py` | 78,26% | 15 de 69 |
+
+**Nao foi inflada.** Fechar 54 statements escolhendo os arquivos mais faceis
+levaria o numero a 90% sem cobrir nada que importa — `notifications.py` e
+`scheduler_worker.py` sozinhos concentram 247 linhas nao exercitadas, e sao
+justamente o caminho de entrega que o IMP-330 mostrou ser capaz de falhar em
+silencio. **Decisao de escopo do fundador:** aceitar 89,55% como linha de base
+declarada do MVP, ou abrir item para cobrir o caminho de notificacao antes do
+fechamento. O numero esta aqui para que a escolha seja consciente, nao herdada
+de um arredondamento.

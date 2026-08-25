@@ -4,6 +4,13 @@ import { once } from "node:events";
 import { fileURLToPath } from "node:url";
 import net from "node:net";
 
+// IMP-343: o /health passou a somar o heartbeat do worker aos `checks`. Esta
+// stack sobe API + banco e **nao** sobe worker, entao `degraded` e o estado
+// correto aqui — nao um defeito. O que a sonda precisa provar continua sendo o
+// mesmo: a API responde 200 e o banco real esta de pe (asercao logo abaixo).
+// Fixar `healthy` exigiria worker no ar so para o teste de prontidao.
+const STATUS_PRONTO = ["healthy", "degraded"];
+
 const repositoryRoot = fileURLToPath(new URL("../../../", import.meta.url));
 const containerName = `emprestimo-imp285-${process.pid}`;
 
@@ -93,6 +100,18 @@ try {
     return true;
   }, "PostgreSQL");
 
+  const databaseUrl = `postgresql+psycopg://emprestimo:emprestimo@127.0.0.1:${postgresPort}/emprestimo`;
+
+  // IMP-343: o smoke subia a API contra um banco SEM schema e chamava aquilo de
+  // "ready". Passava porque o /health so fazia `SELECT 1`, que funciona em banco
+  // vazio — provava menos do que o nome dizia. Qualquer ambiente real migra
+  // antes de servir (o `docker-compose.yml` tem servico `migrate`), e agora o
+  // /health tambem le uma tabela de verdade. Migrar aqui alinha o smoke ao que
+  // ele afirma provar.
+  run("uv", ["run", "alembic", "upgrade", "head"], {
+    env: { ...process.env, DATABASE_URL: databaseUrl },
+  });
+
   api = spawn(
     "uv",
     [
@@ -108,7 +127,7 @@ try {
       cwd: repositoryRoot,
       env: {
         ...process.env,
-        DATABASE_URL: `postgresql+psycopg://emprestimo:emprestimo@127.0.0.1:${postgresPort}/emprestimo`,
+        DATABASE_URL: databaseUrl,
         JWT_SECRET_KEY: "imp285-local-smoke-only",
       },
       stdio: ["ignore", "pipe", "pipe"],
@@ -124,7 +143,7 @@ try {
     return response.json();
   }, "FastAPI /health");
 
-  assert.equal(health.status, "healthy");
+  assert.ok(STATUS_PRONTO.includes(health.status), `status inesperado: ${health.status}`);
   assert.equal(health.service, "api");
   assert.equal(health.checks.database, "healthy");
   console.log("IMP-285 infrastructure: PostgreSQL 16 + FastAPI /health, ready and isolated.");
