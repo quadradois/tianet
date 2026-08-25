@@ -82,7 +82,8 @@ def test_imp_267_health_correlation_e_erro_tecnico_sem_vazamento(
 
     assert health.status_code == 200
     assert health.headers[CORRELATION_ID_HEADER] == "plan020-health"
-    assert health.json()["checks"] == {"database": "healthy"}
+    # IMP-343: heartbeat do worker entrou nos checks; a suite nao sobe worker.
+    assert health.json()["checks"] == {"database": "healthy", "worker": "unhealthy"}
     assert nao_autenticado.status_code == 401
     assert nao_autenticado.headers[CORRELATION_ID_HEADER] == "plan020-401"
     assert bad.status_code == 400

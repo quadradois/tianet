@@ -56,3 +56,34 @@ def test_redefinir_credencial_nao_exige_segredo_anterior() -> None:
 
     assert credencial.verificar("Senha Forte 123") is False
     assert credencial.verificar("Nova Senha Administrativa 789") is True
+
+
+@pytest.mark.parametrize(
+    "segredo",
+    [
+        "curta",
+        "Senha 123",
+        "aaaaaaaaaaaa",
+        "1234567890",
+        "abcdefghij",
+        "password123",
+        "  Senha 1  ",
+    ],
+)
+def test_rejeita_credencial_fora_da_politica_minima(segredo: str) -> None:
+    """IMP-342: comprimento minimo e trivialidades barrados no funil do dominio."""
+    with pytest.raises(ViolacaoInvarianteError) as exc:
+        Credencial.definir(usuario_id=USUARIO_ID, segredo=segredo)
+
+    assert exc.value.codigo == "FEATURE-010"
+    assert segredo.strip() not in exc.value.mensagem
+
+
+def test_redefinir_tambem_aplica_a_politica_minima() -> None:
+    """IMP-342: trocar/redefinir passam pelo mesmo funil que definir."""
+    credencial = Credencial.definir(usuario_id=USUARIO_ID, segredo="Senha Forte 123")
+
+    with pytest.raises(ViolacaoInvarianteError):
+        credencial.redefinir("curta")
+
+    assert credencial.verificar("Senha Forte 123") is True

@@ -1214,7 +1214,16 @@ const contracts = {
     assertText(source.e2eSmoke, 'page.on("console"', 'smoke E2E deve falhar por console error');
     assertText(source.infrastructureSmoke, 'postgres:16', 'infra deve subir PostgreSQL real descartavel');
     assertText(source.infrastructureSmoke, 'emprestimo.presentation.api.main:app', 'infra deve subir FastAPI real');
-    assertText(source.infrastructureSmoke, 'health.status, "healthy"', 'infra deve observar readiness real');
+    // IMP-343: o literal 'health.status, "healthy"' deixou de valer quando o
+    // /health passou a somar o worker aos checks — a stack de smoke nao sobe
+    // worker, entao o status legitimo virou 'degraded'. A intencao da regra
+    // continua: o smoke observa readiness REAL e nao aceita qualquer status.
+    assertText(source.infrastructureSmoke, 'health.checks.database, "healthy"', 'infra deve observar readiness real do banco');
+    assertText(source.infrastructureSmoke, 'STATUS_PRONTO.includes(health.status)', 'infra deve restringir o status aceito na readiness');
+    // IMP-343: o smoke subia a API contra banco sem schema e chamava de ready.
+    // Migrar antes de servir e o que qualquer ambiente real faz; sem isto, o
+    // smoke volta a provar menos do que afirma.
+    assertText(source.infrastructureSmoke, '"alembic", "upgrade", "head"', 'infra deve migrar antes de servir');
     assertText(source.toolchainCheck, 'v24.19.0', 'check multiplataforma de Node');
     assertText(source.toolchainCheck, '11.17.0', 'check multiplataforma de npm');
     for (const ignored of ['/test-results/', '/playwright-report/', '/coverage/']) {
