@@ -1,6 +1,6 @@
 # 2026-08-25 - Handoff: PLAN-032 Fechado e MVP Recertificado
 
-**Versao:** 1.0.0
+**Versao:** 1.1.0
 
 **Status:** PLAN-032 concluido — 18 de 18 itens elegiveis. MVP recertificado
 sobre arvore limpa, com cobertura em 90,02% contra a meta de 90% do IMP-063.
@@ -67,6 +67,13 @@ conferido em 2026-08-25: **685721 bytes**, SHA-256
 
 Os itens da Fase D foram entregues **sem alterar o contrato publico**, e isso
 foi decisao, nao acaso — ver o caveat 4.2.
+
+> **Superado em 2026-08-26 pelo IMP-351.** Os numeros e o SHA acima continuam
+> corretos **para 2026-08-25** e nao foram reescritos de proposito: registro
+> historico que se atualiza deixa de ser registro. O contrato vigente hoje tem
+> **105 operacoes e 131 schemas**, depois da remocao do provisionamento por API
+> e do fluxo de ativacao. O SHA vigente esta na matriz de rastreabilidade, que e
+> o documento que acompanha o contrato atual.
 
 ---
 
@@ -172,16 +179,33 @@ pela governanca — o ponto exato que quebrou no IMP-330 e derrubou o `docs:test
 de 173 para 154 sem que ninguem visse. O preco e que um cliente do contrato le
 um minimo que nao vale. **Divida declarada, nao esquecimento.**
 
-### 4.3 O token de ativacao expira em 24h e nao tem reemissao — IMP-349
+### 4.3 O token de ativacao — CORRIGIDO em 2026-08-26, este caveat estava errado
 
-`TokenAtivacao` vale 24 horas. Nao ha caminho de reemissao, e
-`credencial.redefinir` usa `principal.tenant_id`, entao so um administrador **do
-proprio Tenant** redefine credencial. Se o primeiro administrador nunca ativou,
-nao existe esse administrador.
+**O que este caveat afirmava, e estava errado:** que a saida para um token de
+ativacao perdido seria a CLI `bootstrap_plataforma`. **Ela nao serve.** A CLI
+recusa quando a raiz administrativa ja existe (`PerfilConflitoError:
+Administrador da Plataforma ja inicializado`) e quando o Tenant ja existe
+(`TenantJaExisteError`). Ela roda **uma vez**, para criar a raiz — nunca para
+recuperar.
 
-A saida real e a CLI `bootstrap_plataforma`, que exige acesso ao servidor.
-**Suficiente enquanto ha um credor e um Tenant; vira bloqueio no primeiro
-cliente novo.** Registrado como IMP-349, fora deste plano.
+O cenario real era pior do que o descrito: Tenant provisionado pela API, token
+perdido, `credencial.redefinir` limitado ao `principal.tenant_id` e o
+Administrador da Plataforma vivendo no tenant raiz. **Nao havia saida nenhuma**
+— o Tenant ficaria provisionado e inacessivel para sempre.
+
+**Por que isso deixou de importar:** decisao do fundador em 2026-08-26 — o
+Administrador da Plataforma e o unico Tenant, e nao havera outros. Com isso o
+`TenantProvisioningService`, unico chamador de `TokenAtivacao.emitir`, descreve
+um fluxo que o produto nao percorre.
+
+O IMP-349 foi **fechado como nao-aplicavel**, e o fluxo de ativacao e o
+provisionamento por API foram removidos em vez de mantidos como codigo que
+ninguem exerce. Ver o backlog do PLAN-032, item IMP-351.
+
+**A licao, que vale mais que o caveat:** eu afirmei uma saida operacional sem
+abrir o codigo que a implementaria. A CLI *parecia* servir pelo nome. Caveat que
+descreve caminho de recuperacao precisa ser lido no codigo, nao inferido — quem
+confiasse nele so descobriria o erro no dia do incidente.
 
 ### 4.4 `scheduler_worker.py` em 69,91%, e o grosso do resto e o `main()`
 
@@ -310,4 +334,5 @@ real:
 
 | Versao | Data | Descricao |
 |---|---|---|
+| 1.1.0 | 2026-08-26 | Caveat 4.3 corrigido: a CLI de bootstrap **nao** era saida para token perdido, e nao havia saida nenhuma. Com a decisao de Tenant unico, o IMP-349 fecha como nao-aplicavel e o fluxo de ativacao sai do produto (IMP-351). |
 | 1.0.0 | 2026-08-25 | Fechamento do PLAN-032 e recertificacao do MVP, com caveats e pendencias declaradas. |

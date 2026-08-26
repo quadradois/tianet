@@ -34,7 +34,6 @@ from emprestimo.application.motor_financeiro import (
     PagamentoService,
     QuitacaoRenegociacaoService,
 )
-from emprestimo.application.provisioning import TenantProvisioningService
 from emprestimo.domain.credit.ports import DevedorFiltros
 from emprestimo.domain.platform.ports import TenantRepository
 from emprestimo.infrastructure.repositories import (
@@ -64,9 +63,6 @@ def test_get_session_abre_e_fecha_a_sessao() -> None:
 
 
 def test_providers_de_tenant_montam_os_servicos(sessao: Session) -> None:
-    assert isinstance(
-        dependencies.get_tenant_provisioning_service(sessao), TenantProvisioningService
-    )
     assert isinstance(dependencies.get_tenant_repository(sessao), TenantRepository)
     assert isinstance(dependencies.get_carteira_repository(sessao), SqlAlchemyCarteiraRepository)
 

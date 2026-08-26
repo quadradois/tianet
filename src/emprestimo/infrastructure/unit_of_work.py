@@ -47,7 +47,6 @@ from emprestimo.infrastructure.repositories import (
     SqlAlchemyTemplateNotificacaoRepository,
     SqlAlchemyTenantRepository,
     SqlAlchemyTentativaJobRepository,
-    SqlAlchemyTokenAtivacaoRepository,
     SqlAlchemyUsuarioRepository,
 )
 
@@ -62,7 +61,6 @@ class SqlAlchemyUnitOfWork(UnitOfWork):
         self.configuracao = SqlAlchemyConfiguracaoRepository(self._session)
         self.credencial = SqlAlchemyCredencialRepository(self._session)
         self.sessao = SqlAlchemySessaoRepository(self._session)
-        self.token_ativacao = SqlAlchemyTokenAtivacaoRepository(self._session)
         self.permissao = SqlAlchemyPermissaoRepository(self._session)
         self.perfil_acesso = SqlAlchemyPerfilAcessoRepository(self._session)
         self.carteira = SqlAlchemyCarteiraRepository(self._session)

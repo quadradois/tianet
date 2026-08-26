@@ -191,19 +191,6 @@ def test_token_emitido_de_tenant_inativado_responde_401(
 @pytest.mark.parametrize(
     ("metodo", "path_template", "kwargs"),
     [
-        (
-            "post",
-            "/platform/tenants",
-            {
-                "json": {
-                    "identificador_institucional": "IDENT-SEM-PERM",
-                    "nome": "Tenant Sem Permissao",
-                    "nome_administrador": "Maria",
-                    "email_administrador": "maria.sem.permissao@exemplo.com",
-                },
-                "headers": {"Idempotency-Key": "imp-092-tenant-criar"},
-            },
-        ),
         ("get", "/platform/tenants", {}),
         ("get", "/platform/tenants/{tenant_id}", {}),
         ("patch", "/platform/tenants/{tenant_id}", {"json": {"nome": "Novo Nome"}}),

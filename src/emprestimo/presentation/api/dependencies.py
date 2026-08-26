@@ -83,7 +83,6 @@ from emprestimo.application.operacao_diaria import (
     RegistrarPromessa,
 )
 from emprestimo.application.perfis_acesso import PerfisAcessoService
-from emprestimo.application.provisioning import TenantProvisioningService
 from emprestimo.application.relatorios import RelatoriosOperacionaisService
 from emprestimo.composition import resolver_canal_email
 from emprestimo.domain.credit.automacao_ports import NotificationChannel
@@ -92,7 +91,6 @@ from emprestimo.domain.credit.devedor import Devedor
 from emprestimo.domain.credit.ports import CarteiraRepository
 from emprestimo.domain.credit.unicidade_devedor import UnicidadeDevedorService
 from emprestimo.domain.platform.ports import TenantRepository
-from emprestimo.domain.platform.unicidade import UnicidadeTenantService
 from emprestimo.infrastructure.auditoria import (
     SqlAlchemyAuditoriaConsulta,
     SqlAlchemyAuditoriaRegistro,
@@ -125,18 +123,6 @@ def _get_session() -> Generator[Session, None, None]:
 def get_health_service() -> HealthService:
     """Monta o health service tecnico sem depender de IAM/RBAC."""
     return HealthService(create_session)
-
-
-def get_tenant_provisioning_service(
-    session: Session = Depends(_get_session),
-) -> TenantProvisioningService:
-    """Monta o serviço de provisionamento (IMP-013..016)."""
-    session_factory = get_session_factory()
-    return TenantProvisioningService(
-        uow_factory=lambda: SqlAlchemyUnitOfWork(session_factory),
-        unicidade=UnicidadeTenantService(SqlAlchemyTenantRepository(session)),
-        auditoria=SqlAlchemyAuditoriaRegistro(session_factory),
-    )
 
 
 def get_autenticacao_service() -> AutenticacaoService:

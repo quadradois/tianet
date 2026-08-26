@@ -170,24 +170,6 @@ class UsuarioPerfilORM(Base):
     )
 
 
-class TokenAtivacaoORM(Base):
-    """Token de ativacao armazenado somente por hash."""
-
-    __tablename__ = "token_ativacao"
-
-    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True)
-    usuario_id: Mapped[uuid.UUID] = mapped_column(
-        Uuid, ForeignKey("usuario.id"), nullable=False, index=True
-    )
-    tenant_id: Mapped[uuid.UUID] = mapped_column(
-        Uuid, ForeignKey("tenant.id"), nullable=False, index=True
-    )
-    token_hash: Mapped[str] = mapped_column(String(64), nullable=False)
-    expira_em: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
-    criado_em: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
-    utilizado_em: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
-
-
 class ConfiguracaoORM(Base):
     """Tabela `configuracao` — Entity Configuração (FOUNDATION-002 §Configuração)."""
 

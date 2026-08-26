@@ -41,8 +41,11 @@ def test_imp_262_catalogo_rbac_cobre_permissoes_usadas_pelas_rotas() -> None:
 
     assert permissoes_usadas
     assert permissoes_usadas <= set(CATALOGO_POR_CODIGO)
+    # IMP-351: "tenant.criar" saiu desta lista porque POST /platform/tenants nao
+    # existe mais. Ela continua no catalogo, com outro proposito: e o marcador
+    # do papel de Administrador da Plataforma, lido por bootstrap_plataforma,
+    # autorizacao.py e estado.py. Aqui a lista e de permissoes usadas por ROTAS.
     assert {
-        "tenant.criar",
         "devedor.criar",
         "comercial.proposta.decidir",
         "contratos.contrato.liberar",

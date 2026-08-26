@@ -108,7 +108,6 @@ class _UoWFake(UnitOfWork):
     carteira: _RepoFake = field(default_factory=_RepoFake)  # type: ignore[assignment]
     perfil_acesso: _RepoFake = field(default_factory=_RepoFake)  # type: ignore[assignment]
     credencial: _RepoFake = field(default_factory=_RepoFake)  # type: ignore[assignment]
-    token_ativacao: _RepoFake = field(default_factory=_RepoFake)  # type: ignore[assignment]
     commit_count: int = 0
     rollback_count: int = 0
     falhar_commit: bool = False

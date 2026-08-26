@@ -17,17 +17,25 @@ Context, EPIC, Feature ou User Story.
 
 A fonte contratual observada e o OpenAPI gerado por `create_app().openapi()` na
 worktree derivada do commit backend `e48cb72`, congelado no snapshot governado
-do PLAN-025. O contrato vigente possui 107 operacoes e 134 schemas; o SHA-256
+do PLAN-025. O contrato vigente possui 105 operacoes e 131 schemas; o SHA-256
 do snapshot e
-`d65e8d85297a0b1dbbe53b67dade22dfe6fb4986267e1f8648b51f865fff1d0b`,
+`e87bdad9b000959dea7809878cdd69c6cfcdfca2a2dc5fa8e9cc4cc7bd5e16e6`,
 atualizado pelo IMP-336, que retirou o campo obrigatorio `parcelas_liquidadas`
 de `PagamentoResponse` — **mudanca nao aditiva**, ultimo residuo do plano de
-parcelas no contrato publico, amparada pela DR-004. A superficie continua em 107
-operacoes e 134 schemas, porque nenhum schema nasceu ou morreu: apenas um campo
-obrigatorio deixou de existir. Antes dele, o IMP-333 manteve a mesma superficie
-e elevou as operacoes que publicam `Idempotency-Key` obrigatoria
-de 32 para 63. As quatro escritas sem o header sao excecoes nominais:
-ativacao, login, refresh e logout. A mudanca anterior, aditiva, do IMP-332 entrou
+parcelas no contrato publico, amparada pela DR-004.
+
+**Estado vigente, apos o IMP-351 (2026-08-26):** 105 operacoes e 131 schemas.
+Sairam `POST /platform/tenants` e `POST /auth/ativar`, mais os schemas
+`TenantCreateRequest`, `TenantProvisioningResponse` e `AtivacaoRequest` — o
+provisionamento por API e o fluxo de ativacao deixaram de existir porque o
+Administrador da Plataforma e o unico Tenant e nasce pela CLI. As operacoes que
+publicam `Idempotency-Key` obrigatoria passaram de 63 para **62**, e as escritas
+sem o header cairam de quatro para **tres**: login, refresh e logout.
+
+Antes disso, a superficie esteve em 107 operacoes e 134 schemas: o IMP-336 nao
+mexeu na contagem porque nenhum schema nasceu ou morreu, apenas um campo
+obrigatorio deixou de existir; e o IMP-333 manteve a mesma superficie e elevou as
+operacoes com `Idempotency-Key` de 32 para 63. A mudanca anterior, aditiva, do IMP-332 entrou
 `POST /credit/pagamentos/{pagamento_id}/estornos`, com `Idempotency-Key`
 obrigatoria; `PagamentoResponse` passou
 a publicar `valor_devolvido`, `valor_estornado`, `valor_sobra` e `reconciliado`;
@@ -40,7 +48,7 @@ operacoes de plano de parcelas sairam do contrato pela DR-004 e a operacao
 `POST /credit/carteiras/{carteira_id}/lancamentos` entrou pelo IMP-306.
 O backend de login usa `AuthLoginRequest`; o formulario publico do frontend
 envia somente e-mail e senha ao BFF, que deriva `identificador_institucional`
-server-only. Refresh/logout usam `AuthRefreshRequest`, as 63 operacoes
+server-only. Refresh/logout usam `AuthRefreshRequest`, as 62 operacoes
 idempotentes publicam o header obrigatório e 400/422 usam `ErroResponse`
 conforme a semantica runtime.
 
@@ -163,6 +171,7 @@ A matriz so pode ser declarada sem lacunas quando:
 
 | Versao | Data | Descricao |
 |---|---|---|
+| 3.9.0 | 2026-08-26 | IMP-351: provisionamento de Tenant por API e fluxo de ativacao removidos. Superficie de 107/134 para **105/131**; operacoes idempotentes de 63 para 62; excecoes auth de quatro para tres. O cabecalho ja marcava 3.9.0 antes desta entrada, sem linha correspondente aqui — lacuna herdada, fechada agora em vez de saltar para 3.10.0 e deixar o buraco. |
 | 3.8.0 | 2026-08-22 | IMP-333: guardrail estrutural para toda escrita; 31 operacoes passaram a exigir `Idempotency-Key`, elevando o inventario de 32 para 63, com quatro excecoes auth nominais; superficie preservada em 107/134. |
 | 3.7.0 | 2026-08-22 | IMP-332: novo estorno parcial idempotente; `PagamentoResponse` explicita devolucao, estorno, sobra e reconciliacao; contrato passa de 106/133 para 107/134. |
 | 3.6.0 | 2026-08-20 | IMP-311: jornada real recertificada em 8/8 contra stack real, com o cenario do emprestimo livre (wizard, extrato e pagamento). A suite estava quebrada desde o IMP-327 e desatualizada pelo PLAN-029; nenhuma operacao, permissao ou contagem mudou. |

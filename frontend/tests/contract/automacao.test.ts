@@ -32,11 +32,11 @@ function header(operation: { parameters?: { in: string; name: string; required?:
 }
 
 describe("Automacao OpenAPI consumida pelo frontend", () => {
-  it("preserva snapshot oficial 107/134 e SHA governado", () => {
+  it("preserva snapshot oficial 105/131 e SHA governado", () => {
     const operationCount = Object.values(spec.paths).flatMap((item) => Object.keys(item).filter((method) => ["get", "post", "patch", "put", "delete"].includes(method))).length;
-    expect(operationCount).toBe(107);
-    expect(Object.keys(spec.components.schemas)).toHaveLength(134);
-    expect(createHash("sha256").update(raw).digest("hex")).toBe("d65e8d85297a0b1dbbe53b67dade22dfe6fb4986267e1f8648b51f865fff1d0b");
+    expect(operationCount).toBe(105);
+    expect(Object.keys(spec.components.schemas)).toHaveLength(131);
+    expect(createHash("sha256").update(raw).digest("hex")).toBe("e87bdad9b000959dea7809878cdd69c6cfcdfca2a2dc5fa8e9cc4cc7bd5e16e6");
   });
 
   it("certifica as 11 operacoes Automacao e Idempotency-Key nas seis escritas", () => {

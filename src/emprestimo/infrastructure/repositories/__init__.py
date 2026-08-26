@@ -77,12 +77,10 @@ from emprestimo.domain.platform.ports import (
     TenantOrdenacao,
     TenantPaginado,
     TenantRepository,
-    TokenAtivacaoRepository,
     UsuarioRepository,
 )
 from emprestimo.domain.platform.sessao import Sessao
 from emprestimo.domain.platform.tenant import Tenant, TenantState
-from emprestimo.domain.platform.token_ativacao import TokenAtivacao
 from emprestimo.domain.platform.usuario import Usuario, UsuarioState
 from emprestimo.infrastructure.db.orm import (
     CarteiraORM,
@@ -104,7 +102,6 @@ from emprestimo.infrastructure.db.orm import (
     SessaoORM,
     SimulacaoComercialORM,
     TenantORM,
-    TokenAtivacaoORM,
     UsuarioORM,
     UsuarioPerfilORM,
 )
@@ -335,41 +332,6 @@ class SqlAlchemyCredencialRepository(CredencialRepository):
             select(CredencialORM).where(CredencialORM.usuario_id == usuario_id)
         )
         return _to_credencial(row) if row is not None else None
-
-
-class SqlAlchemyTokenAtivacaoRepository(TokenAtivacaoRepository):
-    def __init__(self, session: Session) -> None:
-        self._session = session
-
-    def save(self, token: TokenAtivacao) -> None:
-        self._session.merge(
-            TokenAtivacaoORM(
-                id=token.id,
-                usuario_id=token.usuario_id,
-                tenant_id=token.tenant_id,
-                token_hash=token.token_hash,
-                expira_em=token.expira_em,
-                criado_em=token.criado_em,
-                utilizado_em=token.utilizado_em,
-            )
-        )
-        self._session.flush()
-
-    def find_by_id(self, token_id: uuid.UUID) -> TokenAtivacao | None:
-        row = self._session.scalar(
-            select(TokenAtivacaoORM).where(TokenAtivacaoORM.id == token_id).with_for_update()
-        )
-        if row is None:
-            return None
-        return TokenAtivacao(
-            id=row.id,
-            usuario_id=row.usuario_id,
-            tenant_id=row.tenant_id,
-            token_hash=row.token_hash,
-            expira_em=row.expira_em,
-            criado_em=row.criado_em,
-            utilizado_em=row.utilizado_em,
-        )
 
 
 class SqlAlchemySessaoRepository(SessaoRepository):

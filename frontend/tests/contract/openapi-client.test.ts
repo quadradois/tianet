@@ -7,7 +7,7 @@ import type { components, paths } from "../../src/lib/api/openapi.generated";
 
 const HTTP_METHODS = new Set(["get", "post", "put", "patch", "delete"]);
 const ERROR_STATUSES = new Set(["400", "401", "403", "404", "409", "422", "500", "503"]);
-const SNAPSHOT_SHA256 = "d65e8d85297a0b1dbbe53b67dade22dfe6fb4986267e1f8648b51f865fff1d0b";
+const SNAPSHOT_SHA256 = "e87bdad9b000959dea7809878cdd69c6cfcdfca2a2dc5fa8e9cc4cc7bd5e16e6";
 const snapshotUrl = new URL(
   "../../../docs/governance/contracts/openapi/frontend-mvp-backend-openapi.json",
   import.meta.url,
@@ -83,9 +83,10 @@ describe("generated OpenAPI client contract", () => {
       }
     }
 
-    expect(operationCount).toBe(107);
-    expect(Object.keys(schemas)).toHaveLength(134);
-    expect(idempotencyParameters).toHaveLength(63);
+    expect(operationCount).toBe(105);
+    expect(Object.keys(schemas)).toHaveLength(131);
+    // IMP-351: eram 63; POST /platform/tenants saiu com o provisionamento por API.
+    expect(idempotencyParameters).toHaveLength(62);
     for (const parameter of idempotencyParameters) {
       expect(parameter.required).toBe(true);
       expect(asRecord(parameter.schema)).toMatchObject({ minLength: 1, maxLength: 255 });

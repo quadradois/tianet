@@ -7,7 +7,7 @@ from unittest.mock import Mock
 
 import pytest
 
-from emprestimo.application.credenciais import CredenciaisService, CredencialResultado
+from emprestimo.application.credenciais import CredenciaisService
 from emprestimo.application.errors import (
     AcessoNegadoError,
     CredencialInvalidaError,
@@ -107,61 +107,6 @@ def _assert_auditoria_sem_segredo(auditoria: Mock, segredo: str) -> None:
         detalhes = call.kwargs.get("detalhes")
         if detalhes is not None:
             assert segredo not in detalhes
-
-
-def test_definir_credencial_inicial_ativa_usuario_convidado() -> None:
-    usuario = _usuario()
-    auditoria = _auditoria()
-    uow = _uow(usuarios={usuario.id: usuario})
-    service = _service(uow, auditoria)
-
-    resultado = service.definir_inicial(
-        tenant_id=TENANT_ID,
-        usuario_id=usuario.id,
-        segredo="Senha forte 123",
-    )
-
-    assert isinstance(resultado, CredencialResultado)
-    assert resultado.usuario_id == usuario.id
-    assert resultado.tenant_id == TENANT_ID
-    assert resultado.estado is UsuarioState.ATIVO
-    assert usuario.estado is UsuarioState.ATIVO
-    assert uow._credenciais_salvas[usuario.id].verificar("Senha forte 123")
-    uow.usuario.save.assert_called_once_with(usuario)
-    uow.commit.assert_called_once()
-    _assert_auditoria_sem_segredo(auditoria, "Senha forte 123")
-
-
-def test_definir_credencial_inicial_de_usuario_de_outro_tenant_responde_404() -> None:
-    usuario = _usuario(tenant_id=OUTRO_TENANT_ID)
-    uow = _uow(usuarios={usuario.id: usuario})
-    service = _service(uow)
-
-    with pytest.raises(UsuarioNaoEncontradoError):
-        service.definir_inicial(
-            tenant_id=TENANT_ID,
-            usuario_id=usuario.id,
-            segredo="Senha forte 123",
-        )
-
-    uow.credencial.save.assert_not_called()
-    uow.commit.assert_not_called()
-
-
-def test_definir_credencial_inicial_rejeita_usuario_ativo() -> None:
-    usuario = _usuario(estado=UsuarioState.ATIVO)
-    uow = _uow(usuarios={usuario.id: usuario})
-    service = _service(uow)
-
-    with pytest.raises(TransicaoEstadoInvalidaError):
-        service.definir_inicial(
-            tenant_id=TENANT_ID,
-            usuario_id=usuario.id,
-            segredo="Senha forte 123",
-        )
-
-    uow.credencial.save.assert_not_called()
-    uow.commit.assert_not_called()
 
 
 def test_alterar_propria_credencial_exige_credencial_atual() -> None:

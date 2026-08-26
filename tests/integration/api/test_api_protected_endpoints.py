@@ -234,11 +234,6 @@ def endpoints_protegidos() -> list[EndpointProtegido]:
     lembrete_id = uuid.uuid4()
     configuracao_id = uuid.uuid4()
     return [
-        EndpointProtegido(
-            "post",
-            "/platform/tenants",
-            {"json": TENANT_PAYLOAD, "headers": {"Idempotency-Key": "imp-091-tenant"}},
-        ),
         EndpointProtegido("get", "/platform/tenants", {}),
         EndpointProtegido("get", f"/platform/tenants/{tenant_id}", {}),
         EndpointProtegido("patch", f"/platform/tenants/{tenant_id}", {"json": {"nome": "Novo"}}),
@@ -571,7 +566,7 @@ def test_todos_endpoints_platform_e_credit_recusam_sem_token(
     client: TestClient,
     endpoints_protegidos: list[EndpointProtegido],
 ) -> None:
-    assert len(endpoints_protegidos) == 64
+    assert len(endpoints_protegidos) == 63
 
     for endpoint in endpoints_protegidos:
         resp = _chamar(client, endpoint)

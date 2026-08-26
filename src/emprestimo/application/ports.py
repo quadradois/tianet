@@ -52,7 +52,6 @@ from emprestimo.domain.platform.ports import (
     PermissaoRepository,
     SessaoRepository,
     TenantRepository,
-    TokenAtivacaoRepository,
     UsuarioRepository,
 )
 
@@ -148,7 +147,6 @@ class UnitOfWork(ABC):
     configuracao: ConfiguracaoRepository
     credencial: CredencialRepository
     sessao: SessaoRepository
-    token_ativacao: TokenAtivacaoRepository
     permissao: PermissaoRepository
     perfil_acesso: PerfilAcessoRepository
     carteira: CarteiraRepository

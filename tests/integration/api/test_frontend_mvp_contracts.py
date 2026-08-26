@@ -234,7 +234,6 @@ def test_imp_278_catalogo_exige_perfil_ler(
 @pytest.mark.parametrize(
     ("path", "schema_name"),
     (
-        ("/auth/ativar", "AtivacaoRequest"),
         ("/auth/login", "AuthLoginRequest"),
         ("/auth/refresh", "AuthRefreshRequest"),
         ("/auth/logout", "AuthRefreshRequest"),
@@ -253,10 +252,6 @@ def test_imp_280_auth_publica_request_body_especifico(
 
 
 EXCECOES_IDEMPOTENCIA_ESCRITAS: dict[tuple[str, str], str] = {
-    ("post", "/auth/ativar"): (
-        "Consome token de ativacao descartavel e define segredo; o replay de uma "
-        "credencial de bootstrap nao equivale ao replay de uma escrita financeira."
-    ),
     ("post", "/auth/login"): (
         "Cada login autentica novamente e emite uma sessao nova; repetir a chave nao "
         "deve reutilizar tokens de uma autenticacao anterior."
@@ -439,7 +434,6 @@ def test_imp_282_openapi_alinha_validacao_400_e_regra_422() -> None:
         if metodo in metodos and "422" in operacao["responses"]
     }
     assert operacoes_422 == {
-        ("post", "/auth/ativar"),
         ("patch", "/platform/tenants/{tenant_id}"),
         ("patch", "/iam/credencial"),
         ("post", "/iam/usuarios/{usuario_id}/credencial/redefinir"),
