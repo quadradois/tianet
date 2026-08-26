@@ -1,6 +1,6 @@
 # Contexto Externo
 
-**Versao:** 1.1.0
+**Versao:** 1.2.0
 
 **Status:** Vivo — mantido manualmente
 
@@ -89,17 +89,43 @@ Credor para aprovacao. E o segundo operador do sistema, conforme
 |---|---|
 | Situacao | planejado |
 | Entra antes ou depois do wizard de emprestimo | *a preencher* |
+| Topologia de recepcao | **Evolution -> agente -> endpoint autenticado da TiaNet** (decidido em 2026-08-25) |
+
+**A TiaNet nao tera webhook publico.** A decisao foi pela topologia (b): o
+agente recebe do Evolution e chama um endpoint autenticado da TiaNet, no mesmo
+padrao de autenticacao que o resto do sistema ja usa.
+
+O que isso evita, e por isso importa: a alternativa (a) exigiria uma rota **nao
+autenticada aberta para a internet**, mais validacao de assinatura do Evolution,
+mais uma peca para manter e mais superficie exposta. Nada disso e necessario
+quando o agente ja e um cliente autenticado.
 
 ## 2.3 Resend (e-mail)
 
-`ResendNotificationChannel` existe no codigo e exige `RESEND_API_KEY` e
-`RESEND_FROM`. **Nao se sabe se ha conta contratada.** Em `APP_ENV=production` o
-worker recusa iniciar sem essas variaveis.
+**E-mail esta fora do escopo do MVP.** Decisao do fundador em 2026-08-25: nao ha
+conta Resend contratada, e o canal real da operacao e o WhatsApp.
 
 | Campo | Valor |
 |---|---|
-| Conta contratada | *a preencher* |
-| Dominio remetente verificado | *a preencher* |
+| Conta contratada | **nao** |
+| Dominio remetente verificado | nao se aplica |
+
+`ResendNotificationChannel` continua no codigo, atras da porta
+`NotificationChannel`. Se `RESEND_API_KEY` e `RESEND_FROM` existirem, ele e
+usado; nada foi removido.
+
+**O que mudou:** `APP_ENV=production` sem essas variaveis derrubava o worker na
+subida. Isso bloqueava o deploy inteiro por causa de um canal que a operacao nao
+usa. Agora o worker sobe.
+
+**O que nao mudou, de proposito:** o canal ausente **nao** vira
+`FakeNotificationChannel`. Aquele fake devolve `ACEITA` com um
+`provider_message_id` sintetico — em teste e util, em producao seria mentira: a
+trilha registraria como entregue um e-mail que nunca saiu. Em vez disso entra o
+`CanalNaoConfiguradoNotificationChannel`, que recusa com
+`FALHA_PERMANENTE` e codigo `canal_nao_configurado:email`. Terminal, porque
+retry nao configura credencial, e **nomeado**, porque o operador precisa ver o
+motivo na trilha.
 
 ---
 
@@ -152,24 +178,45 @@ entao um `--update` fara reconstrucao completa.
 
 ---
 
-# 6. Perguntas em aberto
+# 6. Perguntas respondidas em 2026-08-25
 
-Itens que bloqueiam ou distorcem decisoes enquanto nao forem respondidos:
+As cinco perguntas que estavam abertas foram respondidas pelo fundador. Ficam
+registradas com a resposta, para que ninguem as reabra como se fossem duvida.
 
-1. **Onde o agente recebe a mensagem?** Duas topologias possiveis, e elas mudam
-   o escopo por inteiro:
-   - (a) Evolution → webhook da TiaNet → registra conversa → agente le e cria o
-     pre-cadastro;
-   - (b) Evolution → agente → agente chama um endpoint autenticado da TiaNet.
-   Em (b) a TiaNet **nao precisa de webhook publico**, o que e mais simples e
-   mais seguro.
-2. Onde ficam `evolution_tenant_id` e `evolution_api_key`? A entidade
-   `Configuracao` (chave/valor por Tenant) existe, mas `api_key` e segredo e
-   tabela generica de configuracao nao e lugar de segredo.
-3. Ha ambiente de teste do Evolution, ou a integracao sera exercitada direto em
-   producao?
-4. Ha conta Resend ativa, ou o e-mail deve sair do escopo?
-5. Qual servidor recebera o deploy, e existe dominio disponivel?
+| # | Pergunta | Resposta |
+|---|---|---|
+| 1 | Onde o agente recebe a mensagem? | **(b)** Evolution -> agente -> endpoint autenticado da TiaNet. Sem webhook publico. Ver §2.2. |
+| 2 | Onde ficam `evolution_tenant_id` e `evolution_api_key`? | **Variavel de ambiente**, como ja e hoje (`EVOLUTION_INSTANCE_TOKEN`). Ver abaixo. |
+| 3 | Ha ambiente de teste do Evolution? | **Nao.** A validacao sera em producao, com o numero do proprio fundador. Ver abaixo. |
+| 4 | Ha conta Resend ativa? | **Nao.** E-mail fora do escopo do MVP. Ver §2.3. |
+| 5 | Qual servidor recebe o deploy? | **Ainda nao provisionado.** Ver §3.2. |
+
+## 6.1 Segredo do Evolution: variavel de ambiente
+
+O adapter ja recebe host e token por injecao, e `main()` os le de
+`EVOLUTION_HOST` e `EVOLUTION_INSTANCE_TOKEN`. **Nada muda no codigo.**
+
+Por que nao a entidade `Configuracao`: e tabela generica chave/valor, sem
+criptografia em repouso, e exposta por endpoints de configuracao — o segredo
+vazaria por leitura legitima, que e o pior tipo de vazamento porque nao parece
+incidente.
+
+**Limite declarado:** variavel de ambiente e uma instancia por processo. Serve
+enquanto ha um credor e um Tenant. **No dia em que cada Tenant tiver instancia
+propria do Evolution**, isso vira tabela de segredos com criptografia e
+rotacao — escopo real, nao ajuste. Registrar agora evita descobrir no meio da
+migracao.
+
+## 6.2 Validacao do formato de envio: producao, com o numero do fundador
+
+Nao ha ambiente de teste do Evolution. A validacao do caveat 4.1 do handoff sera
+feita **em producao, enviando para o numero do proprio fundador** — nenhum
+devedor real recebe mensagem durante a conferencia.
+
+Um unico envio basta: o que se quer observar e o **formato da resposta**, para
+confirmar ou corrigir o criterio de aceite `data.Info.ID`. Enquanto isso nao for
+feito, envios bem-sucedidos podem estar sendo classificados como `DESCONHECIDO`
+— sem risco de duplicata para o devedor, com prejuizo de escrituracao.
 
 ---
 
@@ -177,5 +224,6 @@ Itens que bloqueiam ou distorcem decisoes enquanto nao forem respondidos:
 
 | Versao | Data | Descricao |
 |---|---|---|
+| 1.2.0 | 2026-08-25 | As cinco perguntas em aberto foram respondidas pelo fundador e a secao §6 deixou de ser duvida para virar registro. E-mail saiu do escopo do MVP e o worker deixou de ser derrubado por falta de conta Resend — com recusa nomeada no lugar do fake que fingia entrega. Topologia do agente decidida sem webhook publico. Segredo do Evolution fica em variavel de ambiente, com o limite de uma instancia por processo declarado. |
 | 1.1.0 | 2026-08-16 | WhatsApp preenchido a partir do contrato Evolution Go versionado em `docs/whatsapp/`: modelo de tenant, tres niveis de autenticacao, limites de retry e payload, recorte para a TiaNet e achados que condicionam o desenho. |
 | 1.0.0 | 2026-08-16 | Criado apos a sessao identificar que decisoes de desenho foram tomadas sem conhecer integracoes existentes fora do repositorio. |

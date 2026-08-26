@@ -29,13 +29,13 @@ from emprestimo.application.varredura_cobranca import (
     AgendadorVarreduraCobranca,
     VarreduraCobrancaService,
 )
+from emprestimo.composition import resolver_canal_email
 from emprestimo.domain.credit.automacao_ports import NotificationChannel
 from emprestimo.infrastructure.auditoria import SqlAlchemyAuditoriaRegistro
 from emprestimo.infrastructure.db.orm import JobAgendadoORM, SchedulerWorkerHeartbeatORM
 from emprestimo.infrastructure.db.session import database_url
 from emprestimo.infrastructure.notifications import (
     EvolutionWhatsAppNotificationChannel,
-    ResendNotificationChannel,
 )
 from emprestimo.infrastructure.unit_of_work import SqlAlchemyUnitOfWork
 
@@ -323,16 +323,7 @@ def main() -> None:
         lease_duration=timedelta(seconds=settings.lease_seconds),
     )
     app_env = os.environ.get("APP_ENV", "development")
-    api_key = os.environ.get("RESEND_API_KEY")
-    remetente = os.environ.get("RESEND_FROM")
-    if api_key and remetente:
-        email_channel: NotificationChannel = ResendNotificationChannel(
-            api_key=api_key, remetente=remetente
-        )
-    elif app_env == "production":
-        raise RuntimeError("RESEND_API_KEY e RESEND_FROM sao obrigatorios em producao")
-    else:
-        email_channel = FakeNotificationChannel()
+    email_channel = resolver_canal_email()
     notifications = NotificationService(
         lambda: SqlAlchemyUnitOfWork(session_factory),
         email_channel,
