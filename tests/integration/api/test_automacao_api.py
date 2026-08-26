@@ -3,6 +3,7 @@ from fastapi.routing import APIRoute
 from sqlalchemy.orm import Session
 from starlette.testclient import TestClient
 
+from emprestimo.domain.credit.notifications import ResultadoCanal
 from emprestimo.presentation.api.automacao_routes import router as automacao_router
 from emprestimo.presentation.api.dependencies import get_notification_channel
 from emprestimo.presentation.api.main import create_app
@@ -50,12 +51,30 @@ def test_rotas_administrativas_exigem_autenticacao(
     assert response.headers["X-Correlation-ID"]
 
 
-def test_notification_channel_falha_fechado_em_producao_sem_credenciais(
+def test_notification_channel_recusa_sem_fingir_em_producao_sem_credenciais(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
+    """Producao sem Resend nao derruba o processo, mas tambem nao finge entrega.
+
+    Antes isto levantava `RuntimeError` e a API nao subia — bloqueio de deploy
+    por um canal fora do escopo do MVP (`contexto-externo.md` §2.3). A troca so
+    e segura porque o fallback **nao** e o fake: o fake devolveria `ACEITA` com
+    comprovante sintetico, e a trilha registraria como entregue um e-mail que
+    nunca saiu. A asercao do `provider_message_id` e o que impede alguem de
+    trocar o fallback pelo fake mais tarde e achar que esta tudo bem.
+    """
     monkeypatch.setenv("APP_ENV", "production")
     monkeypatch.delenv("RESEND_API_KEY", raising=False)
     monkeypatch.delenv("RESEND_FROM", raising=False)
 
-    with pytest.raises(RuntimeError, match="obrigatorios em producao"):
-        get_notification_channel()
+    canal = get_notification_channel()
+    resultado = canal.enviar(
+        destinatario="operador@exemplo.com",
+        assunto="Lembrete",
+        corpo="corpo",
+        chave_idempotente="notification/producao-sem-resend",
+    )
+
+    assert resultado.resultado is ResultadoCanal.FALHA_PERMANENTE
+    assert resultado.provider_message_id is None
+    assert resultado.codigo == "canal_nao_configurado:email"

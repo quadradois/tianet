@@ -69,7 +69,11 @@ services:
     command: emprestimo-scheduler-worker
     environment:
       <<: *backend-env
-      # Sem RESEND_*, e com APP_ENV != production, o worker usa FakeNotificationChannel.
+      # E-mail e opcional: esta fora do escopo do MVP (contexto-externo §2.3).
+      # Sem RESEND_*, em development o worker usa o fake; em production ele
+      # sobe assim mesmo, com um canal que recusa nomeado em vez de fingir
+      # entrega. EVOLUTION_INSTANCE_TOKEN, esse sim, e obrigatorio em
+      # production — WhatsApp e o canal real da operacao.
       RESEND_API_KEY: ${RESEND_API_KEY:-}
       RESEND_FROM: ${RESEND_FROM:-}
       EVOLUTION_INSTANCE_TOKEN: ${EVOLUTION_INSTANCE_TOKEN:-}

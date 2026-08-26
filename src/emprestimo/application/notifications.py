@@ -344,6 +344,45 @@ def _formatar_valor(valor: Decimal) -> str:
     return f"{valor:,.2f}".replace(",", "_").replace(".", ",").replace("_", ".")
 
 
+class CanalNaoConfiguradoNotificationChannel(NotificationChannel):
+    """Recusa nomeada para canal sem credencial. **Nunca finge entrega.**
+
+    O `FakeNotificationChannel` devolve `ACEITA` com um `provider_message_id`
+    sintetico — correto em teste, mentira em producao: a trilha registraria como
+    entregue algo que nunca saiu, e o Credor acreditaria nela.
+
+    `FALHA_PERMANENTE`, e nao temporaria, porque retry nao resolve falta de
+    configuracao: ficaria em loop ate estourar as tentativas, gastando ciclo do
+    worker para chegar no mesmo lugar. Terminal e nomeado aparece na trilha com
+    o motivo, que e o que o operador precisa ver.
+    """
+
+    def __init__(self, canal: str) -> None:
+        self._canal = canal
+
+    def enviar(
+        self,
+        *,
+        destinatario: str,
+        assunto: str,
+        corpo: str,
+        chave_idempotente: str,
+    ) -> ResultadoEnvio:
+        del destinatario, assunto, corpo
+        return ResultadoEnvio(
+            ResultadoCanal.FALHA_PERMANENTE,
+            codigo=f"canal_nao_configurado:{self._canal}",
+            chave_idempotente=chave_idempotente,
+        )
+
+    def consultar_status(self, provider_message_id: str) -> ResultadoEnvio:
+        del provider_message_id
+        return ResultadoEnvio(
+            ResultadoCanal.DESCONHECIDO,
+            codigo=f"canal_nao_configurado:{self._canal}",
+        )
+
+
 class FakeNotificationChannel(NotificationChannel):
     """Fake deterministico sem rede ou credenciais."""
 

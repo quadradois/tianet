@@ -66,7 +66,6 @@ from emprestimo.application.historico_devedor import DevedorHistoricoService
 from emprestimo.application.lancamento import LancamentoService
 from emprestimo.application.notifications import (
     AvisoSobraPagamentoService,
-    FakeNotificationChannel,
     NotificationService,
     TemplateNotificacaoService,
 )
@@ -86,6 +85,7 @@ from emprestimo.application.operacao_diaria import (
 from emprestimo.application.perfis_acesso import PerfisAcessoService
 from emprestimo.application.provisioning import TenantProvisioningService
 from emprestimo.application.relatorios import RelatoriosOperacionaisService
+from emprestimo.composition import resolver_canal_email
 from emprestimo.domain.credit.automacao_ports import NotificationChannel
 from emprestimo.domain.credit.carteira import Carteira
 from emprestimo.domain.credit.devedor import Devedor
@@ -98,7 +98,6 @@ from emprestimo.infrastructure.auditoria import (
     SqlAlchemyAuditoriaRegistro,
 )
 from emprestimo.infrastructure.db.session import create_session, get_session_factory
-from emprestimo.infrastructure.notifications import ResendNotificationChannel
 from emprestimo.infrastructure.repositories import (
     SqlAlchemyCarteiraRepository,
     SqlAlchemyDevedorRepository,
@@ -674,13 +673,13 @@ def get_captura_snapshot_configuracao_service(
 
 
 def get_notification_channel() -> NotificationChannel:
-    api_key = os.environ.get("RESEND_API_KEY")
-    remetente = os.environ.get("RESEND_FROM")
-    if api_key and remetente:
-        return ResendNotificationChannel(api_key=api_key, remetente=remetente)
-    if os.environ.get("APP_ENV", "development") == "production":
-        raise RuntimeError("RESEND_API_KEY e RESEND_FROM sao obrigatorios em producao")
-    return FakeNotificationChannel()
+    """Delega a `composition.resolver_canal_email` — a decisao vive num lugar so.
+
+    Esta funcao era uma copia literal da que estava no worker, com o mesmo
+    `raise RuntimeError`. Ver o modulo `composition` para o porque de producao
+    sem credencial agora recusar em vez de derrubar o processo.
+    """
+    return resolver_canal_email()
 
 
 def get_automacao_admin_service(
