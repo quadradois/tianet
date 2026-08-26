@@ -9,7 +9,6 @@ from dataclasses import dataclass
 
 from emprestimo.application.errors import (
     AcessoNegadoError,
-    AutenticacaoRecusadaError,
     CredencialInvalidaError,
     TransicaoEstadoInvalidaError,
     UsuarioNaoEncontradoError,
@@ -47,91 +46,6 @@ class CredenciaisService:
     ) -> None:
         self._uow_factory = uow_factory
         self._auditoria = auditoria
-
-    def definir_inicial(
-        self,
-        *,
-        tenant_id: uuid.UUID,
-        usuario_id: uuid.UUID,
-        segredo: str,
-    ) -> CredencialResultado:
-        """Define credencial inicial e ativa Usuario convidado."""
-        self._registrar_inicio("definir_inicial", usuario_id, tenant_id=tenant_id)
-        try:
-            with self._uow_factory() as uow:
-                usuario = self._usuario_do_tenant(uow, usuario_id, tenant_id)
-                if usuario.estado is not UsuarioState.CONVIDADO:
-                    raise TransicaoEstadoInvalidaError(
-                        usuario.id,
-                        "definir_credencial_inicial",
-                        f"estado atual '{usuario.estado.value}' nao permite definir credencial",
-                    )
-                credencial = Credencial.definir(usuario_id=usuario.id, segredo=segredo)
-                usuario.ativar()
-                uow.credencial.save(credencial)
-                uow.usuario.save(usuario)
-                uow.commit()
-
-            self._registrar_sucesso("definir_inicial", usuario_id, tenant_id=tenant_id)
-            return CredencialResultado(usuario.id, usuario.tenant_id, usuario.estado)
-        except Exception as exc:
-            self._registrar_falha("definir_inicial", usuario_id, exc, tenant_id=tenant_id)
-            raise
-
-    def ativar_com_token(
-        self,
-        *,
-        token: str,
-        segredo: str,
-    ) -> CredencialResultado:
-        """Define a credencial inicial mediante token descartavel e irreversivel."""
-        try:
-            token_id_raw, token_segredo = token.strip().split(".", 1)
-            token_id = uuid.UUID(token_id_raw)
-            if not token_segredo:
-                raise ValueError
-        except ValueError:
-            self._auditoria.registrar(
-                "token_ativacao",
-                None,
-                "ativar.falha",
-                "falhou",
-                detalhes=json.dumps({"erro": "token_malformado"}),
-            )
-            raise AutenticacaoRecusadaError() from None
-
-        self._auditoria.registrar("token_ativacao", token_id, "ativar.inicio", "iniciado")
-        try:
-            with self._uow_factory() as uow:
-                ativacao = uow.token_ativacao.find_by_id(token_id)
-                if ativacao is None or not ativacao.valido(token_segredo):
-                    raise AutenticacaoRecusadaError()
-                usuario = self._usuario_do_tenant(uow, ativacao.usuario_id, ativacao.tenant_id)
-                if usuario.estado is not UsuarioState.CONVIDADO:
-                    raise AutenticacaoRecusadaError()
-                credencial = Credencial.definir(usuario_id=usuario.id, segredo=segredo)
-                usuario.ativar()
-                ativacao.utilizar()
-                uow.credencial.save(credencial)
-                uow.usuario.save(usuario)
-                uow.token_ativacao.save(ativacao)
-                uow.commit()
-        except Exception as exc:
-            detalhes = json.dumps({"erro": type(exc).__name__})
-            self._auditoria.registrar(
-                "token_ativacao", token_id, "ativar.falha", "falhou", detalhes=detalhes
-            )
-            self._auditoria.registrar(
-                "token_ativacao",
-                token_id,
-                "ativar.rollback",
-                "rollback_aplicado",
-            )
-            raise
-
-        self._auditoria.registrar("token_ativacao", token_id, "ativar.sucesso", "ok")
-        self._registrar_sucesso("definir_inicial", usuario.id, tenant_id=usuario.tenant_id)
-        return CredencialResultado(usuario.id, usuario.tenant_id, usuario.estado)
 
     def alterar_propria(
         self,

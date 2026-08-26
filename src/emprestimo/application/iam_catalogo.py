@@ -5,7 +5,11 @@ from emprestimo.domain.platform.permissao import Permissao
 CATALOGO_PERMISSOES_VERSAO = "1.0.0"
 
 CATALOGO_PERMISSOES = (
-    Permissao("tenant.criar", "Provisionar Tenants"),
+    # IMP-351: o endpoint POST /platform/tenants saiu, mas esta permissao NAO.
+    # Ela virou o marcador do papel de Administrador da Plataforma — e o que
+    # `bootstrap_plataforma`, `autorizacao.py` e `estado.py` consultam para
+    # saber quem e a raiz administrativa. Remove-la quebraria os tres.
+    Permissao("tenant.criar", "Identificar o Administrador da Plataforma"),
     Permissao("tenant.ler", "Consultar Tenants"),
     Permissao("tenant.atualizar", "Atualizar Tenants"),
     Permissao("tenant.inativar", "Inativar Tenants"),

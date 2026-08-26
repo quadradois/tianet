@@ -909,13 +909,27 @@ Registrados para nao voltarem como surpresa; **nao** bloqueiam a conclusao.
 - **IMP-348 - Dispatcher para `EventPublisher`.** A interface existe em
   `application/ports.py` e nao tem implementacao nem consumidor. Evolucao
   prevista na ADR-005, sem demanda de produto no MVP.
-- **IMP-349 - Reemissao do token de ativacao.** Achado durante o IMP-341, ver a
-  nota daquele item. `TokenAtivacao` expira em 24 h, nao ha reemissao, e
-  `credencial.redefinir` so alcanca usuarios do proprio Tenant do solicitante.
-  Um administrador que perca a primeira resposta — ou simplesmente demore um dia
-  — depende da CLI `bootstrap_plataforma`, e portanto de acesso ao servidor.
-  **Aceitavel enquanto ha um credor e um Tenant; vira bloqueio no primeiro
-  cliente novo.** Fica registrado para nao voltar como surpresa.
+- ~~**IMP-349 - Reemissao do token de ativacao.**~~ **FECHADO como nao-aplicavel
+  em 2026-08-26**, e o caminho ate a decisao vale mais que ela.
+
+  A nota original dizia que a saida era a CLI `bootstrap_plataforma`. **Errado:**
+  a CLI recusa quando a raiz ja existe (`PerfilConflitoError`) e quando o Tenant
+  ja existe (`TenantJaExisteError`). Ela roda uma vez, para criar a raiz, nunca
+  para recuperar. Eu afirmei uma saida operacional sem abrir o codigo que a
+  implementaria — a CLI *parecia* servir pelo nome.
+
+  Com isso o cenario era **pior** do que o registrado: Tenant provisionado pela
+  API, token perdido, `credencial.redefinir` limitado ao `principal.tenant_id`, e
+  o Administrador da Plataforma vivendo no tenant raiz. Nenhuma saida.
+
+  **Por que nao viramos isso em funcionalidade:** decisao do fundador — o
+  Administrador da Plataforma e o unico Tenant, e nao havera outros. Verificado
+  no codigo antes de aceitar: `TokenAtivacao.emitir` tinha **um unico chamador**
+  (`provisioning.py`), nao existe rota de criacao de usuario no IAM, e
+  `definir_inicial` nao tinha chamador nenhum. Construir reemissao seria
+  construir recuperacao para um fluxo que o produto nao percorre.
+
+  Resolvido pela remocao, no **IMP-351**.
 
 ---
 
@@ -964,8 +978,10 @@ Estado mantido pelo loop de execucao. `Pendente` -> `Em revisao` -> `Concluido`;
 | IMP-344 | Fechar a arvore atual | E | **Concluido** | 1 |
 | IMP-350 | Cobrir o caminho de entrega da notificacao | E | **Concluido** - achou defeito real de producao | 1 |
 | IMP-345 | Recertificacao do MVP | E | **Concluido** - 33 gates verdes sobre arvore limpa | 1 |
+| IMP-351 | Remover provisionamento por API e fluxo de ativacao | pos-345 | **Concluido** - contrato de 107/134 para 105/131 | 1 |
 
-**Fora do MVP, nao entram no loop:** IMP-347, IMP-348, IMP-349.
+**Fora do MVP, nao entram no loop:** IMP-347, IMP-348. O IMP-349 foi fechado
+como nao-aplicavel e substituido pelo IMP-351, executado.
 
 ## 9.1 Protocolo do loop
 
@@ -1402,3 +1418,61 @@ A meta esta batida **por medicao, nao por arredondamento** — e a distancia ent
 89,55% e 90,02% custou dois testes que acharam um defeito de producao e um
 acoplamento entre suites. Foi o caminho mais barato ate a meta? Nao. Foi o que
 cobriu o que o numero estava escondendo.
+
+### 9.10 IMP-351: o que a remocao ensinou sobre caveat escrito sem ler codigo (2026-08-26)
+
+O IMP-351 removeu `POST /platform/tenants`, `POST /auth/ativar`, o
+`TokenAtivacao` inteiro e a tabela que o guardava. Contrato de **107/134 para
+105/131**. O que vale registrar nao e a remocao — e como ela apareceu.
+
+**O caveat 4.3 do handoff estava errado, e o erro era meu.** Ele afirmava que a
+CLI `bootstrap_plataforma` era a saida para um token perdido. Ela **recusa**
+quando a raiz ja existe. Eu inferi a saida pelo nome da CLI, sem abrir o
+`AdministradorPlataformaBootstrapService`. Caveat que descreve caminho de
+recuperacao precisa ser **lido no codigo**: quem confiasse nele so descobriria
+o erro no dia do incidente, que e o pior momento possivel.
+
+**A pergunta certa mudou a resposta.** Antes de implementar reemissao, a
+verificacao mostrou que `TokenAtivacao.emitir` tinha **um unico chamador**, que
+nao ha rota de criacao de usuario no IAM, e que `definir_inicial` nao tinha
+chamador algum. Com um Tenant unico nascido pela CLI, o fluxo inteiro descrevia
+um caminho que o produto nao percorre. **Construir a recuperacao teria sido
+resolver um problema inexistente com codigo novo.**
+
+**Uma imprecisao minha, corrigida a tempo:** agrupei tres coisas como "codigo
+morto". So `definir_inicial` era morto de fato; `TokenAtivacao` e `/auth/ativar`
+estavam **vivos**, ligados ao provisionamento. Remover so os dois teria deixado
+um endpoint que cria Tenants permanentemente inacessiveis — trocaria codigo
+morto por endpoint quebrado. Foi por isso que o provisionamento saiu junto.
+
+**A permissao `tenant.criar` NAO saiu, e isso e a decisao.** Ela nao autorizava
+apenas o endpoint: e o marcador do papel de Administrador da Plataforma, lido
+por `bootstrap_plataforma`, `autorizacao.py` e `estado.py`. Ficou no catalogo
+com a descricao trocada para o que ela realmente faz.
+
+**A cadeia de SHA quase foi falsificada.** A primeira tentativa substituiu o
+hash em 20 arquivos de uma vez — inclusive no handoff de 25/08 e no relatorio do
+PLAN-026, que registram o SHA **daquela data**. Seria repetir o defeito que o
+handoff de 20/08 §4.3 ja tinha corrigido uma vez. As tres categorias, que valem
+para a proxima regeracao:
+
+| Categoria | Exemplo | O que fazer |
+|---|---|---|
+| Vigente | matriz de rastreabilidade, testes de contrato, codegen | substituir pelo SHA novo |
+| Cadeia historica | `PLAN-026` §7.1 | **acrescentar** entrada; nunca reescrever as anteriores |
+| Registro datado | handoff, backlog | manter o SHA original e anotar supersessao |
+
+**Dez contadores precisaram mudar, e isso e o sistema funcionando.** Operacoes,
+schemas, protegidas, publicas, rotas com `Idempotency-Key`, excecoes auth,
+inventario do BFF, pinos do `docs:test`. Um corte de contrato deste tamanho
+passar em silencio seria o defeito; ter de atualizar dez lugares e o aviso de
+que a superficie publica mudou.
+
+**Achado herdado, corrigido de passagem:** a matriz de rastreabilidade tinha
+cabecalho em `3.9.0` sem entrada correspondente no historico. A lacuna foi
+preenchida em vez de saltar para `3.10.0` e deixar o buraco.
+
+**Baseline documental de 32 para 34 avisos.** `PLAN-001` e `PLAN-005` citam
+`POST /platform/tenants` e `POST /auth/ativar`, que deixaram de existir. Os
+avisos sao **verdadeiros** e mante-los e decisao registrada — o mesmo tratamento
+que o caveat 4.2 do handoff de 20/08 deu as citacoes de parcelas. Zero erros.

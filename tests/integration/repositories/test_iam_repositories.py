@@ -3,14 +3,11 @@
 from __future__ import annotations
 
 import uuid
-from concurrent.futures import ThreadPoolExecutor
 from datetime import UTC, datetime, timedelta
-from threading import Event
-from time import sleep
 
 import pytest
 from sqlalchemy.exc import IntegrityError
-from sqlalchemy.orm import Session, sessionmaker
+from sqlalchemy.orm import Session
 from tests.factories import TenantFactory, UsuarioFactory
 
 from emprestimo.domain.common.errors import PerfilJaExisteError, ViolacaoInvarianteError
@@ -18,14 +15,12 @@ from emprestimo.domain.platform.credencial import Credencial
 from emprestimo.domain.platform.perfil import PerfilAcesso, PerfilState
 from emprestimo.domain.platform.permissao import Permissao
 from emprestimo.domain.platform.sessao import Sessao
-from emprestimo.domain.platform.token_ativacao import TokenAtivacao
 from emprestimo.infrastructure.repositories import (
     SqlAlchemyCredencialRepository,
     SqlAlchemyPerfilAcessoRepository,
     SqlAlchemyPermissaoRepository,
     SqlAlchemySessaoRepository,
     SqlAlchemyTenantRepository,
-    SqlAlchemyTokenAtivacaoRepository,
     SqlAlchemyUsuarioRepository,
 )
 
@@ -177,57 +172,6 @@ def test_perfil_acesso_repository_rejeita_vinculo_cross_tenant(session: Session)
         repo.atribuir_usuario(usuario_id, perfil.id)
 
     assert repo.find_by_usuario_id(usuario_id) is None
-
-
-def test_token_ativacao_so_pode_ser_consumido_por_uma_transacao(
-    session: Session,
-    session_factory: sessionmaker[Session],
-) -> None:
-    tenant_id, usuario_id = _usuario_persistido(session)
-    token = TokenAtivacao.emitir(
-        usuario_id=usuario_id,
-        tenant_id=tenant_id,
-        segredo="segredo-descartavel",
-    )
-    SqlAlchemyTokenAtivacaoRepository(session).save(token)
-    session.commit()
-
-    primeira_bloqueou = Event()
-    liberar_primeira = Event()
-    segunda_iniciou_leitura = Event()
-
-    def consumir_primeiro() -> bool:
-        with session_factory() as sessao_worker:
-            repo = SqlAlchemyTokenAtivacaoRepository(sessao_worker)
-            carregado = repo.find_by_id(token.id)
-            assert carregado is not None
-            assert carregado.valido("segredo-descartavel")
-            primeira_bloqueou.set()
-            assert liberar_primeira.wait(timeout=5)
-            carregado.utilizar()
-            repo.save(carregado)
-            sessao_worker.commit()
-            return True
-
-    def consumir_segundo() -> bool:
-        assert primeira_bloqueou.wait(timeout=5)
-        with session_factory() as sessao_worker:
-            repo = SqlAlchemyTokenAtivacaoRepository(sessao_worker)
-            segunda_iniciou_leitura.set()
-            carregado = repo.find_by_id(token.id)
-            assert carregado is not None
-            return carregado.valido("segredo-descartavel")
-
-    with ThreadPoolExecutor(max_workers=2) as executor:
-        primeiro = executor.submit(consumir_primeiro)
-        segundo = executor.submit(consumir_segundo)
-        assert segunda_iniciou_leitura.wait(timeout=5)
-        sleep(0.2)
-        assert not segundo.done()
-        liberar_primeira.set()
-
-    assert primeiro.result() is True
-    assert segundo.result() is False
 
 
 def test_iam_repositories_respeitam_fks(session: Session) -> None:

@@ -17,7 +17,6 @@ from emprestimo.domain.platform.perfil import PerfilAcesso
 from emprestimo.domain.platform.permissao import Permissao
 from emprestimo.domain.platform.sessao import Sessao
 from emprestimo.domain.platform.tenant import Tenant, TenantState
-from emprestimo.domain.platform.token_ativacao import TokenAtivacao
 from emprestimo.domain.platform.usuario import Usuario
 
 
@@ -112,14 +111,6 @@ class CredencialRepository(ABC):
 
     @abstractmethod
     def find_by_usuario_id(self, usuario_id: uuid.UUID) -> Credencial | None: ...
-
-
-class TokenAtivacaoRepository(ABC):
-    @abstractmethod
-    def save(self, token: TokenAtivacao) -> None: ...
-
-    @abstractmethod
-    def find_by_id(self, token_id: uuid.UUID) -> TokenAtivacao | None: ...
 
 
 class SessaoRepository(ABC):

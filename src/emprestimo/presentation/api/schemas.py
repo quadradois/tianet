@@ -18,38 +18,6 @@ from emprestimo.domain.platform.tenant import TenantState
 from emprestimo.domain.platform.usuario import UsuarioState
 
 
-class TenantCreateRequest(BaseModel):
-    """Payload de criação de Tenant (US-001 — dados obrigatórios)."""
-
-    model_config = ConfigDict(extra="forbid")
-
-    identificador_institucional: str = Field(min_length=1, max_length=120)
-    nome: str = Field(min_length=1, max_length=200)
-    nome_administrador: str = Field(min_length=1, max_length=200)
-    email_administrador: str = Field(min_length=3, max_length=254)
-
-    @field_validator("*", mode="before")
-    @classmethod
-    def _normalizar_texto(cls, valor: Any) -> Any:
-        if isinstance(valor, str):
-            return valor.strip()
-        return valor
-
-    @field_validator("identificador_institucional", "nome", "nome_administrador")
-    @classmethod
-    def _nao_vazio(cls, valor: str) -> str:
-        if not valor:
-            raise ValueError("campo obrigatório não pode ser vazio")
-        return valor
-
-    @field_validator("email_administrador")
-    @classmethod
-    def _email_basico(cls, valor: str) -> str:
-        if "@" not in valor or valor.startswith("@") or valor.endswith("@"):
-            raise ValueError("e-mail inválido")
-        return valor
-
-
 class TenantResponse(BaseModel):
     """Representação pública de um Tenant (POST 201 e GET 200).
 
@@ -62,11 +30,6 @@ class TenantResponse(BaseModel):
     nome: str
     estado: TenantState
     criado_em: datetime
-
-
-class TenantProvisioningResponse(TenantResponse):
-    usuario_administrador_id: uuid.UUID | None = None
-    token_ativacao: str | None = None
 
 
 class TenantListagemParams(BaseModel):
@@ -186,12 +149,6 @@ class AuthLogoutResponse(BaseModel):
     """Resposta simples do encerramento de sessao."""
 
     status: str
-
-
-class AtivacaoRequest(BaseModel):
-    model_config = ConfigDict(extra="forbid")
-    token_ativacao: str = Field(min_length=1)
-    segredo: str = Field(min_length=1)
 
 
 class AlterarCredencialRequest(BaseModel):

@@ -43,9 +43,12 @@ def test_openapi_inventory_covers_backend_mvp_contexts() -> None:
     schema = create_app().openapi()
     operations = _operations(schema)
 
-    assert len(operations) == 107
-    assert sum(1 for _, path in operations if _is_public(path)) == 5
-    assert sum(1 for _, path in operations if not _is_public(path)) == 102
+    assert len(operations) == 105
+    # IMP-351: eram 5 publicas; POST /auth/ativar saiu com o fluxo de ativacao.
+    assert sum(1 for _, path in operations if _is_public(path)) == 4
+    # IMP-351: eram 103 protegidas; POST /platform/tenants saiu junto com o
+    # provisionamento por API. 105 no total = 4 publicas + 101 protegidas.
+    assert sum(1 for _, path in operations if not _is_public(path)) == 101
 
     paths = set(schema["paths"])
     for context, expected_fragment in EXPECTED_CONTEXTS.items():

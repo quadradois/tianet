@@ -5,39 +5,19 @@ from __future__ import annotations
 from fastapi import APIRouter, Depends
 
 from emprestimo.application.autenticacao import AutenticacaoService
-from emprestimo.application.credenciais import CredenciaisService
 from emprestimo.presentation.api.dependencies import (
     get_autenticacao_service,
-    get_credenciais_service,
 )
 from emprestimo.presentation.api.openapi import RESPOSTAS_AUTH
 from emprestimo.presentation.api.schemas import (
-    AtivacaoRequest,
     AuthLoginRequest,
     AuthLoginResponse,
     AuthLogoutResponse,
     AuthRefreshRequest,
     AuthRefreshResponse,
-    CredencialResponse,
 )
 
 router = APIRouter(prefix="/auth", tags=["auth"], responses=RESPOSTAS_AUTH)
-
-
-@router.post("/ativar", response_model=CredencialResponse)
-def ativar(
-    payload: AtivacaoRequest,
-    service: CredenciaisService = Depends(get_credenciais_service),
-) -> CredencialResponse:
-    resultado = service.ativar_com_token(
-        token=payload.token_ativacao,
-        segredo=payload.segredo,
-    )
-    return CredencialResponse(
-        usuario_id=resultado.usuario_id,
-        tenant_id=resultado.tenant_id,
-        estado=resultado.estado,
-    )
 
 
 @router.post(

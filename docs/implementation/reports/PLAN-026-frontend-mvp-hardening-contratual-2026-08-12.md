@@ -253,11 +253,26 @@ hashes acima foram reconstruidos a partir do proprio historico do arquivo em
 `git`, e cada um foi conferido contra a contagem de operacoes e schemas do
 commit correspondente.
 
-Das seis regeracoes registradas, so a do IMP-326 e aditiva. A do IMP-324
-retirou campos exigidos, a do IMP-327 retirou operacoes e schemas, e a do
-IMP-328 retirou campos de sete schemas: as tres **nao aditivas**, deliberadas, e
-amparadas pela resolucao da DR-004. Nada do
-hardening foi desfeito.
+Em 2026-08-26 o IMP-351 removeu o provisionamento de Tenant por API e o fluxo
+de ativacao inteiro. Sairam `POST /platform/tenants` e `POST /auth/ativar`, mais
+os schemas `TenantCreateRequest`, `TenantProvisioningResponse` e
+`AtivacaoRequest`. **Reducao de superficie: 105 operacoes, 131 schemas**,
+674250 bytes, SHA-256
+`e87bdad9b000959dea7809878cdd69c6cfcdfca2a2dc5fa8e9cc4cc7bd5e16e6`.
+
+A remocao e **nao aditiva** e amparada por decisao do fundador: o Administrador
+da Plataforma e o unico Tenant, e nao havera outros. O Tenant nasce pela CLI
+`bootstrap_plataforma`, que define credencial diretamente e nunca emitiu token.
+O que saiu nao era so codigo sem uso — era um beco sem saida: `TokenAtivacao`
+expirava em 24h, `credencial.redefinir` exige estado ATIVO e a CLI recusa quando
+a raiz ja existe, entao um administrador convidado com token vencido ficava sem
+nenhuma saida.
+
+Das sete regeracoes registradas, so a do IMP-326 e aditiva. A do IMP-324
+retirou campos exigidos, a do IMP-327 retirou operacoes e schemas, a do
+IMP-328 retirou campos de sete schemas e a do IMP-351 retirou duas operacoes e
+tres schemas: as quatro **nao aditivas**, deliberadas, e amparadas pela
+resolucao da DR-004 ou por decisao registrada. Nada do hardening foi desfeito.
 
 ---
 
@@ -265,6 +280,7 @@ hardening foi desfeito.
 
 | Versao | Data | Descricao |
 |---|---|---|
+| 1.7.0 | 2026-08-26 | IMP-351: provisionamento de Tenant por API e fluxo de ativacao removidos; snapshot 105/131 regerado. O registro de cada snapshot anterior permanece intacto — cadeia se acrescenta, nao se reescreve. |
 | 1.6.0 | 2026-08-22 | IMP-333: `Idempotency-Key` passou de 32 para 63 rotas; guardrail estrutural deixa somente quatro excecoes auth nominais; snapshot 107/134 regerado. |
 | 1.5.0 | 2026-08-22 | Registrado o snapshot aditivo do IMP-332: estorno parcial e reconciliacao explicita de Pagamento, com 107 operacoes e 134 schemas. |
 | 1.4.0 | 2026-08-20 | Registrada a regeracao do IMP-328: `parcela_id` sai de sete schemas, sem mudanca de superficie. |

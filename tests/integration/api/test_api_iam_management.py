@@ -17,19 +17,15 @@ from emprestimo.application.iam_catalogo import CATALOGO_POR_CODIGO
 from emprestimo.domain.platform.credencial import Credencial
 from emprestimo.domain.platform.perfil import PerfilAcesso
 from emprestimo.domain.platform.tenant import TenantState
-from emprestimo.domain.platform.token_ativacao import TokenAtivacao
 from emprestimo.domain.platform.usuario import Usuario, UsuarioState
 from emprestimo.infrastructure.db.orm import (
     AuditoriaLogORM,
-    CredencialORM,
-    TokenAtivacaoORM,
     UsuarioPerfilORM,
 )
 from emprestimo.infrastructure.repositories import (
     SqlAlchemyCredencialRepository,
     SqlAlchemyPerfilAcessoRepository,
     SqlAlchemyTenantRepository,
-    SqlAlchemyTokenAtivacaoRepository,
     SqlAlchemyUsuarioRepository,
 )
 from emprestimo.presentation.api import dependencies
@@ -92,43 +88,6 @@ def _headers(token: str, chave: str | None = None) -> dict[str, str]:
         "Authorization": f"Bearer {token}",
         "Idempotency-Key": chave or f"api-iam-{uuid.uuid4()}",
     }
-
-
-def test_ativacao_descartavel_define_credencial_sem_persistir_segredo(
-    client: TestClient,
-    session: Session,
-) -> None:
-    tenant = TenantFactory.build()
-    usuario = UsuarioFactory.build(tenant_id=tenant.id, estado=UsuarioState.CONVIDADO)
-    SqlAlchemyTenantRepository(session).save(tenant)
-    SqlAlchemyUsuarioRepository(session).save(usuario)
-    token = TokenAtivacao.emitir(
-        usuario_id=usuario.id,
-        tenant_id=tenant.id,
-        segredo="segredo-descartavel",
-    )
-    SqlAlchemyTokenAtivacaoRepository(session).save(token)
-    session.commit()
-    token_publico = f"{token.id}.segredo-descartavel"
-
-    resposta = client.post(
-        "/auth/ativar",
-        json={"token_ativacao": token_publico, "segredo": "Nova Senha 456"},
-    )
-    repeticao = client.post(
-        "/auth/ativar",
-        json={"token_ativacao": token_publico, "segredo": "Outra Senha 789"},
-    )
-
-    assert resposta.status_code == 200
-    assert resposta.json()["estado"] == "ativo"
-    assert repeticao.status_code == 401
-    session.expire_all()
-    credencial = session.scalar(select(CredencialORM).where(CredencialORM.usuario_id == usuario.id))
-    ativacao = session.get(TokenAtivacaoORM, token.id)
-    assert credencial is not None and "Nova Senha 456" not in credencial.hash_credencial
-    assert ativacao is not None and ativacao.utilizado_em is not None
-    assert "segredo-descartavel" not in ativacao.token_hash
 
 
 def test_gestao_completa_de_perfil_idempotente_e_auditada(

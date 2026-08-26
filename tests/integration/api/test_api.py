@@ -9,7 +9,6 @@ from __future__ import annotations
 
 import uuid
 from collections.abc import Iterator
-from concurrent.futures import ThreadPoolExecutor
 from dataclasses import replace
 from datetime import UTC, datetime, timedelta
 from typing import cast
@@ -17,18 +16,14 @@ from unittest.mock import Mock
 
 import pytest
 from fastapi import FastAPI
-from httpx import Response
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session, sessionmaker
 from starlette.testclient import TestClient
 
 from emprestimo.application.autorizacao import Principal, RecursoDeOutroTenantError
-from emprestimo.application.provisioning import TenantProvisioningService
-from emprestimo.domain.platform.unicidade import UnicidadeTenantService
-from emprestimo.infrastructure.auditoria import SqlAlchemyAuditoriaRegistro
+from emprestimo.domain.platform.tenant import Tenant
 from emprestimo.infrastructure.db.orm import TenantORM
 from emprestimo.infrastructure.repositories import SqlAlchemyTenantRepository
-from emprestimo.infrastructure.unit_of_work import SqlAlchemyUnitOfWork
 from emprestimo.presentation.api import dependencies
 from emprestimo.presentation.api.main import create_app
 
@@ -60,22 +55,9 @@ PRINCIPAL_TESTE = Principal(
 )
 
 
-def _montar_servico(
-    session_factory: sessionmaker[Session], session: Session
-) -> TenantProvisioningService:
-    return TenantProvisioningService(
-        uow_factory=lambda: SqlAlchemyUnitOfWork(session_factory),
-        unicidade=UnicidadeTenantService(SqlAlchemyTenantRepository(session)),
-        auditoria=SqlAlchemyAuditoriaRegistro(session_factory),
-    )
-
-
 @pytest.fixture
 def client(session_factory: sessionmaker[Session], session: Session) -> Iterator[TestClient]:
     app_instance = create_app()
-    app_instance.dependency_overrides[dependencies.get_tenant_provisioning_service] = lambda: (
-        _montar_servico(session_factory, session)
-    )
     app_instance.dependency_overrides[dependencies.get_tenant_repository] = lambda: (
         SqlAlchemyTenantRepository(session)
     )
@@ -88,27 +70,43 @@ def client(session_factory: sessionmaker[Session], session: Session) -> Iterator
         yield c
 
 
-def _post(
+def _criar_tenant(
     client: TestClient,
+    session: Session,
     payload: dict[str, object] | None = None,
-    chave: str = CHAVE,
-) -> Response:
-    response = cast(
-        Response,
-        client.post(
-            "/platform/tenants",
-            json=payload if payload is not None else PAYLOAD,
-            headers={"Idempotency-Key": chave},
-        ),
+    chave: str | None = None,
+) -> dict[str, str]:
+    """Cria o Tenant direto no banco — o POST /platform/tenants nao existe mais.
+
+    Antes estes testes usavam o endpoint de provisionamento como setup. Ele saiu
+    no IMP-351 junto com o fluxo de ativacao: o Tenant unico nasce pela CLI
+    `bootstrap_plataforma`, nao pela API. O que os testes abaixo exercitam —
+    consulta, listagem, atualizacao e estado — nao mudou; so a forma de chegar
+    ao estado inicial.
+    """
+    del chave  # nao ha mais idempotencia a exercitar na criacao
+    dados = payload if payload is not None else PAYLOAD
+    tenant = Tenant(
+        identificador_institucional=str(dados["identificador_institucional"]),
+        nome=str(dados["nome"]),
     )
-    if response.status_code == 201:
-        tenant_id = uuid.UUID(response.json()["id"])
-        app_instance = cast(FastAPI, client.app)
-        app_instance.dependency_overrides[dependencies.get_principal_atual] = lambda: replace(
-            PRINCIPAL_TESTE,
-            tenant_id=tenant_id,
-        )
-    return response
+    # O provisionamento terminava com o Tenant ATIVO; criar direto para em PROVISAO.
+    tenant.ativar()
+    SqlAlchemyTenantRepository(session).save(tenant)
+    session.commit()
+    app_instance = cast(FastAPI, client.app)
+    app_instance.dependency_overrides[dependencies.get_principal_atual] = lambda: replace(
+        PRINCIPAL_TESTE,
+        tenant_id=tenant.id,
+    )
+    return {
+        "id": str(tenant.id),
+        "identificador_institucional": tenant.identificador_institucional,
+        "nome": tenant.nome,
+        "estado": tenant.estado.value,
+        # A API serializa UTC com sufixo Z; o helper precisa falar a mesma lingua.
+        "criado_em": tenant.criado_em.isoformat().replace("+00:00", "Z"),
+    }
 
 
 def _contar_tenants(session_factory: sessionmaker[Session]) -> int:
@@ -130,22 +128,8 @@ def test_health(client: TestClient) -> None:
     assert resp.headers["X-Correlation-ID"]
 
 
-def test_post_cria_tenant_201(client: TestClient) -> None:
-    resp = _post(client)
-
-    assert resp.status_code == 201
-    corpo = resp.json()
-    assert set(corpo) == CAMPO_PROVISIONAMENTO_RESPONSE
-    assert corpo["identificador_institucional"] == "IDENT-API"
-    assert corpo["nome"] == "Financeira API"
-    assert corpo["estado"] == "ativo"
-    assert corpo["criado_em"]
-    assert corpo["usuario_administrador_id"]
-    assert corpo["token_ativacao"]
-
-
-def test_get_retorna_tenant(client: TestClient) -> None:
-    criado = _post(client).json()
+def test_get_retorna_tenant(client: TestClient, session: Session) -> None:
+    criado = _criar_tenant(client, session)
 
     resp = client.get(f"/platform/tenants/{criado['id']}")
 
@@ -164,153 +148,9 @@ def test_get_404_para_tenant_inexistente(client: TestClient) -> None:
     assert resp.json()["codigo"] == "tenant_nao_encontrado"
 
 
-def test_post_sem_idempotency_key_400(client: TestClient) -> None:
-    resp = client.post("/platform/tenants", json=PAYLOAD)
-
-    assert resp.status_code == 400
-    assert resp.json()["codigo"] == "idempotency_key_ausente"
-
-
-def test_post_payload_invalido_400(client: TestClient) -> None:
-    resp = client.post(
-        "/platform/tenants",
-        json={**PAYLOAD, "nome": "   "},
-        headers={"Idempotency-Key": "chave-2"},
-    )
-
-    assert resp.status_code == 400
-    assert resp.json()["codigo"] == "payload_invalido"
-
-
-def test_post_email_invalido_400(client: TestClient) -> None:
-    resp = client.post(
-        "/platform/tenants",
-        json={**PAYLOAD, "email_administrador": "sem-arroba"},
-        headers={"Idempotency-Key": "chave-3"},
-    )
-
-    assert resp.status_code == 400
-    assert resp.json()["codigo"] == "payload_invalido"
-
-
-def test_post_tenant_existente_409(client: TestClient) -> None:
-    _post(client, chave="chave-a")
-
-    resp = _post(client, chave="chave-b")
-
-    assert resp.status_code == 409
-    assert resp.json()["codigo"] == "tenant_ja_existe"
-
-
-def test_replay_mesma_chave_retorna_mesmo_resultado(client: TestClient) -> None:
-    primeiro = _post(client, chave="chave-replay").json()
-
-    segundo = _post(client, chave="chave-replay")
-
-    assert segundo.status_code == 201
-    assert segundo.json()["id"] == primeiro["id"]
-    assert segundo.json()["criado_em"] == primeiro["criado_em"]
-
-
-def test_chave_com_payload_divergente_409(client: TestClient) -> None:
-    _post(client, chave="chave-divergente")
-
-    resp = _post(
-        client,
-        chave="chave-divergente",
-        payload={**PAYLOAD, "identificador_institucional": "OUTRO-IDENT"},
-    )
-
-    assert resp.status_code == 409
-    assert resp.json()["codigo"] == "conflito_idempotencia"
-
-
-def test_concorrencia_mesma_chave_mesmo_payload(
-    client: TestClient, session_factory: sessionmaker[Session]
-) -> None:
-    """IMP-021: criação simultânea com a mesma chave → um único provisionamento."""
-    from emprestimo.presentation.api.main import create_app as cria_app
-
-    app_instance = cria_app()
-    client_app = cast(FastAPI, client.app)
-    app_instance.dependency_overrides[dependencies.get_tenant_provisioning_service] = (
-        client_app.dependency_overrides[dependencies.get_tenant_provisioning_service]
-    )
-    app_instance.dependency_overrides[dependencies.get_tenant_repository] = (
-        client_app.dependency_overrides[dependencies.get_tenant_repository]
-    )
-    app_instance.dependency_overrides[dependencies.get_principal_atual] = (
-        client_app.dependency_overrides[dependencies.get_principal_atual]
-    )
-    app_instance.dependency_overrides[dependencies.get_autorizacao_service] = (
-        client_app.dependency_overrides[dependencies.get_autorizacao_service]
-    )
-
-    def chamada(_: int) -> int:
-        with TestClient(app_instance) as c:
-            return cast(
-                int,
-                c.post(
-                    "/platform/tenants",
-                    json=PAYLOAD,
-                    headers={"Idempotency-Key": "chave-corrida"},
-                ).status_code,
-            )
-
-    with ThreadPoolExecutor(max_workers=2) as executor:
-        codigos = sorted(executor.map(chamada, [0, 1]))
-
-    assert codigos.count(201) >= 1  # um provisionamento vence
-    assert all(codigo in (201, 409) for codigo in codigos)
-    assert _contar_tenants(session_factory) == 1  # sem duplicidade
-
-
-def test_concorrencia_mesma_chave_payload_divergente(
-    client: TestClient, session_factory: sessionmaker[Session]
-) -> None:
-    """Corrida com payload divergente → exatamente um 201 e um 409 (determinístico)."""
-    from emprestimo.presentation.api.main import create_app as cria_app
-
-    app_instance = cria_app()
-    client_app = cast(FastAPI, client.app)
-    app_instance.dependency_overrides[dependencies.get_tenant_provisioning_service] = (
-        client_app.dependency_overrides[dependencies.get_tenant_provisioning_service]
-    )
-    app_instance.dependency_overrides[dependencies.get_tenant_repository] = (
-        client_app.dependency_overrides[dependencies.get_tenant_repository]
-    )
-    app_instance.dependency_overrides[dependencies.get_principal_atual] = (
-        client_app.dependency_overrides[dependencies.get_principal_atual]
-    )
-    app_instance.dependency_overrides[dependencies.get_autorizacao_service] = (
-        client_app.dependency_overrides[dependencies.get_autorizacao_service]
-    )
-
-    def chamada(payload: dict[str, object]) -> int:
-        with TestClient(app_instance) as c:
-            return cast(
-                int,
-                c.post(
-                    "/platform/tenants",
-                    json=payload,
-                    headers={"Idempotency-Key": "chave-corrida-divergente"},
-                ).status_code,
-            )
-
-    payloads = [PAYLOAD, {**PAYLOAD, "identificador_institucional": "OUTRO-IDENT"}]
-    with ThreadPoolExecutor(max_workers=2) as executor:
-        codigos = sorted(executor.map(chamada, payloads))
-
-    assert codigos == [201, 409]
-    assert _contar_tenants(session_factory) == 1
-
-
-# --- Testes dos novos endpoints da IMP-026 / IMP-027 (FEATURE-002) ---
-
-
-def test_get_por_identificador_200(client: TestClient) -> None:
+def test_get_por_identificador_200(client: TestClient, session: Session) -> None:
     """IMP-026, US-010: GET /platform/tenants?identificador_institucional=..."""
-    criado = _post(client, chave="chave-ident").json()
+    criado = _criar_tenant(client, session, chave="chave-ident")
 
     resp = client.get(
         "/platform/tenants",
@@ -324,9 +164,9 @@ def test_get_por_identificador_200(client: TestClient) -> None:
     assert corpo["identificador_institucional"] == criado["identificador_institucional"]
 
 
-def test_get_por_identificador_com_espacos_normaliza(client: TestClient) -> None:
+def test_get_por_identificador_com_espacos_normaliza(client: TestClient, session: Session) -> None:
     """Presentation deve normalizar (strip) o identificador antes de consultar."""
-    _post(client, chave="chave-ident-espacos")
+    _criar_tenant(client, session, chave="chave-ident-espacos")
 
     # Chama com espaços - a Presentation deve fazer strip
     resp = client.get(
@@ -367,11 +207,14 @@ def test_get_por_identificador_vazio_400(client: TestClient) -> None:
     assert resp.json()["codigo"] == "payload_invalido"
 
 
-def test_listar_tenants_200(client: TestClient) -> None:
+def test_listar_tenants_200(client: TestClient, session: Session) -> None:
     """IMP-027, US-011: GET /platform/tenants - listagem paginada."""
-    criado = _post(
-        client, chave="chave-list-1", payload={**PAYLOAD, "identificador_institucional": "IDENT-L1"}
-    ).json()
+    criado = _criar_tenant(
+        client,
+        session,
+        chave="chave-list-1",
+        payload={**PAYLOAD, "identificador_institucional": "IDENT-L1"},
+    )
 
     resp = client.get("/platform/tenants", params={"page": 1, "size": 10})
 
@@ -391,9 +234,9 @@ def test_listar_tenants_200(client: TestClient) -> None:
         assert set(item) == CAMPO_RESPONSE
 
 
-def test_listar_tenants_paginacao(client: TestClient) -> None:
+def test_listar_tenants_paginacao(client: TestClient, session: Session) -> None:
     """Deve respeitar paginação (page, size)."""
-    _post(client, chave="chave-pag")
+    _criar_tenant(client, session, chave="chave-pag")
 
     page1 = client.get("/platform/tenants", params={"page": 1, "size": 2}).json()
     page2 = client.get("/platform/tenants", params={"page": 2, "size": 2}).json()
@@ -407,13 +250,14 @@ def test_listar_tenants_paginacao(client: TestClient) -> None:
     assert page1["pages"] == 1
 
 
-def test_listar_tenants_ordenacao(client: TestClient) -> None:
+def test_listar_tenants_ordenacao(client: TestClient, session: Session) -> None:
     """Deve ordenar conforme sort (campo:direcao)."""
-    criado = _post(
+    criado = _criar_tenant(
         client,
+        session,
         chave="chave-ord",
         payload={**PAYLOAD, "identificador_institucional": "IDENT-A", "nome": "Alpha"},
-    ).json()
+    )
 
     # Ordenação por identificador_institucional asc
     resp = client.get(
@@ -423,14 +267,15 @@ def test_listar_tenants_ordenacao(client: TestClient) -> None:
     assert [item["id"] for item in resp["items"]] == [criado["id"]]
 
 
-def test_listar_tenants_filtro_estado(client: TestClient) -> None:
+def test_listar_tenants_filtro_estado(client: TestClient, session: Session) -> None:
     """Deve filtrar por estado operacional."""
     # Criar tenants (todos ficam ativo após provisionamento)
-    criado = _post(
+    criado = _criar_tenant(
         client,
+        session,
         chave="chave-est-1",
         payload={**PAYLOAD, "identificador_institucional": "IDENT-EST-1"},
-    ).json()
+    )
 
     # Filtrar por ativo
     resp = client.get("/platform/tenants", params={"estado": "ativo", "size": 10}).json()
@@ -461,26 +306,29 @@ def test_listar_tenants_size_maximo_100(client: TestClient) -> None:
 
 def test_rotas_de_tenant_isolam_principal_com_dois_tenants(
     client: TestClient,
+    session: Session,
     session_factory: sessionmaker[Session],
 ) -> None:
-    primeiro = _post(
+    primeiro = _criar_tenant(
         client,
+        session,
         chave="chave-isolamento-1",
         payload={
             **PAYLOAD,
             "identificador_institucional": "IDENT-ISOLADO-1",
             "nome": "Tenant Oculto",
         },
-    ).json()
-    segundo = _post(
+    )
+    segundo = _criar_tenant(
         client,
+        session,
         chave="chave-isolamento-2",
         payload={
             **PAYLOAD,
             "identificador_institucional": "IDENT-ISOLADO-2",
             "nome": "Tenant do Principal",
         },
-    ).json()
+    )
 
     principal_local = replace(
         PRINCIPAL_TESTE,
@@ -538,9 +386,9 @@ def test_rotas_de_tenant_isolam_principal_com_dois_tenants(
 # --- Testes do endpoint PATCH /platform/tenants/{id} (IMP-032, FEATURE-003) ---
 
 
-def test_patch_atualiza_nome_200(client: TestClient) -> None:
+def test_patch_atualiza_nome_200(client: TestClient, session: Session) -> None:
     """IMP-032, US-012: PATCH atualiza o nome e responde TenantResponse."""
-    criado = _post(client, chave="chave-patch-ok").json()
+    criado = _criar_tenant(client, session, chave="chave-patch-ok")
 
     resp = client.patch(
         f"/platform/tenants/{criado['id']}",
@@ -591,9 +439,9 @@ def test_patch_payload_tipo_invalido_400(client: TestClient) -> None:
     assert resp.json()["codigo"] == "payload_invalido"
 
 
-def test_patch_nome_vazio_422(client: TestClient) -> None:
+def test_patch_nome_vazio_422(client: TestClient, session: Session) -> None:
     """Nome vazio → violação de invariante no Aggregate → 422 regra_violada."""
-    criado = _post(client, chave="chave-patch-vazio").json()
+    criado = _criar_tenant(client, session, chave="chave-patch-vazio")
 
     resp = client.patch(
         f"/platform/tenants/{criado['id']}",
@@ -605,9 +453,9 @@ def test_patch_nome_vazio_422(client: TestClient) -> None:
     assert resp.json()["codigo"] == "regra_violada"
 
 
-def test_patch_nome_acima_do_limite_422(client: TestClient) -> None:
+def test_patch_nome_acima_do_limite_422(client: TestClient, session: Session) -> None:
     """Nome com mais de 200 caracteres → 422 regra_violada."""
-    criado = _post(client, chave="chave-patch-longo").json()
+    criado = _criar_tenant(client, session, chave="chave-patch-longo")
 
     resp = client.patch(
         f"/platform/tenants/{criado['id']}",
@@ -619,9 +467,9 @@ def test_patch_nome_acima_do_limite_422(client: TestClient) -> None:
     assert resp.json()["codigo"] == "regra_violada"
 
 
-def test_patch_preserva_identificador_institucional(client: TestClient) -> None:
+def test_patch_preserva_identificador_institucional(client: TestClient, session: Session) -> None:
     """A atualização não altera o identificador institucional."""
-    criado = _post(client, chave="chave-patch-ident").json()
+    criado = _criar_tenant(client, session, chave="chave-patch-ident")
 
     resp = client.patch(
         f"/platform/tenants/{criado['id']}",
@@ -635,9 +483,9 @@ def test_patch_preserva_identificador_institucional(client: TestClient) -> None:
     assert corpo["id"] == criado["id"]
 
 
-def test_patch_preserva_estado_e_criacao(client: TestClient) -> None:
+def test_patch_preserva_estado_e_criacao(client: TestClient, session: Session) -> None:
     """A atualização preserva estado e criado_em."""
-    criado = _post(client, chave="chave-patch-estado").json()
+    criado = _criar_tenant(client, session, chave="chave-patch-estado")
 
     resp = client.patch(
         f"/platform/tenants/{criado['id']}",
@@ -651,9 +499,9 @@ def test_patch_preserva_estado_e_criacao(client: TestClient) -> None:
     assert corpo["criado_em"] == criado["criado_em"]
 
 
-def test_patch_normaliza_nome_com_espacos(client: TestClient) -> None:
+def test_patch_normaliza_nome_com_espacos(client: TestClient, session: Session) -> None:
     """A Presentation normaliza (strip) o nome na borda."""
-    criado = _post(client, chave="chave-patch-strip").json()
+    criado = _criar_tenant(client, session, chave="chave-patch-strip")
 
     resp = client.patch(
         f"/platform/tenants/{criado['id']}",
@@ -665,9 +513,9 @@ def test_patch_normaliza_nome_com_espacos(client: TestClient) -> None:
     assert resp.json()["nome"] == "Financeira Normalizada"
 
 
-def test_patch_persistencia_real(client: TestClient) -> None:
+def test_patch_persistencia_real(client: TestClient, session: Session) -> None:
     """Após PATCH, a consulta GET reflete o nome atualizado (persistência)."""
-    criado = _post(client, chave="chave-patch-persist").json()
+    criado = _criar_tenant(client, session, chave="chave-patch-persist")
 
     client.patch(
         f"/platform/tenants/{criado['id']}",
@@ -683,9 +531,9 @@ def test_patch_persistencia_real(client: TestClient) -> None:
 # --- Testes dos endpoints POST inativar/reativar (IMP-036, FEATURE-004) ---
 
 
-def test_post_inativar_200(client: TestClient) -> None:
+def test_post_inativar_200(client: TestClient, session: Session) -> None:
     """IMP-036, US-013: POST /tenants/{id}/inativar responde TenantResponse."""
-    criado = _post(client, chave="chave-inat-ok").json()
+    criado = _criar_tenant(client, session, chave="chave-inat-ok")
     resp = client.post(
         f"/platform/tenants/{criado['id']}/inativar",
         headers={"Idempotency-Key": "inativar-200"},
@@ -711,9 +559,9 @@ def test_post_inativar_tenant_inexistente_404(client: TestClient) -> None:
     assert resp.json()["codigo"] == "tenant_nao_encontrado"
 
 
-def test_post_inativar_ja_inativo_409(client: TestClient) -> None:
+def test_post_inativar_ja_inativo_409(client: TestClient, session: Session) -> None:
     """Estado divergente (já Inativo) → 409 conflito_estado."""
-    criado = _post(client, chave="chave-inat-409").json()
+    criado = _criar_tenant(client, session, chave="chave-inat-409")
     client.post(
         f"/platform/tenants/{criado['id']}/inativar",
         headers={"Idempotency-Key": "inativar-conflito-primeira"},
@@ -728,9 +576,9 @@ def test_post_inativar_ja_inativo_409(client: TestClient) -> None:
     assert resp.json()["codigo"] == "conflito_estado"
 
 
-def test_post_reativar_200(client: TestClient) -> None:
+def test_post_reativar_200(client: TestClient, session: Session) -> None:
     """IMP-036, US-014: POST /tenants/{id}/reativar responde TenantResponse."""
-    criado = _post(client, chave="chave-reat-ok").json()
+    criado = _criar_tenant(client, session, chave="chave-reat-ok")
     client.post(
         f"/platform/tenants/{criado['id']}/inativar",
         headers={"Idempotency-Key": "reativar-200-inativar"},
@@ -760,9 +608,9 @@ def test_post_reativar_tenant_inexistente_404(client: TestClient) -> None:
     assert resp.json()["codigo"] == "tenant_nao_encontrado"
 
 
-def test_post_reativar_ja_ativo_409(client: TestClient) -> None:
+def test_post_reativar_ja_ativo_409(client: TestClient, session: Session) -> None:
     """Estado divergente (já Ativo) → 409 conflito_estado."""
-    criado = _post(client, chave="chave-reat-409").json()
+    criado = _criar_tenant(client, session, chave="chave-reat-409")
 
     resp = client.post(
         f"/platform/tenants/{criado['id']}/reativar",
@@ -773,9 +621,9 @@ def test_post_reativar_ja_ativo_409(client: TestClient) -> None:
     assert resp.json()["codigo"] == "conflito_estado"
 
 
-def test_post_inativar_persistencia_real(client: TestClient) -> None:
+def test_post_inativar_persistencia_real(client: TestClient, session: Session) -> None:
     """Após inativar, a consulta GET reflete o estado Inativo (persistência)."""
-    criado = _post(client, chave="chave-inat-persist").json()
+    criado = _criar_tenant(client, session, chave="chave-inat-persist")
 
     client.post(
         f"/platform/tenants/{criado['id']}/inativar",
@@ -787,9 +635,9 @@ def test_post_inativar_persistencia_real(client: TestClient) -> None:
     assert resp.json()["estado"] == "inativo"
 
 
-def test_post_inativar_preserva_dados_cadastrais(client: TestClient) -> None:
+def test_post_inativar_preserva_dados_cadastrais(client: TestClient, session: Session) -> None:
     """Inativação altera apenas o estado; cadastro permanece intacto."""
-    criado = _post(client, chave="chave-inat-preserva").json()
+    criado = _criar_tenant(client, session, chave="chave-inat-preserva")
 
     resp = client.post(
         f"/platform/tenants/{criado['id']}/inativar",
@@ -804,9 +652,9 @@ def test_post_inativar_preserva_dados_cadastrais(client: TestClient) -> None:
     assert corpo["criado_em"] == criado["criado_em"]
 
 
-def test_post_reativar_nao_recria_dados(client: TestClient) -> None:
+def test_post_reativar_nao_recria_dados(client: TestClient, session: Session) -> None:
     """Reativação preserva identidade; nada é recriado."""
-    criado = _post(client, chave="chave-reat-preserva").json()
+    criado = _criar_tenant(client, session, chave="chave-reat-preserva")
     client.post(
         f"/platform/tenants/{criado['id']}/inativar",
         headers={"Idempotency-Key": "reativar-preserva-inativar"},
@@ -825,9 +673,11 @@ def test_post_reativar_nao_recria_dados(client: TestClient) -> None:
     assert corpo["criado_em"] == criado["criado_em"]
 
 
-def test_listagem_filtra_estado_inativo_apos_inativacao(client: TestClient) -> None:
+def test_listagem_filtra_estado_inativo_apos_inativacao(
+    client: TestClient, session: Session
+) -> None:
     """IMP-039: após inativar, o filtro por estado inativo encontra o Tenant."""
-    criado = _post(client, chave="chave-inat-filtro").json()
+    criado = _criar_tenant(client, session, chave="chave-inat-filtro")
     client.post(
         f"/platform/tenants/{criado['id']}/inativar",
         headers={"Idempotency-Key": "inativar-filtro"},

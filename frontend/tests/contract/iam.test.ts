@@ -5,7 +5,7 @@ import { describe, expect, it } from "vitest";
 
 import openapi from "../../../docs/governance/contracts/openapi/frontend-mvp-backend-openapi.json" with { type: "json" };
 
-const SNAPSHOT_SHA = "d65e8d85297a0b1dbbe53b67dade22dfe6fb4986267e1f8648b51f865fff1d0b";
+const SNAPSHOT_SHA = "e87bdad9b000959dea7809878cdd69c6cfcdfca2a2dc5fa8e9cc4cc7bd5e16e6";
 const IAM_OPERATIONS = [
   "GET /iam/perfis",
   "POST /iam/perfis",
@@ -56,11 +56,11 @@ function operationEntries(): [string, OpenApiOperation][] {
 }
 
 describe("contrato OpenAPI IAM permitido", () => {
-  it("preserva snapshot 107/134 e hash oficial", async () => {
+  it("preserva snapshot 105/131 e hash oficial", async () => {
     const bytes = await readFile(new URL("../../../docs/governance/contracts/openapi/frontend-mvp-backend-openapi.json", import.meta.url));
     expect(createHash("sha256").update(bytes).digest("hex")).toBe(SNAPSHOT_SHA);
-    expect(operationEntries()).toHaveLength(107);
-    expect(Object.keys(openapi.components.schemas)).toHaveLength(134);
+    expect(operationEntries()).toHaveLength(105);
+    expect(Object.keys(openapi.components.schemas)).toHaveLength(131);
   });
 
   it("certifica exatamente 11 operacoes IAM permitidas sem credenciais ou lista de Usuarios", () => {

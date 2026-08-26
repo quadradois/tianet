@@ -75,7 +75,6 @@ CORRELATION_ID_RESPONSE_HEADER: dict[str, Any] = {
 
 OPERACOES_REGRA_VIOLADA = frozenset(
     {
-        ("post", "/auth/ativar"),
         ("patch", "/platform/tenants/{tenant_id}"),
         ("patch", "/iam/credencial"),
         ("post", "/iam/usuarios/{usuario_id}/credencial/redefinir"),
@@ -110,7 +109,6 @@ OPERACOES_REGRA_VIOLADA = frozenset(
 
 OPERACOES_CONFLITO_ADICIONAIS = frozenset(
     {
-        ("post", "/platform/tenants"),
         ("post", "/platform/tenants/{tenant_id}/inativar"),
         ("post", "/platform/tenants/{tenant_id}/reativar"),
         ("post", "/iam/usuarios/{usuario_id}/credencial/redefinir"),

@@ -23,10 +23,8 @@ from emprestimo.application.consulta import (
     TenantListagemService,
 )
 from emprestimo.application.estado import TenantEstadoService
-from emprestimo.application.provisioning import TenantProvisioningService
 from emprestimo.domain.platform.ports import TenantFiltro, TenantOrdenacao
 from emprestimo.presentation.api.dependencies import (
-    exigir_permissao,
     get_autorizacao_service,
     get_principal_atual,
     get_tenant_atualizacao_service,
@@ -34,7 +32,6 @@ from emprestimo.presentation.api.dependencies import (
     get_tenant_consulta_service,
     get_tenant_estado_service,
     get_tenant_listagem_service,
-    get_tenant_provisioning_service,
 )
 from emprestimo.presentation.api.openapi import (
     RESPOSTA_RECURSO_NAO_ENCONTRADO,
@@ -42,16 +39,13 @@ from emprestimo.presentation.api.openapi import (
     combinar_respostas,
 )
 from emprestimo.presentation.api.schemas import (
-    TenantCreateRequest,
     TenantListagemParams,
     TenantListagemResponse,
-    TenantProvisioningResponse,
     TenantResponse,
     TenantUpdateRequest,
 )
 
 PERMISSAO_TENANT_ATUALIZAR = "tenant.atualizar"
-PERMISSAO_TENANT_CRIAR = "tenant.criar"
 PERMISSAO_TENANT_INATIVAR = "tenant.inativar"
 PERMISSAO_TENANT_LER = "tenant.ler"
 PERMISSAO_TENANT_REATIVAR = "tenant.reativar"
@@ -62,46 +56,6 @@ router = APIRouter(
     dependencies=[Depends(get_principal_atual)],
     responses=RESPOSTAS_PROTEGIDAS,
 )
-
-
-@router.post(
-    "/tenants",
-    status_code=201,
-    response_model=TenantProvisioningResponse,
-    summary="Provisionar um novo Tenant",
-)
-def criar_tenant(
-    payload: TenantCreateRequest,
-    _: Principal = Depends(exigir_permissao(PERMISSAO_TENANT_CRIAR)),
-    idempotency_key: str = Header(alias="Idempotency-Key", min_length=1, max_length=255),
-    service: TenantProvisioningService = Depends(get_tenant_provisioning_service),
-) -> TenantProvisioningResponse:
-    """Provisiona uma nova organização (UC-001..UC-007, AD-002)."""
-    if not idempotency_key or not idempotency_key.strip():
-        raise HTTPException(
-            status_code=400,
-            detail={
-                "codigo": "idempotency_key_ausente",
-                "mensagem": "Header Idempotency-Key é obrigatório",
-            },
-        )
-
-    resultado = service.provisionar(
-        identificador_institucional=payload.identificador_institucional,
-        nome=payload.nome,
-        nome_administrador=payload.nome_administrador,
-        email_administrador=payload.email_administrador,
-        idempotency_key=idempotency_key.strip(),
-    )
-    return TenantProvisioningResponse(
-        id=resultado.tenant_id,
-        identificador_institucional=resultado.identificador_institucional,
-        nome=resultado.nome,
-        estado=resultado.estado,
-        criado_em=resultado.criado_em,
-        usuario_administrador_id=resultado.usuario_administrador_id,
-        token_ativacao=resultado.token_ativacao,
-    )
 
 
 def _exigir_permissao_tenant(
