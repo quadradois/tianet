@@ -2,7 +2,7 @@
 
 **ID:** PLAN-033-EXEC
 
-**Versao:** 1.1.0
+**Versao:** 1.2.0
 
 **Status:** Redesenhado - bloqueado pela pre-execucao
 
@@ -33,7 +33,7 @@ executavel com seguranca. Esta versao substitui premissas por trabalho explicito
 - governanca, PII, Evolution, servidor e ponteiros documentais sao fechados antes
   da primeira mudanca de codigo.
 
-O plano nao fixa prazo, headcount ou valor mensal da Anthropic porque essas
+O plano nao fixa prazo, headcount ou valor mensal do provedor de IA porque essas
 restricoes ainda nao existem em fonte oficial. O teto mensal e uma decisao de
 fundador que bloqueia a Fase C e sera registrado pelo IMP-358.
 
@@ -62,7 +62,7 @@ Toda afirmacao desta secao foi conferida no arquivo indicado.
 | o lembrete por e-mail consulta a preferencia e nao envia quando ela nao permite | `src/emprestimo/application/notifications.py` | esse e o precedente de consentimento; o aviso de sobra nao e precedente |
 | o aviso de sobra monta texto em codigo | `src/emprestimo/application/notifications.py` | os textos deterministas da Fase A seguem esse padrao e nao usam `TemplateNotificacao` |
 | access token dura 15 minutos e refresh token dura 7 dias | `src/emprestimo/application/autenticacao.py` e `src/emprestimo/domain/platform/sessao.py` | IMP-356 implementa login, refresh, revogacao e recuperacao de sessao |
-| `httpx` existe, mas nao ha cliente nem dependencia Anthropic | `pyproject.toml` | IMP-356 declara conta, chave, modelo, timeout, retry e custo; usa HTTP via `httpx` salvo nova decisao |
+| `httpx` existe, mas nao ha cliente de LLM nem dependencia de provedor | `pyproject.toml` | IMP-356 usa a API compativel com OpenAI via `httpx` contra endpoint BYOK; sem SDK de provedor |
 | o compose nao possui processo do agente e publica API apenas em loopback | `docker-compose.yml` | IMP-359 e IMP-356 incluem servico, ingress, reverse proxy e operacao |
 | o adapter Evolution recebe um token de instancia por processo | `docker-compose.yml`, `.env.example` e `docs/operations/contexto-externo.md` secao 6.1 | v1 opera um Tenant por processo; multi-Tenant exige desenho de segredos fora deste ciclo |
 
@@ -129,10 +129,10 @@ Esta fase tambem fecha as decisoes externas.
      historica de e-mail inicial;
   2. revisar pontualmente ADR-002 para registrar que leituras da API continuam
      nao auditadas e tool-calls pertencem ao log proprio do agente;
-  3. abrir DR com o fundador para PII enviada a Anthropic: campos permitidos,
+  3. abrir DR com o fundador para PII enviada ao provedor de IA: campos permitidos,
      minimizacao, mascaramento, retencao, exclusao, regiao, uso para treino,
      revisao humana e resposta a incidente;
-  4. fixar na mesma DR o modelo Anthropic aprovado e o teto mensal em moeda, com
+  4. fixar na mesma DR o provedor/modelo BYOK aprovado e o teto mensal em moeda, com
      responsavel por alterar o teto;
   5. materializar e congelar Foundation/Product/Domain/Architecture necessarios
      para `PreCadastro`, agente e canal antes do primeiro IMP de codigo;
@@ -146,7 +146,7 @@ Esta fase tambem fecha as decisoes externas.
   9. registrar que somente a Operadora recebe respostas com acesso a carteira;
      desconhecido recebe apenas o fluxo isolado de pre-cadastro;
   10. decidir retencao e descarte de inbox, sessao, mensagem e tool-call.
-- **Condicao de parada:** se a DR proibir os campos necessarios a Anthropic, a
+- **Condicao de parada:** se a DR proibir os campos necessarios ao provedor, a
   coleta vira formulario determinista ou para para novo desenho; PII nao segue
   para o fornecedor contra a decisao.
 - **Criterio de pronto:** ADRs aceitas; DR decidida; artefatos upstream
@@ -159,9 +159,9 @@ Esta fase tambem fecha as decisoes externas.
 - **Checklist:** servidor endurecido; dominio e DNS; TLS; reverse proxy; rota
   publica somente para o ingress do agente; API e banco sem exposicao publica;
   backup automatico e restore do PostgreSQL; CD com rollback; healthcheck;
-  restart; rotacao de segredos; logs, metricas, alertas e runbooks Anthropic e
+  restart; rotacao de segredos; logs, metricas, alertas e runbooks do provedor de IA e
   Evolution.
-- **Segredos:** provisionar `ANTHROPIC_API_KEY`, `ANTHROPIC_MODEL`, credencial do
+- **Segredos:** provisionar `LLM_BASE_URL`, `LLM_API_KEY`, `LLM_MODEL`, credencial do
   usuario copilot, refresh token, `COPILOT_OPERATOR_ALLOWLIST`, `EVOLUTION_HOST`
   e `EVOLUTION_INSTANCE_TOKEN`. A allowlist inicial contem somente o numero da
   Tia. Nenhum segredo entra em log, banco generico, imagem ou Git.
@@ -185,7 +185,7 @@ Esta fase tambem fecha as decisoes externas.
 
 # 5. Fase A - O sistema fala primeiro, sem IA
 
-Nenhum item usa Anthropic. Textos sao montados por funcoes em codigo, seguindo
+Nenhum item usa LLM. Textos sao montados por funcoes em codigo, seguindo
 `montar_texto_aviso_sobra` de `src/emprestimo/application/notifications.py`.
 `TemplateNotificacao` nao e usado: sua allowlist atual em
 `src/emprestimo/domain/credit/notifications.py` aceita apenas os campos do
@@ -303,9 +303,12 @@ lembrete operacional por e-mail.
   ingress publico do agente; o agente chama a TiaNet com Usuario copilot. A API
   TiaNet continua sem webhook publico, conforme
   `docs/operations/contexto-externo.md` secao 2.2.
-- **Dependencias:** conta Anthropic; `ANTHROPIC_API_KEY` por secret/env;
-  `ANTHROPIC_MODEL`, `ANTHROPIC_TIMEOUT_SECONDS` e
-  `ANTHROPIC_MAX_RETRIES` configurados e aprovados no IMP-358; teto mensal duro;
+- **Dependencias (BYOK, decisao do fundador em 2026-08-27):** o cliente traz a
+  propria chave do provedor de IA. O agente fala a API compativel com OpenAI
+  (chat completions + function calling) contra `LLM_BASE_URL` configuravel —
+  isso cobre OpenRouter, NVIDIA NIM e os demais provedores compativeis com um
+  unico cliente `httpx`, sem SDK. `LLM_API_KEY` por secret/env; `LLM_MODEL`,
+  `LLM_TIMEOUT_SECONDS` e `LLM_MAX_RETRIES` aprovados no IMP-358; teto mensal duro;
   `httpx` ja existente; login/refresh do copilot; IMP-352, IMP-355, IMP-359,
   IMP-361 e IMP-362.
 - **Degradacao:** indisponibilidade, timeout, resposta invalida ou teto atingido
@@ -342,16 +345,20 @@ lembrete operacional por e-mail.
 
 - Limites independentes por instancia, remetente e contexto, com teto global de
   concorrencia. Desconhecido tem quota menor e nao consome fila da Operadora.
-- Antes de chamar Anthropic, reservar custo estimado; depois, reconciliar uso.
+- Antes de chamar o provedor, reservar custo estimado; depois, reconciliar uso.
   Ao atingir o teto mensal do IMP-358, bloquear chamadas e responder mensagem
   fixa. Alteracao do teto e administrativa e auditada.
 - **Criterio de pronto:** rajada por remetente, distribuida, concorrencia, virada
   do periodo e teto atingido sao testados. Corrida nao ultrapassa o limite.
 
-#### Entrega 356-D - Cliente Anthropic e tool-use restrito
+#### Entrega 356-D - Cliente LLM BYOK e tool-use restrito
 
-- Cliente via `httpx` com modelo fixo, timeout, retry aprovado no IMP-358,
-  validacao de schema e sem fallback. Segredo nunca aparece em erro ou log.
+- Cliente via `httpx` falando a API compativel com OpenAI contra `LLM_BASE_URL`,
+  com modelo fixo, timeout e retry aprovados no IMP-358, validacao de schema e
+  sem fallback. Trocar de provedor e trocar configuracao, nunca codigo — e a
+  troca e decisao registrada, jamais automatica (regra inviolavel 10). Segredo
+  nunca aparece em erro ou log. Function calling e requisito do provedor
+  escolhido; provedor sem tool-use confiavel nao e elegivel.
 - Operadora recebe allowlist nominal de GETs, incluindo saldo do IMP-362.
   Pre-cadastro recebe zero ferramentas de leitura de carteira e somente
   `pre_cadastro.criar` apos confirmacao explicita dos dados pelo remetente.
@@ -385,7 +392,7 @@ lembrete operacional por e-mail.
   e nunca persiste token em mensagem ou log. Os prazos estao em
   `src/emprestimo/application/autenticacao.py` e
   `src/emprestimo/domain/platform/sessao.py`.
-- Logs ADR-016 correlacionam inbox, sessao, Anthropic, tool-call, TiaNet e egress.
+- Logs ADR-016 correlacionam inbox, sessao, provedor de IA, tool-call, TiaNet e egress.
   Documento, telefone, prompt, resposta, corpo de ferramenta, token e segredo
   sao mascarados ou omitidos conforme a DR do IMP-358.
 - Metricas: idade/backlog da inbox, dedup, descarte, latencia, erro, tokens,
@@ -399,7 +406,7 @@ lembrete operacional por e-mail.
 A suite inclui: remetente nao autorizado; prompt injection; exfiltracao; dois
 Tenants e dois Devedores; replay de `Info.ID`; payload grande; midia; crash
 parcial antes/depois de efeitos; rate limit; teto de custo; indisponibilidade
-Anthropic; refresh/revogacao JWT; tentativa de aprovar proposta; escrita
+do provedor; refresh/revogacao JWT; tentativa de aprovar proposta; escrita
 financeira; auditoria propria e ausencia de PII/segredo em logs.
 
 O IMP-356 exige as seis entregas verdes. Transcript feliz isolado nao certifica
@@ -519,5 +526,6 @@ O plano so fecha quando:
 
 | Versao | Data | Descricao |
 |---|---|---|
+| 1.2.0 | 2026-08-27 | BYOK por decisao do fundador: o cliente nao usa Anthropic; o agente fala a API compativel com OpenAI contra endpoint configuravel (OpenRouter, NVIDIA NIM e similares), com LLM_BASE_URL/LLM_API_KEY/LLM_MODEL. Nenhuma outra mudanca de desenho. |
 | 1.1.0 | 2026-08-27 | Reescrita integral apos a revisao adversarial do PLAN-033, aceita pelo fundador: corrige dominio/RBAC, cria PreCadastro, retira proposta do v1, decompoe o agente, ancora seguranca/operacao e adiciona pre-execucao por ALP-001. |
 | 1.0.0 | 2026-08-26 | Desenho inicial: quatro fases sobre os ativos do PLAN-032, IMP-347 absorvido pela Fase A, regras inviolaveis herdadas do ciclo e escopo negativo declarado. |
