@@ -212,7 +212,8 @@ def test_imp_278_catalogo_reflete_fonte_canonica_versionada(
     assert [item["codigo"] for item in corpo["itens"]] == sorted(
         permissao.codigo for permissao in CATALOGO_PERMISSOES
     )
-    assert len(corpo["itens"]) == len(CATALOGO_PERMISSOES) == 53
+    # IMP-360: 54 apos `comercial.proposta.submeter` separar submeter de decidir.
+    assert len(corpo["itens"]) == len(CATALOGO_PERMISSOES) == 54
     assert all(item["grupo"] == item["codigo"].split(".", maxsplit=1)[0] for item in corpo["itens"])
 
 

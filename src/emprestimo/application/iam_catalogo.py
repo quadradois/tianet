@@ -22,6 +22,10 @@ CATALOGO_PERMISSOES = (
     Permissao("comercial.simulacao.criar", "Criar simulacoes comerciais"),
     Permissao("comercial.proposta.criar", "Criar propostas comerciais"),
     Permissao("comercial.proposta.ler", "Consultar propostas comerciais"),
+    # IMP-360: submeter e decidir sao permissoes distintas. Antes, enviar para
+    # analise usava `decidir` — quem submetia podia aprovar. Nao havia
+    # segregacao entre propor e decidir, para nenhum operador.
+    Permissao("comercial.proposta.submeter", "Submeter propostas comerciais para analise"),
     Permissao("comercial.proposta.decidir", "Decidir propostas comerciais"),
     Permissao("comercial.proposta.integrar", "Gerar contrato logico comercial"),
     Permissao("contratos.contrato.criar", "Criar contratos de credito"),

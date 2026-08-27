@@ -50,6 +50,7 @@ from emprestimo.presentation.api.openapi import (
 PERMISSAO_SIMULACAO_CRIAR = "comercial.simulacao.criar"
 PERMISSAO_PROPOSTA_CRIAR = "comercial.proposta.criar"
 PERMISSAO_PROPOSTA_LER = "comercial.proposta.ler"
+PERMISSAO_PROPOSTA_SUBMETER = "comercial.proposta.submeter"
 PERMISSAO_PROPOSTA_DECIDIR = "comercial.proposta.decidir"
 PERMISSAO_PROPOSTA_INTEGRAR = "comercial.proposta.integrar"
 
@@ -207,7 +208,8 @@ def atualizar_proposta_comercial(
 def enviar_proposta_para_analise(
     proposta_id: uuid.UUID,
     idempotency_key: str = Header(alias="Idempotency-Key", min_length=1, max_length=255),
-    principal: Principal = Depends(exigir_permissao(PERMISSAO_PROPOSTA_DECIDIR)),
+    # IMP-360: submeter deixou de exigir `decidir`. Quem propoe nao decide.
+    principal: Principal = Depends(exigir_permissao(PERMISSAO_PROPOSTA_SUBMETER)),
     service: DecisaoComercialService = Depends(get_decisao_comercial_service),
 ) -> PropostaComercialResponse:
     return _proposta_response(
