@@ -2,7 +2,7 @@
 
 **ID:** PLAN-033-EXEC
 
-**Versao:** 1.4.0
+**Versao:** 1.5.0
 
 **Status:** Redesenhado - bloqueado pela pre-execucao
 
@@ -103,8 +103,21 @@ Toda afirmacao desta secao foi conferida no arquivo indicado.
 
 # 4. Fase 0 - Pre-execucao obrigatoria
 
-Nenhum item de codigo das Fases A-D comeca antes do GATE-E1.
-Esta fase tambem fecha as decisoes externas.
+> **Gate dividido em 2026-08-27, por decisao do fundador.** A v1.1.0 tratava a
+> Fase 0 como bloco unico, o que so fazia sentido enquanto se assumia que ela
+> sairia rapido. Com Evolution e servidor bloqueados por tempo indeterminado,
+> manter a Fase B atras deles era acoplamento artificial: **IMP-355, IMP-360,
+> IMP-361 e IMP-362 nao tocam canal nem producao** — sao backend puro,
+> testaveis com PostgreSQL local, e cada um tem valor **independente do copilot
+> existir**.
+>
+> O que os bloqueava de verdade era a governanca (IMP-358), porque ela muda
+> desenho. Ela esta cumprida. O gate virou **E1a** (governanca, cumprido) e
+> **E1b** (canal e producao, ainda bloqueado).
+>
+> **Nada afrouxou:** cada item mantem o mesmo criterio de pronto e a mesma
+> exigencia de evidencia. O que parou foi bloquear trabalho por dependencia que
+> nao existe.
 
 ### IMP-352 - Validar o formato real de envio do Evolution
 
@@ -265,6 +278,23 @@ lembrete operacional por e-mail.
 
 ### IMP-360 - Separar submeter de decidir proposta no RBAC
 
+- **Status:** **CONCLUIDO em 2026-08-27.** Migration `f3a81c62d94e`; catalogo de
+  53 para 54 permissoes; `enviar-para-analise` passa a exigir
+  `comercial.proposta.submeter`; aprovar, recusar e cancelar continuam com
+  `comercial.proposta.decidir`.
+- **O defeito era anterior ao Copilot e atingia operadores humanos.** Nao havia
+  segregacao entre propor e decidir: quem podia submeter podia aprovar. A
+  revisao adversarial encontrou isso ao verificar se a regra inviolavel 2 tinha
+  garantia tecnica — nao tinha, e a falta valia para todo mundo.
+- **Migracao sem perda, a parte que exigia cuidado:** um `INSERT` da permissao
+  nova, sozinho, faria todo perfil que hoje submete perder a capacidade no
+  deploy. A migration copia `submeter` para todo perfil que ja tem `decidir`. A
+  separacao passa a existir para perfis novos, como o `copilot`.
+- **Evidencia:** quatro combinacoes parametrizadas em
+  `test_imp_360_submeter_e_decidir_proposta_sao_permissoes_distintas` —
+  so-submeter, so-decidir, ambas, nenhuma. Reunificar as permissoes reprova dois
+  casos. Dois guardrails do proprio sistema reprovaram e foram atualizados
+  deliberadamente: head do Alembic e contagem do catalogo.
 - **Objetivo:** tornar tecnica a separacao entre quem submete e quem decide.
 - **Escopo:** adicionar `comercial.proposta.submeter` ao catalogo e migration;
   proteger `enviar-para-analise` com `submeter`; manter aprovar, recusar e
@@ -513,12 +543,12 @@ Nenhum bloqueador fecha por intencao textual. O Gate precisa observar o comporta
 | 1 | 0 | IMP-352 | acesso Evolution e numero do fundador |
 | 2 | 0 | IMP-358 | revisao aceita e decisoes do fundador |
 | 3 | 0 | IMP-359 | IMP-352, IMP-358 e servidor contratado |
-| 4 | A | IMP-353 | IMP-352 e GATE-E1 |
-| 5 | A | IMP-354 | IMP-352 e GATE-E1 |
-| 6 | B | IMP-355 | GATE-E1 |
-| 7 | B | IMP-360 | GATE-E1 |
+| 4 | A | IMP-353 | IMP-352 (envia mensagem) e GATE-E1b |
+| 5 | A | IMP-354 | IMP-352 (envia mensagem) e GATE-E1b |
+| 6 | B | IMP-355 | GATE-E1a |
+| 7 | B | IMP-360 | GATE-E1a |
 | 8 | B | IMP-361 | IMP-355 |
-| 9 | C | IMP-362 | GATE-E2 |
+| 9 | C | IMP-362 | GATE-E1a |
 | 10 | C | IMP-356 | IMP-352, IMP-355, IMP-359, IMP-361, IMP-362 |
 | 11 | D | IMP-357 | IMP-356 e permissoes do IMP-355 |
 
@@ -526,7 +556,8 @@ Execution Gates conforme ALP-001:
 
 | Gate | IMPs | Justificativa | Condicao para seguir |
 |---|---|---|---|
-| GATE-E1 | IMP-352, IMP-358, IMP-359 | bloco curto de pre-execucao | ADRs/DR congeladas, Evolution observado e producao pronta |
+| GATE-E1a | IMP-358 | governanca: e o que muda desenho e precisa preceder codigo | **CUMPRIDO em 2026-08-27** — ADRs revisadas, DR-005 resolvida, reconciliacoes feitas |
+| GATE-E1b | IMP-352, IMP-359 | canal validado e producao pronta | Evolution observado e checklist de producao demonstrado |
 | GATE-E2 | IMP-353, IMP-354, IMP-355, IMP-360, IMP-361 | cinco IMPs de fala deterministica, identidade e conformidade | Fase A/B, contrato e RBAC verdes |
 | GATE-E3 | IMP-362, IMP-356 | bloco curto porque IMP-356 contem seis entregas | seis entregas, suite adversarial e operacao verdes |
 | GATE-E4 | IMP-357 | gate final isolado pelo novo Aggregate | dominio, migration, API, UI e jornada verdes |
@@ -557,6 +588,7 @@ O plano so fecha quando:
 
 | Versao | Data | Descricao |
 |---|---|---|
+| 1.5.0 | 2026-08-27 | GATE-E1 dividido em E1a (governanca, cumprido) e E1b (canal e producao, bloqueado): a Fase B nao dependia de Evolution nem de servidor, so da governanca. IMP-360 executado — separacao tecnica entre submeter e decidir proposta, defeito anterior ao Copilot que atingia operadores humanos. |
 | 1.4.0 | 2026-08-27 | DR-005 resolvida e propagada: PII liberada no prompt (ADR-016 e isolamento de contexto intactos), provedor adiado com criterios eliminatorios, **sem teto de custo** — a Entrega 356-C perde o bloqueio por valor e mantem rate limiting e medicao —, retencao de 90 dias. Itens 3, 4 e 10 do IMP-358 fechados. |
 | 1.3.0 | 2026-08-27 | Escopo negativo ampliado a pedido do fundador: memoria de longo prazo, RAG/base de conhecimento e autonomia alem do reativo declarados fora do v1, cada um com o porque e o gatilho de entrada futura. |
 | 1.2.0 | 2026-08-27 | BYOK por decisao do fundador: o cliente nao usa Anthropic; o agente fala a API compativel com OpenAI contra endpoint configuravel (OpenRouter, NVIDIA NIM e similares), com LLM_BASE_URL/LLM_API_KEY/LLM_MODEL. Nenhuma outra mudanca de desenho. |

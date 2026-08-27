@@ -316,3 +316,51 @@ def test_cross_tenant_criacao_responde_404_e_nao_persiste(
     assert resp.json()["codigo"] == "carteira_nao_encontrada"
     assert _contar_devedores(session) == antes
     assert "cross_tenant.negado" in set(session.scalars(select(AuditoriaLogORM.acao)).all())
+
+
+@pytest.mark.parametrize(
+    "permissoes",
+    [
+        ("comercial.proposta.submeter",),
+        ("comercial.proposta.decidir",),
+        ("comercial.proposta.submeter", "comercial.proposta.decidir"),
+        (),
+    ],
+)
+def test_imp_360_submeter_e_decidir_proposta_sao_permissoes_distintas(
+    client: TestClient,
+    session: Session,
+    permissoes: tuple[str, ...],
+) -> None:
+    """IMP-360: quem submete nao decide, e quem decide nao submete.
+
+    Antes desta separacao, `enviar-para-analise` exigia
+    `comercial.proposta.decidir` — a mesma de aprovar e recusar. Nao havia
+    segregacao entre propor e decidir, e isso valia para operadores humanos,
+    nao so para o copilot que o PLAN-033 desenha.
+
+    O teste usa uma proposta inexistente de proposito: o interesse aqui e o
+    veredito de **autorizacao**, que acontece antes de qualquer busca. Sem a
+    permissao correta o resultado e 403; com ela, deixa de ser 403 e vira o
+    erro de recurso, que e o que as duas ultimas asercoes distinguem.
+    """
+    usuario = _criar_usuario(session, perfil_nome="Comercial", permissoes=permissoes)
+    proposta_id = uuid.uuid4()
+
+    submeter = client.post(
+        f"/credit/propostas-comerciais/{proposta_id}/enviar-para-analise",
+        headers={**_headers(usuario.token), "Idempotency-Key": f"imp-360-sub-{proposta_id}"},
+    )
+    aprovar = client.post(
+        f"/credit/propostas-comerciais/{proposta_id}/aprovar",
+        headers={**_headers(usuario.token), "Idempotency-Key": f"imp-360-apr-{proposta_id}"},
+    )
+
+    tem_submeter = "comercial.proposta.submeter" in permissoes
+    tem_decidir = "comercial.proposta.decidir" in permissoes
+    assert (
+        submeter.status_code == 403
+    ) is not tem_submeter, "submeter deve depender de comercial.proposta.submeter, nao de decidir"
+    assert (
+        aprovar.status_code == 403
+    ) is not tem_decidir, "aprovar deve continuar exigindo comercial.proposta.decidir"
