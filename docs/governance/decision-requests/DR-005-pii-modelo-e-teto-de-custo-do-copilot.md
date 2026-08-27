@@ -3,8 +3,8 @@
 **Data:** 2026-08-27
 **Solicitante:** Arquitetura (PLAN-033/IMP-358, itens 3, 4 e 10)
 **Destinatario:** Fundador
-**Status:** **ABERTA**
-**Bloqueia:** GATE-E1 do PLAN-033; nenhum codigo das Fases A-D antes da resolucao
+**Status:** **RESOLVIDA** — 2026-08-27
+**Bloqueava:** GATE-E1 do PLAN-033; destravado por esta resolucao
 
 ---
 
@@ -98,9 +98,88 @@ limite e passivo, nao ativo.
 
 ---
 
-## Resolucao
+## Resolucao — 2026-08-27
 
-*(a preencher pelo fundador; a resolucao fecha o item 3, 4 e 10 do IMP-358)*
+Decidida pelo fundador. Fecha os itens 3, 4 e 10 do IMP-358 e destrava o
+GATE-E1 no que dependia desta DR.
+
+### 1. PII no prompt: **tudo liberado**
+
+O prompt pode carregar qualquer campo que a API devolva, **inclusive CPF
+integral e telefone completo de Devedores**.
+
+**Decisao consciente, tomada com o risco na mesa.** A Arquitetura recomendou
+minimizacao com mascara e apresentou, antes da decisao, que (a) nenhuma
+funcionalidade do v1 perderia nada com a mascara, (b) em BYOK o prompt pode
+transitar por agregador com multiplos sub-provedores, e (c) os CPFs sao de
+**terceiros** — Devedores que entregaram o documento a operacao de credito, nao
+a um provedor de IA, com o fundador como controlador sob LGPD. O fundador
+manteve a decisao ciente disso.
+
+**O que esta decisao NAO altera, e continua obrigatorio:**
+
+- **ADR-016 continua valendo para logs.** Esta DR decide o que vai no *prompt*;
+  documento pessoal, telefone, token e segredo continuam mascarados ou omitidos
+  em log, metrica e trace. Prompt liberado nao e log liberado.
+- **Isolamento entre contextos permanece absoluto** (regra inviolavel 5 do
+  PLAN-033): o contexto Pre-cadastro segue com zero ferramentas de leitura de
+  carteira, e nenhuma resposta a remetente desconhecido contem dado de terceiro.
+  A PII liberada circula **somente** no contexto Operadora.
+- **A suite adversarial da Entrega 356-D nao afrouxa.** Prompt injection e
+  exfiltracao continuam falhando fechados; o que muda e o conteudo permitido no
+  prompt legitimo, nao o que um atacante pode extrair.
+
+**Consequencias que passam a existir:**
+
+- a escolha do provedor no item 2 deixa de ser so tecnica e vira **decisao de
+  tratamento de dado pessoal**: politica de retencao do provedor, uso para
+  treino, regiao de processamento e sub-processadores entram no criterio;
+- um incidente no provedor passa a ser incidente de dados do controlador;
+- se um Devedor exercer direito de exclusao, o dado ja enviado ao provedor esta
+  fora do alcance do sistema.
+
+### 2. Provedor e modelo: **decisao adiada, com criterio fixado**
+
+O provedor sera escolhido junto com o cliente. O desenho aceita qualquer
+`LLM_BASE_URL` compativel com a API OpenAI.
+
+**Criterios de elegibilidade, ja fixados:**
+
+- **function calling confiavel** — eliminatorio, conferido pelo teste da
+  Entrega 356-D antes de qualquer uso real;
+- por causa da decisao 1, o provedor precisa ter **politica de dados aceitavel**
+  para PII de terceiros: retencao declarada, sem uso para treino, e
+  sub-processadores conhecidos.
+
+Enquanto nao houver escolha, `LLM_BASE_URL`, `LLM_API_KEY` e `LLM_MODEL` ficam
+sem valor e o contexto conversacional (Fase C) nao sobe. As Fases A e B nao
+dependem de LLM e seguem normalmente.
+
+### 3. Teto mensal de custo: **nao estipulado**
+
+Nao ha teto em moeda. A Entrega 356-C **muda de forma, mas nao desaparece**:
+
+- **sai** o bloqueio por teto mensal — nao ha valor a comparar;
+- **fica** o rate limiting por instancia, remetente e contexto, com teto de
+  concorrencia. Ele nunca foi sobre dinheiro: protege contra abuso, rajada e
+  loop, e continua obrigatorio;
+- **fica** a medicao de consumo — tokens e custo estimado seguem em metrica e
+  log. Sem teto o sistema **observa e alerta**, em vez de bloquear;
+- o gasto passa a ser limitado pelo que o proprio provedor permitir na chave do
+  cliente. Se o cliente quiser limite duro, o caminho e o painel do provedor,
+  nao o codigo.
+
+Retirar o teto **sem retirar o rate limit** e deliberado: sem rate limit, um
+unico remetente em loop consumiria a chave do cliente ate o provedor cortar.
+
+### 4. Retencao de inbox, sessao, mensagem e tool-call: **90 dias**
+
+Expurgo automatico aos 90 dias, conforme recomendado. A trilha de auditoria da
+ADR-002 nao e afetada: escritas continuam append-only e permanentes.
+
+Com a decisao 1, esta retencao passa a valer sobre **conversas com PII
+integral** — o que torna o expurgo automatico um controle de risco, nao apenas
+higiene de armazenamento. Ele nao pode ser silenciosamente desligado.
 
 ---
 
@@ -109,4 +188,5 @@ limite e passivo, nao ativo.
 | Data | Evento |
 |---|---|
 | 2026-08-27 | Aberta pela Arquitetura com opcoes e recomendacao, conforme IMP-358. |
+| 2026-08-27 | **RESOLVIDA** pelo fundador: PII liberada no prompt (ciente do risco, com ADR-016 e isolamento de contexto intactos), provedor adiado com criterios fixados, sem teto de custo (rate limit e medicao permanecem), retencao de 90 dias. |
 | 2026-08-27 | Reescrita para BYOK apos decisao do fundador: o cliente nao usa Anthropic; provedor via endpoint compativel com OpenAI (OpenRouter, NVIDIA NIM ou similar), chave do cliente. Perguntas 1 e 3 inalteradas; pergunta 2 passa a escolher provedor+modelo. |
