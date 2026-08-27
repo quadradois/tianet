@@ -82,7 +82,7 @@ def test_imp_269_openapi_cobre_routers_reais_e_contratos_transversais() -> None:
     operations = _operations(schema)
     router_operations = _router_operations()
 
-    assert len(operations) == 105
+    assert len(operations) == 106
     assert operations.keys() == router_operations
     assert schema["components"]["schemas"]["ErroResponse"]["required"] == [
         "codigo",

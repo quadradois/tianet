@@ -84,6 +84,7 @@ from emprestimo.application.operacao_diaria import (
 )
 from emprestimo.application.perfis_acesso import PerfisAcessoService
 from emprestimo.application.relatorios import RelatoriosOperacionaisService
+from emprestimo.application.usuarios import UsuarioCadastroService
 from emprestimo.composition import resolver_canal_email
 from emprestimo.domain.credit.automacao_ports import NotificationChannel
 from emprestimo.domain.credit.carteira import Carteira
@@ -148,6 +149,15 @@ def get_autorizacao_service() -> AutorizacaoService:
 def get_credenciais_service() -> CredenciaisService:
     session_factory = get_session_factory()
     return CredenciaisService(
+        uow_factory=lambda: SqlAlchemyUnitOfWork(session_factory),
+        auditoria=SqlAlchemyAuditoriaRegistro(session_factory),
+    )
+
+
+def get_usuario_cadastro_service() -> UsuarioCadastroService:
+    """Monta o cadastro de Usuario do Tenant (IMP-355)."""
+    session_factory = get_session_factory()
+    return UsuarioCadastroService(
         uow_factory=lambda: SqlAlchemyUnitOfWork(session_factory),
         auditoria=SqlAlchemyAuditoriaRegistro(session_factory),
     )

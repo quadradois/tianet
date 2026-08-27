@@ -66,6 +66,9 @@ CATALOGO_PERMISSOES = (
     Permissao("notificacao.consultar", "Consultar notificacoes"),
     Permissao("notificacao.conciliar", "Conciliar notificacoes"),
     Permissao("notificacao.template.gerir", "Gerir templates de notificacao"),
+    # IMP-355: ate 2026-08-27 nao havia rota de criacao de Usuario — cada Tenant
+    # ficava limitado ao administrador criado pela CLI de bootstrap.
+    Permissao("usuario.criar", "Criar Usuarios do Tenant"),
     Permissao("credencial.redefinir", "Redefinir credenciais"),
     Permissao("perfil.gerir", "Gerir perfis e atribuicoes"),
     Permissao("perfil.ler", "Consultar perfis e permissoes"),

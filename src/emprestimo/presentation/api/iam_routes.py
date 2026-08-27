@@ -18,12 +18,14 @@ from emprestimo.application.perfis_acesso import (
     PerfisAcessoService,
     PermissoesEfetivasResultado,
 )
+from emprestimo.application.usuarios import UsuarioCadastroService
 from emprestimo.presentation.api.dependencies import (
     exigir_permissao,
     get_autorizacao_service,
     get_credenciais_service,
     get_perfis_acesso_service,
     get_principal_atual,
+    get_usuario_cadastro_service,
 )
 from emprestimo.presentation.api.openapi import (
     RESPOSTA_CONFLITO_ESTADO,
@@ -46,6 +48,8 @@ from emprestimo.presentation.api.schemas import (
     PermissoesCatalogoResponse,
     PermissoesEfetivasResponse,
     RedefinirCredencialRequest,
+    UsuarioCreateRequest,
+    UsuarioResponse,
 )
 
 router = APIRouter(
@@ -227,6 +231,38 @@ def redefinir_credencial(
         usuario_id=resultado.usuario_id,
         tenant_id=resultado.tenant_id,
         estado=resultado.estado,
+    )
+
+
+@router.post("/usuarios", status_code=201, response_model=UsuarioResponse)
+def criar_usuario(
+    payload: UsuarioCreateRequest,
+    idempotency_key: str = Header(alias="Idempotency-Key", min_length=1, max_length=255),
+    principal: Principal = Depends(exigir_permissao("usuario.criar")),
+    service: UsuarioCadastroService = Depends(get_usuario_cadastro_service),
+) -> UsuarioResponse:
+    """Cria Usuario no Tenant do solicitante, ja com credencial (IMP-355).
+
+    O Usuario nasce ativo: nao ha token de ativacao desde o IMP-351. A politica
+    minima de credencial e validada no dominio (IMP-342), entao segredo fraco
+    responde 422 antes de qualquer persistencia.
+    """
+    resultado = service.criar(
+        tenant_id=principal.tenant_id,
+        executor_id=principal.usuario_id,
+        nome=payload.nome,
+        email=payload.email,
+        segredo=payload.segredo,
+        idempotency_key=_chave(idempotency_key),
+    )
+    return UsuarioResponse(
+        id=resultado.usuario_id,
+        tenant_id=resultado.tenant_id,
+        nome=resultado.nome,
+        email=resultado.email,
+        estado=resultado.estado,
+        perfil_acesso=resultado.perfil_acesso,
+        criado_em=resultado.criado_em,
     )
 
 

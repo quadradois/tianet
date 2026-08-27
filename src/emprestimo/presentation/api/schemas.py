@@ -151,6 +151,40 @@ class AuthLogoutResponse(BaseModel):
     status: str
 
 
+class UsuarioCreateRequest(BaseModel):
+    """Payload de criacao de Usuario (IMP-355)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    nome: str = Field(min_length=1, max_length=200)
+    email: str = Field(min_length=3, max_length=254)
+    segredo: str = Field(min_length=1)
+
+    @field_validator("nome", "email", mode="before")
+    @classmethod
+    def _normalizar(cls, valor: Any) -> Any:
+        return valor.strip() if isinstance(valor, str) else valor
+
+    @field_validator("email")
+    @classmethod
+    def _email_basico(cls, valor: str) -> str:
+        if "@" not in valor or valor.startswith("@") or valor.endswith("@"):
+            raise ValueError("e-mail invalido")
+        return valor
+
+
+class UsuarioResponse(BaseModel):
+    """DTO unico de Usuario (RA-012). Nunca expoe segredo nem hash."""
+
+    id: uuid.UUID
+    tenant_id: uuid.UUID
+    nome: str
+    email: str
+    estado: UsuarioState
+    perfil_acesso: str | None = None
+    criado_em: datetime
+
+
 class AlterarCredencialRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
     segredo_atual: str = Field(min_length=1)
