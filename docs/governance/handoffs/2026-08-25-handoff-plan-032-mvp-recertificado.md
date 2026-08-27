@@ -1,6 +1,6 @@
 # 2026-08-25 - Handoff: PLAN-032 Fechado e MVP Recertificado
 
-**Versao:** 1.1.0
+**Versao:** 1.2.0
 
 **Status:** PLAN-032 concluido — 18 de 18 itens elegiveis. MVP recertificado
 sobre arvore limpa, com cobertura em 90,02% contra a meta de 90% do IMP-063.
@@ -164,8 +164,13 @@ mensagens entregues ficariam registradas como resultado desconhecido, e o Credor
 nao saberia o que saiu.
 
 **Acao:** o primeiro envio real contra o Evolution deve conferir o formato e
-ajustar o classificador. Depende da pergunta 3 do `contexto-externo.md`
-(existe ambiente de teste do Evolution?), ainda aberta com o fundador.
+ajustar o classificador.
+
+> **Atualizado em 2026-08-27 (IMP-358):** a pergunta citada acima ja foi
+> respondida em 2026-08-25 — **nao existe ambiente de teste**; a validacao sera
+> em producao, com o numero do proprio fundador (`contexto-externo.md` §6.2). O
+> item virou o **IMP-352**, Fase 0 do PLAN-033, e espera apenas o numero e o
+> token no ambiente.
 
 ### 4.2 O contrato publico declara politica de senha mais frouxa do que o sistema aceita
 
@@ -334,5 +339,6 @@ real:
 
 | Versao | Data | Descricao |
 |---|---|---|
+| 1.2.0 | 2026-08-27 | Caveat 4.1 reconciliado com o contexto-externo §6: a pergunta sobre ambiente de teste ja estava respondida; a validacao virou o IMP-352 do PLAN-033. |
 | 1.1.0 | 2026-08-26 | Caveat 4.3 corrigido: a CLI de bootstrap **nao** era saida para token perdido, e nao havia saida nenhuma. Com a decisao de Tenant unico, o IMP-349 fecha como nao-aplicavel e o fluxo de ativacao sai do produto (IMP-351). |
 | 1.0.0 | 2026-08-25 | Fechamento do PLAN-032 e recertificacao do MVP, com caveats e pendencias declaradas. |
