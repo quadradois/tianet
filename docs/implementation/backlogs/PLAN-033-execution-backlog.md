@@ -2,7 +2,7 @@
 
 **ID:** PLAN-033-EXEC
 
-**Versao:** 1.3.0
+**Versao:** 1.4.0
 
 **Status:** Redesenhado - bloqueado pela pre-execucao
 
@@ -33,9 +33,10 @@ executavel com seguranca. Esta versao substitui premissas por trabalho explicito
 - governanca, PII, Evolution, servidor e ponteiros documentais sao fechados antes
   da primeira mudanca de codigo.
 
-O plano nao fixa prazo, headcount ou valor mensal do provedor de IA porque essas
-restricoes ainda nao existem em fonte oficial. O teto mensal e uma decisao de
-fundador que bloqueia a Fase C e sera registrado pelo IMP-358.
+O plano nao fixa prazo nem headcount porque essas restricoes nao existem em
+fonte oficial. A DR-005, resolvida em 2026-08-27, decidiu **nao estipular teto
+mensal**: o gasto e limitado pelo painel do provedor, e o codigo mantem rate
+limiting e medicao de consumo.
 
 Pessoas e dados afetados: a Tia como operadora, o Credor como decisor, remetentes
 desconhecidos em pre-cadastro, Devedores ja cadastrados, a carteira financeira e a
@@ -93,9 +94,10 @@ Toda afirmacao desta secao foi conferida no arquivo indicado.
 9. **Tool-calls tem trilha propria no agente.** Entrada, ferramenta, campos
    autorizados, resultado resumido, latencia e correlacao sao registrados com
    mascaramento da ADR-016, sem corpo integral, segredo ou PII desnecessaria.
-10. **Falha do LLM e fechada.** Em indisponibilidade, timeout, limite de custo ou
-    resposta invalida, o agente envia mensagem fixa de indisponibilidade; nunca
-    inventa resposta e nunca troca automaticamente de provedor ou modelo.
+10. **Falha do LLM e fechada.** Em indisponibilidade, timeout, rate limit
+    atingido ou resposta invalida, o agente envia mensagem fixa de
+    indisponibilidade; nunca inventa resposta e nunca troca automaticamente de
+    provedor ou modelo. Nao ha teto de custo a acionar (DR-005 §3).
 
 ---
 
@@ -129,11 +131,14 @@ Esta fase tambem fecha as decisoes externas.
      historica de e-mail inicial;
   2. revisar pontualmente ADR-002 para registrar que leituras da API continuam
      nao auditadas e tool-calls pertencem ao log proprio do agente;
-  3. abrir DR com o fundador para PII enviada ao provedor de IA: campos permitidos,
-     minimizacao, mascaramento, retencao, exclusao, regiao, uso para treino,
-     revisao humana e resposta a incidente;
-  4. fixar na mesma DR o provedor/modelo BYOK aprovado e o teto mensal em moeda, com
-     responsavel por alterar o teto;
+  3. ~~abrir DR com o fundador para PII enviada ao provedor de IA~~ **FEITO**:
+     DR-005 resolvida em 2026-08-27. **PII liberada no prompt**, inclusive CPF
+     integral, por decisao consciente do fundador contra a recomendacao da
+     Arquitetura. A ADR-016 continua valendo para **logs**, o isolamento entre
+     contextos permanece absoluto, e a suite adversarial nao afrouxa;
+  4. ~~fixar provedor/modelo BYOK e teto mensal~~ **FEITO**: DR-005 §2 e §3.
+     Provedor adiado com criterios eliminatorios fixados; **sem teto em moeda**,
+     com rate limiting e medicao de consumo preservados;
   5. materializar e congelar Foundation/Product/Domain/Architecture necessarios
      para `PreCadastro`, agente e canal antes do primeiro IMP de codigo;
   6. reconciliar `docs/operations/contexto-externo.md` secao 2.1, que hoje manda
@@ -145,10 +150,13 @@ Esta fase tambem fecha as decisoes externas.
      PLAN-032, caminho antigo do ALP-001 e handoff de 2026-08-05;
   9. registrar que somente a Operadora recebe respostas com acesso a carteira;
      desconhecido recebe apenas o fluxo isolado de pre-cadastro;
-  10. decidir retencao e descarte de inbox, sessao, mensagem e tool-call.
-- **Condicao de parada:** se a DR proibir os campos necessarios ao provedor, a
-  coleta vira formulario determinista ou para para novo desenho; PII nao segue
-  para o fornecedor contra a decisao.
+  10. ~~decidir retencao e descarte de inbox, sessao, mensagem e tool-call~~
+      **FEITO**: DR-005 §4 fixa **90 dias com expurgo automatico**. Com a PII
+      liberada, o expurgo vira controle de risco e nao pode ser desligado em
+      silencio.
+- **Condicao de parada:** nao acionada. A DR-005 liberou os campos, entao a
+  coleta conversacional segue como desenhada. A condicao fica registrada para o
+  caso de a decisao ser revista.
 - **Criterio de pronto:** ADRs aceitas; DR decidida; artefatos upstream
   congelados; divergencias reconciliadas; GATE-E1 lista hashes e confirma o plano.
 
@@ -161,7 +169,8 @@ Esta fase tambem fecha as decisoes externas.
   backup automatico e restore do PostgreSQL; CD com rollback; healthcheck;
   restart; rotacao de segredos; logs, metricas, alertas e runbooks do provedor de IA e
   Evolution.
-- **Segredos:** provisionar `LLM_BASE_URL`, `LLM_API_KEY`, `LLM_MODEL`, credencial do
+- **Segredos:** provisionar `LLM_BASE_URL`, `LLM_API_KEY`, `LLM_MODEL` (valores
+  pendentes da escolha de provedor, DR-005 §2), credencial do
   usuario copilot, refresh token, `COPILOT_OPERATOR_ALLOWLIST`, `EVOLUTION_HOST`
   e `EVOLUTION_INSTANCE_TOKEN`. A allowlist inicial contem somente o numero da
   Tia. Nenhum segredo entra em log, banco generico, imagem ou Git.
@@ -308,7 +317,12 @@ lembrete operacional por e-mail.
   (chat completions + function calling) contra `LLM_BASE_URL` configuravel —
   isso cobre OpenRouter, NVIDIA NIM e os demais provedores compativeis com um
   unico cliente `httpx`, sem SDK. `LLM_API_KEY` por secret/env; `LLM_MODEL`,
-  `LLM_TIMEOUT_SECONDS` e `LLM_MAX_RETRIES` aprovados no IMP-358; teto mensal duro;
+  `LLM_TIMEOUT_SECONDS` e `LLM_MAX_RETRIES` configurados. **Provedor ainda nao
+  escolhido** (DR-005 §2): sera decidido com o cliente, e a elegibilidade exige
+  function calling confiavel **e** politica de dados aceitavel para PII de
+  terceiros — retencao declarada, sem uso para treino, sub-processadores
+  conhecidos. Sem provedor escolhido, a Fase C nao sobe; as Fases A e B nao
+  dependem de LLM;
   `httpx` ja existente; login/refresh do copilot; IMP-352, IMP-355, IMP-359,
   IMP-361 e IMP-362.
 - **Degradacao:** indisponibilidade, timeout, resposta invalida ou teto atingido
@@ -345,11 +359,16 @@ lembrete operacional por e-mail.
 
 - Limites independentes por instancia, remetente e contexto, com teto global de
   concorrencia. Desconhecido tem quota menor e nao consome fila da Operadora.
-- Antes de chamar o provedor, reservar custo estimado; depois, reconciliar uso.
-  Ao atingir o teto mensal do IMP-358, bloquear chamadas e responder mensagem
-  fixa. Alteracao do teto e administrativa e auditada.
-- **Criterio de pronto:** rajada por remetente, distribuida, concorrencia, virada
-  do periodo e teto atingido sao testados. Corrida nao ultrapassa o limite.
+- **Sem teto de custo em moeda** (DR-005 §3, resolvida em 2026-08-27). O
+  bloqueio por valor mensal sai; o rate limiting **permanece obrigatorio** e
+  nunca foi sobre dinheiro — ele protege contra abuso, rajada e loop. Sem ele,
+  um unico remetente em loop consome a chave do cliente ate o provedor cortar.
+- Consumo continua **medido**: tokens e custo estimado em metrica e log. O
+  sistema **observa e alerta** em vez de bloquear. Limite duro, se o cliente
+  quiser, e no painel do provedor, nao no codigo.
+- **Criterio de pronto:** rajada por remetente, distribuida, concorrencia e
+  virada do periodo sao testadas; corrida nao ultrapassa o limite; a metrica de
+  consumo existe e alerta. Nao ha teste de teto porque nao ha teto.
 
 #### Entrega 356-D - Cliente LLM BYOK e tool-use restrito
 
@@ -538,6 +557,7 @@ O plano so fecha quando:
 
 | Versao | Data | Descricao |
 |---|---|---|
+| 1.4.0 | 2026-08-27 | DR-005 resolvida e propagada: PII liberada no prompt (ADR-016 e isolamento de contexto intactos), provedor adiado com criterios eliminatorios, **sem teto de custo** — a Entrega 356-C perde o bloqueio por valor e mantem rate limiting e medicao —, retencao de 90 dias. Itens 3, 4 e 10 do IMP-358 fechados. |
 | 1.3.0 | 2026-08-27 | Escopo negativo ampliado a pedido do fundador: memoria de longo prazo, RAG/base de conhecimento e autonomia alem do reativo declarados fora do v1, cada um com o porque e o gatilho de entrada futura. |
 | 1.2.0 | 2026-08-27 | BYOK por decisao do fundador: o cliente nao usa Anthropic; o agente fala a API compativel com OpenAI contra endpoint configuravel (OpenRouter, NVIDIA NIM e similares), com LLM_BASE_URL/LLM_API_KEY/LLM_MODEL. Nenhuma outra mudanca de desenho. |
 | 1.1.0 | 2026-08-27 | Reescrita integral apos a revisao adversarial do PLAN-033, aceita pelo fundador: corrige dominio/RBAC, cria PreCadastro, retira proposta do v1, decompoe o agente, ancora seguranca/operacao e adiciona pre-execucao por ALP-001. |
