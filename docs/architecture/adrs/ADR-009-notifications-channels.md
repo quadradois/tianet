@@ -219,3 +219,31 @@ automatica sem alterar o significado de aceite desta ADR.
 | Versao | Data | Descricao |
 |---|---|---|
 | 1.0.0 | 2026-08-11 | Decisao do canal, provedor, idempotencia, consentimento, templates e conciliacao. |
+
+---
+
+## Adendo 2026-08-27 — WhatsApp como canal e o ingress do agente
+
+**Autoridade do adendo:** Arquitetura, via PLAN-033/IMP-358. O adendo registra
+evolucao; **nada acima foi reescrito** — a decisao historica de e-mail como
+unico canal inicial permanece como registro de 2026-08-11.
+
+**WhatsApp entrou como canal de envio.** O IMP-346 (PLAN-032) implementou
+`EvolutionWhatsAppNotificationChannel` atras da **mesma porta**
+`NotificationChannel`, ao lado do Resend, preservando todas as regras desta ADR:
+a porta nao decide elegibilidade, nao faz retry interno (o Scheduler governa
+tentativas), nao abre transacao de dominio, e o segredo (`EVOLUTION_INSTANCE_TOKEN`)
+vive em variavel de ambiente, nunca em log ou banco. O comprovante de
+lancamento e o aviso de sobra ja saem por esse canal.
+
+**E-mail saiu do escopo do MVP** em 2026-08-25 (`contexto-externo.md` §2.3):
+nao ha conta Resend. O adaptador continua no codigo; em producao sem credencial,
+o canal recusa com `canal_nao_configurado:email` em vez de fingir entrega.
+
+**Recepcao de mensagens nao pertence a esta ADR.** O webhook de entrada do
+WhatsApp e do **servico do agente** (PLAN-033/IMP-356), um processo separado com
+inbox propria — a API TiaNet continua sem webhook publico. Receipts de
+entrega/leitura e conciliacao automatica continuam fora, como o texto original
+decidiu; o resultado `DESCONHECIDO` do Evolution segue terminal ate que um
+desenho de receipt seja aprovado.
+

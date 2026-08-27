@@ -1,6 +1,6 @@
 # Contexto Externo
 
-**Versao:** 1.2.0
+**Versao:** 1.3.0
 
 **Status:** Vivo — mantido manualmente
 
@@ -74,8 +74,12 @@ Consequencias ja incorporadas ao desenho:
 - o envio de comprovante **nao** usa link `wa.me`; vai pela API;
 - o adapter entra como implementacao de `NotificationChannel`
   (`src/emprestimo/domain/credit/automacao_ports.py`), ao lado do Resend;
-- as conversas com o cliente serao registradas em `RegistroComunicacao`, que ja
-  possui `ator_tipo`, `ator_identificador` e `provider_message_id`;
+- as conversas conduzidas pelo agente **nao** usam `RegistroComunicacao`
+  (corrigido em 2026-08-27 pelo PLAN-033/IMP-358): `devedor_id` e obrigatorio
+  naquela tabela, e uma conversa de pre-cadastro ainda nao tem Devedor. O agente
+  tera modelo proprio de sessao e mensagem, com `devedor_id` opcional.
+  `RegistroComunicacao` continua registrando comunicacoes ligadas a um Devedor
+  existente, como o comprovante e o aviso de sobra ja fazem;
 - `CanalComunicacao` **ja possui** o valor `whatsapp`, formalizado pela migration
   `0018` em 2026-08-20.
 
@@ -87,9 +91,11 @@ Credor para aprovacao. E o segundo operador do sistema, conforme
 
 | Campo | Valor |
 |---|---|
-| Situacao | planejado |
+| Situacao | desenhado — PLAN-033 v1.1.0 |
 | Entra antes ou depois do wizard de emprestimo | *a preencher* |
 | Topologia de recepcao | **Evolution -> agente -> endpoint autenticado da TiaNet** (decidido em 2026-08-25) |
+| Contextos de conversa | **dois, isolados** (registrado em 2026-08-27): Operadora (allowlist de numeros, comeca so com o da Tia, unico com leitura de carteira) e Pre-cadastro (remetente desconhecido, zero acesso a dados). Nunca compartilham sessao, historico ou ferramenta. |
+| Autenticacao do remetente | allowlist de numero **nao e autenticacao**: `Info.Sender` e forjavel por quem tiver a URL do webhook. O contexto Operadora so liga com prova de origem no reverse proxy; sem prova, fica desabilitado fail-closed (PLAN-033/IMP-359). |
 
 **A TiaNet nao tera webhook publico.** A decisao foi pela topologia (b): o
 agente recebe do Evolution e chama um endpoint autenticado da TiaNet, no mesmo
@@ -224,6 +230,7 @@ feito, envios bem-sucedidos podem estar sendo classificados como `DESCONHECIDO`
 
 | Versao | Data | Descricao |
 |---|---|---|
+| 1.3.0 | 2026-08-27 | Reconciliacoes do PLAN-033/IMP-358: conversas do agente saem de `RegistroComunicacao` (devedor_id obrigatorio impede) e ganham modelo proprio; contextos Operadora/Pre-cadastro e o limite da allowlist registrados na §2.2. |
 | 1.2.0 | 2026-08-25 | As cinco perguntas em aberto foram respondidas pelo fundador e a secao §6 deixou de ser duvida para virar registro. E-mail saiu do escopo do MVP e o worker deixou de ser derrubado por falta de conta Resend — com recusa nomeada no lugar do fake que fingia entrega. Topologia do agente decidida sem webhook publico. Segredo do Evolution fica em variavel de ambiente, com o limite de uma instancia por processo declarado. |
 | 1.1.0 | 2026-08-16 | WhatsApp preenchido a partir do contrato Evolution Go versionado em `docs/whatsapp/`: modelo de tenant, tres niveis de autenticacao, limites de retry e payload, recorte para a TiaNet e achados que condicionam o desenho. |
 | 1.0.0 | 2026-08-16 | Criado apos a sessao identificar que decisoes de desenho foram tomadas sem conhecer integracoes existentes fora do repositorio. |

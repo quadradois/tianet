@@ -143,3 +143,20 @@ que fosse apagada no rollback não permitiria auditar tentativas mal-sucedidas.
 | Versão | Data | Descrição |
 |-------|------|-----------|
 | 1.0.0 | 2026-08-03 | Formalização da decisão de auditoria independente da transação (já vigente desde a FEATURE-001 / IMP-016). |
+
+---
+
+## Adendo 2026-08-27 — o agente do PLAN-033 nao muda esta decisao
+
+Registrado pela Arquitetura via PLAN-033/IMP-358, sem reescrever o texto acima.
+
+- **Leituras continuam fora da trilha.** As consultas que o copilot fizer a API
+  sao leituras como quaisquer outras e **nao** geram `audit_log`.
+- **Tool-calls do agente tem trilha propria, fora desta ADR.** O servico do
+  agente registra entrada, ferramenta, campos autorizados e resultado resumido
+  em log proprio, com o mascaramento da ADR-016 — e um log operacional do
+  agente, nao a trilha de negocio.
+- **Escritas disparadas pelo copilot entram na trilha normalmente**, com o
+  `usuario_id` do Usuario copilot em `detalhes` (IMP-361), para que a autoria
+  fique distinguivel da operadora humana.
+
