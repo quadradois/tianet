@@ -2,7 +2,7 @@
 
 **ID:** PLAN-033-EXEC
 
-**Versao:** 1.2.0
+**Versao:** 1.3.0
 
 **Status:** Redesenhado - bloqueado pela pre-execucao
 
@@ -471,7 +471,19 @@ Nenhum bloqueador fecha por intencao textual. O Gate precisa observar o comporta
 - segundo Tenant no mesmo processo Evolution; exige desenho de segredos;
 - audio, imagem, documento, OCR e download de midia;
 - troca automatica de modelo ou provedor de IA;
-- IMP-348, dispatcher de `EventPublisher`, sem consumidor neste plano.
+- IMP-348, dispatcher de `EventPublisher`, sem consumidor neste plano;
+- **memoria de longo prazo do agente** (preferencias da operadora, padroes por
+  Devedor): o v1 tem memoria de sessao (Entrega 356-F, retencao na DR-005) e
+  nada alem. Candidata a v2 sobre o modelo de sessao ja persistido;
+- **RAG e base de conhecimento**: a fonte de conhecimento do copilot e a API
+  viva, por tool-use — RAG sobre dado operacional serviria chunk potencialmente
+  velho com confianca, exatamente o que "o Motor e a autoridade" impede. RAG so
+  entra quando existir um corpus de politicas escritas da operacao, que hoje
+  nao existe;
+- **autonomia alem do reativo**: nenhum loop autonomo de planejar-agir-observar
+  no v1. O agente responde mensagem; a proatividade e deterministica e sem LLM
+  (Fase A). Autonomia nova cresce por fase com gate proprio, nunca por acumulo
+  silencioso de capacidade.
 
 ---
 
@@ -526,6 +538,7 @@ O plano so fecha quando:
 
 | Versao | Data | Descricao |
 |---|---|---|
+| 1.3.0 | 2026-08-27 | Escopo negativo ampliado a pedido do fundador: memoria de longo prazo, RAG/base de conhecimento e autonomia alem do reativo declarados fora do v1, cada um com o porque e o gatilho de entrada futura. |
 | 1.2.0 | 2026-08-27 | BYOK por decisao do fundador: o cliente nao usa Anthropic; o agente fala a API compativel com OpenAI contra endpoint configuravel (OpenRouter, NVIDIA NIM e similares), com LLM_BASE_URL/LLM_API_KEY/LLM_MODEL. Nenhuma outra mudanca de desenho. |
 | 1.1.0 | 2026-08-27 | Reescrita integral apos a revisao adversarial do PLAN-033, aceita pelo fundador: corrige dominio/RBAC, cria PreCadastro, retira proposta do v1, decompoe o agente, ancora seguranca/operacao e adiciona pre-execucao por ALP-001. |
 | 1.0.0 | 2026-08-26 | Desenho inicial: quatro fases sobre os ativos do PLAN-032, IMP-347 absorvido pela Fase A, regras inviolaveis herdadas do ciclo e escopo negativo declarado. |
