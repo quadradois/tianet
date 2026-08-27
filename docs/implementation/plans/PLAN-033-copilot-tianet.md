@@ -67,6 +67,12 @@ publico; quando alterarem, entram aqui antes da implementacao.
   `Idempotency-Key`. E-mail repetido responde 409 sem ecoar o endereco, e
   segredo fora da politica minima do dominio responde 422 sem ecoar o segredo.
 
+- `GET /credit/devedores/{devedor_id}/saldo` - soma no Motor o saldo dos
+  emprestimos **ativos** do Devedor na data de referencia; exige
+  `motor.saldo.ler`. Devolve o total oficial e os itens por emprestimo, para
+  conferencia da origem — nao para o consumidor recalcular. Devedor sem
+  emprestimo responde zero explicito, nao 404.
+
 Alteracao de permissao sem endpoint novo, no mesmo ciclo:
 `POST /credit/propostas-comerciais/{proposta_id}/enviar-para-analise` passou a
 exigir `comercial.proposta.submeter` em vez de `comercial.proposta.decidir`

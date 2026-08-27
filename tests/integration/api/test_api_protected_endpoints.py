@@ -48,6 +48,9 @@ RESPOSTA_401 = {
 }
 ERRO_RESPONSE_REF = {"$ref": "#/components/schemas/ErroResponse"}
 ROTAS_COM_404_DOCUMENTADO = {
+    # IMP-362: Devedor inexistente responde 404 em vez de zero — zero diria
+    # "nao deve nada" sobre quem nem esta cadastrado.
+    ("get", "/credit/devedores/{devedor_id}/saldo"),
     ("post", "/credit/carteiras/{carteira_id}/lancamentos"),
     ("get", "/credit/automacao/jobs/{job_id}"),
     ("post", "/credit/automacao/jobs/{job_id}/cancelar"),

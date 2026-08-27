@@ -19,7 +19,7 @@ A fonte contratual observada e o OpenAPI gerado por `create_app().openapi()` na
 worktree derivada do commit backend `e48cb72`, congelado no snapshot governado
 do PLAN-025. O contrato vigente possui 105 operacoes e 131 schemas; o SHA-256
 do snapshot e
-`63f7331c1b9aee898c1c6426aa9e1f64effe59a5536e022ccc29311685f21957`,
+`23d8d91f5f5890ef5ca010d1fc45a458458e5028042c80e7e15dbf82052af76a`,
 atualizado pelo IMP-336, que retirou o campo obrigatorio `parcelas_liquidadas`
 de `PagamentoResponse` — **mudanca nao aditiva**, ultimo residuo do plano de
 parcelas no contrato publico, amparada pela DR-004.

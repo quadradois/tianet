@@ -276,7 +276,14 @@ operacoes, 133 schemas**, SHA-256
 ciclo, o IMP-360 trocou a permissao de `enviar-para-analise` sem mexer no
 caminho, entao a superficie nao mudou por causa dele.
 
-Das oito regeracoes registradas, a do IMP-326 e a do IMP-355 sao aditivas. A do IMP-324
+Ainda em 2026-08-27 o IMP-362 publicou
+`GET /credit/devedores/{devedor_id}/saldo`, que soma no Motor o saldo dos
+emprestimos ativos de um Devedor. Sem ele, responder "quanto o Devedor deve?"
+obrigaria o consumidor a somar valores fora do Motor. Mudanca **aditiva**:
+**107 operacoes, 135 schemas**, SHA-256
+`23d8d91f5f5890ef5ca010d1fc45a458458e5028042c80e7e15dbf82052af76a`.
+
+Das nove regeracoes registradas, as do IMP-326, IMP-355 e IMP-362 sao aditivas. A do IMP-324
 retirou campos exigidos, a do IMP-327 retirou operacoes e schemas, a do
 IMP-328 retirou campos de sete schemas e a do IMP-351 retirou duas operacoes e
 tres schemas: as quatro **nao aditivas**, deliberadas, e amparadas pela
@@ -288,6 +295,7 @@ resolucao da DR-004 ou por decisao registrada. Nada do hardening foi desfeito.
 
 | Versao | Data | Descricao |
 |---|---|---|
+| 1.9.0 | 2026-08-27 | IMP-362: `GET /credit/devedores/{devedor_id}/saldo` publicado; snapshot 107/135 regerado. |
 | 1.8.0 | 2026-08-27 | IMP-355: `POST /iam/usuarios` publicado; snapshot 106/133 regerado. Entrada acrescentada a cadeia, sem reescrever as anteriores. |
 | 1.7.0 | 2026-08-26 | IMP-351: provisionamento de Tenant por API e fluxo de ativacao removidos; snapshot 105/131 regerado. O registro de cada snapshot anterior permanece intacto — cadeia se acrescenta, nao se reescreve. |
 | 1.6.0 | 2026-08-22 | IMP-333: `Idempotency-Key` passou de 32 para 63 rotas; guardrail estrutural deixa somente quatro excecoes auth nominais; snapshot 107/134 regerado. |

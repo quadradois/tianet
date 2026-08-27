@@ -4176,6 +4176,109 @@
         "title": "ResumoCarteiraResponse",
         "type": "object"
       },
+      "SaldoDevedorResponse": {
+        "description": "Saldo somado dos emprestimos ativos do Devedor (IMP-362).\n\n`total` e o valor oficial, calculado pelo Motor. Os `itens` existem para\nconferencia da origem — nao para o consumidor recalcular a soma.",
+        "properties": {
+          "data_referencia": {
+            "format": "date",
+            "title": "Data Referencia",
+            "type": "string"
+          },
+          "devedor_id": {
+            "format": "uuid",
+            "title": "Devedor Id",
+            "type": "string"
+          },
+          "emprestimos_considerados": {
+            "title": "Emprestimos Considerados",
+            "type": "integer"
+          },
+          "encargos": {
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Encargos",
+            "type": "string"
+          },
+          "itens": {
+            "items": {
+              "$ref": "#/components/schemas/SaldoItemDevedorResponse"
+            },
+            "title": "Itens",
+            "type": "array"
+          },
+          "juros": {
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Juros",
+            "type": "string"
+          },
+          "principal": {
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Principal",
+            "type": "string"
+          },
+          "tenant_id": {
+            "format": "uuid",
+            "title": "Tenant Id",
+            "type": "string"
+          },
+          "total": {
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Total",
+            "type": "string"
+          }
+        },
+        "required": [
+          "devedor_id",
+          "tenant_id",
+          "data_referencia",
+          "principal",
+          "juros",
+          "encargos",
+          "total",
+          "emprestimos_considerados",
+          "itens"
+        ],
+        "title": "SaldoDevedorResponse",
+        "type": "object"
+      },
+      "SaldoItemDevedorResponse": {
+        "description": "Parcela do total por emprestimo (IMP-362).",
+        "properties": {
+          "emprestimo_id": {
+            "format": "uuid",
+            "title": "Emprestimo Id",
+            "type": "string"
+          },
+          "encargos": {
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Encargos",
+            "type": "string"
+          },
+          "juros": {
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Juros",
+            "type": "string"
+          },
+          "principal": {
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Principal",
+            "type": "string"
+          },
+          "total": {
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Total",
+            "type": "string"
+          }
+        },
+        "required": [
+          "emprestimo_id",
+          "principal",
+          "juros",
+          "encargos",
+          "total"
+        ],
+        "title": "SaldoItemDevedorResponse",
+        "type": "object"
+      },
       "SaldoResponse": {
         "properties": {
           "data_referencia": {
@@ -15711,6 +15814,163 @@
         "summary": "Liberar contrato para Motor Financeiro futuro",
         "tags": [
           "contracts"
+        ]
+      }
+    },
+    "/credit/devedores/{devedor_id}/saldo": {
+      "get": {
+        "description": "Soma os emprestimos ativos do Devedor no Motor (IMP-362).\n\nExiste para que ninguem fora do Motor precise somar dinheiro: sem ele, a\npergunta \"quanto o Devedor deve?\" obrigaria o consumidor a listar\nemprestimos e adicionar valores.",
+        "operationId": "consultar_saldo_do_devedor_credit_devedores__devedor_id__saldo_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "devedor_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Devedor Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "data_referencia",
+            "required": true,
+            "schema": {
+              "format": "date",
+              "title": "Data Referencia",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Identificador tecnico de correlacao aceito ou gerado pela API.",
+            "in": "header",
+            "name": "X-Correlation-ID",
+            "required": false,
+            "schema": {
+              "maxLength": 128,
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SaldoDevedorResponse"
+                }
+              }
+            },
+            "description": "Successful Response",
+            "headers": {
+              "X-Correlation-ID": {
+                "description": "Identificador tecnico de correlacao da requisicao.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErroResponse"
+                }
+              }
+            },
+            "description": "Payload, parametros ou headers invalidos para a operacao.",
+            "headers": {
+              "X-Correlation-ID": {
+                "description": "Identificador tecnico de correlacao da requisicao.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErroResponse"
+                }
+              }
+            },
+            "description": "Autenticacao recusada por token ausente, invalido ou expirado.",
+            "headers": {
+              "X-Correlation-ID": {
+                "description": "Identificador tecnico de correlacao da requisicao.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErroResponse"
+                }
+              }
+            },
+            "description": "Principal autenticado nao possui permissao para a operacao.",
+            "headers": {
+              "X-Correlation-ID": {
+                "description": "Identificador tecnico de correlacao da requisicao.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErroResponse"
+                }
+              }
+            },
+            "description": "Recurso inexistente ou indisponivel para o Tenant autenticado.",
+            "headers": {
+              "X-Correlation-ID": {
+                "description": "Identificador tecnico de correlacao da requisicao.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErroResponse"
+                }
+              }
+            },
+            "description": "Erro tecnico inesperado com resposta segura e correlacionavel.",
+            "headers": {
+              "X-Correlation-ID": {
+                "description": "Identificador tecnico de correlacao da requisicao.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "summary": "Consultar saldo devedor somado do Devedor",
+        "tags": [
+          "financial-engine"
         ]
       }
     },
