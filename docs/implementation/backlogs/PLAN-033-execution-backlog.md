@@ -2,7 +2,7 @@
 
 **ID:** PLAN-033-EXEC
 
-**Versao:** 1.5.0
+**Versao:** 1.6.0
 
 **Status:** Redesenhado - bloqueado pela pre-execucao
 
@@ -255,14 +255,50 @@ lembrete operacional por e-mail.
 
 ### IMP-355 - Provisionar usuario e perfil copilot por Tenant
 
+- **Status:** **rota de criacao CONCLUIDA em 2026-08-27**; o seed do perfil
+  `copilot` fica para quando a Fase C abrir, porque so entao havera agente a
+  quem atribui-lo.
+- **A lacuna era maior que o Copilot.** Sem `POST /iam/usuarios`, cada Tenant
+  ficava limitado ao administrador criado pela CLI de bootstrap — nao havia
+  caminho nenhum para um segundo operador humano.
+- **Desenho:** o Usuario nasce **ja ativo, com credencial definida na criacao**.
+  Nao ha token de ativacao desde o IMP-351; e o mesmo caminho da CLI de
+  bootstrap — criar, definir credencial, ativar, em transacao unica.
+- **A politica de senha e herdada, nao repetida:** o IMP-342 vive em
+  `_normalizar_segredo`, entao segredo fraco responde 422 sem esta rota conhecer
+  a regra.
+- **Evidencia:** cinco cenarios em `tests/integration/api/test_api_usuarios.py`.
+  O que importa nao e o 201 — e o usuario criado **conseguir autenticar de
+  fato**, provado por login real na mesma jornada. Mais: 403 sem permissao, 409
+  em e-mail repetido sem ecoar o endereco, 422 em segredo fraco sem ecoar o
+  segredo, e replay da mesma chave sem criar segundo usuario.
+- **Defeito meu, achado pelo teste do caminho de erro:** gravei
+  `f"{tenant_id}|{email}"` em `solicitacao_hash`, coluna `String(64)` — 67
+  caracteres, `DataError`. O nome da coluna dizia que ela guarda **hash**, e
+  todos os outros servicos fazem SHA-256 justamente porque cabe em 64. Mesmo
+  tipo de defeito que o IMP-350 achou no `audit_log.status`.
+- **Contrato publico:** 105 -> 106 operacoes, 131 -> 133 schemas, catalogo de 54
+  -> 55 permissoes, rotas com `Idempotency-Key` de 62 -> 63, protegidas de 101
+  -> 102. **Seis contadores** obrigaram a declarar a mudanca de superficie.
+- **Guardrail que cobrou o esperado:** o `docs:validate` recusou o endpoint
+  porque ele nao estava na secao API de **um plano** — backlog nao basta. O
+  PLAN-033 tinha backlog sem plano; o plano foi materializado em
+  `docs/implementation/plans/PLAN-033-copilot-tianet.md`.
 - **Objetivo:** dar ao agente identidade propria, revogavel e minima, sem usar a
   identidade da Tia nem superusuario.
 - **Estado atual:** `src/emprestimo/presentation/api/iam_routes.py` possui gestao
   de perfis e credenciais, mas nao rota de criacao de Usuario.
-- **Escopo real:** servico e `POST /iam/usuarios`; `Idempotency-Key`; permissao
-  administrativa nova; credencial na criacao; Tenant; estados/erros; auditoria;
-  schemas; OpenAPI; snapshot, matriz e contadores; contrato, integracao,
+- **Escopo real:** servico, endpoint, `Idempotency-Key`, permissao
+  administrativa nova, credencial na criacao, Tenant, estados/erros, auditoria,
+  schemas, OpenAPI, snapshot, matriz e contadores, contrato, integracao,
   cross-tenant e replay.
+
+Endpoint publicado pelo IMP-355:
+
+- `POST /iam/usuarios` - cria Usuario no Tenant do solicitante, ja com
+  credencial definida e estado ativo; exige `usuario.criar` e `Idempotency-Key`;
+  e-mail repetido responde 409 e segredo fora da politica do IMP-342 responde
+  422, sem ecoar o segredo.
 - **Perfil:** operacao administrativa idempotente faz seed do perfil `copilot` em
   cada Tenant e o atribui ao Usuario. Nao existe perfil no catalogo:
   `src/emprestimo/application/iam_catalogo.py` cataloga permissoes e
@@ -588,6 +624,7 @@ O plano so fecha quando:
 
 | Versao | Data | Descricao |
 |---|---|---|
+| 1.6.0 | 2026-08-27 | IMP-355 executado: `POST /iam/usuarios` fecha a lacuna de nao existir caminho para criar Usuario. Contrato de 105/131 para 106/133; seis contadores de superficie atualizados; plano do PLAN-033 materializado porque o guardrail de contrato exige endpoint declarado em plano, nao em backlog. |
 | 1.5.0 | 2026-08-27 | GATE-E1 dividido em E1a (governanca, cumprido) e E1b (canal e producao, bloqueado): a Fase B nao dependia de Evolution nem de servidor, so da governanca. IMP-360 executado — separacao tecnica entre submeter e decidir proposta, defeito anterior ao Copilot que atingia operadores humanos. |
 | 1.4.0 | 2026-08-27 | DR-005 resolvida e propagada: PII liberada no prompt (ADR-016 e isolamento de contexto intactos), provedor adiado com criterios eliminatorios, **sem teto de custo** — a Entrega 356-C perde o bloqueio por valor e mantem rate limiting e medicao —, retencao de 90 dias. Itens 3, 4 e 10 do IMP-358 fechados. |
 | 1.3.0 | 2026-08-27 | Escopo negativo ampliado a pedido do fundador: memoria de longo prazo, RAG/base de conhecimento e autonomia alem do reativo declarados fora do v1, cada um com o porque e o gatilho de entrada futura. |

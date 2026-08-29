@@ -50,6 +50,7 @@ from emprestimo.application.errors import (
     TransicaoEstadoInvalidaError,
     UsuarioNaoEncontradoError,
 )
+from emprestimo.application.usuarios import UsuarioJaExisteError
 from emprestimo.domain.common.errors import (
     DevedorJaExisteError,
     DocumentoInvalidoError,
@@ -130,6 +131,7 @@ def create_app() -> FastAPI:
     app.add_exception_handler(PerfilJaExisteError, _perfil_conflito)
     app.add_exception_handler(TenantJaExisteError, _tenant_ja_existe)
     app.add_exception_handler(DevedorJaExisteError, _devedor_ja_existe)
+    app.add_exception_handler(UsuarioJaExisteError, _usuario_ja_existe)
     app.add_exception_handler(TemplateNotificacaoJaExisteError, _conflito_estado)
     app.add_exception_handler(DevedorNaoEncontradoError, _devedor_nao_encontrado)
     app.add_exception_handler(IdempotenciaConflitoError, _conflito_idempotencia)
@@ -222,6 +224,16 @@ async def _tenant_ja_existe(_: Request, exc: Exception) -> JSONResponse:
 
 async def _devedor_ja_existe(_: Request, exc: Exception) -> JSONResponse:
     return JSONResponse(status_code=409, content=_corpo("devedor_ja_existe", str(exc)))
+
+
+async def _usuario_ja_existe(_: Request, exc: Exception) -> JSONResponse:
+    # IMP-355: sem este handler, e-mail duplicado subiria como 500 generico e o
+    # operador nao saberia que o conflito e de cadastro, nao defeito.
+    del exc
+    return JSONResponse(
+        status_code=409,
+        content=_corpo("usuario_ja_existe", "e-mail ja cadastrado"),
+    )
 
 
 async def _devedor_nao_encontrado(_: Request, exc: Exception) -> JSONResponse:
