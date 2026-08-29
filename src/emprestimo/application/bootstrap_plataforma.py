@@ -10,7 +10,7 @@ from dataclasses import dataclass
 from datetime import datetime
 
 from emprestimo.application.errors import IdempotenciaConflitoError, PerfilConflitoError
-from emprestimo.application.iam_catalogo import PERMISSOES_PLATAFORMA
+from emprestimo.application.iam_catalogo import CATALOGO_PERMISSOES
 from emprestimo.application.ports import AuditoriaRegistro, UnitOfWork
 from emprestimo.domain.common.errors import TenantJaExisteError, ViolacaoInvarianteError
 from emprestimo.domain.platform.credencial import Credencial
@@ -89,7 +89,20 @@ class AdministradorPlataformaBootstrapService:
                 usuario = tenant.criar_usuario_administrador_plataforma(nome_admin, email)
                 configuracoes = tenant.inicializar_configuracoes()
                 perfil = PerfilAcesso(tenant_id=tenant.id, nome="administrador_plataforma")
-                for permissao in PERMISSOES_PLATAFORMA:
+                # IMP-363: o catalogo INTEIRO, nao so as permissoes `tenant.*`.
+                #
+                # Ate 2026-08-27 este perfil recebia apenas PERMISSOES_PLATAFORMA, e
+                # quem concedia as operacionais era o provisionamento por API — que o
+                # IMP-351 removeu. O resultado, observado em stack real: o sistema
+                # subia, autenticava, e o unico usuario existente tomava 403 em tudo,
+                # inclusive em `perfil.gerir`, entao nao havia nem como se autoconceder
+                # permissao. Deadlock completo.
+                #
+                # Decisao do fundador em 2026-08-27: o sistema e de uso pessoal, com um
+                # Tenant e um usuario. Separar papeis administrativo e operacional so
+                # faria sentido com mais de uma pessoa; aqui produziria exatamente o
+                # deadlock acima.
+                for permissao in CATALOGO_PERMISSOES:
                     perfil.adicionar_permissao(permissao)
 
                 credencial = Credencial.definir(

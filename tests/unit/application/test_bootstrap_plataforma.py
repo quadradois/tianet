@@ -13,6 +13,7 @@ from emprestimo.application.bootstrap_plataforma import (
     AdministradorPlataformaBootstrapService,
 )
 from emprestimo.application.errors import IdempotenciaConflitoError, PerfilConflitoError
+from emprestimo.application.iam_catalogo import CATALOGO_PERMISSOES
 from emprestimo.application.ports import AuditoriaRegistro, IdempotenciaRegistro, UnitOfWork
 from emprestimo.domain.common.errors import ViolacaoInvarianteError
 from emprestimo.domain.platform.tenant import TenantState
@@ -145,7 +146,20 @@ def _contexto() -> tuple[_UoWFake, _AuditoriaFake, AdministradorPlataformaBootst
     return uow, auditoria, AdministradorPlataformaBootstrapService(lambda: uow, auditoria)
 
 
-def test_bootstrap_cria_raiz_com_permissoes_exclusivas_de_plataforma() -> None:
+def test_bootstrap_cria_raiz_operavel_com_o_catalogo_inteiro() -> None:
+    """IMP-363: o unico usuario nasce com TODAS as permissoes, nao so `tenant.*`.
+
+    Ate 2026-08-27 este perfil recebia apenas `PERMISSOES_PLATAFORMA`, e quem
+    concedia as operacionais era o provisionamento por API — removido pelo
+    IMP-351. Observado em stack real: o sistema subia, autenticava, e o unico
+    usuario tomava 403 em tudo, **inclusive em `perfil.gerir`**, entao nao havia
+    nem como se autoconceder permissao. Deadlock completo, que nenhum dos 18
+    gates pegou porque cada teste monta o RBAC de que precisa.
+
+    Decisao do fundador em 2026-08-27: uso pessoal, um Tenant e um usuario.
+    Separar papel administrativo de operacional so faria sentido com mais de uma
+    pessoa; aqui produzia exatamente o deadlock.
+    """
     uow, auditoria, service = _contexto()
 
     resultado = _executar(service)
@@ -157,13 +171,11 @@ def test_bootstrap_cria_raiz_com_permissoes_exclusivas_de_plataforma() -> None:
     assert usuario.perfil_acesso == "administrador_plataforma"
     assert usuario.ativo
     assert uow.credencial.salvos[0].verificar("Credencial Inicial Forte 123")
-    assert {item.codigo for item in perfil.permissoes} == {
-        "tenant.criar",
-        "tenant.ler",
-        "tenant.atualizar",
-        "tenant.inativar",
-        "tenant.reativar",
-    }
+
+    concedidas = {item.codigo for item in perfil.permissoes}
+    assert concedidas == {item.codigo for item in CATALOGO_PERMISSOES}
+    # As tres que o deadlock bloqueava, nomeadas para o teste falhar por elas:
+    assert {"perfil.gerir", "usuario.criar", "motor.saldo.ler"} <= concedidas
     assert uow.perfil_acesso.atribuicoes == [(usuario.id, perfil.id)]
     assert uow.commit_count == 1
     assert "bootstrap_plataforma.sucesso" in {evento[0] for evento in auditoria.eventos}
