@@ -67,7 +67,12 @@ def test_bootstrap_persiste_perfil_credencial_e_replay_seguro(
         assert perfil is not None and perfil.nome == "administrador_plataforma"
         carregado = SqlAlchemyPerfilAcessoRepository(session).find_by_usuario_id(usuario.id)
         assert carregado is not None and carregado.permite("tenant.criar")
-        assert not carregado.permite("devedor.criar")
+        # IMP-363: o unico usuario precisa operar, nao so administrar Tenants.
+        # A asercao anterior (`not permite("devedor.criar")`) fixava exatamente o
+        # deadlock observado em stack real: sem `perfil.gerir` nem permissao
+        # operacional, o sistema subia e nao deixava fazer nada.
+        assert carregado.permite("devedor.criar")
+        assert carregado.permite("perfil.gerir")
         assert credencial is not None
         assert "Credencial Inicial Forte 123" not in credencial.hash_credencial
         assert registro is not None

@@ -2,7 +2,7 @@
 
 **ID:** PLAN-033-EXEC
 
-**Versao:** 1.6.0
+**Versao:** 1.7.0
 
 **Status:** Redesenhado - bloqueado pela pre-execucao
 
@@ -359,6 +359,31 @@ Endpoint publicado pelo IMP-355:
 
 ### IMP-362 - Expor saldo agregado por Devedor calculado no Motor
 
+- **Status:** **CONCLUIDO em 2026-08-27.**
+  `GET /credit/devedores/{devedor_id}/saldo`, protegido por `motor.saldo.ler`.
+- **Vale independente do Copilot.** Sem ele, responder "quanto o Devedor deve?"
+  obriga o consumidor a listar emprestimos e somar. Se o frontend somar, quebra
+  a regra de que o Motor e a autoridade sobre dinheiro; se um LLM somar, e pior.
+- **A soma acontece no Motor**, pelo mesmo `consultar_saldo` que atende a
+  consulta individual — o total e sempre consistente com o extrato de cada
+  emprestimo. Os `itens` existem para conferir a origem, nao para recalcular.
+- **Duas decisoes de desenho registradas no codigo:** pagina ate o fim, porque
+  parar na primeira pagina daria total silenciosamente incompleto para quem tem
+  muitos emprestimos; e considera apenas emprestimos **ativos**, porque a
+  pergunta e quanto o Devedor **deve**, nao quanto ja deveu.
+- **Um guardrail obrigou a decidir o que estava implicito.** O
+  `test_openapi_declara_contratos_de_erro_iam_autorizacao` mantem allowlist de
+  rotas que podem declarar 404; o endpoint herdava 404 do router sem estar nela.
+  A pergunta que isso forcou: Devedor inexistente responde zero ou 404? **Zero
+  seria mentir** — diria "nao deve nada" sobre quem nem esta cadastrado. Entrou
+  validacao real do Devedor, com 404 neutro tambem para outro Tenant. Sem o
+  guardrail, o endpoint responderia `total: 0.00` para qualquer UUID inventado.
+- **Evidencia:** tres cenarios. O principal usa **dois** emprestimos e prova que
+  o total agregado e identico a soma das consultas individuais — com um so, o
+  teste nao distinguiria nada. Mais: Devedor sem emprestimo responde zero
+  explicito, e Devedor inexistente responde 404.
+- **Contrato:** 106 -> 107 operacoes, 133 -> 135 schemas, protegidas de 102 ->
+  103.
 - **Objetivo:** responder quanto o Devedor deve sem o LLM somar saldos de varios
   emprestimos.
 - **Escopo:** caso de uso no Motor, query por Tenant/Carteira/Devedor, soma com a
@@ -624,6 +649,7 @@ O plano so fecha quando:
 
 | Versao | Data | Descricao |
 |---|---|---|
+| 1.7.0 | 2026-08-27 | IMP-362 executado: `GET /credit/devedores/{devedor_id}/saldo` soma no Motor. Um guardrail de contrato de erro forcou decidir 404 em vez de zero para Devedor inexistente — sem ele, o endpoint mentiria sobre quem nem esta cadastrado. Contrato de 106/133 para 107/135. |
 | 1.6.0 | 2026-08-27 | IMP-355 executado: `POST /iam/usuarios` fecha a lacuna de nao existir caminho para criar Usuario. Contrato de 105/131 para 106/133; seis contadores de superficie atualizados; plano do PLAN-033 materializado porque o guardrail de contrato exige endpoint declarado em plano, nao em backlog. |
 | 1.5.0 | 2026-08-27 | GATE-E1 dividido em E1a (governanca, cumprido) e E1b (canal e producao, bloqueado): a Fase B nao dependia de Evolution nem de servidor, so da governanca. IMP-360 executado — separacao tecnica entre submeter e decidir proposta, defeito anterior ao Copilot que atingia operadores humanos. |
 | 1.4.0 | 2026-08-27 | DR-005 resolvida e propagada: PII liberada no prompt (ADR-016 e isolamento de contexto intactos), provedor adiado com criterios eliminatorios, **sem teto de custo** — a Entrega 356-C perde o bloqueio por valor e mantem rate limiting e medicao —, retencao de 90 dias. Itens 3, 4 e 10 do IMP-358 fechados. |

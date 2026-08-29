@@ -652,7 +652,7 @@ describe("transporte autenticado", () => {
 });
 
 describe("contratos tecnicos", () => {
-  it("confirma 4 operacoes publicas e 102 protegidas no snapshot governado", async () => {
+  it("confirma 4 operacoes publicas e 103 protegidas no snapshot governado", async () => {
     const snapshotPath = resolve(process.cwd(), "..", "docs", "governance", "contracts", "openapi", "frontend-mvp-backend-openapi.json");
     const snapshot: unknown = JSON.parse(await readFile(snapshotPath, "utf8"));
     if (typeof snapshot !== "object" || snapshot === null || !("paths" in snapshot)) throw new Error("snapshot invalido");
@@ -663,10 +663,10 @@ describe("contratos tecnicos", () => {
       return Object.values(item).filter((operation) => typeof operation === "object" && operation !== null && "responses" in operation);
     });
     const protectedCount = operations.filter((operation) => "security" in operation && Array.isArray(operation.security) && operation.security.length > 0).length;
-    expect(operations).toHaveLength(106);
-    // IMP-355: POST /iam/usuarios entrou como protegida (101 -> 102). O IMP-351
-    // havia retirado POST /platform/tenants (protegida) e POST /auth/ativar (publica).
-    expect(protectedCount).toBe(102);
+    expect(operations).toHaveLength(107);
+    // IMP-362: GET /credit/devedores/{id}/saldo entrou como protegida (102 -> 103).
+    // Antes, o IMP-355 levou de 101 para 102 com POST /iam/usuarios.
+    expect(protectedCount).toBe(103);
     expect(operations.length - protectedCount).toBe(4);
   });
   it("normaliza correlation e idempotency sem confundir os identificadores", () => {

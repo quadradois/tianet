@@ -35,6 +35,8 @@ from emprestimo.presentation.api.motor_schemas import (
     QuitacaoResponse,
     RenegociacaoCreateRequest,
     RenegociacaoResponse,
+    SaldoDevedorResponse,
+    SaldoItemDevedorResponse,
     SaldoResponse,
     ValorQuitacaoResponse,
 )
@@ -174,6 +176,50 @@ def estornar_pagamento(
         idempotency_key=_exigir_idempotency_key(idempotency_key),
     )
     return _pagamento_response(resultado)
+
+
+@router.get(
+    "/devedores/{devedor_id}/saldo",
+    response_model=SaldoDevedorResponse,
+    summary="Consultar saldo devedor somado do Devedor",
+)
+def consultar_saldo_do_devedor(
+    devedor_id: uuid.UUID,
+    data_referencia: date = Query(...),
+    principal: Principal = Depends(exigir_permissao(PERMISSAO_SALDO_LER)),
+    service: Any = Depends(get_consulta_saldo_service),
+) -> SaldoDevedorResponse:
+    """Soma os emprestimos ativos do Devedor no Motor (IMP-362).
+
+    Existe para que ninguem fora do Motor precise somar dinheiro: sem ele, a
+    pergunta "quanto o Devedor deve?" obrigaria o consumidor a listar
+    emprestimos e adicionar valores.
+    """
+    resultado = service.consultar_por_devedor(
+        devedor_id=devedor_id,
+        tenant_id=principal.tenant_id,
+        data_referencia=data_referencia,
+    )
+    return SaldoDevedorResponse(
+        devedor_id=resultado.devedor_id,
+        tenant_id=resultado.tenant_id,
+        data_referencia=resultado.data_referencia,
+        principal=resultado.principal,
+        juros=resultado.juros,
+        encargos=resultado.encargos,
+        total=resultado.total,
+        emprestimos_considerados=resultado.emprestimos_considerados,
+        itens=[
+            SaldoItemDevedorResponse(
+                emprestimo_id=item.emprestimo_id,
+                principal=item.principal,
+                juros=item.juros,
+                encargos=item.encargos,
+                total=item.total,
+            )
+            for item in resultado.itens
+        ],
+    )
 
 
 @router.get(

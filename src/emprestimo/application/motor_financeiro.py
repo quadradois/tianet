@@ -14,6 +14,7 @@ from decimal import Decimal, InvalidOperation
 from emprestimo.application.auditoria_escrita import auditar_escrita
 from emprestimo.application.errors import (
     ContratoCreditoNaoEncontradoError,
+    DevedorNaoEncontradoError,
     EmprestimoNaoEncontradoError,
     IdempotenciaConflitoError,
     PagamentoNaoEncontradoError,
@@ -115,6 +116,38 @@ class SaldoResultado:
     encargos: Decimal
     total: Decimal
     memoria: MemoriaCalculo
+
+
+@dataclass(frozen=True)
+class SaldoItemDevedor:
+    """Parcela do total por emprestimo, para o consumidor conferir a origem."""
+
+    emprestimo_id: uuid.UUID
+    principal: Decimal
+    juros: Decimal
+    encargos: Decimal
+    total: Decimal
+
+
+@dataclass(frozen=True)
+class SaldoDevedorResultado:
+    """Saldo somado dos emprestimos ativos de um Devedor (IMP-362).
+
+    Existe para que ninguem fora do Motor precise somar dinheiro. Sem ele, a
+    pergunta "quanto o Devedor deve?" obrigaria o frontend — ou pior, um LLM —
+    a listar emprestimos e adicionar valores, o que quebraria a regra de que o
+    Motor e a autoridade sobre dinheiro.
+    """
+
+    devedor_id: uuid.UUID
+    tenant_id: uuid.UUID
+    data_referencia: date
+    principal: Decimal
+    juros: Decimal
+    encargos: Decimal
+    total: Decimal
+    emprestimos_considerados: int
+    itens: tuple[SaldoItemDevedor, ...]
 
 
 @dataclass(frozen=True)
@@ -673,6 +706,97 @@ class ConsultaSaldoService:
                 total=saldo.total,
                 memoria=saldo.memoria,
             )
+
+    def consultar_por_devedor(
+        self,
+        *,
+        devedor_id: uuid.UUID,
+        tenant_id: uuid.UUID,
+        data_referencia: date,
+    ) -> SaldoDevedorResultado:
+        """Soma o saldo dos emprestimos ATIVOS do Devedor (IMP-362).
+
+        A soma acontece aqui, no Motor, e nao no consumidor. Cada parcela vem do
+        mesmo `consultar_saldo` que atende a consulta individual, entao o total
+        e sempre consistente com o que o extrato do emprestimo mostra.
+
+        Emprestimos quitados e cancelados ficam de fora: a pergunta e quanto o
+        Devedor **deve**, nao quanto ja deveu.
+        """
+        self._exigir_devedor_do_tenant(devedor_id, tenant_id)
+        principal = juros = encargos = total = Decimal("0.00")
+        itens: list[SaldoItemDevedor] = []
+        for emprestimo_id in self._emprestimos_ativos(devedor_id, tenant_id):
+            saldo = self.consultar(
+                emprestimo_id=emprestimo_id,
+                tenant_id=tenant_id,
+                data_referencia=data_referencia,
+            )
+            principal += saldo.principal
+            juros += saldo.juros
+            encargos += saldo.encargos
+            total += saldo.total
+            itens.append(
+                SaldoItemDevedor(
+                    emprestimo_id=saldo.emprestimo_id,
+                    principal=saldo.principal,
+                    juros=saldo.juros,
+                    encargos=saldo.encargos,
+                    total=saldo.total,
+                )
+            )
+        return SaldoDevedorResultado(
+            devedor_id=devedor_id,
+            tenant_id=tenant_id,
+            data_referencia=data_referencia,
+            principal=principal,
+            juros=juros,
+            encargos=encargos,
+            total=total,
+            emprestimos_considerados=len(itens),
+            itens=tuple(itens),
+        )
+
+    def _exigir_devedor_do_tenant(self, devedor_id: uuid.UUID, tenant_id: uuid.UUID) -> None:
+        """404 para Devedor inexistente, em vez de zero.
+
+        Zero seria mentir: dizer "nao deve nada" sobre alguem que nao existe
+        confunde ausencia de divida com ausencia de cadastro. Devedor de outro
+        Tenant tambem responde 404, neutro, sem revelar que existe.
+        """
+        with self._uow_factory() as uow:
+            devedor = uow.devedor.find_by_id(devedor_id)
+            carteira = uow.carteira.find_by_id(devedor.carteira_id) if devedor is not None else None
+            if devedor is None or carteira is None or carteira.tenant_id != tenant_id:
+                raise DevedorNaoEncontradoError(devedor_id)
+
+    def _emprestimos_ativos(
+        self,
+        devedor_id: uuid.UUID,
+        tenant_id: uuid.UUID,
+    ) -> list[uuid.UUID]:
+        """Ids dos emprestimos ativos do Devedor, paginando ate o fim.
+
+        Pagina em vez de pedir tudo de uma vez porque `listar_paginado` e o
+        unico caminho do repositorio; parar na primeira pagina daria um total
+        silenciosamente incompleto para quem tiver muitos emprestimos.
+        """
+        ids: list[uuid.UUID] = []
+        pagina = 1
+        while True:
+            with self._uow_factory() as uow:
+                resultado = uow.emprestimo.listar_paginado(
+                    EmprestimoFiltros(
+                        tenant_id=tenant_id,
+                        devedor_id=devedor_id,
+                        estado=EmprestimoState.ATIVO,
+                    ),
+                    Paginacao(pagina=pagina, tamanho=100),
+                )
+            ids.extend(item.id for item in resultado.items)
+            if len(ids) >= resultado.total or not resultado.items:
+                return ids
+            pagina += 1
 
 
 class QuitacaoRenegociacaoService:

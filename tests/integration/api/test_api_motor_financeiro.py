@@ -469,3 +469,65 @@ def _contrato_liberado(client: TestClient, carteira_id: str, devedor_id: str) ->
     assert assinado.status_code == 200
     assert liberado.status_code == 200
     return str(contrato.json()["id"])
+
+
+def test_imp_362_saldo_por_devedor_soma_no_motor_e_bate_com_as_consultas_individuais(
+    client: TestClient,
+    contexto: tuple[str, str],
+) -> None:
+    """O total agregado tem que ser identico a soma das consultas individuais.
+
+    E o ponto do IMP-362: sem este endpoint, responder "quanto o Devedor deve?"
+    obrigaria o consumidor — frontend ou LLM — a somar saldos, violando a regra
+    de que o Motor e a autoridade sobre dinheiro. O teste usa **dois**
+    emprestimos porque com um so a soma seria indistinguivel da consulta unica.
+    """
+    carteira_id, devedor_id = contexto
+    primeiro = _emprestimo_ativo(client, carteira_id, devedor_id)
+    segundo = _emprestimo_ativo(client, carteira_id, devedor_id)
+    data = "2026-09-10"
+
+    agregado = client.get(f"/credit/devedores/{devedor_id}/saldo?data_referencia={data}")
+    individuais = [
+        client.get(f"/credit/emprestimos/{emprestimo_id}/saldo?data_referencia={data}")
+        for emprestimo_id in (primeiro, segundo)
+    ]
+
+    assert agregado.status_code == 200
+    corpo = agregado.json()
+    assert corpo["emprestimos_considerados"] == 2
+    assert {item["emprestimo_id"] for item in corpo["itens"]} == {primeiro, segundo}
+
+    esperado = sum(Decimal(r.json()["total"]) for r in individuais)
+    assert Decimal(corpo["total"]) == esperado, "o total agregado diverge das consultas"
+    assert Decimal(corpo["principal"]) == sum(Decimal(r.json()["principal"]) for r in individuais)
+    assert Decimal(corpo["juros"]) == sum(Decimal(r.json()["juros"]) for r in individuais)
+
+
+def test_imp_362_devedor_sem_emprestimo_responde_zero_explicito(
+    client: TestClient,
+    contexto: tuple[str, str],
+) -> None:
+    """Zero explicito, nao 404: o Devedor existe e nao deve nada."""
+    _, devedor_id = contexto
+
+    resp = client.get(f"/credit/devedores/{devedor_id}/saldo?data_referencia=2026-09-10")
+
+    assert resp.status_code == 200
+    corpo = resp.json()
+    assert Decimal(corpo["total"]) == Decimal("0.00")
+    assert corpo["emprestimos_considerados"] == 0
+    assert corpo["itens"] == []
+
+
+def test_imp_362_devedor_inexistente_responde_404_e_nao_zero(
+    client: TestClient,
+    contexto: tuple[str, str],
+) -> None:
+    """Zero diria "nao deve nada" sobre quem nem esta cadastrado."""
+    del contexto
+
+    resp = client.get(f"/credit/devedores/{uuid.uuid4()}/saldo?data_referencia=2026-09-10")
+
+    assert resp.status_code == 404
+    assert resp.json()["codigo"] == "devedor_nao_encontrado"

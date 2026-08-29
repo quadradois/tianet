@@ -128,6 +128,34 @@ class SaldoResponse(BaseModel):
     memoria: MemoriaCalculoResponse
 
 
+class SaldoItemDevedorResponse(BaseModel):
+    """Parcela do total por emprestimo (IMP-362)."""
+
+    emprestimo_id: uuid.UUID
+    principal: Decimal
+    juros: Decimal
+    encargos: Decimal
+    total: Decimal
+
+
+class SaldoDevedorResponse(BaseModel):
+    """Saldo somado dos emprestimos ativos do Devedor (IMP-362).
+
+    `total` e o valor oficial, calculado pelo Motor. Os `itens` existem para
+    conferencia da origem — nao para o consumidor recalcular a soma.
+    """
+
+    devedor_id: uuid.UUID
+    tenant_id: uuid.UUID
+    data_referencia: date
+    principal: Decimal
+    juros: Decimal
+    encargos: Decimal
+    total: Decimal
+    emprestimos_considerados: int
+    itens: list[SaldoItemDevedorResponse]
+
+
 class ValorQuitacaoResponse(BaseModel):
     valor_total: Decimal
     moeda: str
