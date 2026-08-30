@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import uuid
 from unittest.mock import Mock
 
@@ -10,6 +11,7 @@ import pytest
 from emprestimo.application.cadastro_devedor import DevedorCadastroService, DevedorCriado
 from emprestimo.application.errors import IdempotenciaConflitoError
 from emprestimo.application.ports import AuditoriaRegistro, UnitOfWork
+from emprestimo.domain.common.errors import DevedorJaExisteError
 from emprestimo.domain.credit.devedor import DevedorState
 from emprestimo.domain.credit.unicidade_devedor import UnicidadeDevedorService
 
@@ -157,13 +159,15 @@ class TestDevedorCadastroService:
         assert resultado2.documento == resultado1.documento
         assert resultado2.nome == resultado1.nome
 
-        # Auditoria de replay registrada
+        # Auditoria de replay registrada, com a mesma autoria dos demais eventos
         auditoria.registrar.assert_any_call(
             "devedor",
             None,
             "criar.replay",
             "ok",
-            detalhes=json.dumps({"idempotency_key": IDEMPOTENCY_KEY}),
+            detalhes=json.dumps(
+                {"idempotency_key": IDEMPOTENCY_KEY, "usuario_id": None}, sort_keys=True
+            ),
         )
 
     def test_criar_devedor_conflito_idempotencia_hash_divergente(self) -> None:
@@ -215,19 +219,32 @@ class TestDevedorCadastroService:
 
         assert exc_info.value.documento == DOCUMENTO
         assert exc_info.value.carteira_id == CARTEIRA_ID
-        # Auditoria de falha registrada
-        detalhe_erro = (
-            f"DevedorJaExisteError: Devedor com documento {DOCUMENTO!r} "
-            f"já existente na Carteira {CARTEIRA_ID}"
-        )
+        # Auditoria de falha registra o TIPO do erro, nunca a mensagem: a
+        # mensagem de DevedorJaExisteError interpola o documento, e a trilha
+        # e append-only — um CPF gravado aqui nao sai mais (IMP-361).
         auditoria.registrar.assert_any_call(
             "devedor",
             None,
             "criar.falha",
             "falhou",
-            detalhes=detalhe_erro,
+            detalhes=json.dumps(
+                {
+                    "erro_tipo": "DevedorJaExisteError",
+                    "idempotency_key": IDEMPOTENCY_KEY,
+                    "usuario_id": None,
+                },
+                sort_keys=True,
+            ),
         )
-        auditoria.registrar.assert_any_call("devedor", None, "criar.rollback", "rollback_aplicado")
+        auditoria.registrar.assert_any_call(
+            "devedor",
+            None,
+            "criar.rollback",
+            "rollback_aplicado",
+            detalhes=json.dumps(
+                {"idempotency_key": IDEMPOTENCY_KEY, "usuario_id": None}, sort_keys=True
+            ),
+        )
 
     def test_criar_devedor_sem_contatos_falha(self) -> None:
         """Criação sem contatos deve falhar (RN-003)."""
@@ -311,3 +328,92 @@ class TestDevedorCadastroService:
             service.criar(CARTEIRA_ID, DOCUMENTO, "Joao da Silva", contatos, IDEMPOTENCY_KEY)
 
         assert "andamento" in exc_info.value.motivo
+
+
+USUARIO_ID = uuid.UUID("cccccccc-cccc-cccc-cccc-cccccccccccc")
+
+
+def _detalhes_registrados(auditoria: Mock) -> list[tuple[str, dict[str, object]]]:
+    """(acao, detalhes decodificados) de cada evento gravado na trilha.
+
+    Evento sem `detalhes` ou com `detalhes` que nao seja JSON aparece como
+    dicionario vazio — e assim reprova as asserções de autoria abaixo, que e
+    exatamente o que se quer: a trilha nao aceita evento opaco.
+    """
+    eventos: list[tuple[str, dict[str, object]]] = []
+    for chamada in auditoria.registrar.call_args_list:
+        acao = chamada.args[2]
+        bruto = chamada.kwargs.get("detalhes")
+        if not isinstance(bruto, str):
+            eventos.append((acao, {}))
+            continue
+        try:
+            eventos.append((acao, json.loads(bruto)))
+        except json.JSONDecodeError:
+            eventos.append((acao, {}))
+    return eventos
+
+
+class TestAutoriaNaTrilha:
+    """IMP-361 — toda escrita identifica o Principal na trilha da ADR-002.
+
+    Guardrail: ferramenta de escrita nova que esqueca a autoria reprova aqui,
+    sem depender de alguem lembrar de conferir call site por call site.
+    """
+
+    def test_todo_evento_do_caminho_feliz_carrega_o_principal(self) -> None:
+        uow = _mock_uow_factory()
+        auditoria = _mock_auditoria()
+        service = DevedorCadastroService(lambda: uow, _mock_unicidade(), auditoria)
+        contatos = [{"tipo": "telefone", "valor": "(11) 1234-5678", "preferencial": True}]
+
+        service.criar(
+            CARTEIRA_ID, DOCUMENTO, "João da Silva", contatos, IDEMPOTENCY_KEY, USUARIO_ID
+        )
+
+        eventos = _detalhes_registrados(auditoria)
+        assert eventos, "o cadastro precisa deixar rastro na trilha"
+        for acao, detalhes in eventos:
+            assert detalhes.get("usuario_id") == str(USUARIO_ID), f"{acao} sem autoria"
+
+    def test_falha_e_rollback_carregam_o_mesmo_principal(self) -> None:
+        unicidade = _mock_unicidade()
+        unicidade.verificar_documento_disponivel.side_effect = DevedorJaExisteError(
+            DOCUMENTO, CARTEIRA_ID
+        )
+        auditoria = _mock_auditoria()
+        service = DevedorCadastroService(lambda: _mock_uow_factory(), unicidade, auditoria)
+        contatos = [{"tipo": "telefone", "valor": "(11) 1234-5678", "preferencial": True}]
+
+        with pytest.raises(DevedorJaExisteError):
+            service.criar(
+                CARTEIRA_ID, DOCUMENTO, "João da Silva", contatos, IDEMPOTENCY_KEY, USUARIO_ID
+            )
+
+        eventos = dict(_detalhes_registrados(auditoria))
+        assert eventos["criar.falha"]["usuario_id"] == str(USUARIO_ID)
+        assert eventos["criar.rollback"]["usuario_id"] == str(USUARIO_ID)
+
+    def test_caminho_de_falha_nao_grava_o_documento(self) -> None:
+        """A trilha e append-only: um CPF gravado aqui nao sai mais.
+
+        A mensagem de DevedorJaExisteError interpola o documento, entao registrar
+        `str(exc)` vazaria PII em todo cadastro duplicado.
+        """
+        unicidade = _mock_unicidade()
+        unicidade.verificar_documento_disponivel.side_effect = DevedorJaExisteError(
+            DOCUMENTO, CARTEIRA_ID
+        )
+        auditoria = _mock_auditoria()
+        service = DevedorCadastroService(lambda: _mock_uow_factory(), unicidade, auditoria)
+        contatos = [{"tipo": "telefone", "valor": "(11) 1234-5678", "preferencial": True}]
+
+        with pytest.raises(DevedorJaExisteError):
+            service.criar(
+                CARTEIRA_ID, DOCUMENTO, "João da Silva", contatos, IDEMPOTENCY_KEY, USUARIO_ID
+            )
+
+        for chamada in auditoria.registrar.call_args_list:
+            assert DOCUMENTO not in str(chamada.kwargs.get("detalhes"))
+        eventos = dict(_detalhes_registrados(auditoria))
+        assert eventos["criar.falha"]["erro_tipo"] == "DevedorJaExisteError"

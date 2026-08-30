@@ -63,6 +63,23 @@ def _solicitacao_hash(
     return hashlib.sha256(bruto.encode("utf-8")).hexdigest()
 
 
+def _autoria(usuario_id: uuid.UUID | None, idempotency_key: str) -> dict[str, object]:
+    """Base de `detalhes` que todo evento da trilha carrega (IMP-361, ADR-002).
+
+    Existe para que autoria não dependa de cada call site lembrar de incluí-la:
+    uma ferramenta de escrita nova monta este dicionário uma vez e espalha em
+    todos os seus eventos. `usuario_id` ausente vira `None` explícito — a trilha
+    distingue "escrita sem Principal" de "campo esquecido".
+
+    Não coloque PII aqui: o que entra vale para início, passos, sucesso, falha,
+    rollback e replay, e a trilha é append-only.
+    """
+    return {
+        "usuario_id": str(usuario_id) if usuario_id is not None else None,
+        "idempotency_key": idempotency_key,
+    }
+
+
 def _contatos_para_dict(contatos: tuple[Contato, ...]) -> tuple[dict[str, object], ...]:
     return tuple(
         {"tipo": c.tipo.value, "valor": c.valor, "preferencial": c.preferencial} for c in contatos
@@ -95,16 +112,24 @@ class DevedorCadastroService:
         doc_normalizado = documento.strip()
         hash_solicitacao = _solicitacao_hash(carteira_id, doc_normalizado, nome.strip(), contatos)
 
+        # IMP-361: autoria em TODO evento da trilha — inicio, passos, sucesso,
+        # falha, rollback e replay carregam o mesmo Principal. Sem isso, uma
+        # escrita disparada pelo copilot fica indistinguivel de uma escrita
+        # humana na trilha da ADR-002.
+        autoria = _autoria(usuario_id, idempotency_key)
+
         self._auditoria.registrar(
             "devedor",
             None,
             "criar.inicio",
             "iniciado",
-            detalhes=json.dumps({"idempotency_key": idempotency_key}),
+            detalhes=json.dumps(autoria, sort_keys=True),
         )
         try:
             with self._uow_factory() as uow:
-                resultado = self._replay_ou_registrar_chave(uow, idempotency_key, hash_solicitacao)
+                resultado = self._replay_ou_registrar_chave(
+                    uow, idempotency_key, hash_solicitacao, autoria
+                )
                 if resultado is not None:
                     uow.commit()
                     return resultado
@@ -145,10 +170,11 @@ class DevedorCadastroService:
                     "ok",
                     detalhes=json.dumps(
                         {
+                            **autoria,
                             "devedor_id": str(devedor.id),
                             "carteira_id": str(carteira_id),
-                            "idempotency_key": idempotency_key,
-                        }
+                        },
+                        sort_keys=True,
                     ),
                 )
 
@@ -186,7 +212,7 @@ class DevedorCadastroService:
                     devedor.id,
                     "criar.evento_cadastrado",
                     "ok",
-                    detalhes=json.dumps(evento.to_audit_dict()),
+                    detalhes=json.dumps({**evento.to_audit_dict(), **autoria}, sort_keys=True),
                 )
 
                 resultado = DevedorCriado(
@@ -208,24 +234,35 @@ class DevedorCadastroService:
                 resultado.devedor_id,
                 "criar.sucesso",
                 "ok",
-                detalhes=json.dumps(
-                    {"estado": resultado.estado.value, "idempotency_key": idempotency_key}
-                ),
+                detalhes=json.dumps({**autoria, "estado": resultado.estado.value}, sort_keys=True),
             )
             return resultado
         except Exception as exc:
+            # So o tipo da excecao, nunca a mensagem: DevedorJaExisteError
+            # interpola o documento, e a trilha e append-only — um CPF gravado
+            # aqui nao sai mais. Mesmo padrao de UsuarioCadastroService.
             self._auditoria.registrar(
                 "devedor",
                 None,
                 "criar.falha",
                 "falhou",
-                detalhes=f"{type(exc).__name__}: {exc}",
+                detalhes=json.dumps({**autoria, "erro_tipo": type(exc).__name__}, sort_keys=True),
             )
-            self._auditoria.registrar("devedor", None, "criar.rollback", "rollback_aplicado")
+            self._auditoria.registrar(
+                "devedor",
+                None,
+                "criar.rollback",
+                "rollback_aplicado",
+                detalhes=json.dumps(autoria, sort_keys=True),
+            )
             raise
 
     def _replay_ou_registrar_chave(
-        self, uow: UnitOfWork, idempotency_key: str, hash_solicitacao: str
+        self,
+        uow: UnitOfWork,
+        idempotency_key: str,
+        hash_solicitacao: str,
+        autoria: dict[str, object],
     ) -> DevedorCriado | None:
         """Replay seguro (AD-002): mesma chave → mesmo resultado; divergente → conflito."""
         existente = uow.idempotencia.find_by_chave(idempotency_key, ESCOPO_IDEMPOTENCIA)
@@ -244,7 +281,7 @@ class DevedorCadastroService:
             None,
             "criar.replay",
             "ok",
-            detalhes=json.dumps({"idempotency_key": idempotency_key}),
+            detalhes=json.dumps(autoria, sort_keys=True),
         )
         return _desserializar_resultado(existente["resultado"])
 
