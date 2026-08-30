@@ -18,6 +18,7 @@ import { Alert, AlertDescription, AlertTitle } from "../ui/alert";
 import { Button } from "../ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../ui/card";
 import { Label } from "../ui/label";
+import { Skeleton } from "../ui/skeleton";
 
 import { ContratoCreateForm, ContratoDecisionDialog } from "./contrato-decision-dialog.client";
 
@@ -47,6 +48,21 @@ export type ContratoDetailPageProps = Readonly<{
   permissions: readonly string[];
   recoveryHref: string;
 }>;
+
+export function ContratosLoadingState() {
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>Contratos</CardTitle>
+        <CardDescription>loading contratos oficiais...</CardDescription>
+      </CardHeader>
+      <CardContent className="grid gap-3" role="status" aria-label="loading Contratos">
+        <Skeleton className="h-8 w-1/3" />
+        <Skeleton className="h-40 w-full" />
+      </CardContent>
+    </Card>
+  );
+}
 
 function formatDateTime(value: string | null): string {
   if (!value) return "Nao informado";
