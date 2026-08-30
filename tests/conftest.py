@@ -18,6 +18,7 @@ from sqlalchemy.orm import Session, sessionmaker
 from emprestimo.infrastructure.db import orm  # noqa: F401 — registra tabelas no metadata
 from emprestimo.infrastructure.db.base import Base
 from emprestimo.infrastructure.db.session import database_url
+from tests.db_guard import exigir_host_descartavel
 
 TABELAS_TRUNCATE = (
     "notificacao_evidencia",
@@ -122,6 +123,7 @@ def _get_existing_tables(engine: Engine) -> set[str]:
 
 def _reset_public_schema(engine: Engine) -> None:
     """Remove objetos residuais de Alembic para iniciar testes com metadata limpa."""
+    exigir_host_descartavel(engine.url.host)
     with engine.begin() as conn:
         conn.execute(sa.text("DROP SCHEMA IF EXISTS public CASCADE"))
         conn.execute(sa.text("CREATE SCHEMA public"))
