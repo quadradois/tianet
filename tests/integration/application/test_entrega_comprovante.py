@@ -121,9 +121,11 @@ def test_lancamento_real_worker_conclui_e_registra_entrega(
                 RegistroComunicacaoORM.emprestimo_id == lancamento.emprestimo_id
             )
         )
-        acoes = session.scalars(
-            select(AuditoriaLogORM.acao).where(AuditoriaLogORM.entidade == "comprovante_entrega")
-        ).all()
+    acoes = _aguardar_acoes_auditoria(
+        session_factory,
+        "comprovante_entrega",
+        {"entregar.inicio", "entregar.resultado"},
+    )
     assert comunicacao is not None
     assert comunicacao.canal == "whatsapp"
     assert comunicacao.notification_id == notificacoes[0].id
@@ -331,6 +333,38 @@ def _aguardar_estado_job(
             return job
         time.sleep(0.05)
     raise AssertionError(f"job nao atingiu estado {esperado.value} dentro do timeout")
+
+
+def _aguardar_acoes_auditoria(
+    session_factory: sessionmaker[Session],
+    entidade: str,
+    esperadas: set[str],
+) -> list[str]:
+    """Espera os eventos da trilha aparecerem, em vez de assumi-los (ADR-002).
+
+    A auditoria commita em sessao INDEPENDENTE da transacao de negocio, por
+    desenho: ela precisa sobreviver ao rollback. O preco e que ela pousa DEPOIS
+    de o job ja constar CONCLUIDO — `entregar.resultado` e gravado apos
+    `job.concluir`, e o worker roda em thread propria.
+
+    Sincronizar no estado do job e, portanto, uma premissa errada: em maquina
+    lenta a thread principal ganha a corrida e le a trilha incompleta. Foi assim
+    que o CI reprovou enquanto a suite passava local.
+    """
+    limite = time.monotonic() + 5
+    vistas: set[str] = set()
+    while time.monotonic() < limite:
+        with session_factory() as session:
+            vistas = set(
+                session.scalars(
+                    select(AuditoriaLogORM.acao).where(AuditoriaLogORM.entidade == entidade)
+                ).all()
+            )
+        if esperadas <= vistas:
+            return sorted(vistas)
+        time.sleep(0.05)
+    faltando = sorted(esperadas - vistas)
+    raise AssertionError(f"trilha de {entidade} sem {faltando} dentro do timeout")
 
 
 def _executar_ate_reivindicar(worker: SchedulerWorker) -> None:
