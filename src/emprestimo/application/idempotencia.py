@@ -70,16 +70,6 @@ def concluir_idempotencia(
     )
 
 
-def uuid_do_resultado(
-    resultado: Mapping[str, object], campo: str, *, chave: str | None
-) -> uuid.UUID:
-    valor = resultado.get(campo)
-    try:
-        return uuid.UUID(str(valor))
-    except (TypeError, ValueError) as exc:
-        raise IdempotenciaConflitoError(chave or "<ausente>", f"resultado sem {campo}") from exc
-
-
 def resultado_de_dataclass(valor: object) -> dict[str, object]:
     """Congela todos os campos de um resultado/aggregate para replay exato."""
     if not is_dataclass(valor) or isinstance(valor, type):

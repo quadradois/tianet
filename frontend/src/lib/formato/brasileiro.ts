@@ -92,6 +92,3 @@ export function data(iso: string | undefined | null): string {
   const [, ano, mes, dia] = casamento;
   return `${dia}/${mes}/${ano}`;
 }
-
-/** `"2026-08-17T18:32:00Z"` -> `"17/08/2026"`; sem hora, que o Credor nao usa. */
-export const dataHora = data;

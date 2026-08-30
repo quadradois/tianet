@@ -550,36 +550,6 @@ def _calcular_juros(
     return _quantizar(principal * taxa_mensal * Decimal(periodo.dias) / dias_do_calendario)
 
 
-def _adicionar_meses(valor: date, meses: int) -> date:
-    mes_base = valor.month - 1 + meses
-    ano = valor.year + mes_base // 12
-    mes = mes_base % 12 + 1
-    dia = min(valor.day, calendar.monthrange(ano, mes)[1])
-    return date(ano, mes, dia)
-
-
-def _data_parametro(parametros: Mapping[str, object], chave: str) -> date:
-    valor = parametros.get(chave)
-    if isinstance(valor, date):
-        return valor
-    if isinstance(valor, str):
-        try:
-            return date.fromisoformat(valor)
-        except ValueError as exc:
-            raise ViolacaoInvarianteError(
-                "EPIC-005",
-                f"{chave} deve ser uma data ISO valida",
-            ) from exc
-    raise ViolacaoInvarianteError("EPIC-005", f"{chave} deve ser date ou string ISO")
-
-
-def _inteiro_parametro(parametros: Mapping[str, object], chave: str) -> int:
-    valor = parametros.get(chave)
-    if not isinstance(valor, int):
-        raise ViolacaoInvarianteError("EPIC-005", f"{chave} deve ser inteiro")
-    return valor
-
-
 def _taxa_mensal(parametros: Mapping[str, object]) -> Decimal:
     valor = parametros.get("taxa_juros_mensal", Decimal("0.00"))
     try:

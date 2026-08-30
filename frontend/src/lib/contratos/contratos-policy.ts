@@ -63,11 +63,6 @@ export function hasExactPermission(permissions: readonly string[], permission: C
   return new Set(permissions).has(permission);
 }
 
-export function hasAnyContratoPermission(permissions: readonly string[]): boolean {
-  const granted = new Set(permissions);
-  return CONTRATO_PERMISSIONS.some((permission) => granted.has(permission));
-}
-
 export function isUuid(value: string): boolean {
   return UUID_PATTERN.test(value);
 }

@@ -9,7 +9,6 @@ import {
   NOTIFICATION_READ_PERMISSION,
   NOTIFICATION_RECONCILE_PERMISSION,
   TEMPLATE_MANAGE_PERMISSION,
-  type AutomacaoActionState,
   type AutomacaoFilters,
   type AutomacaoProblem,
   type AutomacaoReadResult,
@@ -39,9 +38,6 @@ export type AutomacaoAdminProps = Readonly<{
   recoveryHref: string;
   templates: Promise<AutomacaoReadResult<TemplateList>>;
 }>;
-
-type Action = (state: AutomacaoActionState, formData: FormData) => Promise<AutomacaoActionState>;
-void (null as unknown as Action);
 
 function formatDate(value: string | null): string {
   if (!value) return "Sem data";

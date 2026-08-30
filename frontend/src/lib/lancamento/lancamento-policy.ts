@@ -9,7 +9,6 @@ export const LANCAMENTO_PERMISSIONS = [
   "motor.emprestimo.criar",
 ] as const;
 
-export type LancamentoPermission = (typeof LANCAMENTO_PERMISSIONS)[number];
 export type Lancamento = components["schemas"]["LancamentoResponse"];
 
 export type LancamentoActionState = Readonly<{

@@ -6,7 +6,6 @@ import {
   hasExactIamPermission,
   PERFIL_MANAGE_PERMISSION,
   PERFIL_READ_PERMISSION,
-  type IamActionState,
   type IamFilters,
   type IamProblem,
   type IamReadResult,
@@ -33,9 +32,6 @@ export type IamAdminProps = Readonly<{
   recoveryHref: string;
   usuarioPermissoes: Promise<IamReadResult<PermissoesEfetivas | null>>;
 }>;
-
-type Action = (state: IamActionState, formData: FormData) => Promise<IamActionState>;
-void (null as unknown as Action);
 
 export function IamLoadingState() {
   return (

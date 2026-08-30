@@ -18,7 +18,6 @@ import { Alert, AlertDescription, AlertTitle } from "../ui/alert";
 import { Button } from "../ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../ui/card";
 import { Label } from "../ui/label";
-import { Skeleton } from "../ui/skeleton";
 
 import { AppropriationForm, CobrancaActionForm, PromiseForm } from "./cobranca-command-dialog.client";
 
@@ -40,21 +39,6 @@ const DATE_TIME_FORMATTER = new Intl.DateTimeFormat("pt-BR", {
   timeStyle: "short",
   timeZone: "America/Sao_Paulo",
 });
-
-export function CobrancaLoadingState() {
-  return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Cobranca</CardTitle>
-        <CardDescription>Carregando fila de cobranca...</CardDescription>
-      </CardHeader>
-      <CardContent className="grid gap-3" role="status" aria-label="loading Cobranca">
-        <Skeleton className="h-8 w-1/3" />
-        <Skeleton className="h-48 w-full" />
-      </CardContent>
-    </Card>
-  );
-}
 
 function formatDateTime(value: string): string {
   const parsed = new Date(value);
