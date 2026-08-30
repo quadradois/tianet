@@ -4,7 +4,6 @@ import { normalizarMoeda } from "../formato/brasileiro";
 export const MOTOR_LOAN_CREATE_PERMISSION = "motor.emprestimo.criar";
 export const MOTOR_LOAN_READ_PERMISSION = "motor.emprestimo.ler";
 export const MOTOR_INSTALLMENT_GENERATE_PERMISSION = "motor.parcela.gerar";
-export const MOTOR_INSTALLMENT_CREATE_PERMISSION = MOTOR_INSTALLMENT_GENERATE_PERMISSION;
 export const MOTOR_INSTALLMENT_READ_PERMISSION = "motor.parcela.ler";
 export const MOTOR_PAYMENT_REGISTER_PERMISSION = "motor.pagamento.registrar";
 export const MOTOR_PAYMENT_CREATE_PERMISSION = MOTOR_PAYMENT_REGISTER_PERMISSION;
@@ -171,23 +170,10 @@ export function rotuloMemoria(tipo: string): string {
   return ROTULO_MEMORIA[tipo] ?? tipo;
 }
 
-export function allowedMotorCommands(loan: Pick<Loan, "estado">, permissions: readonly string[]): readonly MotorCommand[] {
-  if (loan.estado !== "ativo") return [];
-  const commands: MotorCommand[] = [];
-  if (hasExactPermission(permissions, MOTOR_PAYMENT_REGISTER_PERMISSION)) commands.push("registrar-pagamento");
-  if (hasExactPermission(permissions, MOTOR_PAYOFF_EXECUTE_PERMISSION)) commands.push("executar-quitacao");
-  if (hasExactPermission(permissions, MOTOR_RENEGOTIATION_CREATE_PERMISSION)) commands.push("registrar-renegociacao");
-  return commands;
-}
-
 export function formString(formData: FormData, key: string, max = 5_000): string | undefined {
   const value = formData.get(key);
   const trimmed = typeof value === "string" ? value.trim() : "";
   return trimmed && trimmed.length <= max ? trimmed : undefined;
-}
-
-export function validMoneyInput(value: string | undefined): value is string {
-  return normalizarMoeda(value) !== undefined;
 }
 
 export function formDate(formData: FormData, key: string): string | undefined {

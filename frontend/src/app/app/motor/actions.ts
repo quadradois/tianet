@@ -53,11 +53,3 @@ export async function registerRenegotiationAction(_state: MotorActionState, form
   if (result.kind === "success") revalidatePath(loanPath(target));
   return result;
 }
-
-export async function motorCommandAction(state: MotorActionState, formData: FormData): Promise<MotorActionState> {
-  const command = formData.get("command");
-  if (command === "registrar-pagamento") return registerPaymentAction(state, formData);
-  if (command === "executar-quitacao") return executeSettlementAction(state, formData);
-  if (command === "registrar-renegociacao") return registerRenegotiationAction(state, formData);
-  return { kind: "problem", message: "Comando do Motor invalido.", status: 400 };
-}

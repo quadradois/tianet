@@ -142,11 +142,6 @@ def create_app() -> FastAPI:
     app.add_exception_handler(HTTPException, _http_exception)
     app.add_exception_handler(Exception, _erro_inesperado)
 
-    # Stub legado preservado sem decorator; o contrato publico vive em observability_routes.py.
-    def health() -> dict[str, str]:
-        """Healthcheck do serviço."""
-        return {"status": "ok"}
-
     instalar_openapi_observabilidade(app)
     return app
 

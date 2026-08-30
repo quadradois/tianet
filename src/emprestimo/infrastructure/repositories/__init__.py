@@ -35,7 +35,6 @@ from emprestimo.domain.credit.eventos_financeiros import (
     EventoFinanceiro,
     PagamentoRegistrado,
 )
-from emprestimo.domain.credit.financeiro import PeriodoFinanceiro
 from emprestimo.domain.credit.memoria_calculo import MemoriaCalculo, PassoCalculo
 from emprestimo.domain.credit.pagamento import Pagamento, PagamentoState
 from emprestimo.domain.credit.ports import (
@@ -1298,25 +1297,6 @@ def _to_evento_financeiro(row: EventoFinanceiroORM) -> EventoFinanceiro:
         valor=row.valor,
         detalhes=row.detalhes,
         ocorrido_em=row.ocorrido_em,
-    )
-
-
-def _periodo_to_json(periodo: PeriodoFinanceiro | None) -> dict[str, object] | None:
-    if periodo is None:
-        return None
-    return {
-        "data_inicio": periodo.data_inicio.isoformat(),
-        "data_fim": periodo.data_fim.isoformat(),
-        "dias": periodo.dias,
-    }
-
-
-def _periodo_from_json(valor: dict[str, object] | None) -> PeriodoFinanceiro | None:
-    if valor is None:
-        return None
-    return PeriodoFinanceiro(
-        data_inicio=date.fromisoformat(str(valor["data_inicio"])),
-        data_fim=date.fromisoformat(str(valor["data_fim"])),
     )
 
 

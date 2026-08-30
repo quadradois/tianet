@@ -22,7 +22,6 @@ export const COMMUNICATION_CHANNELS = ["telefone", "email", "chat", "presencial"
 
 export type AgendaPermission = typeof AGENDA_PERMISSIONS[number];
 export type CommitmentState = components["schemas"]["EstadoCompromisso"];
-export type ReminderState = components["schemas"]["EstadoLembrete"];
 export type CommunicationChannel = components["schemas"]["CanalComunicacao"];
 export type AgendaItem = components["schemas"]["AgendaItemResponse"];
 export type AgendaResponse = components["schemas"]["AgendaOperacionalResponse"];
@@ -158,11 +157,6 @@ export const formOptionalUuid = formUuid;
 export function formDateTime(formData: FormData, key: string): string | undefined {
   const value = formString(formData, key, 40);
   return isDateTime(value) ? value : undefined;
-}
-
-export function formCommitmentState(formData: FormData): CommitmentState | undefined {
-  const value = formString(formData, "estado", 20);
-  return COMMITMENT_STATES.some((state) => state === value) ? value as CommitmentState : undefined;
 }
 
 export function formCommunicationChannel(formData: FormData): CommunicationChannel | undefined {

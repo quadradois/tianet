@@ -15,9 +15,6 @@ export const COBRANCA_PERMISSIONS = [
 
 export const COLLECTION_STATES = ["pendente", "em_andamento", "encerrado"] as const;
 export const COLLECTION_ACTION_TYPES = ["contato", "telefone", "email", "visita", "outro"] as const;
-export const COBRANCA_CASE_STATES = COLLECTION_STATES;
-export const COBRANCA_ACTION_TYPES = COLLECTION_ACTION_TYPES;
-
 export type CobrancaPermission = typeof COBRANCA_PERMISSIONS[number];
 export type CollectionState = components["schemas"]["EstadoCobranca"];
 export type CollectionActionType = components["schemas"]["TipoAcaoCobranca"];
@@ -30,9 +27,6 @@ export type CobrancaActionType = CollectionActionType;
 export type CobrancaCase = CollectionCase;
 export type CobrancaQueue = CollectionQueue;
 export type CobrancaFilters = CollectionFilters;
-export type CobrancaAction = CollectionAction;
-export type CobrancaCommand = "registrar-acao" | "registrar-promessa" | "apropriar-pagamento";
-
 export type CobrancaProblem = Readonly<{ status: number; codigo: string; mensagem: string; correlationId: string }>;
 export type CobrancaReadResult<T> = Readonly<{ kind: "ready"; data: T } | { kind: "problem"; problem: CobrancaProblem } | { kind: "denied" }>;
 export type CobrancaActionState = Readonly<{ kind: "idle"; message: string; status?: undefined; correlationId?: undefined } | { kind: "success"; message: string; status: number; correlationId: string } | { kind: "problem"; message: string; status: number; correlationId?: string }>;
@@ -89,8 +83,6 @@ export function resolveCollectionFilters(searchParams: Readonly<Record<string, s
     ...(isUuid(devedorId) ? { devedorId } : {}),
   };
 }
-
-export const resolveCobrancaFilters = resolveCollectionFilters;
 
 export function formString(formData: FormData, key: string, max = 5_000): string | undefined {
   const value = formData.get(key);

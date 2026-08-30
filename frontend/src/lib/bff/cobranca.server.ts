@@ -345,10 +345,3 @@ export async function appropriatePaymentPromise(
     { body, params: { path: { promessa_id: promiseId }, header: { "X-Correlation-ID": correlation, "Idempotency-Key": requiredIdempotencyKey(formData) } } },
   ), (value): value is PromiseAppropriation => validAppropriation(value, context, promiseId), "Pagamento oficial apropriado a promessa.");
 }
-
-export const registerPromise = registerPaymentPromise;
-export const appropriatePromise = appropriatePaymentPromise;
-export const listChargeCases = listCollectionCases;
-export const registerChargeAction = registerCollectionAction;
-export const registerChargePromise = registerPaymentPromise;
-export const appropriateChargePromise = appropriatePaymentPromise;

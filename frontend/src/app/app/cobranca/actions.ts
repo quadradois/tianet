@@ -29,11 +29,3 @@ export async function appropriatePromiseAction(_state: CobrancaActionState, form
   if (result.kind === "success") revalidatePath("/app/cobranca");
   return result;
 }
-
-export async function cobrancaCommandAction(state: CobrancaActionState, formData: FormData): Promise<CobrancaActionState> {
-  const command = formData.get("command");
-  if (command === "registrar-acao") return registerCollectionActionAction(state, formData);
-  if (command === "registrar-promessa") return registerPromiseAction(state, formData);
-  if (command === "apropriar-promessa") return appropriatePromiseAction(state, formData);
-  return { kind: "problem", message: "Comando de Cobranca invalido.", status: 400 };
-}
