@@ -7,6 +7,7 @@ nos testes de aplicação (AD-001).
 
 from __future__ import annotations
 
+import os
 from collections.abc import Iterator
 
 import pytest
@@ -18,7 +19,19 @@ from sqlalchemy.orm import Session, sessionmaker
 from emprestimo.infrastructure.db import orm  # noqa: F401 — registra tabelas no metadata
 from emprestimo.infrastructure.db.base import Base
 from emprestimo.infrastructure.db.session import database_url
-from tests.db_guard import exigir_host_descartavel
+from tests.db_guard import exigir_host_descartavel, preparar_banco_descartavel
+
+# Exportado no import do conftest, ANTES de qualquer teste importar a aplicacao.
+#
+# Nao basta a fixture usar o banco de teste: o app FastAPI resolve a propria
+# sessao por `database_url()`, que le DATABASE_URL. Se so a fixture mudar, os
+# testes criam usuario num banco e a autenticacao procura no outro — toda a
+# suite de API responde 401. Foi exatamente o que o gate pegou em 2026-08-31.
+#
+# `session.py` guarda a engine num global preguicoso, entao a troca precisa
+# acontecer antes do primeiro `get_engine()`, e nao dentro de uma fixture.
+DATABASE_URL_TESTE = preparar_banco_descartavel(database_url())
+os.environ["DATABASE_URL"] = DATABASE_URL_TESTE
 
 TABELAS_TRUNCATE = (
     "notificacao_evidencia",
@@ -131,7 +144,9 @@ def _reset_public_schema(engine: Engine) -> None:
 
 @pytest.fixture(scope="session")
 def engine() -> Iterator[Engine]:
-    e = create_engine(database_url())
+    # Banco de teste separado do de desenvolvimento: a fixture apaga o schema
+    # inteiro, e ate 2026-08-31 fazia isso no banco que a aplicacao usava.
+    e = create_engine(DATABASE_URL_TESTE)
     _reset_public_schema(e)
     Base.metadata.create_all(e)
     yield e
