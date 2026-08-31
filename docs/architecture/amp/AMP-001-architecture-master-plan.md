@@ -132,7 +132,7 @@ Objetivo: **Operação de crédito completa**.
 - Search básico para devedores, contratos e operações.
 - Scheduler para vencimentos, lembretes e cobranças programadas.
 - Notification Service (WhatsApp, SMS, e-mail) com canais abstraídos.
-- Critérios para ADR-003 (evolução do multi-tenant) definidos e monitorados.
+- ~~Critérios para ADR-003 (evolução do multi-tenant)~~ — removido pela [ADR-003](../adrs/ADR-003-escopo-single-tenant-do-v1.md): o v1 é single-tenant e não há expansão a monitorar.
 
 ## 3.3 Em 2 anos
 
@@ -356,7 +356,7 @@ tabela para preservar o histórico da reserva.
 
 | ADR | Nome | Motivo | Momento adequado |
 |-----|------|--------|------------------|
-| **ADR-003** | Nível de isolamento Multi-Tenant | Decidir se evolui para schema separado ou banco separado. | Quando houver requisito regulatório, contrato enterprise ou degradação de performance. |
+| ~~**ADR-003**~~ | ~~Nível de isolamento Multi-Tenant~~ | **EMITIDA em 31/08/2026** — ver [ADR-003](../adrs/ADR-003-escopo-single-tenant-do-v1.md). Escopo **diferente** da reserva: em vez de escolher um nível de isolamento, decide que o v1 é single-tenant (um Credor, um Tenant, um usuário) e a pergunta fica sem objeto. `tenant_id` permanece como invariante estrutural. | — |
 | ~~**ADR-004**~~ | ~~Autenticação e Autorização (IAM)~~ | **EMITIDA em 08/08/2026** — ver [ADR-004](../adrs/ADR-004-autenticacao-e-autorizacao-iam.md). Escopo reduzido em relação à reserva: ABAC, OIDC e MFA ficaram fora. | — |
 | **ADR-005** | Event Bus / Mensageria | Transporte de eventos de domínio entre contextos. | Quando separar contextos físicos ou introduzir read models. |
 | **ADR-006** | Workflow / Orchestration | Processos de renegociação, acordos, aprovações. | Quando esses processos se tornarem complexos. |
@@ -460,7 +460,7 @@ tabela para preservar o histórico da reserva.
 |--------|---------------------|--------------|
 | Transação única Platform/Credit no MVP | Compartilham base; simplifica consistência. | Quando separar fisicamente os contextos. |
 | Auditoria acoplada explicitamente nos services | MVP pequeno; regras claras. | Quando introduzir command handler/decorator. |
-| Multi-tenant Nível 1 | MVP valida modelo de negócio. | Quando critérios de ADR-003 forem atingidos. |
+| ~~Multi-tenant Nível 1~~ | **Deixou de ser dívida** pela [ADR-003](../adrs/ADR-003-escopo-single-tenant-do-v1.md): single-tenant é decisão de escopo, não débito. | — |
 | Domínio do Motor Financeiro não implementado | Core Domain está modelado; implementação ordenada. | Nos EPICs de Operações de Crédito. |
 
 ## 11.2 Dívida perigosa
@@ -559,7 +559,7 @@ Em paralelo, pode-se iniciar o **EPIC-002 — Cadastro de Devedores**, pois é b
 1. **Aprovar e priorizar EPIC-006 (IAM)** — segurança é pré-requisito.
 2. **Aprovar ADR-004 (IAM)**, ADR-015 (CI/CD) e ADR-016 (Observability).
 3. **Iniciar EPIC-002 (Cadastro de Devedores)** em paralelo.
-4. **Definir critérios para ADR-003** (evolução do multi-tenant) e monitorar métricas.
+4. ~~**Definir critérios para ADR-003**~~ — resolvido pela [ADR-003](../adrs/ADR-003-escopo-single-tenant-do-v1.md), que emitiu a reserva decidindo o escopo single-tenant do v1.
 5. **Refatorar repositórios** para separar `add()`/`update()` e eliminar `merge()` indiscriminado.
 6. **Modelar semântica de desligamento** para inativação de Tenant.
 7. **Publicar eventos de domínio** em bus interno antes de introduzir mensageria.
