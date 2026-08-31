@@ -10,7 +10,7 @@ test("Configuracoes Financeiras passa por axe, teclado e overflow nos dois viewp
   await page.getByRole("button", { name: "Entrar" }).click();
   await expect(page).toHaveURL(/\/app(?:\?|$)/);
   await page.goto("/app/configuracoes-financeiras?modalidade=consignado&data_referencia=2026-08-14");
-  await expect(page.getByRole("heading", { name: "Configuracoes Financeiras" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Configuracoes Financeiras", exact: true })).toBeVisible();
   await expect(page.getByText(/Nenhuma configuracao financeira encontrada/).first()).toBeVisible();
   const results = await new AxeBuilder({ page }).analyze();
   expect(results.violations.filter((violation) => violation.impact === "critical" || violation.impact === "serious")).toEqual([]);

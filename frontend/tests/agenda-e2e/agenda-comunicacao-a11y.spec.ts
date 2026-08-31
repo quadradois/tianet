@@ -16,7 +16,7 @@ async function login(page: Page, institution = "ACME") {
 test("Agenda/Comunicacao preserva axe e foco por teclado", async ({ page }) => {
   await login(page, "ACME");
   await page.goto("/app/agenda");
-  await expect(page.getByRole("heading", { name: "Agenda e Comunicacao" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Agenda e Comunicacao", exact: true })).toBeVisible();
   await page.keyboard.press("Tab");
   await page.keyboard.press("Tab");
   await expect(page.locator(":focus")).toBeVisible();

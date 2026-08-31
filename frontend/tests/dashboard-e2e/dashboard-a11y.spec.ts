@@ -8,12 +8,12 @@ test("Dashboard passa por axe, teclado e overflow nos dois viewports", async ({ 
   await page.getByRole("textbox", { name: "E-mail" }).fill("operador@example.test");
   await page.getByLabel("Senha").fill("segredo-dashboard");
   await page.getByRole("button", { name: "Entrar" }).click();
-  await expect(page.getByRole("heading", { name: "Inicio" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Inicio", exact: true })).toBeVisible();
   const results = await new AxeBuilder({ page }).analyze();
   expect(results.violations.filter((violation) => violation.impact === "critical" || violation.impact === "serious")).toEqual([]);
   expect(results.incomplete.filter((item) => item.id === "color-contrast")).toEqual([]);
   await page.reload();
-  await expect(page.getByRole("heading", { name: "Inicio" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Inicio", exact: true })).toBeVisible();
   await page.keyboard.press("Tab");
   await expect(page.getByRole("link", { name: "Pular para o conteudo" })).toBeFocused();
   await page.getByRole("region", { name: "Fila de cobranca" }).focus();

@@ -10,7 +10,7 @@ test("IAM permitido passa por axe, teclado e overflow nos dois viewports", async
   await page.getByRole("button", { name: "Entrar" }).click();
   await expect(page).toHaveURL(/\/app(?:\?|$)/);
   await page.goto("/app/iam?perfil_id=00000000-0000-4000-8000-000000000004&usuario_id=00000000-0000-4000-8000-000000000005");
-  await expect(page.getByRole("heading", { name: "Perfis e permissoes" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Perfis e permissoes", exact: true })).toBeVisible();
   const results = await new AxeBuilder({ page }).disableRules(["color-contrast"]).analyze();
   expect(results.violations.filter((violation) => violation.impact === "critical" || violation.impact === "serious")).toEqual([]);
   await page.keyboard.press("Tab");

@@ -10,7 +10,7 @@ test("Relatorios passa por axe, teclado e overflow nos dois viewports", async ({
   await page.getByRole("button", { name: "Entrar" }).click();
   await expect(page).toHaveURL(/\/app(?:\?|$)/);
   await page.goto("/app/relatorios?data_referencia=2026-08-14&inicio=2026-08-01&fim=2026-08-31");
-  await expect(page.getByRole("heading", { name: "Relatorios" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Relatorios", exact: true })).toBeVisible();
   await expect(page.getByText(/empty:/).first()).toBeVisible();
   const results = await new AxeBuilder({ page }).analyze();
   expect(results.violations.filter((violation) => violation.impact === "critical" || violation.impact === "serious")).toEqual([]);
