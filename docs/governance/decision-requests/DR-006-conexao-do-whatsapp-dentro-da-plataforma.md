@@ -16,7 +16,28 @@ Evolution em variavel de ambiente) no que toca ao token da instancia.
 | 1. Quem conecta, e de onde? | **Tela de QR na plataforma.** |
 | 2. Onde ficam os segredos? | **Token da instancia cifrado em repouso**, no banco. |
 | 3. Para onde aponta o `webhookUrl`? | **Para o agente**, via variavel configuravel — vazia hoje. Preserva §2.2. |
-| 4. Quando? | **Ciclo proprio**, depois do PLAN-033 e depois do IMP-352. |
+| 4. Quando? | **Ciclo proprio** — revisto em 2026-08-31: **antes do deploy**, nao depois do PLAN-033. Ver nota abaixo. |
+
+### Revisao da Pergunta 4 — 2026-08-31
+
+A resposta original era *"ciclo proprio, depois do PLAN-033 e depois do
+IMP-352"*. O fundador reviu no mesmo dia: **a tela entra antes do deploy**, junto
+com o resto do que precisa estar pronto.
+
+O que mudou entre a resposta e a revisao, e justifica a mudanca:
+
+- o **IMP-352 fechou** — formato de envio validado contra o provedor real;
+- o **VPS foi liberado** e o dominio `tianet.com.br` existe, entao o deploy
+  deixou de ser hipotese e virou o proximo marco;
+- o tenant e a instancia passaram a existir, tornando a tela construivel de fato.
+
+A parte "ciclo proprio" **permanece**: a tela nao vira emenda ao PLAN-033. Ela
+ganhou plano proprio, o [PLAN-034](../../implementation/plans/PLAN-034-conexao-do-whatsapp-na-plataforma.md),
+pelo mesmo motivo registrado na resposta original — emendar um desenho que ja foi
+refutado por revisao adversarial, sem revisa-lo de novo, repete o erro que aquela
+revisao pegou.
+
+O que mudou foi **a ordem**, nao o instrumento.
 
 ### O que a ADR-003 simplificou antes desta resolucao
 
@@ -242,5 +263,6 @@ Nada disso e exotico; e o volume que preocupa. Por isso a Pergunta 4.
 
 | Versao | Data | Descricao |
 |---|---|---|
+| 1.2.0 | 2026-08-31 | Pergunta 4 revista pelo fundador: a tela entra **antes do deploy**, nao depois do PLAN-033. A parte "ciclo proprio" permanece — materializada no PLAN-034. Mudou a ordem, nao o instrumento. |
 | 1.1.0 | 2026-08-31 | **RESOLVIDA.** Tela de QR na plataforma, token cifrado em repouso, webhook para o agente e ciclo proprio. Registra o que a ADR-003 simplificou, corrige a classificacao da opcao C da Pergunta 3, e anota o dominio, o VPS em provisionamento e o item de verificacao do `webhookUrl` vazio. |
 | 1.0.0 | 2026-08-31 | Abertura: pedido do fundador para conectar WhatsApp pela plataforma, evidencia do estado atual, conflito com §6.1 e §2.2, quatro perguntas com opcoes e custo. |
