@@ -199,6 +199,25 @@ registradas com a resposta, para que ninguem as reabra como se fossem duvida.
 
 ## 6.1 Segredo do Evolution: variavel de ambiente
 
+> **Superado em parte pela [DR-006](../governance/decision-requests/DR-006-conexao-do-whatsapp-dentro-da-plataforma.md)
+> (2026-08-31).** O fundador decidiu que a conexao do WhatsApp passa a ter **tela
+> de QR na plataforma**, porque quem opera nao tem conta no `diamondgreen.com.br`.
+> Com isso o **token da instancia** passa a ser persistido **cifrado em repouso**
+> no banco — sem isso a conexao nao sobrevive a um restart sem edicao manual do
+> `.env`, que e o atrito que a tela elimina.
+>
+> O que **permanece** desta secao: `EVOLUTION_HOST` e as credenciais de **gestao**
+> do tenant Evolution continuam em variavel de ambiente; a recusa de usar a
+> entidade `Configuracao` continua valida, e pelo mesmo motivo — a DR-006 escolheu
+> armazenamento cifrado justamente para nao repetir esse erro.
+>
+> O "limite declarado" abaixo previa que isso viraria tabela de segredos com
+> criptografia quando cada Tenant tivesse instancia propria. A
+> [ADR-003](../architecture/adrs/ADR-003-escopo-single-tenant-do-v1.md) decidiu que
+> **nao havera segundo Tenant no v1** — a tabela chegou por outro caminho, o da
+> ergonomia da conexao, e guarda um unico token.
+
+
 O adapter ja recebe host e token por injecao, e `main()` os le de
 `EVOLUTION_HOST` e `EVOLUTION_INSTANCE_TOKEN`. **Nada muda no codigo.**
 

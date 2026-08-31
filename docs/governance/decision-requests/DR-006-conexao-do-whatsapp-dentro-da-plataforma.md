@@ -3,9 +3,81 @@
 **Data:** 2026-08-31
 **Solicitante:** Arquitetura (a pedido do fundador, sessao de 2026-08-31)
 **Destinatario:** Fundador
-**Status:** **ABERTA**
-**Bloqueia:** nada em execucao hoje. **Reverte**, se aprovada, a decisao de
-`contexto-externo.md` §6.1 (segredo do Evolution em variavel de ambiente).
+**Status:** **RESOLVIDA** — 2026-08-31
+**Efeito:** **reverte** a decisao de `contexto-externo.md` §6.1 (segredo do
+Evolution em variavel de ambiente) no que toca ao token da instancia.
+
+---
+
+## Resolucao — 2026-08-31
+
+| Pergunta | Decisao do fundador |
+|---|---|
+| 1. Quem conecta, e de onde? | **Tela de QR na plataforma.** |
+| 2. Onde ficam os segredos? | **Token da instancia cifrado em repouso**, no banco. |
+| 3. Para onde aponta o `webhookUrl`? | **Para o agente**, via variavel configuravel — vazia hoje. Preserva §2.2. |
+| 4. Quando? | **Ciclo proprio**, depois do PLAN-033 e depois do IMP-352. |
+
+### O que a ADR-003 simplificou antes desta resolucao
+
+A [ADR-003](../../architecture/adrs/ADR-003-escopo-single-tenant-do-v1.md), emitida
+no mesmo dia, decidiu o escopo single-tenant do v1. Com isso:
+
+- a opcao "tela por Tenant" da Pergunta 1 caiu sozinha — com um unico usuario,
+  "restrita ao administrador" e "o usuario" sao a mesma pessoa;
+- a tabela de segredos **por Tenant** deixou de ser necessaria. A
+  `evolution_api_key` de gestao continua no ambiente; a plataforma persiste
+  apenas o token da instancia que ela mesma criar.
+
+### Por que o token e persistido, e por que cifrado
+
+Se a tela existe, o token **tem** de ir para o banco: sem isso a conexao nao
+sobrevive a um restart sem alguem editar o `.env` na mao — que e exatamente o
+atrito que a tela vem eliminar.
+
+Cifrado porque esse token nao vaza *informacao*, vaza **capacidade de agir**:
+quem o tiver envia, le e desconecta em nome do Credor. O mesmo banco ja guarda
+CPF e telefone em texto claro, entao cifrar o token nao muda o perfil de risco do
+dump inteiro — protege a diferenca que importa.
+
+### Correcao a este proprio documento
+
+A Pergunta 3 classificava "conectar sem webhook agora" como a pior das tres
+opcoes, por deixar "uma janela em que a instancia esta conectada e ninguem recebe
+mensagem". **Isso foi escrito antes de confirmar que o agente ainda nao existe.**
+
+Receber e a Fase C (IMP-356), bloqueada. A tal janela e a realidade de hoje, nao
+um risco que a opcao cria. A opcao A resolvida — URL configuravel, vazia hoje —
+incorpora aquela terceira opcao em vez de descarta-la.
+
+### Fatos externos registrados nesta sessao
+
+- **Dominio:** `tianet.com.br`. **VPS em provisionamento** em 2026-08-31 — o
+  IMP-359 deixa de estar bloqueado, e com ele o GATE-E1b.
+- Ter dominio proprio torna a opcao B da Pergunta 3 *possivel*, nao mais segura:
+  o §2.2 decidiu pela topologia por **superficie de ataque**, nao por falta de
+  endereco. Um webhook publico aceita `POST` de qualquer origem, e o proprio
+  `contexto-externo.md` registra que `Info.Sender` e forjavel por quem souber a
+  URL.
+- **Nao verificado:** se o `/instance/connect` aceita `webhookUrl` vazia. O
+  contrato nao diz. Uma instancia recem-criada nasce com `"webhook": ""`, o que
+  sugere que vazio e representavel — mas isso e inferencia sobre sistema externo,
+  a mesma classe de suposicao que produziu o caveat 8.1. **Vira item de
+  verificacao junto com o IMP-352**, que exige a mesma ida ao Evolution.
+
+### Ordem acordada
+
+1. **IMP-352** — validar o formato de envio. E o caveat de maior risco, e a tela
+   seria construida sobre ele.
+2. **IMP-359** — producao, agora destravado pelo VPS.
+3. Retomada do PLAN-033 (Fases A e C).
+4. **Ciclo proprio da tela de QR**, com o escopo desta resolucao.
+
+### Aviso operacional para o deploy
+
+Com `APP_ENV=production` e sem `EVOLUTION_INSTANCE_TOKEN`, o worker **recusa
+subir** (`scheduler_worker.py:342`). Recusa nomeada, de proposito — mas o deploy
+precisa do token antes de o worker funcionar.
 
 ---
 
@@ -170,4 +242,5 @@ Nada disso e exotico; e o volume que preocupa. Por isso a Pergunta 4.
 
 | Versao | Data | Descricao |
 |---|---|---|
+| 1.1.0 | 2026-08-31 | **RESOLVIDA.** Tela de QR na plataforma, token cifrado em repouso, webhook para o agente e ciclo proprio. Registra o que a ADR-003 simplificou, corrige a classificacao da opcao C da Pergunta 3, e anota o dominio, o VPS em provisionamento e o item de verificacao do `webhookUrl` vazio. |
 | 1.0.0 | 2026-08-31 | Abertura: pedido do fundador para conectar WhatsApp pela plataforma, evidencia do estado atual, conflito com §6.1 e §2.2, quatro perguntas com opcoes e custo. |
