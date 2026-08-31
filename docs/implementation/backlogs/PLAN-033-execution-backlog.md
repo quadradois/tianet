@@ -121,6 +121,12 @@ Toda afirmacao desta secao foi conferida no arquivo indicado.
 
 ### IMP-352 - Validar o formato real de envio do Evolution
 
+- **Status:** **CONCLUIDO em 2026-08-31.** Envio real pela classe de producao
+  retornou `ACEITA`/`accepted`; o formato nao divergia. Corpo e resposta
+  observados incorporados ao contrato Evolution (secao 8.1); classificador ja
+  coberto por `tests/unit/application/test_whatsapp_notification_channel.py`,
+  inclusive o caso `success_malformed`. Achado: `data.Info.ID` e eco do `id`
+  enviado, nao identificador do provedor.
 - **Objetivo:** fechar o caveat 4.1 do handoff vigente. O contrato auditado em
   `docs/whatsapp/CRM_EVOLUTION_CONTRACT.md` nao fixa o corpo e a resposta de
   `POST /send/text`; o adapter em

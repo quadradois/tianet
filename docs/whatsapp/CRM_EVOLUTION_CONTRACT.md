@@ -474,6 +474,58 @@ Para cada instância retornada:
 | Enviar mídia | POST | `/send/media` | Instância |
 | Enviar localização | POST | `/send/location` | Instância |
 
+
+### 8.1 — `POST /send/text`: corpo e resposta observados
+
+Observado contra o servidor real em **2026-08-31** (TiaNet, instância
+`adm_tianet`). Até essa data este contrato listava a rota na tabela acima mas não
+fixava corpo nem resposta — e o adapter da TiaNet usava um formato extrapolado da
+documentação pública, nunca conferido. Era o caveat de maior risco da integração.
+
+**Request** — auth de Instância (token sozinho, sem `X-Tenant-ID`):
+
+```http
+POST {EVOLUTION_HOST}/send/text
+apikey: {evolution_instance_token}
+Content-Type: application/json
+
+{
+  "number": "556299999999",
+  "text":   "conteudo da mensagem",
+  "id":     "{identificador escolhido pelo CRM}"
+}
+```
+
+**Response `200`:**
+
+```json
+{
+  "data": {
+    "Info": {
+      "ID":        "{o mesmo id enviado no request}",
+      "Chat":      "556299999999@s.whatsapp.net",
+      "Sender":    "556288888888:74@s.whatsapp.net",
+      "IsFromMe":  true,
+      "IsGroup":   false,
+      "Type":      "ExtendedTextMessage",
+      "Timestamp": "2026-08-31T15:42:51-03:00"
+    }
+  }
+}
+```
+
+**O achado que importa:** `data.Info.ID` **é eco do `id` que você enviou**, não um
+identificador gerado pelo servidor. Duas consequências para quem integra:
+
+1. O critério de aceite `data.Info.ID` está correto — mas confirma apenas que o
+   Evolution recebeu e aceitou, não que o WhatsApp entregou.
+2. Como o identificador é seu, ele serve de chave de idempotência ponta a ponta.
+   Em compensação, **não existe identificador do provedor** para consultar
+   depois: entrega só se confirma pelo webhook de `Receipt` (§5).
+
+O `Sender` traz o sufixo de dispositivo (`:74`), o `Chat` não. Compare sempre
+pelo número, não pela string inteira.
+
 ---
 
 ## 9. Bugs e comportamentos não-óbvios (ler antes de debugar em produção)
