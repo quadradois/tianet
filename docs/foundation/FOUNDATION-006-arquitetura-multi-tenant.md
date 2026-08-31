@@ -6,6 +6,8 @@
 
 **Status:** Aprovado
 
+**Escopo:** **SUSPENSO no v1** pela [ADR-003](../architecture/adrs/ADR-003-escopo-single-tenant-do-v1.md) — o produto atende um Credor, um Tenant, um usuario. Este documento permanece como desenho de referencia para uma eventual expansao.
+
 ---
 
 # 1. Objetivo
@@ -20,7 +22,13 @@ A arquitetura Multi-Tenant pertence ao Platform Context e não ao Credit Context
 
 # 2. Contexto
 
-A plataforma foi concebida para atender múltiplos Credores de forma simultânea.
+> **Nota da ADR-003 (2026-08-31):** este documento descrevia a plataforma como
+> concebida para atender varios Credores simultaneamente. O v1 atende **um
+> Credor, um Tenant, um usuario**. O conteudo abaixo permanece como desenho de
+> referencia para uma eventual expansao — nao descreve o produto atual.
+
+O v1 atende um unico Credor. O desenho descrito aqui vale para o dia em que
+houver um segundo.
 
 Cada Credor será representado por um Tenant.
 
