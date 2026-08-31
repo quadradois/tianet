@@ -10,7 +10,7 @@ test("Automacao passa por axe, teclado e overflow nos dois viewports", async ({ 
   await page.getByRole("button", { name: "Entrar" }).click();
   await expect(page).toHaveURL(/\/app(?:\?|$)/);
   await page.goto("/app/automacao?job_id=00000000-0000-4000-8000-000000000081&notification_id=00000000-0000-4000-8000-000000000082");
-  await expect(page.getByRole("heading", { name: "Jobs, Templates e Notificacoes" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Jobs, Templates e Notificacoes", exact: true })).toBeVisible();
   const results = await new AxeBuilder({ page }).disableRules(["color-contrast"]).analyze();
   expect(results.violations.filter((violation) => violation.impact === "critical" || violation.impact === "serious")).toEqual([]);
   await page.keyboard.press("Tab");
