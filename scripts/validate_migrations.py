@@ -7,6 +7,7 @@ upgrade to head again. It must only run against a disposable database.
 from __future__ import annotations
 
 import os
+import sys
 from pathlib import Path
 
 from alembic import command
@@ -16,8 +17,14 @@ from sqlalchemy import create_engine, text
 ALLOW_ENV = "MIGRATION_VALIDATION_ALLOW_DESTRUCTIVE"
 
 
+_RAIZ = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(_RAIZ))
+
+from tests.db_guard import preparar_banco_descartavel  # noqa: E402
+
+
 def _alembic_config() -> Config:
-    root = Path(__file__).resolve().parents[1]
+    root = _RAIZ
     config = Config(str(root / "alembic.ini"))
     config.set_main_option("script_location", str(root / "migrations"))
     return config
@@ -46,7 +53,12 @@ def main() -> int:
         return 2
 
     config = _alembic_config()
-    _reset_public_schema(_database_url(config))
+    # O ciclo e destrutivo por desenho. Ate 2026-08-31 ele rodava no banco de
+    # desenvolvimento, apagando o schema que a aplicacao estava usando.
+    destino = preparar_banco_descartavel(_database_url(config))
+    os.environ["DATABASE_URL"] = destino
+    config.set_main_option("sqlalchemy.url", destino)
+    _reset_public_schema(destino)
     print("Validating Alembic cycle: upgrade head -> downgrade base -> upgrade head")
     command.upgrade(config, "head")
     command.current(config, check_heads=True)

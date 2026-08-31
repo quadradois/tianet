@@ -18,7 +18,7 @@ from sqlalchemy.orm import Session, sessionmaker
 from emprestimo.infrastructure.db import orm  # noqa: F401 — registra tabelas no metadata
 from emprestimo.infrastructure.db.base import Base
 from emprestimo.infrastructure.db.session import database_url
-from tests.db_guard import exigir_host_descartavel
+from tests.db_guard import exigir_host_descartavel, preparar_banco_descartavel
 
 TABELAS_TRUNCATE = (
     "notificacao_evidencia",
@@ -131,7 +131,9 @@ def _reset_public_schema(engine: Engine) -> None:
 
 @pytest.fixture(scope="session")
 def engine() -> Iterator[Engine]:
-    e = create_engine(database_url())
+    # Banco de teste separado do de desenvolvimento: a fixture apaga o schema
+    # inteiro, e ate 2026-08-31 fazia isso no banco que a aplicacao usava.
+    e = create_engine(preparar_banco_descartavel(database_url()))
     _reset_public_schema(e)
     Base.metadata.create_all(e)
     yield e
