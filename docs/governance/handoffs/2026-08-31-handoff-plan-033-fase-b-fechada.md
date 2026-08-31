@@ -221,7 +221,14 @@ reproduziu nesta maquina. Considere-o fechado ate nova ocorrencia.
 
 ## 8. Caveats vigentes
 
-### 8.1 O formato de envio do Evolution nao esta validado
+### 8.1 O formato de envio do Evolution — RESOLVIDO em 2026-08-31
+
+> **Fechado.** Tenant `tianet` criado pela equipe que administra o servidor,
+> instancia `adm_tianet` criada pela TiaNet com token proprio, WhatsApp pareado,
+> e envio real validado pela classe de producao: `ACEITA`/`accepted`. O formato
+> **nao divergia**. Ver `contexto-externo.md` §6.2 e a secao 8.1 do contrato.
+
+O texto abaixo fica como registro do risco enquanto ele existiu.
 
 **Herdado, ainda aberto, e o de maior risco.** O payload `{number, text, id}` e
 o criterio `data.Info.ID` vieram de documentacao externa. Se divergir, todo

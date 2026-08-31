@@ -234,6 +234,21 @@ migracao.
 
 ## 6.2 Validacao do formato de envio: producao, com o numero do fundador
 
+> **VALIDADO em 2026-08-31.** Envio real executado pela propria classe de
+> producao (`EvolutionWhatsAppNotificationChannel`), para o numero do fundador,
+> na instancia `adm_tianet`. Resultado: `ACEITA` / `accepted`.
+>
+> **O formato nao divergia.** `data.Info.ID` e o criterio correto — e a resposta
+> revelou que ele e **eco do `id` enviado**, nao identificador gerado pelo
+> servidor. O corpo e a resposta observados foram incorporados ao contrato, na
+> secao 8.1 de `docs/whatsapp/CRM_EVOLUTION_CONTRACT.md`, que ate entao listava
+> a rota sem fixar seu formato.
+>
+> Consequencia registrada: como o identificador e nosso, ele serve de chave de
+> idempotencia ponta a ponta, mas **nao ha identificador do provedor para
+> consultar depois** — entrega so se confirma por `Receipt`. Isso ja era o que o
+> adapter declarava em `consultar_status`; agora esta verificado, nao suposto.
+
 Nao ha ambiente de teste do Evolution. A validacao do caveat 4.1 do handoff sera
 feita **em producao, enviando para o numero do proprio fundador** — nenhum
 devedor real recebe mensagem durante a conferencia.
