@@ -47,3 +47,13 @@ postgres-data/
 
 # Artefatos do Playwright MCP (sessao de inspecao manual)
 .playwright-mcp/
+
+# Credenciais de terceiros e segredos operacionais — NUNCA versionar.
+# Regra ampla de proposito: cobre qualquer variacao de nome, nao so a que
+# alguem lembrou de listar. Descoberto em 2026-08-31, quando um arquivo em
+# docs/credenciais/ e um backup .env.bak-* passariam num `git add -A`.
+/docs/credenciais/
+*credencial*
+*credentials*
+*.env.bak*
+*.bak
