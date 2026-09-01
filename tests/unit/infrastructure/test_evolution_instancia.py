@@ -8,12 +8,14 @@ existem em vez de uma leitura atenta do contrato.
 
 from __future__ import annotations
 
+import base64
 from typing import Any
 
 import httpx
 import pytest
 
 from emprestimo.infrastructure.notifications.evolution_instancia import (
+    PREFIXO_QR,
     EvolutionIndisponivelError,
     EvolutionInstanciaClient,
     EvolutionTenantClient,
@@ -405,3 +407,45 @@ class TestTerceiraRodadaDeReview:
         cli = EvolutionInstanciaClient(host=HOST, instancia_token=TOKEN, client=_cliente(handler))
         with pytest.raises(EvolutionIndisponivelError, match="data URI PNG"):
             cli.qrcode()
+
+
+class TestQuartaRodadaDeReview:
+    """Achados do quarto review do Codex (IMP-366)."""
+
+    def _cli(self, handler: Any) -> EvolutionInstanciaClient:
+        return EvolutionInstanciaClient(host=HOST, instancia_token=TOKEN, client=_cliente(handler))
+
+    def test_token_string_vazia_e_recusado_e_nao_gera_outro(self) -> None:
+        """`None` pede um token novo; string vazia e erro do chamador.
+
+        Colapsar os dois com `or` criaria a instancia com um UUID que o chamador
+        nao pediu nem conhece — e ele so descobriria ao tentar autenticar.
+        """
+        with pytest.raises(ValueError, match="vazio"):
+            EvolutionTenantClient(
+                host=HOST, tenant_id="tid", api_key="k", client=_cliente(lambda r: None)
+            ).criar_instancia("adm_tianet", token="")
+
+    @pytest.mark.parametrize(
+        "conteudo",
+        ["", "!!!nao-e-base64!!!", base64.b64encode(b"isto nao e png").decode()],
+    )
+    def test_qr_com_prefixo_certo_e_conteudo_invalido_e_recusado(self, conteudo: str) -> None:
+        """Prefixo correto nao garante imagem: vazio, base64 quebrado ou
+        conteudo que nao e PNG chegariam a tela como QR que nao aparece."""
+
+        def handler(_: httpx.Request) -> httpx.Response:
+            return httpx.Response(200, json={"data": {"Qrcode": PREFIXO_QR + conteudo}})
+
+        with pytest.raises(EvolutionIndisponivelError):
+            self._cli(handler).qrcode()
+
+    def test_png_valido_e_aceito(self) -> None:
+        """O caminho feliz continua passando — a validacao nao virou paranoia."""
+
+        def handler(_: httpx.Request) -> httpx.Response:
+            return httpx.Response(
+                200, json={"data": {"Qrcode": PREFIXO_QR + "iVBORw0KGgpyZXN0bw=="}}
+            )
+
+        assert self._cli(handler).qrcode().startswith(PREFIXO_QR)
