@@ -17,6 +17,7 @@ from emprestimo.infrastructure.notifications.evolution_instancia import (
     EvolutionIndisponivelError,
     EvolutionInstanciaClient,
     EvolutionTenantClient,
+    QrCodeAindaGerandoError,
 )
 
 HOST = "https://diamondgreen.com.br"
@@ -286,3 +287,69 @@ class TestFalhasDoProvedor:
         cli = EvolutionInstanciaClient(host=HOST, instancia_token=TOKEN, client=_cliente(handler))
         with pytest.raises(EvolutionIndisponivelError, match="LoggedIn"):
             cli.estado()
+
+
+class TestSegundaRodadaDeReview:
+    """Achados do segundo review do Codex em 2026-09-01 (IMP-366)."""
+
+    def _cli(self, handler: Any) -> EvolutionInstanciaClient:
+        return EvolutionInstanciaClient(host=HOST, instancia_token=TOKEN, client=_cliente(handler))
+
+    def test_qr_ainda_gerando_e_estado_distinto_de_indisponibilidade(self) -> None:
+        """O contrato (Evento 4.2) descreve isso como corrida NORMAL.
+
+        Colapsar em `EvolutionIndisponivelError` impediria a tela de distinguir
+        "aguarde, estou gerando" de "provedor fora do ar" — e a diferenca decide
+        se o usuario espera ou se alguem e chamado.
+        """
+
+        def handler(_: httpx.Request) -> httpx.Response:
+            return httpx.Response(
+                400, json={"error": "no QR code available. Please wait a moment and try again"}
+            )
+
+        with pytest.raises(QrCodeAindaGerandoError):
+            self._cli(handler).qrcode()
+
+    def test_qr_ainda_gerando_e_subtipo_de_indisponivel(self) -> None:
+        """Quem so quer saber "deu errado" continua pegando com o tipo base."""
+        assert issubclass(QrCodeAindaGerandoError, EvolutionIndisponivelError)
+
+    def test_outro_erro_no_qr_nao_vira_ainda_gerando(self) -> None:
+        def handler(_: httpx.Request) -> httpx.Response:
+            return httpx.Response(500, json={"error": "internal"})
+
+        with pytest.raises(EvolutionIndisponivelError) as exc:
+            self._cli(handler).qrcode()
+        assert not isinstance(exc.value, QrCodeAindaGerandoError)
+
+    def test_a_mensagem_do_provedor_chega_ao_erro(self) -> None:
+        """Descartar o texto do provedor apaga a unica pista util do incidente."""
+
+        def handler(_: httpx.Request) -> httpx.Response:
+            return httpx.Response(403, json={"error": "tenant is inactive"})
+
+        with pytest.raises(EvolutionIndisponivelError, match="tenant is inactive"):
+            self._cli(handler).estado()
+
+    @pytest.mark.parametrize("status", [301, 302, 307, 308])
+    def test_redirect_no_logout_nao_e_sucesso(self, status: int) -> None:
+        """`httpx` nao segue redirect por padrao.
+
+        Aceitar 3xx marcaria a conexao como desfeita enquanto a instancia
+        continua pareada no provedor — estado divergente e silencioso.
+        """
+
+        def handler(_: httpx.Request) -> httpx.Response:
+            return httpx.Response(status, headers={"location": "https://outro/instance/logout"})
+
+        with pytest.raises(EvolutionIndisponivelError, match=str(status)):
+            self._cli(handler).desconectar()
+
+    @pytest.mark.parametrize("status", [301, 307])
+    def test_redirect_tambem_nao_e_sucesso_nas_demais_rotas(self, status: int) -> None:
+        def handler(_: httpx.Request) -> httpx.Response:
+            return httpx.Response(status, headers={"location": "https://outro/instance/status"})
+
+        with pytest.raises(EvolutionIndisponivelError, match=str(status)):
+            self._cli(handler).estado()
