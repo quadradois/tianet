@@ -30,9 +30,10 @@ O escopo do MVP deverá permanecer estável durante todo o ciclo de desenvolvime
 
 ## Plataforma
 
-- Multi-Tenant Nível 1;
+- Isolamento por `tenant_id` — escopo estrutural, **não** multi-Tenant de produto
+  (ver [ADR-003](../architecture/adrs/ADR-003-escopo-single-tenant-do-v1.md));
 - Tenant;
-- Usuários;
+- Usuários — **um** no v1, conforme a mesma ADR;
 - Autenticação;
 - Perfis de Acesso;
 - Permissões.
@@ -95,9 +96,23 @@ O escopo do MVP deverá permanecer estável durante todo o ciclo de desenvolvime
 
 # 4. Capacidades Fora do MVP
 
+> **Nota de 2026-09-01.** Duas entradas saíram desta lista porque o fundador as
+> aprovou como escopo do v1, e mantê-las aqui permitiria rejeitar como "fora do
+> MVP" dois ciclos em execução:
+>
+> - **Inteligência Artificial** — o Copilot é o segundo operador da plataforma
+>   (FOUNDATION-001 §Visão) e está em execução no
+>   [PLAN-033](../implementation/plans/PLAN-033-copilot-tianet.md);
+> - **Integração com o WhatsApp** — decidida na
+>   [DR-006](../governance/decision-requests/DR-006-conexao-do-whatsapp-dentro-da-plataforma.md)
+>   e materializada no
+>   [PLAN-034](../implementation/plans/PLAN-034-conexao-do-whatsapp-na-plataforma.md),
+>   com o canal já validado contra o provedor real.
+>
+> As demais integrações com terceiros seguem fora.
+
 As funcionalidades abaixo não fazem parte da versão 1 da plataforma:
 
-- Inteligência Artificial;
 - Integrações bancárias;
 - PIX automático;
 - Cobrança automática;
@@ -108,7 +123,7 @@ As funcionalidades abaixo não fazem parte da versão 1 da plataforma:
 - Multi-Carteira operacional;
 - Billing;
 - Assinaturas;
-- Integrações com terceiros;
+- Integrações com terceiros **além do WhatsApp**;
 - Automações avançadas.
 
 ---

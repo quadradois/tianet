@@ -388,7 +388,11 @@ Não existe um único evento `CONNECTION_UPDATE` com um campo `state`. São even
 { "event": "LoggedOut", "instanceId": "...", "data": { "reason": "...", "...": "..." } }
 ```
 
-**Ação no CRM:** tratar `"Connected"`/`"PairSuccess"` como "conectado"; `"LoggedOut"`/`"Disconnected"`/`"ConnectFailure"` como "desconectado", e então acionar a mesma lógica de reconexão descrita no Evento 4 se aplicável.
+**Ação no CRM:** `"LoggedOut"`/`"Disconnected"`/`"ConnectFailure"` significam desconectado — acione a lógica de reconexão do Evento 4.
+
+⚠️ **`Connected` NÃO é o mesmo que "número pareado".** Verificado ao vivo em 2026-08-31: uma instância recém-criada responde `Connected: true` com `LoggedIn: false` — o socket está de pé e nenhum WhatsApp está vinculado. Tratar `Connected` como estado operacional faz o CRM anunciar WhatsApp funcionando sem ninguém do outro lado.
+
+Use `"PairSuccess"`, ou `LoggedIn` em `GET /instance/status`, para o estado operacional. Reserve `Connected` para "transporte ativo".
 
 ### 5.5 — Reconexão automática
 

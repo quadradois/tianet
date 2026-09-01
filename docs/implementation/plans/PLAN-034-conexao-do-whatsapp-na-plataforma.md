@@ -177,7 +177,7 @@ de auditoria, não em métrica.
 | Camada | O que cobre |
 |---|---|
 | Unitário — cifra | ida e volta do token; chave ausente recusa; texto cifrado difere do claro |
-| Unitário — cliente Evolution | as quatro rotas com respostas reais capturadas em 2026-08-31, inclusive `webhookUrl` vazia aceita |
+| Unitário — cliente Evolution | as cinco rotas com respostas reais capturadas em 2026-08-31, inclusive `webhookUrl` vazia aceita |
 | Unitário — casos de uso | instância inexistente, pendente e pareada; `Connected` sem `LoggedIn` **não** é conectado |
 | Contrato | as três operações no snapshot OpenAPI; contadores conferidos |
 | Integração | RBAC das duas permissões; 401, 403 e 404 |

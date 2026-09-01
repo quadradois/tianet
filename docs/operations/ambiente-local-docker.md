@@ -111,10 +111,10 @@ docker compose run --rm api emprestimo-bootstrap-plataforma \
 O comando pede o segredo de autorizacao e a credencial inicial por prompt, sem
 eco. Nao passe segredo por linha de comando nem por variavel exportada no shell.
 
-O Administrador criado recebe apenas as permissoes `tenant.*`. No Dashboard, as
-secoes operacionais aparecem como "Sem permissao" — isso e o RBAC correto, nao
-falha de ambiente. Perfis com permissao operacional sao criados depois, pela
-tela de IAM.
+O Administrador criado recebe o **catalogo inteiro** de permissoes desde o
+IMP-363, entao o Dashboard abre operacional — nao ha passo de seed nem criacao
+de perfil para fazer depois. Ate aquele item eram apenas as cinco `tenant.*`, e
+o unico usuario ficava sem conseguir operar nem se autoconceder permissao.
 
 Apos criar o administrador, volte `PLATFORM_ADMIN_BOOTSTRAP_ENABLED=false` e
 recrie a API.
@@ -177,11 +177,17 @@ Verificacao de fronteira de sessao, no console do navegador ja autenticado:
 Esperado: ambos vazios. O cookie de sessao e `httpOnly` e nenhum token pode
 estar acessivel ao JavaScript.
 
-## 7.1 Nao aponte `uv run pytest` para esta stack
+## 7.1 A suite usa banco proprio, e nao apaga mais esta stack
 
-`tests/conftest.py` recria o schema e trunca as tabelas a cada sessao de teste.
-Apontar a suite de integracao para o banco desta stack **apaga o Tenant, o
-administrador e todos os dados de teste**.
+`tests/conftest.py` recria o schema e trunca as tabelas a cada sessao — mas
+desde 2026-09-01 ele faz isso em **`emprestimo_test`**, derivado do
+`DATABASE_URL` e criado sozinho. O banco `emprestimo` desta stack **nao e mais
+tocado**, nem pela suite nem pelo ciclo de validacao de migrations.
+
+Ate essa data os dois compartilhavam o mesmo banco, e rodar `pytest` apagava o
+Tenant e o administrador — a API respondia 503 e o worker morria com
+`relation "audit_log" does not exist`. Se voce encontrar essa cena, o banco esta
+desatualizado: rode `docker compose run --rm migrate`.
 
 A `POSTGRES_PASSWORD` gerada protege contra isso por acidente: a suite usa a
 credencial padrao (`emprestimo:emprestimo`) e falha a conexao em vez de

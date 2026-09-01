@@ -40,7 +40,7 @@ auditada contra o codigo em producao. Leia antes de integrar qualquer coisa.
 | Autenticacao | tres niveis: Global (`/tenant/*`), Tenant (`/instance/*` de gestao), Instancia (envio e conexao) |
 | Retry de webhook | 5 tentativas, 30s de intervalo, depois descarta — **nao existe replay** |
 | Tamanho de payload | midia vem em base64; `HistorySync` ja foi observado com 5,6MB |
-| Ambiente de teste | *a preencher* |
+| Ambiente de teste | **Nao existe** — respondido em 2026-08-25. Validacoes controladas usam producao com o numero do fundador; ver §6.2 |
 
 ### Recorte para a TiaNet
 
@@ -59,15 +59,17 @@ escopo, e o Evento 6 corresponde a inativacao de Tenant ja existente.
   adapter precisara ler recibos armazenados, ou a porta muda.
 - **Conexao e pre-requisito das duas direcoes**: nao se envia nada sem instancia
   conectada, o que exige criar tenant, criar instancia e escanear o QR.
-- **O contrato nao descreve o formato de `POST /send/text`** (adicionado em
-  2026-08-22, no IMP-346): ele fixa o nivel de autenticacao da rota e o
-  comportamento de tenant inativo, mas nao traz exemplo de requisicao nem de
-  resposta. O adapter foi escrito com payload `{number, text, id}` e aceite por
-  `data.Info.ID`, extrapolados da documentacao publica do Evolution Go. **Nao
-  esta validado contra o servidor.** Se divergir, envios bem-sucedidos viram
-  `DESCONHECIDO` — sem risco de duplicata, porque esse resultado nao dispara
-  retry, mas com prejuizo de escrituracao. Conferir no primeiro envio real e
-  atualizar o contrato com o formato observado.
+- **O formato de `POST /send/text` foi VALIDADO em 2026-08-31** (IMP-352). O
+  contrato nao o descrevia, e o adapter usava `{number, text, id}` com aceite por
+  `data.Info.ID` extrapolados da documentacao publica. **Nao divergia.** Corpo e
+  resposta observados foram incorporados a secao 8.1 de
+  `docs/whatsapp/CRM_EVOLUTION_CONTRACT.md`.
+
+  O que a resposta real ensinou, e nao estava em lugar nenhum: **`data.Info.ID` e
+  eco** do `id` que enviamos, nao identificador gerado pelo servidor. Entao o
+  identificador serve de chave de idempotencia ponta a ponta, mas **nao existe id
+  do provedor para consultar depois** — entrega so se confirma por `Receipt`, que
+  e o que `consultar_status` ja declarava.
 
 Consequencias ja incorporadas ao desenho:
 
@@ -146,11 +148,17 @@ Docker, validada ponta a ponta.
 
 | Campo | Valor |
 |---|---|
-| Situacao | **nao provisionado** |
-| Tipo (VPS, cloud gerenciada, PaaS) | *a preencher* |
-| Dominio | *a preencher* |
-| TLS | *a preencher* |
-| Backup do PostgreSQL | *a preencher* |
+| Situacao | **VPS provisionada em 2026-08-31.** Sem deploy ainda |
+| Tipo | VPS |
+| Dominio | `tianet.com.br` — ativo |
+| TLS | *pendente* |
+| Backup do PostgreSQL | *pendente* |
+| CD e endurecimento | *pendentes* |
+
+O insumo externo que bloqueava o **IMP-359** deixou de existir: a maquina e o
+dominio estao disponiveis. O que falta e trabalho nosso — deploy, TLS, backup,
+CD e endurecimento —, e a sequencia acordada com o fundador poe isso **depois**
+do PLAN-034.
 
 Nao existe pipeline de CD no repositorio: `.github/workflows/quality.yml` e o
 unico workflow e cobre apenas gates de qualidade.
@@ -195,7 +203,7 @@ registradas com a resposta, para que ninguem as reabra como se fossem duvida.
 | 2 | Onde ficam `evolution_tenant_id` e `evolution_api_key`? | **Variavel de ambiente**, como ja e hoje (`EVOLUTION_INSTANCE_TOKEN`). Ver abaixo. |
 | 3 | Ha ambiente de teste do Evolution? | **Nao.** A validacao sera em producao, com o numero do proprio fundador. Ver abaixo. |
 | 4 | Ha conta Resend ativa? | **Nao.** E-mail fora do escopo do MVP. Ver §2.3. |
-| 5 | Qual servidor recebe o deploy? | **Ainda nao provisionado.** Ver §3.2. |
+| 5 | Qual servidor recebe o deploy? | **VPS provisionada e dominio `tianet.com.br` ativo** desde 2026-08-31. Faltam deploy, TLS, backup, CD e endurecimento. Ver §3.2. |
 
 ## 6.1 Segredo do Evolution: variavel de ambiente
 
