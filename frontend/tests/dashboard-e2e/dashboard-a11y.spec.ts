@@ -9,6 +9,11 @@ test("Dashboard passa por axe, teclado e overflow nos dois viewports", async ({ 
   await page.getByLabel("Senha").fill("segredo-dashboard");
   await page.getByRole("button", { name: "Entrar" }).click();
   await expect(page.getByRole("heading", { name: "Inicio", exact: true })).toBeVisible();
+  // O titulo chega pela metadata do Next, depois do conteudo, nesta navegacao
+  // client-side. Sem esperar por ele, o axe roda na janela em que o <h1> ja
+  // existe e o <title> ainda nao — e reprova com `document-title`. Mesmo
+  // padrao ja usado em session-shell-a11y.
+  await expect(page).toHaveTitle("Dashboard | TiaNet");
   const results = await new AxeBuilder({ page }).analyze();
   expect(results.violations.filter((violation) => violation.impact === "critical" || violation.impact === "serious")).toEqual([]);
   expect(results.incomplete.filter((item) => item.id === "color-contrast")).toEqual([]);
