@@ -11,6 +11,7 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from typing import Literal
 
+from emprestimo.domain.platform.conexao_whatsapp import ConexaoWhatsApp
 from emprestimo.domain.platform.configuracao import Configuracao
 from emprestimo.domain.platform.credencial import Credencial
 from emprestimo.domain.platform.perfil import PerfilAcesso
@@ -98,6 +99,34 @@ class ConfiguracaoRepository(ABC):
 
     @abstractmethod
     def find_by_tenant_id(self, tenant_id: uuid.UUID) -> list[Configuracao]: ...
+
+
+class ConexaoWhatsAppRepository(ABC):
+    """Persistencia da Entity ConexaoWhatsApp (IMP-365, PLAN-034).
+
+    O token viaja SEPARADO da entidade, e de proposito: ele e segredo, e a
+    entidade nao deve carrega-lo por engano para um log, uma resposta de API ou
+    uma trilha de auditoria. Quem quiser o token pede por ele explicitamente, e
+    quem quiser o estado da conexao nunca o recebe de brinde.
+
+    A cifragem e responsabilidade da implementacao — o dominio nao conhece
+    `cryptography`, nem deveria.
+    """
+
+    @abstractmethod
+    def save(self, conexao: ConexaoWhatsApp, *, token: str | None = None) -> None:
+        """Grava a conexao. `token=None` preserva o token ja guardado.
+
+        Sem esse cuidado, um `save` de pareamento apagaria o token — e a conexao
+        continuaria existindo, sem poder enviar nada.
+        """
+
+    @abstractmethod
+    def find_by_tenant_id(self, tenant_id: uuid.UUID) -> ConexaoWhatsApp | None: ...
+
+    @abstractmethod
+    def find_token(self, tenant_id: uuid.UUID) -> str | None:
+        """Devolve o token decifrado. Unico caminho para obte-lo."""
 
 
 class CredencialRepository(ABC):
