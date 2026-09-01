@@ -17,6 +17,8 @@ divergiam, vale a resposta.
 
 from __future__ import annotations
 
+import base64
+import binascii
 import uuid
 from collections.abc import Callable
 from dataclasses import dataclass
@@ -26,6 +28,10 @@ import httpx
 
 PREFIXO_QR = "data:image/png;base64,"
 """Prefixo que o contrato promete no campo `Qrcode`."""
+
+ASSINATURA_PNG = bytes.fromhex("89504e470d0a1a0a")
+"""Bytes iniciais de todo PNG. Prefixo correto com conteudo invalido continua
+sendo uma imagem que nao renderiza."""
 
 EVENTOS_ASSINADOS = ("MESSAGE", "CONNECTION", "QRCODE")
 """Únicos valores aceitos pelo `subscribe`.
@@ -85,6 +91,23 @@ def _base(host: str) -> str:
     if not normalizado:
         raise ValueError("EVOLUTION_HOST vazio")
     return normalizado
+
+
+def _exigir_png(base64_puro: str) -> None:
+    """Confere que o payload decodifica e e mesmo um PNG.
+
+    O prefixo sozinho nao garante nada: `data:image/png;base64,` seguido de
+    vazio, ou de base64 quebrado, passaria por `startswith` e chegaria a tela
+    como um QR que nao aparece — sem erro em lugar nenhum.
+    """
+    if not base64_puro:
+        raise EvolutionIndisponivelError("/instance/qr devolveu data URI sem conteudo")
+    try:
+        bruto = base64.b64decode(base64_puro, validate=True)
+    except (binascii.Error, ValueError) as exc:
+        raise EvolutionIndisponivelError("/instance/qr devolveu base64 invalido") from exc
+    if not bruto.startswith(ASSINATURA_PNG):
+        raise EvolutionIndisponivelError("/instance/qr devolveu conteudo que nao e PNG")
 
 
 def _executar(chamada: Callable[[], httpx.Response], rota: str) -> httpx.Response:
@@ -176,13 +199,19 @@ class EvolutionTenantClient:
         próprio. Confundir isso é o que faz alguém procurar por um token que o
         servidor nunca vai gerar.
         """
-        # Normalizar aqui e obrigatorio, nao cosmetico: `EvolutionInstanciaClient`
-        # faz `.strip()` no token ao autenticar. Enviar " abc " na criacao faria o
-        # provedor guardar com espacos e toda requisicao seguinte autenticar com
-        # "abc" — criacao bem-sucedida, e 401 em tudo depois, para sempre.
-        escolhido = (token or str(uuid.uuid4())).strip()
-        if not escolhido:
-            raise ValueError("token de instancia vazio")
+        # `None` significa "gere um"; string vazia significa que o chamador
+        # errou. Usar `or` colapsaria os dois e criaria a instancia com um UUID
+        # que o chamador nao pediu nem conhece.
+        if token is None:
+            escolhido = str(uuid.uuid4())
+        else:
+            escolhido = token.strip()
+            if not escolhido:
+                raise ValueError("token de instancia vazio")
+        # Normalizar e obrigatorio, nao cosmetico: `EvolutionInstanciaClient` faz
+        # `.strip()` ao autenticar. Enviar " abc " na criacao faria o provedor
+        # guardar com espacos e toda requisicao seguinte usar "abc" — criacao
+        # bem-sucedida, e 401 em tudo depois, para sempre.
         dados = _json(
             _executar(
                 lambda: self._client.post(
@@ -268,6 +297,7 @@ class EvolutionInstanciaClient:
             raise EvolutionIndisponivelError(
                 f"/instance/qr nao devolveu data URI PNG (esperado prefixo {PREFIXO_QR!r})"
             )
+        _exigir_png(imagem[len(PREFIXO_QR) :])
         return imagem
 
     def estado(self) -> EstadoInstancia:
