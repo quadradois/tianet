@@ -168,7 +168,7 @@ class TestEvolutionInstanciaClient:
         def handler(_: httpx.Request) -> httpx.Response:
             return httpx.Response(200, json={"data": {"Code": "2@abc"}})
 
-        with pytest.raises(EvolutionIndisponivelError, match="imagem"):
+        with pytest.raises(EvolutionIndisponivelError, match="data URI PNG"):
             self._cli(handler).qrcode()
 
     def test_conectado_sem_pareado_nao_e_conexao(self) -> None:
@@ -353,3 +353,55 @@ class TestSegundaRodadaDeReview:
 
         with pytest.raises(EvolutionIndisponivelError, match=str(status)):
             self._cli(handler).estado()
+
+
+class TestTerceiraRodadaDeReview:
+    """Achados do terceiro review do Codex (IMP-366). Ambos de assimetria."""
+
+    def test_token_com_espacos_e_normalizado_antes_de_criar(self) -> None:
+        """Criar com " abc " e autenticar com "abc" e 401 para sempre.
+
+        `EvolutionInstanciaClient` faz strip ao autenticar. Se a criacao enviar
+        o valor com espacos, o provedor guarda um token e o sistema usa outro —
+        criacao bem-sucedida, e falha em tudo que vier depois.
+        """
+        vistos: dict[str, Any] = {}
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            vistos["corpo"] = request.read().decode()
+            enviado = vistos["corpo"].split('"token":')[1].split('"')[1]
+            return httpx.Response(
+                200, json={"data": {**CRIADA["data"], "token": enviado}}  # type: ignore[dict-item]
+            )
+
+        criada = EvolutionTenantClient(
+            host=HOST, tenant_id="tid", api_key="k", client=_cliente(handler)
+        ).criar_instancia("adm_tianet", token=f"  {TOKEN}  ")
+
+        assert criada.token == TOKEN
+        assert f'"{TOKEN}"' in vistos["corpo"]
+
+    def test_token_so_de_espacos_e_recusado(self) -> None:
+        with pytest.raises(ValueError, match="vazio"):
+            EvolutionTenantClient(
+                host=HOST, tenant_id="tid", api_key="k", client=_cliente(lambda r: None)
+            ).criar_instancia("adm_tianet", token="   ")
+
+    @pytest.mark.parametrize(
+        "imagem",
+        [
+            "not-a-data-uri;base64,iVBORw0KGgo=",
+            "data:image/jpeg;base64,iVBORw0KGgo=",
+            "iVBORw0KGgo=",
+        ],
+    )
+    def test_qr_fora_do_formato_prometido_e_recusado(self, imagem: str) -> None:
+        """O metodo promete data URI PNG. Entregar outra coisa daria um QR que
+        nao renderiza, em vez do erro nomeado do contrato."""
+
+        def handler(_: httpx.Request) -> httpx.Response:
+            return httpx.Response(200, json={"data": {"Qrcode": imagem}})
+
+        cli = EvolutionInstanciaClient(host=HOST, instancia_token=TOKEN, client=_cliente(handler))
+        with pytest.raises(EvolutionIndisponivelError, match="data URI PNG"):
+            cli.qrcode()

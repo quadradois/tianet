@@ -24,6 +24,9 @@ from typing import Any
 
 import httpx
 
+PREFIXO_QR = "data:image/png;base64,"
+"""Prefixo que o contrato promete no campo `Qrcode`."""
+
 EVENTOS_ASSINADOS = ("MESSAGE", "CONNECTION", "QRCODE")
 """Únicos valores aceitos pelo `subscribe`.
 
@@ -173,7 +176,13 @@ class EvolutionTenantClient:
         próprio. Confundir isso é o que faz alguém procurar por um token que o
         servidor nunca vai gerar.
         """
-        escolhido = token or str(uuid.uuid4())
+        # Normalizar aqui e obrigatorio, nao cosmetico: `EvolutionInstanciaClient`
+        # faz `.strip()` no token ao autenticar. Enviar " abc " na criacao faria o
+        # provedor guardar com espacos e toda requisicao seguinte autenticar com
+        # "abc" — criacao bem-sucedida, e 401 em tudo depois, para sempre.
+        escolhido = (token or str(uuid.uuid4())).strip()
+        if not escolhido:
+            raise ValueError("token de instancia vazio")
         dados = _json(
             _executar(
                 lambda: self._client.post(
@@ -252,8 +261,13 @@ class EvolutionInstanciaClient:
                 raise QrCodeAindaGerandoError(f"/instance/qr: {detalhe}")
         dados = _json(resposta, "/instance/qr")
         imagem = dados.get("Qrcode")
-        if not isinstance(imagem, str) or "base64," not in imagem:
-            raise EvolutionIndisponivelError("/instance/qr nao devolveu imagem utilizavel")
+        # Prefixo completo, e nao so "base64,": o metodo promete um data URI PNG,
+        # e aceitar qualquer coisa que contenha "base64," entregaria a tela um QR
+        # que nao renderiza, em vez do erro nomeado do contrato.
+        if not isinstance(imagem, str) or not imagem.startswith(PREFIXO_QR):
+            raise EvolutionIndisponivelError(
+                f"/instance/qr nao devolveu data URI PNG (esperado prefixo {PREFIXO_QR!r})"
+            )
         return imagem
 
     def estado(self) -> EstadoInstancia:
