@@ -17,11 +17,23 @@ divergiam, vale a resposta.
 
 from __future__ import annotations
 
+import base64
+import binascii
 import uuid
+from collections.abc import Callable
 from dataclasses import dataclass
 from typing import Any
 
 import httpx
+
+PREFIXO_QR = "data:image/png;base64,"
+"""Prefixo que o contrato promete no campo `Qrcode`."""
+
+ASSINATURA_PNG = bytes.fromhex("89504e470d0a1a0a")
+FIM_PNG = bytes.fromhex("0000000049454e44ae426082")
+"""Assinatura inicial e chunk IEND final. Juntos, pegam conteudo que nao e
+PNG e payload truncado — os dois casos em que a tela receberia uma imagem que
+nao renderiza."""
 
 EVENTOS_ASSINADOS = ("MESSAGE", "CONNECTION", "QRCODE")
 """Únicos valores aceitos pelo `subscribe`.
@@ -37,6 +49,20 @@ class EvolutionIndisponivelError(RuntimeError):
 
     Distinta de erro de negócio: aqui não há decisão a tomar, há um serviço
     externo fora do ar ou mudando contrato sem avisar.
+    """
+
+
+class QrCodeAindaGerandoError(EvolutionIndisponivelError):
+    """O QR ainda nao existe — estado NORMAL logo apos `/instance/connect`.
+
+    O contrato (Evento 4.2) descreve a corrida: o servidor responde "no QR code
+    available. Please wait a moment and try again", e o CRM deve aguardar 3s e
+    repetir, ate 5 vezes.
+
+    Escolhemos **sinalizar em vez de dormir**: a tela ja faz polling, e bloquear
+    o handler HTTP por ate 15 segundos trocaria uma espera visivel do usuario
+    por uma requisicao pendurada. Quem chama distingue "gerando" de "provedor
+    fora" — que era exatamente o que colapsar os dois impedia.
     """
 
 
@@ -69,9 +95,89 @@ def _base(host: str) -> str:
     return normalizado
 
 
+def _exigir_png(base64_puro: str) -> None:
+    """Confere que o payload decodifica e e mesmo um PNG.
+
+    O prefixo sozinho nao garante nada: `data:image/png;base64,` seguido de
+    vazio, ou de base64 quebrado, passaria por `startswith` e chegaria a tela
+    como um QR que nao aparece — sem erro em lugar nenhum.
+    """
+    if not base64_puro:
+        raise EvolutionIndisponivelError("/instance/qr devolveu data URI sem conteudo")
+    try:
+        bruto = base64.b64decode(base64_puro, validate=True)
+    except (binascii.Error, ValueError) as exc:
+        raise EvolutionIndisponivelError("/instance/qr devolveu base64 invalido") from exc
+    if not bruto.startswith(ASSINATURA_PNG):
+        raise EvolutionIndisponivelError("/instance/qr devolveu conteudo que nao e PNG")
+    # O chunk IEND fecha todo PNG e e sempre estes doze bytes. Exigi-lo pega
+    # payload truncado — que a assinatura sozinha nao pega — sem parser de
+    # imagem nem dependencia nova. Validar a estrutura inteira de chunks seria
+    # desproporcional: um PNG corrompido aparece na hora como imagem quebrada,
+    # ao lado do botao de gerar outro, e nao corrompe estado nenhum.
+    if not bruto.endswith(FIM_PNG):
+        raise EvolutionIndisponivelError("/instance/qr devolveu PNG truncado")
+
+
+def _executar(chamada: Callable[[], httpx.Response], rota: str) -> httpx.Response:
+    """Traduz falha de transporte para o erro declarado deste modulo.
+
+    Sem isto, DNS quebrado, conexao recusada ou timeout escapam como excecao
+    `httpx` crua — e o chamador, que trata `EvolutionIndisponivelError`, nao a
+    veria. O adapter de envio ja fazia essa traducao; este cliente precisa fazer
+    igual, senao a mesma indisponibilidade se comporta de dois jeitos conforme a
+    rota.
+    """
+    try:
+        return chamada()
+    # `RequestError` e a base de tudo que o httpx levanta do lado da requisicao:
+    # timeout, transporte E `DecodingError` — esta ultima nao deriva de
+    # `TransportError`, entao um `Content-Encoding: gzip` com corpo truncado
+    # escaparia crua para o handler HTTP, que so trata o erro deste modulo.
+    except httpx.RequestError as exc:
+        raise EvolutionIndisponivelError(f"{rota} inacessivel: {type(exc).__name__}") from exc
+
+
+def _booleano(dados: dict[str, Any], campo: str, rota: str) -> bool:
+    """Exige booleano de verdade, nao qualquer coisa que `bool()` aceite.
+
+    `bool("false")` e `True`: um provedor devolvendo a string "false" faria o
+    sistema reportar PAREADO quando ele disse o contrario. E campo ausente
+    viraria `False` silenciosamente, que e indistinguivel de "nao pareado" —
+    quando na verdade significa que a resposta mudou de forma.
+    """
+    valor = dados.get(campo)
+    if not isinstance(valor, bool):
+        raise EvolutionIndisponivelError(
+            f"{rota} devolveu {campo}={valor!r}, que nao e booleano: "
+            "a resposta do provedor mudou de forma"
+        )
+    return valor
+
+
+def _mensagem_do_provedor(resposta: httpx.Response) -> str:
+    """Extrai o texto de erro que o provedor mandou, sem deixar vazar HTML."""
+    try:
+        corpo = resposta.json()
+    except ValueError:
+        return ""
+    if not isinstance(corpo, dict):
+        return ""
+    for chave in ("error", "message"):
+        valor = corpo.get(chave)
+        if isinstance(valor, str) and valor:
+            return valor
+    return ""
+
+
 def _json(resposta: httpx.Response, rota: str) -> dict[str, Any]:
-    if resposta.status_code >= 400:
-        raise EvolutionIndisponivelError(f"{rota} respondeu {resposta.status_code}")
+    # 2xx exigido, e nao apenas "menor que 400": um 301 ou 307 de proxy nao e
+    # sucesso, e trata-lo como tal faria o sistema acreditar numa operacao que
+    # o provedor nunca executou. `httpx` nao segue redirect por padrao.
+    if not resposta.is_success:
+        detalhe = _mensagem_do_provedor(resposta)
+        sufixo = f": {detalhe}" if detalhe else ""
+        raise EvolutionIndisponivelError(f"{rota} respondeu {resposta.status_code}{sufixo}")
     try:
         corpo = resposta.json()
     except ValueError as exc:
@@ -106,12 +212,27 @@ class EvolutionTenantClient:
         próprio. Confundir isso é o que faz alguém procurar por um token que o
         servidor nunca vai gerar.
         """
-        escolhido = token or str(uuid.uuid4())
+        # `None` significa "gere um"; string vazia significa que o chamador
+        # errou. Usar `or` colapsaria os dois e criaria a instancia com um UUID
+        # que o chamador nao pediu nem conhece.
+        if token is None:
+            escolhido = str(uuid.uuid4())
+        else:
+            escolhido = token.strip()
+            if not escolhido:
+                raise ValueError("token de instancia vazio")
+        # Normalizar e obrigatorio, nao cosmetico: `EvolutionInstanciaClient` faz
+        # `.strip()` ao autenticar. Enviar " abc " na criacao faria o provedor
+        # guardar com espacos e toda requisicao seguinte usar "abc" — criacao
+        # bem-sucedida, e 401 em tudo depois, para sempre.
         dados = _json(
-            self._client.post(
+            _executar(
+                lambda: self._client.post(
+                    "/instance/create",
+                    headers={"apikey": self._api_key, "X-Tenant-ID": self._tenant_id},
+                    json={"name": nome, "token": escolhido},
+                ),
                 "/instance/create",
-                headers={"apikey": self._api_key, "X-Tenant-ID": self._tenant_id},
-                json={"name": nome, "token": escolhido},
             ),
             "/instance/create",
         )
@@ -156,10 +277,13 @@ class EvolutionInstanciaClient:
         apontar para o agente, que ainda não existe.
         """
         _json(
-            self._client.post(
+            _executar(
+                lambda: self._client.post(
+                    "/instance/connect",
+                    headers=self._headers,
+                    json={"webhookUrl": webhook_url, "subscribe": list(EVENTOS_ASSINADOS)},
+                ),
                 "/instance/connect",
-                headers=self._headers,
-                json={"webhookUrl": webhook_url, "subscribe": list(EVENTOS_ASSINADOS)},
             ),
             "/instance/connect",
         )
@@ -170,25 +294,51 @@ class EvolutionInstanciaClient:
         O campo é `Qrcode`, com Q maiúsculo. Não é detalhe estético: buscar
         `qrcode` devolve `None` e a tela mostraria um quadrado vazio.
         """
-        dados = _json(self._client.get("/instance/qr", headers=self._headers), "/instance/qr")
+        resposta = _executar(
+            lambda: self._client.get("/instance/qr", headers=self._headers), "/instance/qr"
+        )
+        if not resposta.is_success:
+            detalhe = _mensagem_do_provedor(resposta)
+            if "no qr code available" in detalhe.lower():
+                raise QrCodeAindaGerandoError(f"/instance/qr: {detalhe}")
+        dados = _json(resposta, "/instance/qr")
         imagem = dados.get("Qrcode")
-        if not isinstance(imagem, str) or "base64," not in imagem:
-            raise EvolutionIndisponivelError("/instance/qr nao devolveu imagem utilizavel")
+        # Prefixo completo, e nao so "base64,": o metodo promete um data URI PNG,
+        # e aceitar qualquer coisa que contenha "base64," entregaria a tela um QR
+        # que nao renderiza, em vez do erro nomeado do contrato.
+        if not isinstance(imagem, str) or not imagem.startswith(PREFIXO_QR):
+            raise EvolutionIndisponivelError(
+                f"/instance/qr nao devolveu data URI PNG (esperado prefixo {PREFIXO_QR!r})"
+            )
+        _exigir_png(imagem[len(PREFIXO_QR) :])
         return imagem
 
     def estado(self) -> EstadoInstancia:
         dados = _json(
-            self._client.get("/instance/status", headers=self._headers), "/instance/status"
+            _executar(
+                lambda: self._client.get("/instance/status", headers=self._headers),
+                "/instance/status",
+            ),
+            "/instance/status",
         )
         nome = dados.get("Name")
         return EstadoInstancia(
-            conectado=bool(dados.get("Connected")),
-            pareado=bool(dados.get("LoggedIn")),
+            conectado=_booleano(dados, "Connected", "/instance/status"),
+            pareado=_booleano(dados, "LoggedIn", "/instance/status"),
             nome_exibicao=nome if isinstance(nome, str) and nome else None,
         )
 
     def desconectar(self) -> None:
         """Desvincula o número. A instância permanece."""
-        resposta = self._client.delete("/instance/logout", headers=self._headers)
-        if resposta.status_code >= 400:
-            raise EvolutionIndisponivelError(f"/instance/logout respondeu {resposta.status_code}")
+        resposta = _executar(
+            lambda: self._client.delete("/instance/logout", headers=self._headers),
+            "/instance/logout",
+        )
+        # 2xx exigido: um redirect aceito como sucesso marcaria a conexao como
+        # desfeita enquanto a instancia continua pareada no provedor.
+        if not resposta.is_success:
+            detalhe = _mensagem_do_provedor(resposta)
+            sufixo = f": {detalhe}" if detalhe else ""
+            raise EvolutionIndisponivelError(
+                f"/instance/logout respondeu {resposta.status_code}{sufixo}"
+            )
