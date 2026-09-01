@@ -41,6 +41,20 @@ class EvolutionIndisponivelError(RuntimeError):
     """
 
 
+class QrCodeAindaGerandoError(EvolutionIndisponivelError):
+    """O QR ainda nao existe — estado NORMAL logo apos `/instance/connect`.
+
+    O contrato (Evento 4.2) descreve a corrida: o servidor responde "no QR code
+    available. Please wait a moment and try again", e o CRM deve aguardar 3s e
+    repetir, ate 5 vezes.
+
+    Escolhemos **sinalizar em vez de dormir**: a tela ja faz polling, e bloquear
+    o handler HTTP por ate 15 segundos trocaria uma espera visivel do usuario
+    por uma requisicao pendurada. Quem chama distingue "gerando" de "provedor
+    fora" — que era exatamente o que colapsar os dois impedia.
+    """
+
+
 @dataclass(frozen=True)
 class InstanciaCriada:
     instancia_id: str
@@ -102,9 +116,29 @@ def _booleano(dados: dict[str, Any], campo: str, rota: str) -> bool:
     return valor
 
 
+def _mensagem_do_provedor(resposta: httpx.Response) -> str:
+    """Extrai o texto de erro que o provedor mandou, sem deixar vazar HTML."""
+    try:
+        corpo = resposta.json()
+    except ValueError:
+        return ""
+    if not isinstance(corpo, dict):
+        return ""
+    for chave in ("error", "message"):
+        valor = corpo.get(chave)
+        if isinstance(valor, str) and valor:
+            return valor
+    return ""
+
+
 def _json(resposta: httpx.Response, rota: str) -> dict[str, Any]:
-    if resposta.status_code >= 400:
-        raise EvolutionIndisponivelError(f"{rota} respondeu {resposta.status_code}")
+    # 2xx exigido, e nao apenas "menor que 400": um 301 ou 307 de proxy nao e
+    # sucesso, e trata-lo como tal faria o sistema acreditar numa operacao que
+    # o provedor nunca executou. `httpx` nao segue redirect por padrao.
+    if not resposta.is_success:
+        detalhe = _mensagem_do_provedor(resposta)
+        sufixo = f": {detalhe}" if detalhe else ""
+        raise EvolutionIndisponivelError(f"{rota} respondeu {resposta.status_code}{sufixo}")
     try:
         corpo = resposta.json()
     except ValueError as exc:
@@ -209,12 +243,14 @@ class EvolutionInstanciaClient:
         O campo é `Qrcode`, com Q maiúsculo. Não é detalhe estético: buscar
         `qrcode` devolve `None` e a tela mostraria um quadrado vazio.
         """
-        dados = _json(
-            _executar(
-                lambda: self._client.get("/instance/qr", headers=self._headers), "/instance/qr"
-            ),
-            "/instance/qr",
+        resposta = _executar(
+            lambda: self._client.get("/instance/qr", headers=self._headers), "/instance/qr"
         )
+        if not resposta.is_success:
+            detalhe = _mensagem_do_provedor(resposta)
+            if "no qr code available" in detalhe.lower():
+                raise QrCodeAindaGerandoError(f"/instance/qr: {detalhe}")
+        dados = _json(resposta, "/instance/qr")
         imagem = dados.get("Qrcode")
         if not isinstance(imagem, str) or "base64," not in imagem:
             raise EvolutionIndisponivelError("/instance/qr nao devolveu imagem utilizavel")
@@ -241,5 +277,11 @@ class EvolutionInstanciaClient:
             lambda: self._client.delete("/instance/logout", headers=self._headers),
             "/instance/logout",
         )
-        if resposta.status_code >= 400:
-            raise EvolutionIndisponivelError(f"/instance/logout respondeu {resposta.status_code}")
+        # 2xx exigido: um redirect aceito como sucesso marcaria a conexao como
+        # desfeita enquanto a instancia continua pareada no provedor.
+        if not resposta.is_success:
+            detalhe = _mensagem_do_provedor(resposta)
+            sufixo = f": {detalhe}" if detalhe else ""
+            raise EvolutionIndisponivelError(
+                f"/instance/logout respondeu {resposta.status_code}{sufixo}"
+            )
