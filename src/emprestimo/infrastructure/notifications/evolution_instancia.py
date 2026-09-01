@@ -18,6 +18,7 @@ divergiam, vale a resposta.
 from __future__ import annotations
 
 import uuid
+from collections.abc import Callable
 from dataclasses import dataclass
 from typing import Any
 
@@ -69,6 +70,38 @@ def _base(host: str) -> str:
     return normalizado
 
 
+def _executar(chamada: Callable[[], httpx.Response], rota: str) -> httpx.Response:
+    """Traduz falha de transporte para o erro declarado deste modulo.
+
+    Sem isto, DNS quebrado, conexao recusada ou timeout escapam como excecao
+    `httpx` crua — e o chamador, que trata `EvolutionIndisponivelError`, nao a
+    veria. O adapter de envio ja fazia essa traducao; este cliente precisa fazer
+    igual, senao a mesma indisponibilidade se comporta de dois jeitos conforme a
+    rota.
+    """
+    try:
+        return chamada()
+    except (httpx.TimeoutException, httpx.TransportError) as exc:
+        raise EvolutionIndisponivelError(f"{rota} inacessivel: {type(exc).__name__}") from exc
+
+
+def _booleano(dados: dict[str, Any], campo: str, rota: str) -> bool:
+    """Exige booleano de verdade, nao qualquer coisa que `bool()` aceite.
+
+    `bool("false")` e `True`: um provedor devolvendo a string "false" faria o
+    sistema reportar PAREADO quando ele disse o contrario. E campo ausente
+    viraria `False` silenciosamente, que e indistinguivel de "nao pareado" —
+    quando na verdade significa que a resposta mudou de forma.
+    """
+    valor = dados.get(campo)
+    if not isinstance(valor, bool):
+        raise EvolutionIndisponivelError(
+            f"{rota} devolveu {campo}={valor!r}, que nao e booleano: "
+            "a resposta do provedor mudou de forma"
+        )
+    return valor
+
+
 def _json(resposta: httpx.Response, rota: str) -> dict[str, Any]:
     if resposta.status_code >= 400:
         raise EvolutionIndisponivelError(f"{rota} respondeu {resposta.status_code}")
@@ -108,10 +141,13 @@ class EvolutionTenantClient:
         """
         escolhido = token or str(uuid.uuid4())
         dados = _json(
-            self._client.post(
+            _executar(
+                lambda: self._client.post(
+                    "/instance/create",
+                    headers={"apikey": self._api_key, "X-Tenant-ID": self._tenant_id},
+                    json={"name": nome, "token": escolhido},
+                ),
                 "/instance/create",
-                headers={"apikey": self._api_key, "X-Tenant-ID": self._tenant_id},
-                json={"name": nome, "token": escolhido},
             ),
             "/instance/create",
         )
@@ -156,10 +192,13 @@ class EvolutionInstanciaClient:
         apontar para o agente, que ainda não existe.
         """
         _json(
-            self._client.post(
+            _executar(
+                lambda: self._client.post(
+                    "/instance/connect",
+                    headers=self._headers,
+                    json={"webhookUrl": webhook_url, "subscribe": list(EVENTOS_ASSINADOS)},
+                ),
                 "/instance/connect",
-                headers=self._headers,
-                json={"webhookUrl": webhook_url, "subscribe": list(EVENTOS_ASSINADOS)},
             ),
             "/instance/connect",
         )
@@ -170,7 +209,12 @@ class EvolutionInstanciaClient:
         O campo é `Qrcode`, com Q maiúsculo. Não é detalhe estético: buscar
         `qrcode` devolve `None` e a tela mostraria um quadrado vazio.
         """
-        dados = _json(self._client.get("/instance/qr", headers=self._headers), "/instance/qr")
+        dados = _json(
+            _executar(
+                lambda: self._client.get("/instance/qr", headers=self._headers), "/instance/qr"
+            ),
+            "/instance/qr",
+        )
         imagem = dados.get("Qrcode")
         if not isinstance(imagem, str) or "base64," not in imagem:
             raise EvolutionIndisponivelError("/instance/qr nao devolveu imagem utilizavel")
@@ -178,17 +222,24 @@ class EvolutionInstanciaClient:
 
     def estado(self) -> EstadoInstancia:
         dados = _json(
-            self._client.get("/instance/status", headers=self._headers), "/instance/status"
+            _executar(
+                lambda: self._client.get("/instance/status", headers=self._headers),
+                "/instance/status",
+            ),
+            "/instance/status",
         )
         nome = dados.get("Name")
         return EstadoInstancia(
-            conectado=bool(dados.get("Connected")),
-            pareado=bool(dados.get("LoggedIn")),
+            conectado=_booleano(dados, "Connected", "/instance/status"),
+            pareado=_booleano(dados, "LoggedIn", "/instance/status"),
             nome_exibicao=nome if isinstance(nome, str) and nome else None,
         )
 
     def desconectar(self) -> None:
         """Desvincula o número. A instância permanece."""
-        resposta = self._client.delete("/instance/logout", headers=self._headers)
+        resposta = _executar(
+            lambda: self._client.delete("/instance/logout", headers=self._headers),
+            "/instance/logout",
+        )
         if resposta.status_code >= 400:
             raise EvolutionIndisponivelError(f"/instance/logout respondeu {resposta.status_code}")

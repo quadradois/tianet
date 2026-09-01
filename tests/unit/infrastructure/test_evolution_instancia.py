@@ -209,3 +209,80 @@ class TestEvolutionInstanciaClient:
     def test_token_ausente_recusa_na_construcao(self) -> None:
         with pytest.raises(ValueError, match="token de instancia"):
             EvolutionInstanciaClient(host=HOST, instancia_token="   ")
+
+
+class TestFalhasDoProvedor:
+    """Achados do review do Codex em 2026-09-01 (IMP-366)."""
+
+    def _handler_que_explode(self, exc: Exception) -> Any:
+        def handler(_: httpx.Request) -> httpx.Response:
+            raise exc
+
+        return handler
+
+    @pytest.mark.parametrize(
+        "exc",
+        [
+            httpx.ConnectError("dns"),
+            httpx.ConnectTimeout("timeout"),
+            httpx.ReadTimeout("leitura"),
+        ],
+    )
+    def test_falha_de_transporte_vira_erro_declarado(self, exc: Exception) -> None:
+        """Sem isto, o chamador recebe excecao httpx crua.
+
+        Ele trata `EvolutionIndisponivelError`, entao a indisponibilidade
+        escaparia sem tratamento — e o adapter de envio, ao lado, ja traduzia.
+        """
+        cli = EvolutionInstanciaClient(
+            host=HOST, instancia_token=TOKEN, client=_cliente(self._handler_que_explode(exc))
+        )
+        with pytest.raises(EvolutionIndisponivelError, match="inacessivel"):
+            cli.estado()
+
+    def test_falha_de_transporte_no_logout_tambem_e_traduzida(self) -> None:
+        """`desconectar` nao passa por `_json` — precisa da traducao explicita."""
+        cli = EvolutionInstanciaClient(
+            host=HOST,
+            instancia_token=TOKEN,
+            client=_cliente(self._handler_que_explode(httpx.ConnectError("dns"))),
+        )
+        with pytest.raises(EvolutionIndisponivelError, match="inacessivel"):
+            cli.desconectar()
+
+    def test_falha_de_transporte_ao_criar_instancia(self) -> None:
+        cli = EvolutionTenantClient(
+            host=HOST,
+            tenant_id="tid",
+            api_key="k",
+            client=_cliente(self._handler_que_explode(httpx.ConnectError("dns"))),
+        )
+        with pytest.raises(EvolutionIndisponivelError, match="inacessivel"):
+            cli.criar_instancia("adm_tianet")
+
+    def test_logged_in_como_string_nao_vira_pareado(self) -> None:
+        """O achado mais grave: `bool("false")` e True.
+
+        Um provedor devolvendo a string "false" faria o sistema reportar
+        PAREADO quando ele disse o contrario — anunciar WhatsApp conectado sem
+        nenhum do outro lado.
+        """
+
+        def handler(_: httpx.Request) -> httpx.Response:
+            return httpx.Response(
+                200, json={"data": {"Connected": True, "LoggedIn": "false", "Name": ""}}
+            )
+
+        cli = EvolutionInstanciaClient(host=HOST, instancia_token=TOKEN, client=_cliente(handler))
+        with pytest.raises(EvolutionIndisponivelError, match="LoggedIn"):
+            cli.estado()
+
+    def test_campo_ausente_no_status_e_erro_e_nao_falso(self) -> None:
+        """Ausente nao e "nao pareado": e resposta que mudou de forma."""
+
+        def handler(_: httpx.Request) -> httpx.Response:
+            return httpx.Response(200, json={"data": {"Connected": True}})
+
+        cli = EvolutionInstanciaClient(host=HOST, instancia_token=TOKEN, client=_cliente(handler))
+        with pytest.raises(EvolutionIndisponivelError, match="LoggedIn"):
+            cli.estado()
