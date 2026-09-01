@@ -486,3 +486,18 @@ def test_png_truncado_e_recusado() -> None:
     cli = EvolutionInstanciaClient(host=HOST, instancia_token=TOKEN, client=_cliente(handler))
     with pytest.raises(EvolutionIndisponivelError, match="truncado"):
         cli.qrcode()
+
+
+def test_erro_de_decodificacao_tambem_vira_erro_declarado() -> None:
+    """`DecodingError` deriva de `RequestError`, nao de `TransportError`.
+
+    Um `Content-Encoding: gzip` com corpo truncado escaparia cru para o handler
+    HTTP, que so trata `EvolutionIndisponivelError`. Achado do sexto review.
+    """
+
+    def handler(_: httpx.Request) -> httpx.Response:
+        raise httpx.DecodingError("corpo gzip truncado")
+
+    cli = EvolutionInstanciaClient(host=HOST, instancia_token=TOKEN, client=_cliente(handler))
+    with pytest.raises(EvolutionIndisponivelError, match="inacessivel"):
+        cli.estado()
