@@ -30,8 +30,10 @@ PREFIXO_QR = "data:image/png;base64,"
 """Prefixo que o contrato promete no campo `Qrcode`."""
 
 ASSINATURA_PNG = bytes.fromhex("89504e470d0a1a0a")
-"""Bytes iniciais de todo PNG. Prefixo correto com conteudo invalido continua
-sendo uma imagem que nao renderiza."""
+FIM_PNG = bytes.fromhex("0000000049454e44ae426082")
+"""Assinatura inicial e chunk IEND final. Juntos, pegam conteudo que nao e
+PNG e payload truncado — os dois casos em que a tela receberia uma imagem que
+nao renderiza."""
 
 EVENTOS_ASSINADOS = ("MESSAGE", "CONNECTION", "QRCODE")
 """Únicos valores aceitos pelo `subscribe`.
@@ -108,6 +110,13 @@ def _exigir_png(base64_puro: str) -> None:
         raise EvolutionIndisponivelError("/instance/qr devolveu base64 invalido") from exc
     if not bruto.startswith(ASSINATURA_PNG):
         raise EvolutionIndisponivelError("/instance/qr devolveu conteudo que nao e PNG")
+    # O chunk IEND fecha todo PNG e e sempre estes doze bytes. Exigi-lo pega
+    # payload truncado — que a assinatura sozinha nao pega — sem parser de
+    # imagem nem dependencia nova. Validar a estrutura inteira de chunks seria
+    # desproporcional: um PNG corrompido aparece na hora como imagem quebrada,
+    # ao lado do botao de gerar outro, e nao corrompe estado nenhum.
+    if not bruto.endswith(FIM_PNG):
+        raise EvolutionIndisponivelError("/instance/qr devolveu PNG truncado")
 
 
 def _executar(chamada: Callable[[], httpx.Response], rota: str) -> httpx.Response:
