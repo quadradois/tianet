@@ -44,13 +44,32 @@ CONECTADA = {
     "message": "success",
 }
 
-QR = {"data": {"Qrcode": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUg==", "Code": "2@abc"}}
+QR = {"data": {"Code": "2@abc"}}  # `Qrcode` injetado em cada teste com PNG real
 
 # Estado logo apos criar: socket de pe, ninguem pareado.
 SO_CONECTADA = {"data": {"Connected": True, "LoggedIn": False, "Name": ""}, "message": "success"}
 
 # Estado depois do scan.
 PAREADA = {"data": {"Connected": True, "LoggedIn": True, "Name": "Barbosa"}, "message": "success"}
+
+
+def _png_minimo() -> str:
+    """Um PNG 1x1 real, montado com a stdlib.
+
+    A fixture anterior era assinatura + texto arbitrario — ou seja, o teste de
+    caminho feliz afirmava que um nao-PNG era aceito. Achado do quinto review.
+    """
+    import struct
+    import zlib
+
+    def chunk(tipo: bytes, dados: bytes) -> bytes:
+        corpo = tipo + dados
+        return struct.pack(">I", len(dados)) + corpo + struct.pack(">I", zlib.crc32(corpo))
+
+    ihdr = chunk(b"IHDR", struct.pack(">IIBBBBB", 1, 1, 8, 2, 0, 0, 0))
+    idat = chunk(b"IDAT", zlib.compress(bytes(4)))
+    iend = chunk(b"IEND", b"")
+    return base64.b64encode(bytes.fromhex("89504e470d0a1a0a") + ihdr + idat + iend).decode()
 
 
 def _cliente(handler: Any) -> httpx.Client:
@@ -162,7 +181,9 @@ class TestEvolutionInstanciaClient:
         """`Qrcode`, nao `qrcode`. Buscar minusculo devolveria quadrado vazio."""
 
         def handler(_: httpx.Request) -> httpx.Response:
-            return httpx.Response(200, json=QR)
+            return httpx.Response(
+                200, json={"data": {**QR["data"], "Qrcode": PREFIXO_QR + _png_minimo()}}
+            )
 
         assert self._cli(handler).qrcode().startswith("data:image/png;base64,")
 
@@ -444,8 +465,24 @@ class TestQuartaRodadaDeReview:
         """O caminho feliz continua passando — a validacao nao virou paranoia."""
 
         def handler(_: httpx.Request) -> httpx.Response:
-            return httpx.Response(
-                200, json={"data": {"Qrcode": PREFIXO_QR + "iVBORw0KGgpyZXN0bw=="}}
-            )
+            return httpx.Response(200, json={"data": {"Qrcode": PREFIXO_QR + _png_minimo()}})
 
         assert self._cli(handler).qrcode().startswith(PREFIXO_QR)
+
+
+def test_png_truncado_e_recusado() -> None:
+    """Assinatura correta nao basta: truncar apos o cabecalho passava antes.
+
+    Nao validamos a estrutura inteira de chunks — seria desproporcional para um
+    payload que apenas repassamos, e a falha aparece na hora como imagem
+    quebrada. Exigir o IEND final pega truncamento sem parser nem dependencia.
+    """
+    completo = base64.b64decode(_png_minimo())
+    truncado = base64.b64encode(completo[: len(completo) // 2]).decode()
+
+    def handler(_: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, json={"data": {"Qrcode": PREFIXO_QR + truncado}})
+
+    cli = EvolutionInstanciaClient(host=HOST, instancia_token=TOKEN, client=_cliente(handler))
+    with pytest.raises(EvolutionIndisponivelError, match="truncado"):
+        cli.qrcode()
