@@ -49,10 +49,15 @@ def test_imp_266_quality_migrations_gate_e_unico_head_alembic() -> None:
     assert "npm run quality:migrations" in workflow
     assert "DROP SCHEMA IF EXISTS public CASCADE" in validator
     assert "Refusing to run destructive migration validation" in validator
-    # IMP-350 alargou `audit_log.status`. Fixar o head aqui e deliberado: cada
-    # migration nova exige tocar este teste, o que impede migration entrando sem
-    # que alguem olhe o efeito no gate de qualidade.
-    assert script.get_current_head() == "f3a81c62d94e"
+    # Fixar o head aqui e deliberado: cada migration nova exige tocar este teste,
+    # o que impede migration entrando sem que alguem olhe o efeito no gate de
+    # qualidade.
+    #
+    # IMP-365 (PLAN-034) criou `conexao_whatsapp`. O que foi olhado antes de
+    # mover o head: a migration e aditiva, nao toca tabela existente, e o ciclo
+    # `upgrade head -> downgrade base -> upgrade head` roda inteiro — ela e
+    # reversivel de fato, nao no papel.
+    assert script.get_current_head() == "a7c3e5f19d82"
 
 
 def test_imp_267_health_correlation_e_erro_tecnico_sem_vazamento(

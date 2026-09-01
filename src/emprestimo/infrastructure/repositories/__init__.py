@@ -62,11 +62,13 @@ from emprestimo.domain.credit.ports import (
 from emprestimo.domain.credit.proposta_comercial import PropostaComercial
 from emprestimo.domain.credit.proposta_comercial_state import PropostaComercialState
 from emprestimo.domain.credit.simulacao_comercial import SimulacaoComercial
+from emprestimo.domain.platform.conexao_whatsapp import ConexaoWhatsApp
 from emprestimo.domain.platform.configuracao import Configuracao
 from emprestimo.domain.platform.credencial import Credencial
 from emprestimo.domain.platform.perfil import PerfilAcesso, PerfilState
 from emprestimo.domain.platform.permissao import Permissao, normalizar_codigo_permissao
 from emprestimo.domain.platform.ports import (
+    ConexaoWhatsAppRepository,
     ConfiguracaoRepository,
     CredencialRepository,
     PerfilAcessoRepository,
@@ -81,8 +83,10 @@ from emprestimo.domain.platform.ports import (
 from emprestimo.domain.platform.sessao import Sessao
 from emprestimo.domain.platform.tenant import Tenant, TenantState
 from emprestimo.domain.platform.usuario import Usuario, UsuarioState
+from emprestimo.infrastructure.cifra import CifraToken
 from emprestimo.infrastructure.db.orm import (
     CarteiraORM,
+    ConexaoWhatsAppORM,
     ConfiguracaoORM,
     ContatoORM,
     ContratoCreditoORM,
@@ -1510,4 +1514,64 @@ def _to_contato(row: ContatoORM) -> Contato:
         criado_em=row.criado_em,
         atualizado_em=row.atualizado_em,
         removido_em=row.removido_em,
+    )
+
+
+class SqlAlchemyConexaoWhatsAppRepository(ConexaoWhatsAppRepository):
+    """Implementacao SQLAlchemy do ConexaoWhatsAppRepository (IMP-365).
+
+    E o unico lugar do sistema que ve o token em texto claro, e por pouco tempo:
+    entra em `save`, sai em `find_token`, e no meio existe apenas cifrado.
+    """
+
+    def __init__(self, session: Session, cifra: CifraToken) -> None:
+        self._session = session
+        self._cifra = cifra
+
+    def save(self, conexao: ConexaoWhatsApp, *, token: str | None = None) -> None:
+        if token is None:
+            existente = self._session.get(ConexaoWhatsAppORM, conexao.id)
+            if existente is None:
+                raise ValueError(
+                    "token e obrigatorio ao gravar uma conexao nova: "
+                    "sem ele a conexao existiria sem poder enviar nada"
+                )
+            cifrado = existente.token_cifrado
+        else:
+            cifrado = self._cifra.cifrar(token)
+        self._session.merge(
+            ConexaoWhatsAppORM(
+                id=conexao.id,
+                tenant_id=conexao.tenant_id,
+                instancia_id=conexao.instancia_id,
+                instancia_nome=conexao.instancia_nome,
+                token_cifrado=cifrado,
+                numero_pareado=conexao.numero_pareado,
+                criado_em=conexao.criado_em,
+                atualizado_em=conexao.atualizado_em,
+            )
+        )
+
+    def find_by_tenant_id(self, tenant_id: uuid.UUID) -> ConexaoWhatsApp | None:
+        row = self._session.scalar(
+            select(ConexaoWhatsAppORM).where(ConexaoWhatsAppORM.tenant_id == tenant_id)
+        )
+        return _to_conexao_whatsapp(row) if row is not None else None
+
+    def find_token(self, tenant_id: uuid.UUID) -> str | None:
+        row = self._session.scalar(
+            select(ConexaoWhatsAppORM).where(ConexaoWhatsAppORM.tenant_id == tenant_id)
+        )
+        return None if row is None else self._cifra.decifrar(row.token_cifrado)
+
+
+def _to_conexao_whatsapp(row: ConexaoWhatsAppORM) -> ConexaoWhatsApp:
+    return ConexaoWhatsApp(
+        id=row.id,
+        tenant_id=row.tenant_id,
+        instancia_id=row.instancia_id,
+        instancia_nome=row.instancia_nome,
+        numero_pareado=row.numero_pareado,
+        criado_em=row.criado_em,
+        atualizado_em=row.atualizado_em,
     )

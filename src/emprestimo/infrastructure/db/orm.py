@@ -27,6 +27,7 @@ from sqlalchemy import (
     DateTime,
     ForeignKey,
     Integer,
+    LargeBinary,
     Numeric,
     String,
     Text,
@@ -1161,3 +1162,30 @@ class NotificacaoEvidenciaORM(Base):
     status: Mapped[str] = mapped_column(String(40), nullable=False)
     chave_idempotente: Mapped[str] = mapped_column(String(255), nullable=False)
     ocorrido_em: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+
+
+class ConexaoWhatsAppORM(Base):
+    """Tabela `conexao_whatsapp` — instancia do Credor no Evolution (PLAN-034).
+
+    `token_cifrado` e `LargeBinary`, nao `String`: cifra e binario, e guardar
+    binario como texto convida a corrupcao por encoding — que so apareceria no
+    dia em que o token nao abrisse mais.
+    """
+
+    __tablename__ = "conexao_whatsapp"
+    __table_args__ = (UniqueConstraint("tenant_id", name="uq_conexao_whatsapp_tenant"),)
+
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True)
+    tenant_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid, ForeignKey("tenant.id"), nullable=False, index=True
+    )
+    instancia_id: Mapped[str] = mapped_column(String(64), nullable=False)
+    instancia_nome: Mapped[str] = mapped_column(String(100), nullable=False)
+    token_cifrado: Mapped[bytes] = mapped_column(LargeBinary, nullable=False)
+    numero_pareado: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    criado_em: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+    atualizado_em: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
