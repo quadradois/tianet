@@ -130,7 +130,11 @@ def _executar(chamada: Callable[[], httpx.Response], rota: str) -> httpx.Respons
     """
     try:
         return chamada()
-    except (httpx.TimeoutException, httpx.TransportError) as exc:
+    # `RequestError` e a base de tudo que o httpx levanta do lado da requisicao:
+    # timeout, transporte E `DecodingError` — esta ultima nao deriva de
+    # `TransportError`, entao um `Content-Encoding: gzip` com corpo truncado
+    # escaparia crua para o handler HTTP, que so trata o erro deste modulo.
+    except httpx.RequestError as exc:
         raise EvolutionIndisponivelError(f"{rota} inacessivel: {type(exc).__name__}") from exc
 
 
