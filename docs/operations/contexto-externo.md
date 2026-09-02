@@ -265,14 +265,16 @@ migracao.
 > identificador do provedor** para consultar depois — entrega so se confirma por
 > `Receipt`, o que o adapter ja declarava em `consultar_status`.
 
-Nao ha ambiente de teste do Evolution. A validacao do caveat 4.1 do handoff sera
-feita **em producao, enviando para o numero do proprio fundador** — nenhum
-devedor real recebe mensagem durante a conferencia.
+Nao ha ambiente de teste do Evolution — a validacao acima foi feita em producao,
+para o numero do proprio fundador, sem que nenhum devedor real recebesse
+mensagem. Esse continua sendo o unico caminho para conferencias futuras.
 
-Um unico envio basta: o que se quer observar e o **formato da resposta**, para
-confirmar ou corrigir o criterio de aceite `data.Info.ID`. Enquanto isso nao for
-feito, envios bem-sucedidos podem estar sendo classificados como `DESCONHECIDO`
-— sem risco de duplicata para o devedor, com prejuizo de escrituracao.
+**O que ficou aberto.** A validacao respondeu o formato, nao a deduplicacao: nao
+se mediu se o provedor suprime uma segunda mensagem com o mesmo `id`. E o
+adapter classifica timeout como `FALHA_TEMPORARIA`, entao o Scheduler reenvia —
+se o Evolution tiver aceitado antes do timeout do cliente, o devedor recebe duas
+vezes. Medir isso, ou reclassificar o timeout, e decisao com troca: nao reenviar
+troca risco de duplicata por risco de aviso perdido.
 
 ---
 

@@ -89,7 +89,13 @@ O escopo do MVP deverá permanecer estável durante todo o ciclo de desenvolvime
 
 - Registro de contatos;
 - Histórico de comunicação;
-- Comunicação manual.
+- Comunicação manual;
+- **Envio por WhatsApp** via Evolution Go — canal validado contra o provedor real
+  em 2026-08-31 (IMP-352), com a conexão pela plataforma no
+  [PLAN-034](../implementation/plans/PLAN-034-conexao-do-whatsapp-na-plataforma.md);
+- **Copilot conversacional** — segundo operador da plataforma, em execução no
+  [PLAN-033](../implementation/plans/PLAN-033-copilot-tianet.md), operando em
+  BYOK contra API compatível com OpenAI (DR-005).
 
 ---
 
