@@ -398,7 +398,9 @@ Use `"PairSuccess"`, ou `LoggedIn` em `GET /instance/status`, para o estado oper
 
 ### 5.5 — Reconexão automática
 
-Continua válida a recomendação original: em desconexão, chamar `POST /instance/reconnect` (auth: instância) com backoff, e se continuar falhando, tratar como sessão expirada e reiniciar o fluxo de QR (Evento 4).
+Em desconexão **não solicitada**, chamar `POST /instance/reconnect` (auth: instância) com backoff, e se continuar falhando, tratar como sessão expirada e reiniciar o fluxo de QR (Evento 4).
+
+⚠️ A ressalva da §5.4 vale aqui também: se o `logout` foi pedido pelo operador, reconectar desfaz a ação dele. Verifique a intenção registrada antes de reconectar.
 
 ---
 
@@ -465,7 +467,8 @@ Para cada instância retornada:
 
   se operacional = false e status no CRM = 'conectado':
     → atualizar status para 'desconectado'
-    → tentar reconectar (POST /instance/reconnect)
+    → se a desconexao foi PEDIDA pelo operador (ver §5.4): parar aqui
+    → senao: tentar reconectar (POST /instance/reconnect)
     → se 3 falhas: notificar cliente via CRM
 ```
 

@@ -66,10 +66,13 @@ escopo, e o Evento 6 corresponde a inativacao de Tenant ja existente.
   `docs/whatsapp/CRM_EVOLUTION_CONTRACT.md`.
 
   O que a resposta real ensinou, e nao estava em lugar nenhum: **`data.Info.ID` e
-  eco** do `id` que enviamos, nao identificador gerado pelo servidor. Entao o
-  identificador serve de chave de idempotencia ponta a ponta, mas **nao existe id
-  do provedor para consultar depois** — entrega so se confirma por `Receipt`, que
-  e o que `consultar_status` ja declarava.
+  eco** do `id` que enviamos, nao identificador gerado pelo servidor.
+
+  Isso **correlaciona** requisicao e resposta, e nao mais que isso: nao foi
+  medido se o provedor suprime uma segunda mensagem com o mesmo `id`, entao um
+  retry apos timeout pode entregar duas vezes. E **nao existe id do provedor**
+  para consultar depois — entrega so se confirma por `Receipt`, que e o que
+  `consultar_status` ja declarava.
 
 Consequencias ja incorporadas ao desenho:
 
@@ -256,10 +259,11 @@ migracao.
 > secao 8.1 de `docs/whatsapp/CRM_EVOLUTION_CONTRACT.md`, que ate entao listava
 > a rota sem fixar seu formato.
 >
-> Consequencia registrada: como o identificador e nosso, ele serve de chave de
-> idempotencia ponta a ponta, mas **nao ha identificador do provedor para
-> consultar depois** — entrega so se confirma por `Receipt`. Isso ja era o que o
-> adapter declarava em `consultar_status`; agora esta verificado, nao suposto.
+> Consequencia registrada: como o identificador e nosso, ele **correlaciona**
+> requisicao e resposta. Nao foi medido se o provedor suprime uma segunda
+> mensagem com o mesmo `id`, entao correlacionar nao e deduplicar. E **nao ha
+> identificador do provedor** para consultar depois — entrega so se confirma por
+> `Receipt`, o que o adapter ja declarava em `consultar_status`.
 
 Nao ha ambiente de teste do Evolution. A validacao do caveat 4.1 do handoff sera
 feita **em producao, enviando para o numero do proprio fundador** — nenhum
