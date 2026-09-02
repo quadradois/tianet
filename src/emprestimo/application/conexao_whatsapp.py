@@ -274,14 +274,16 @@ class ConectarWhatsApp:
                 uow.conexao_whatsapp.save(conexao, token=token)
                 uow.commit()
             except Exception:
-                # A instancia existe la fora e o registro local nao vai existir:
-                # o rollback e real, e o unico momento em que este caso de uso
-                # pode dizer isso com honestidade.
+                # A instancia JA EXISTE no provedor, com um token que so esta
+                # requisicao viu, e o banco vai voltar atras. Chamar isso de
+                # `rollback_aplicado` afirmaria que nada sobrou — e sobrou uma
+                # instancia orfa. E divergencia, mesma classificacao do
+                # `desconectar`, e o `instancia_id` e o que permite acha-la.
                 self._auditoria.registrar(
                     ENTIDADE_AUDITORIA,
                     None,
-                    "conectar.rollback",
-                    "rollback_aplicado",
+                    "conectar.divergencia",
+                    "efeito_externo_sem_registro_local",
                     detalhes=_detalhes(autoria, instancia_id=instancia_id),
                 )
                 raise

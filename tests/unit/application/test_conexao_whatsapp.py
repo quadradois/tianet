@@ -357,6 +357,29 @@ def test_conectar_serializa_a_criacao_pelo_tenant() -> None:
     assert repo.bloqueios == [tenant_id]
 
 
+def test_conectar_com_falha_ao_gravar_registra_divergencia() -> None:
+    """Instancia criada no provedor e banco revertido nao e rollback.
+
+    O token so existiu nesta requisicao; a instancia fica orfa e inalcancavel.
+    A trilha precisa dizer isso, com o `instancia_id` que permite acha-la.
+    """
+
+    repo = _RepoFake()
+    provedor = _ProvedorFake()
+    uow, auditoria = _montar(repo, provedor)
+    uow.falhar_no_commit = True
+
+    with pytest.raises(RuntimeError):
+        ConectarWhatsApp(lambda: uow, provedor, auditoria).executar(uuid.uuid4(), "tianet")
+
+    assert provedor.criadas == ["tianet"]
+    acoes = [e[1] for e in auditoria.eventos]
+    assert acoes == ["conectar.inicio", "conectar.divergencia", "conectar.falha"]
+    divergencia = [e for e in auditoria.eventos if e[1] == "conectar.divergencia"][0]
+    assert divergencia[2] == "efeito_externo_sem_registro_local"
+    assert json.loads(divergencia[3] or "{}")["instancia_id"] == "instancia-nova"
+
+
 def test_conectar_cria_instancia_quando_nao_existe_e_guarda_o_token() -> None:
     repo = _RepoFake()
     provedor = _ProvedorFake()
