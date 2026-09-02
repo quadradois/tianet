@@ -277,12 +277,12 @@ decidida** na ADR-009: timeout ou reset *depois de transmitir bytes* e
 de que a requisicao nao foi aceita.
 
 Sao **tres pontos** no adapter, e os tres levam a mesma consequencia concreta:
-se o Evolution aceitou antes de o cliente desistir, o destinatario recebe a
-mensagem duas vezes. Hoje o adapter do WhatsApp esta ligado a **comprovante de
-pagamento** e **aviso de sobra** (`enviar_lembrete` usa o canal de e-mail), entao
-o que duplica sao esses dois — ambiguos sobre dinheiro, ainda que menos graves
-que cobranca. Quando o lembrete migrar para o WhatsApp, passa a duplicar
-cobranca.
+o Scheduler reenvia sem prova de que o primeiro envio nao foi aceito. Se o
+provedor nao deduplicar pelo `id` — nao medido —, o destinatario recebe duas
+vezes. Hoje o adapter do WhatsApp esta ligado ao **comprovante do lancamento** do
+emprestimo e ao **aviso de sobra de pagamento** (`enviar_lembrete` usa o canal de
+e-mail), entao sao esses dois — dois comprovantes do mesmo emprestimo sugerem
+dois emprestimos. Quando o lembrete migrar para o WhatsApp, alcanca cobranca.
 
 - **Resposta 5xx** (`whatsapp.py:87`) — a tabela da ADR nomeia `5xx` como o
   primeiro item de `resultado_desconhecido`; o adapter devolve

@@ -553,8 +553,9 @@ identificador gerado pelo servidor. Duas consequências para quem integra:
    exceção como temporária — nos três casos ele reenvia — o que
    **viola a ADR-009**, cuja tabela põe `5xx` e "timeout/reset após transmitir
    bytes" em `resultado_desconhecido`, que bloqueia retry. Se o Evolution
-   aceitou antes de o cliente desistir, o destinatário recebe duas vezes — hoje
-   **comprovante de pagamento e aviso de sobra**, que são os dois jobs ligados a
+   aceitou antes de o cliente desistir e o provedor não deduplicar pelo `id`, o
+   destinatário recebe duas vezes — hoje o **comprovante do lançamento** do
+   empréstimo e o **aviso de sobra de pagamento**, que são os dois jobs ligados a
    este adapter. Só `ConnectTimeout`, `ConnectError` e `PoolTimeout` são
    comprovadamente anteriores ao envio de bytes. Ver `contexto-externo.md` §6.2.
 3. **Não existe identificador do provedor** para consultar depois: entrega só se

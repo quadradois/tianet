@@ -24,8 +24,8 @@ gerou outras, e foram **nove rodadas de review** ate os achados virarem de
 precisao. **38 correcoes no total**, em onze arquivos.
 
 O resultado que mais importa nao foi contar inconsistencias — foi **descobrir
-defeitos de codigo** que ninguem tinha visto, e que podem mandar a mesma
-mensagem duas vezes ao destinatario.
+defeitos de codigo** que ninguem tinha visto, e que reenviam mensagem sem prova
+de que a primeira nao foi aceita.
 
 ---
 
@@ -37,7 +37,7 @@ As cinco de gravidade alta:
 |---|---|---|
 | `FOUNDATION-008` | "Multi-Tenant Nivel 1" como capacidade do MVP | Mesma decisao que a ADR-003 revogou, em outras palavras — e por isso o guardrail nao alcancou |
 | `FOUNDATION-008` | IA e integracoes de terceiros fora do MVP | Permitia rejeitar o PLAN-033 e o PLAN-034, ambos aprovados |
-| `ADR-009` | token "nunca em log ou banco" | A DR-006 decidiu o oposto e o IMP-365 ja implementou |
+| `ADR-009` | token "nunca em log ou banco" | A DR-006 reverteu **so a clausula de banco** — persistido, mas cifrado (IMP-365). **Log continua proibido, sem excecao** |
 | Contrato Evolution | tratar `Connected` como "conectado" | O defeito que o review pegou no codigo, vivo no documento que o originou |
 | `contexto-externo.md` | servidor nao provisionado | Mantinha o deploy bloqueado por insumo que ja existe |
 
@@ -63,15 +63,19 @@ reenviado:
 | `resultado_desconhecido` | **5xx**, 2xx malformado, **timeout/reset apos transmitir bytes** ou qualquer resposta sem prova de nao aceite | **bloquear retry** e conciliar |
 
 `EvolutionWhatsAppNotificationChannel` viola isso em **tres pontos**, e os tres
-levam ao mesmo lugar: **o destinatario recebe a mesma mensagem duas vezes**.
+levam ao mesmo lugar: **o Scheduler reenvia sem prova de que o primeiro envio nao
+foi aceito**. Se o provedor nao deduplicar pelo `id` — e isso **nao foi medido**
+—, o destinatario recebe a mesma mensagem duas vezes.
 
 **Que mensagem, exatamente.** O adapter do WhatsApp esta ligado a
-`enviar_comprovante` e `enviar_aviso_sobra` (`scheduler_worker.py:346-354`);
-`enviar_lembrete` usa o canal de e-mail. Entao o que duplica hoje e **comprovante
-de pagamento e aviso de sobra**, nao cobranca. Menos grave, e nao inocuo: dois
-comprovantes do mesmo pagamento, ou dois avisos de sobra, sao ambiguos sobre
-dinheiro para quem recebe. Quando o lembrete migrar para o WhatsApp, o mesmo
-defeito passa a duplicar cobranca.
+`enviar_comprovante_whatsapp` e `enviar_aviso_sobra`
+(`scheduler_worker.py:346-354`); `enviar_lembrete` usa o canal de e-mail. E o
+comprovante e o do **lancamento do emprestimo** — origem `comprovante_lancamento`,
+corpo encabecado "Comprovante do lancamento" (`comprovante.py:33-68`) —, nao de
+pagamento. Entao o que pode duplicar hoje e **o comprovante de contratacao e o
+aviso de sobra de pagamento**, nao cobranca. Menos grave, e nao inocuo: dois
+comprovantes do mesmo emprestimo sugerem dois emprestimos. Quando o lembrete
+migrar para o WhatsApp, o mesmo defeito passa a alcancar cobranca.
 
 **3.1 — Resposta 5xx** (`whatsapp.py:87`). A ADR nomeia `5xx` como o primeiro
 item de `resultado_desconhecido`; o adapter devolve `FALHA_TEMPORARIA` com
@@ -121,9 +125,10 @@ que a ADR permitiria reenviar. No 5xx e no transporte, o do WhatsApp diverge da
 ADR e do irmao ao mesmo tempo; no `DecodingError` os dois erram junto. Sao
 omissoes, nao desenho.
 
-Agrava: **nao foi medido** se o Evolution ou o WhatsApp suprimem uma segunda
-mensagem com o mesmo `id`. O eco do `id` correlaciona requisicao e resposta, mas
-correlacionar nao e deduplicar.
+O que separa "reenvio indevido" de "mensagem duplicada" e a deduplicacao pelo
+`id`, e ela **nao foi medida**: o eco do `id` correlaciona requisicao e resposta,
+mas correlacionar nao e deduplicar. Enquanto ninguem medir, a ADR manda assumir o
+pior — e por isso o defeito nao depende dessa medicao para ser corrigido.
 
 **Nao e decisao do fundador.** Eu cheguei a levar o item do timeout como
 "decisao com troca", e estava errado: a ADR decidiu em agosto. Sao defeitos de
@@ -145,7 +150,7 @@ Em resumo:
 | 4.5 | `CLAUDE.md` da raiz e gitignored; `frontend/CLAUDE.md` e versionado |
 | 4.6 | `DecodingError` nao tratado em `resend.py` (2x) e `whatsapp.py` — **nao e higiene**: no envio e o terceiro caminho de retry inseguro (§3.3); no `consultar_status` e erro nao tratado na conciliacao |
 | 4.7 | Suite Playwright deixa servidor orfao; a proxima falha **sem imprimir nada** |
-| 4.8 | **NOVO** — as tres violacoes da ADR-009 descritas na §3 (5xx, transporte indistinto e `DecodingError`), que hoje duplicam comprovante e aviso de sobra, e duplicariam cobranca quando o lembrete migrar para o WhatsApp |
+| 4.8 | **NOVO** — as tres violacoes da ADR-009 descritas na §3 (5xx, transporte indistinto e `DecodingError`): reenvio sem prova de nao aceite, hoje no comprovante de lancamento e no aviso de sobra, e na cobranca quando o lembrete migrar para o WhatsApp |
 | 4.9 | **NOVO** — o guardrail da ADR-003 casa por texto, nao por ideia. Pega a frase que o regex conhece; deixou passar "Multi-Tenant Nivel 1", que e a mesma decisao. Ha **quatro linhas** com essa forma em `ADR-001:25`, `AMP-001:141` e `PLAN-001:17,161` |
 
 ---
@@ -218,4 +223,4 @@ sobre CPFs historicos (§4.4) e o `CLAUDE.md` (§4.5).
 
 | Versao | Data | Descricao |
 |---|---|---|
-| 1.0.0 | 2026-09-02 | Auditoria de consistencia documental com 38 correcoes em onze arquivos; as tres violacoes da ADR-009 nos adapters de notificacao (5xx, transporte indistinto e `DecodingError` escapando para o retry do Scheduler), que hoje duplicam comprovante e aviso de sobra; dois caveats novos; e o que nove rodadas de review ensinaram sobre editar documentacao cruzada ponto a ponto. |
+| 1.0.0 | 2026-09-02 | Auditoria de consistencia documental com 38 correcoes em onze arquivos; as tres violacoes da ADR-009 nos adapters de notificacao (5xx, transporte indistinto e `DecodingError` escapando para o retry do Scheduler), que reenviam sem prova de nao aceite o comprovante de lancamento e o aviso de sobra; dois caveats novos; e o que nove rodadas de review ensinaram sobre editar documentacao cruzada ponto a ponto. |
