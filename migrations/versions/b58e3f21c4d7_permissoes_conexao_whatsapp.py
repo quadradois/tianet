@@ -32,11 +32,14 @@ branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 
 PERFIL_ADMIN = "administrador_plataforma"
-NOVAS = (
+NOVAS_DESTA_MIGRATION = (
     ("whatsapp.conexao.ler", "Consultar a conexao de WhatsApp"),
     ("whatsapp.conexao.gerir", "Conectar e desconectar o WhatsApp"),
-    ("usuario.criar", "Criar Usuarios do Tenant"),
 )
+# Reparo do IMP-355, que entrou no catalogo sem migration. Separada porque o
+# downgrade nao pode remove-la: ela pode preceder esta migration.
+REPARO_IMP_355 = (("usuario.criar", "Criar Usuarios do Tenant"),)
+NOVAS = NOVAS_DESTA_MIGRATION + REPARO_IMP_355
 
 
 def upgrade() -> None:
@@ -60,11 +63,19 @@ def upgrade() -> None:
 
 
 def downgrade() -> None:
-    # Aditivo puro: remover os vinculos e os codigos devolve o estado anterior.
-    # `usuario.criar` sai junto — antes desta migration ele nao existia no banco,
-    # ainda que existisse no catalogo em memoria.
+    """Remove SOMENTE as duas permissoes que esta migration introduziu.
+
+    `usuario.criar` fica. Ela pode ja existir de antes — um banco inicializado
+    pelo bootstrap depois do IMP-355 a tem —, e nesse caso o `ON CONFLICT` do
+    upgrade nao criou nada. Apaga-la aqui tiraria capacidade que nao veio daqui,
+    e um rollback quebraria `POST /iam/usuarios`.
+
+    O preco e um vinculo que pode sobrar em perfil que nao o tinha. Sobrar
+    permissao de um catalogo que ja a declara e menos grave que remover uma em
+    uso, e a versao anterior do codigo continua reconhecendo o codigo.
+    """
     bind = op.get_bind()
-    for codigo, _ in NOVAS:
+    for codigo, _ in NOVAS_DESTA_MIGRATION:
         bind.execute(
             sa.text("DELETE FROM perfil_permissao WHERE permissao_codigo = :codigo"),
             {"codigo": codigo},

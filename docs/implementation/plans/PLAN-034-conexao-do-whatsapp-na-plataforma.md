@@ -2,7 +2,7 @@
 
 **ID:** PLAN-034
 
-**Versão:** 1.0.0
+**Versão:** 1.1.0
 
 **Status:** Aprovado
 
@@ -66,6 +66,28 @@ fronteiras se um dia houver.
 O QR **não é persistido**. Ele vive segundos, é buscado no Evolution a cada
 consulta enquanto o pareamento estiver pendente, e some quando `LoggedIn` vira
 verdadeiro.
+
+### 3.1 — `ConectarWhatsApp` não registra `Idempotency-Key` (decidido no IMP-367)
+
+A regra do repositório é `Idempotency-Key` obrigatória em toda escrita, e aqui
+ela **não se aplica**, por dois motivos que valem registrar antes que a pergunta
+volte:
+
+- **o replay devolveria um QR morto.** O contrato da idempotência é "a mesma
+  chave devolve o mesmo resultado". O resultado desta operação é um QR que
+  expira em ~20 segundos e que o provedor rotaciona sozinho — devolver o da
+  primeira chamada seria devolver algo que já não pareia nada;
+- **o que precisa ser idempotente já é.** O efeito externo a proteger é o
+  **nascimento da instância**, e ele está serializado por advisory lock no
+  Tenant mais `UNIQUE (tenant_id)`: repetir a chamada reaproveita a instância e
+  busca um QR novo, que é exatamente o comportamento desejado.
+
+O que a chave ainda daria é detecção de payload divergente — mesma chave com
+`instancia_nome` diferente. **Fica para o IMP-368**, junto com o contrato HTTP,
+porque é lá que se decide se o `POST` a exige no header.
+
+Três rodadas de review adversarial cobraram a chave; a decisão está aqui para
+que a quarta encontre a resposta em vez da pergunta.
 
 ---
 
@@ -222,4 +244,5 @@ lugar que não seja o campo cifrado — resposta de API, log ou trilha.
 
 | Versão | Data | Descrição |
 |---|---|---|
+| 1.1.0 | 2026-09-02 | §3.1: `ConectarWhatsApp` nao registra `Idempotency-Key`, e o motivo fica escrito — o replay devolveria um QR ja expirado, e o nascimento da instancia, que e o efeito externo a proteger, ja e idempotente por advisory lock mais `UNIQUE (tenant_id)`. A deteccao de payload divergente fica para o IMP-368, com o contrato HTTP. |
 | 1.0.0 | 2026-08-31 | Materializa a DR-006: três operações sobre `/platform/whatsapp/conexao`, token cifrado com `cryptography`, cliente de gestão separado do adapter de envio, e o fluxo do Evolution documentado a partir do que foi verificado contra o servidor real. |

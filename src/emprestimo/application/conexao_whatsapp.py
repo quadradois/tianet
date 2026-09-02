@@ -280,6 +280,16 @@ class ConectarWhatsApp:
                 # QR, e a trilha é append-only (IMP-361).
                 detalhes=_detalhes(autoria, erro_tipo=type(exc).__name__),
             )
+            # Evento próprio, como manda a ADR-002: a falha diz que deu errado,
+            # o rollback diz que nada ficou meio gravado. Quem lê a trilha
+            # precisa dos dois para saber se sobrou estado.
+            self._auditoria.registrar(
+                ENTIDADE_AUDITORIA,
+                None,
+                "conectar.rollback",
+                "rollback_aplicado",
+                detalhes=_detalhes(autoria),
+            )
             raise
 
         self._auditoria.registrar(
@@ -341,6 +351,13 @@ class DesconectarWhatsApp:
                 "desconectar.falha",
                 "falhou",
                 detalhes=_detalhes(autoria, erro_tipo=type(exc).__name__),
+            )
+            self._auditoria.registrar(
+                ENTIDADE_AUDITORIA,
+                None,
+                "desconectar.rollback",
+                "rollback_aplicado",
+                detalhes=_detalhes(autoria),
             )
             raise
 

@@ -376,6 +376,11 @@ def test_conectar_falha_registra_so_o_tipo_do_erro() -> None:
     with pytest.raises(RuntimeError):
         ConectarWhatsApp(lambda: uow, provedor, auditoria).executar(uuid.uuid4(), "tianet")
 
+    assert [e[1] for e in auditoria.eventos] == [
+        "conectar.inicio",
+        "conectar.falha",
+        "conectar.rollback",
+    ]
     falha = [e for e in auditoria.eventos if e[1] == "conectar.falha"]
     assert len(falha) == 1
     detalhes = json.loads(falha[0][3] or "{}")
@@ -455,4 +460,10 @@ def test_desconectar_sem_conexao_e_erro_nomeado() -> None:
         DesconectarWhatsApp(lambda: uow, provedor, auditoria).executar(uuid.uuid4())
 
     assert provedor.desconectadas == []
-    assert [e[1] for e in auditoria.eventos] == ["desconectar.inicio", "desconectar.falha"]
+    # ADR-002: falha diz que deu errado, rollback diz que nada ficou meio
+    # gravado. Quem le a trilha precisa dos dois para saber se sobrou estado.
+    assert [e[1] for e in auditoria.eventos] == [
+        "desconectar.inicio",
+        "desconectar.falha",
+        "desconectar.rollback",
+    ]
