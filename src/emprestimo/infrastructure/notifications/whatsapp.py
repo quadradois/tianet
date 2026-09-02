@@ -50,10 +50,18 @@ class EvolutionWhatsAppNotificationChannel(NotificationChannel):
                     "id": chave_idempotente,
                 },
             )
-        except (httpx.TimeoutException, httpx.TransportError):
+        except (httpx.ConnectTimeout, httpx.ConnectError, httpx.PoolTimeout):
+            # ADR-009: so reenvia com prova de que a requisicao nao chegou a rede.
             return ResultadoEnvio(
                 ResultadoCanal.FALHA_TEMPORARIA,
                 codigo="transport_temporary",
+            )
+        except httpx.RequestError:
+            # Qualquer outra falha — inclusive DecodingError, que nao e
+            # TransportError — nao prova nao aceite: na duvida, desconhecido.
+            return ResultadoEnvio(
+                ResultadoCanal.DESCONHECIDO,
+                codigo="transport_unknown",
             )
         return _classificar_resposta(response, chave_idempotente)
 
@@ -87,7 +95,7 @@ def _classificar_resposta(response: httpx.Response, chave_idempotente: str) -> R
     if response.status_code == 429:
         return ResultadoEnvio(ResultadoCanal.FALHA_TEMPORARIA, codigo="rate_limited")
     if response.status_code >= 500:
-        return ResultadoEnvio(ResultadoCanal.FALHA_TEMPORARIA, codigo="provider_5xx")
+        return ResultadoEnvio(ResultadoCanal.DESCONHECIDO, codigo="provider_5xx")
     if 400 <= response.status_code < 500:
         return ResultadoEnvio(ResultadoCanal.FALHA_PERMANENTE, codigo="provider_4xx")
     return ResultadoEnvio(ResultadoCanal.DESCONHECIDO, codigo="provider_unexpected_status")

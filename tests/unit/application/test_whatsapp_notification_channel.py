@@ -75,8 +75,28 @@ def test_whatsapp_erros_de_auth_e_payload_sao_permanentes(
     assert resultado.codigo == codigo
 
 
-@pytest.mark.parametrize(("status", "codigo"), [(429, "rate_limited"), (500, "provider_5xx")])
-def test_whatsapp_erros_transitorios_permitem_retry(status: int, codigo: str) -> None:
+def test_whatsapp_429_permite_retry() -> None:
+    """429 e o unico status que a ADR-009 declara temporario."""
+
+    channel = _canal(
+        httpx.MockTransport(lambda request: httpx.Response(429, json={}, request=request))
+    )
+
+    resultado = channel.enviar(
+        destinatario="5511999999999",
+        assunto="Assunto",
+        corpo="Corpo",
+        chave_idempotente="notification/key-3",
+    )
+
+    assert resultado.resultado is ResultadoCanal.FALHA_TEMPORARIA
+    assert resultado.codigo == "rate_limited"
+
+
+@pytest.mark.parametrize("status", [500, 502, 503, 504])
+def test_whatsapp_5xx_bloqueia_retry(status: int) -> None:
+    """Nenhum 5xx prova recusa: a ADR-009 manda conciliar, nao reenviar."""
+
     channel = _canal(
         httpx.MockTransport(lambda request: httpx.Response(status, json={}, request=request))
     )
@@ -88,15 +108,25 @@ def test_whatsapp_erros_transitorios_permitem_retry(status: int, codigo: str) ->
         chave_idempotente="notification/key-3",
     )
 
-    assert resultado.resultado is ResultadoCanal.FALHA_TEMPORARIA
-    assert resultado.codigo == codigo
+    assert resultado.resultado is ResultadoCanal.DESCONHECIDO
+    assert resultado.codigo == "provider_5xx"
 
 
-def test_whatsapp_timeout_e_falha_temporaria() -> None:
-    def timeout(_: httpx.Request) -> httpx.Response:
-        raise httpx.ReadTimeout("timeout")
+@pytest.mark.parametrize(
+    "erro",
+    [
+        httpx.ConnectTimeout("sem conexao"),
+        httpx.ConnectError("recusada"),
+        httpx.PoolTimeout("pool cheio"),
+    ],
+)
+def test_whatsapp_falha_antes_da_rede_permite_retry(erro: Exception) -> None:
+    """A requisicao nao chegou a existir na rede — nao ha efeito a duplicar."""
 
-    channel = _canal(httpx.MockTransport(timeout))
+    def falhar(_: httpx.Request) -> httpx.Response:
+        raise erro
+
+    channel = _canal(httpx.MockTransport(falhar))
 
     resultado = channel.enviar(
         destinatario="5511999999999",
@@ -107,6 +137,41 @@ def test_whatsapp_timeout_e_falha_temporaria() -> None:
 
     assert resultado.resultado is ResultadoCanal.FALHA_TEMPORARIA
     assert resultado.codigo == "transport_temporary"
+
+
+@pytest.mark.parametrize(
+    "erro",
+    [
+        httpx.ReadTimeout("timeout"),
+        httpx.WriteTimeout("timeout"),
+        httpx.ReadError("reset"),
+        httpx.WriteError("reset"),
+        httpx.CloseError("close"),
+        httpx.RemoteProtocolError("protocolo"),
+        httpx.DecodingError("encoding invalido"),
+    ],
+)
+def test_whatsapp_falha_sem_prova_bloqueia_retry(erro: Exception) -> None:
+    """Sem prova de nao aceite, reenviar pode entregar a mensagem duas vezes.
+
+    Cobre tambem `DecodingError`, que nao e `TransportError` e antes escapava do
+    adapter — o `SchedulerWorker` converte qualquer excecao em falha temporaria.
+    """
+
+    def falhar(_: httpx.Request) -> httpx.Response:
+        raise erro
+
+    channel = _canal(httpx.MockTransport(falhar))
+
+    resultado = channel.enviar(
+        destinatario="5511999999999",
+        assunto="Assunto",
+        corpo="Corpo",
+        chave_idempotente="notification/key-4",
+    )
+
+    assert resultado.resultado is ResultadoCanal.DESCONHECIDO
+    assert resultado.codigo == "transport_unknown"
 
 
 @pytest.mark.parametrize(
