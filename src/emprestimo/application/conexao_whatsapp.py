@@ -438,6 +438,10 @@ class DesconectarWhatsApp:
         desconectado_no_provedor: str | None = None
         try:
             with self._uow_factory() as uow:
+                # Mesmo lock dos outros dois: sem ele, um polling em voo pode
+                # gravar "pareada" depois de o logout ter acontecido — e a
+                # trilha ficaria com um pareamento posterior a desconexao.
+                uow.conexao_whatsapp.bloquear_tenant(tenant_id)
                 conexao = uow.conexao_whatsapp.find_by_tenant_id(tenant_id)
                 token = uow.conexao_whatsapp.find_token(tenant_id)
                 if conexao is None or token is None:

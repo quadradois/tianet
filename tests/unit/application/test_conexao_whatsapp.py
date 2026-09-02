@@ -672,6 +672,8 @@ def test_desconectar_mantem_a_instancia_e_so_desvincula_a_conta() -> None:
     assert estado.pareada is False
     assert estado.nome_exibicao is None
     assert provedor.desconectadas == ["token-1"]
+    # As tres operacoes compartilham a mesma serializacao por Tenant.
+    assert repo.ordem[0] == "bloquear"
     assert repo.conexao is not None
     assert repo.conexao.instancia_id == conexao.instancia_id
     assert repo.token == "token-1", "o token nao pode ser apagado no logout"
