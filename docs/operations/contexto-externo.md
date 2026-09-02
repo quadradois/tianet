@@ -1,6 +1,6 @@
 # Contexto Externo
 
-**Versao:** 1.4.0
+**Versao:** 1.5.0
 
 **Status:** Vivo — mantido manualmente
 
@@ -313,6 +313,14 @@ estourar na primeira escrita, sem nenhum byte na rede. O criterio da ADR e a
 **todo o resto**, `5xx` incluido, e desconhecido — inclusive uma excecao nova da
 biblioteca, que assim cai no lado seguro sozinha.
 
+**O telefone da conta pareada existe, e vem por `/instance/info/:id`.** Ate
+2026-09-02 o codigo supunha que `/instance/status` era a unica fonte de estado —
+e ele traz `Name`, que e o push name, nao o numero. O fundador apontou que o CRM
+exibe o numero conectado; a leitura ao vivo confirmou o campo `jid`
+(`556299999999:74@s.whatsapp.net`) na rota autenticada por **Tenant**. Detalhes e
+armadilhas no contrato §4.4 — em especial que `@lid` tambem e so digitos e nao e
+telefone.
+
 **Estado atual: corrigido.** O adapter do WhatsApp aplica essa allowlist, seu
 `5xx` virou `DESCONHECIDO`, e nos **dois** adapters o `except` passou a capturar
 `RequestError`, que engloba `DecodingError`. O do Resend continua mais restrito
@@ -335,6 +343,7 @@ Corrigir isso e item de codigo, nao de documentacao.
 
 | Versao | Data | Descricao |
 |---|---|---|
+| 1.5.0 | 2026-09-02 | O telefone da conta pareada e obtivel: `jid` em `/instance/info/:id`, autenticado por Tenant — nao por instancia, que e o motivo de ele parecer inexistente. Verificado ao vivo. |
 | 1.4.0 | 2026-09-02 | Os tres defeitos da §6.2 foram corrigidos no mesmo dia em que acabaram de ser descritos: os adapters aplicam a allowlist, o `5xx` do WhatsApp virou desconhecido e o `except` passou a capturar `RequestError`, que engloba `DecodingError`. O que continua aberto e a premissa — ninguem mediu se o Evolution deduplica pelo `id`, e por isso cada resultado desconhecido vira conciliacao humana. |
 | 1.3.1 | 2026-09-02 | A §6.2 registrava so um terco do problema. Alem do timeout indistinto: **resposta 5xx** vira `FALHA_TEMPORARIA` e a tabela da ADR-009 poe `5xx` em `resultado_desconhecido`; e **`DecodingError` escapa** do `except` (e `RequestError`, nao `TransportError`) direto para o retry do Scheduler. Sao tres pontos, nao um. E a receita mudou de forma: em vez de enumerar excecoes "de depois do envio" — enumeracao que faltou uma em cada tentativa —, a regra vira allowlist. So `ConnectTimeout`, `ConnectError` e `PoolTimeout` provam que a requisicao nao chegou a existir na rede; todo o resto e desconhecido por omissao, `5xx` incluido. "Depois de transmitir bytes" nao e verificavel a partir da excecao. Registrado tambem o que de fato pode duplicar hoje: comprovante do lancamento e aviso de sobra, nao cobranca — o lembrete usa o canal de e-mail. |
 | 1.3.0 | 2026-08-27 | Reconciliacoes do PLAN-033/IMP-358: conversas do agente saem de `RegistroComunicacao` (devedor_id obrigatorio impede) e ganham modelo proprio; contextos Operadora/Pre-cadastro e o limite da allowlist registrados na §2.2. |

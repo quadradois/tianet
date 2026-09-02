@@ -483,7 +483,7 @@ Para cada instância retornada:
 | Deletar cliente | DELETE | `/tenant/delete/:tenantId` | Global |
 | Criar instância (ADM ou corretor) | POST | `/instance/create` | Tenant |
 | Listar instâncias do cliente | GET | `/instance/all` | Tenant |
-| Info de uma instância | GET | `/instance/info/:instanceId` | Tenant |
+| Info de uma instância (traz o `jid`, §4.4) | GET | `/instance/info/:instanceId` | Tenant |
 | Deletar instância | DELETE | `/instance/delete/:instanceId` | Tenant |
 | Conectar / definir webhook | POST | `/instance/connect` | Instância |
 | Obter QR code | GET | `/instance/qr` | Instância |
@@ -567,6 +567,39 @@ identificador gerado pelo servidor. Duas consequências para quem integra:
    `contexto-externo.md` §6.2.
 3. **Não existe identificador do provedor** para consultar depois: entrega só se
    confirma pelo webhook de `Receipt` (§5).
+
+### 4.4 — O telefone da conta pareada mora em `/instance/info/:id`
+
+Verificado ao vivo em **2026-09-02**, contra o servidor real.
+
+`GET /instance/status` (auth: **instância**) traz `Connected`, `LoggedIn` e
+`Name` — e `Name` é o **push name** (`"Barbosa"`), não o telefone. Isso levou a
+uma implementação a exibir um nome onde prometia um número.
+
+O telefone existe, e está atrás da **outra autenticação**:
+
+```http
+GET {EVOLUTION_HOST}/instance/info/{instanceId}
+apikey: {evolution_api_key}
+X-Tenant-ID: {evolution_tenant_id}
+```
+
+**Response** (campos relevantes; `/instance/all` devolve os mesmos por
+instância):
+
+```json
+{ "data": { "id": "...", "name": "...", "connected": true,
+            "jid": "556299999999:74@s.whatsapp.net" } }
+```
+
+- **`jid`** é `{numero}:{dispositivo}@s.whatsapp.net`. O sufixo `:74` é o
+  dispositivo e **não faz parte do telefone** — vale aqui a mesma regra da §5.3;
+- **`@lid` não é telefone**, e é só dígitos. Testar "parece número" devolveria o
+  identificador oculto como se fosse um; compare o domínio, sempre;
+- instância criada e ainda não pareada vem com `jid` **vazio** — ausência
+  esperada, não erro;
+- `LoggedIn` de `/instance/status` continua sendo a verdade do pareamento. O
+  `jid` responde "qual número", não "está pareado".
 
 O `Sender` traz o sufixo de dispositivo (`:74`), o `Chat` não. Compare sempre
 pelo número, não pela string inteira.

@@ -33,6 +33,8 @@ from emprestimo.domain.platform.ports import QrCodeIndisponivelError
 
 QRCODE = "data:image/png;base64,iVBORw0KGgo="
 NOME = "Barbosa"
+NUMERO = "556299999999"
+"""Extraido do `jid` de `/instance/info/:id`, verificado ao vivo em 2026-09-02."""
 """`Name` do provedor e o push name da conta, nao o telefone (resposta real de 2026-08-31)."""
 
 
@@ -47,12 +49,13 @@ class _ProvedorFake:
         falhar_em_desconectar: Exception | None = None,
     ) -> None:
         self._estado = estado or EstadoPareamento(
-            conectado=False, pareado=False, nome_exibicao=None
+            conectado=False, pareado=False, nome_exibicao=None, numero=None
         )
         self._falhar_em_qrcode = falhar_em_qrcode
         self._falhar_em_desconectar = falhar_em_desconectar
         self.criadas: list[str] = []
         self.qrcodes_pedidos = 0
+        self.estados_pedidos: list[str] = []
         self.conectadas: list[str] = []
         self.desconectadas: list[str] = []
 
@@ -69,7 +72,8 @@ class _ProvedorFake:
             raise self._falhar_em_qrcode
         return QRCODE
 
-    def estado(self, token: str) -> EstadoPareamento:
+    def estado(self, token: str, instancia_id: str) -> EstadoPareamento:
+        self.estados_pedidos.append(instancia_id)
         return self._estado
 
     def desconectar(self, token: str) -> None:
@@ -187,7 +191,9 @@ def test_consulta_connected_sem_loggedin_nao_conta_como_pareada() -> None:
     """
 
     repo = _RepoFake(_conexao(), token="token-1")
-    provedor = _ProvedorFake(EstadoPareamento(conectado=True, pareado=False, nome_exibicao=None))
+    provedor = _ProvedorFake(
+        EstadoPareamento(conectado=True, pareado=False, nome_exibicao=None, numero=None)
+    )
     uow, _ = _montar(repo, provedor)
 
     estado = ConsultarConexaoWhatsApp(lambda: uow, provedor).executar(uuid.uuid4())
@@ -199,21 +205,27 @@ def test_consulta_connected_sem_loggedin_nao_conta_como_pareada() -> None:
 
 def test_consulta_pareada_traz_a_identificacao_do_provedor() -> None:
     repo = _RepoFake(_conexao(), token="token-1")
-    provedor = _ProvedorFake(EstadoPareamento(conectado=True, pareado=True, nome_exibicao=NOME))
+    provedor = _ProvedorFake(
+        EstadoPareamento(conectado=True, pareado=True, nome_exibicao=NOME, numero=NUMERO)
+    )
     uow, _ = _montar(repo, provedor)
 
     estado = ConsultarConexaoWhatsApp(lambda: uow, provedor).executar(uuid.uuid4())
 
     assert estado.pareada is True
+    # Duas coisas diferentes, e a tela mostra as duas.
+    assert estado.numero == NUMERO
     assert estado.nome_exibicao == NOME
-    assert repo.conexao is not None and repo.conexao.numero_pareado == NOME
+    assert repo.conexao is not None and repo.conexao.numero_pareado == NUMERO
 
 
 def test_consulta_desfaz_pareamento_quando_provedor_reporta_logout() -> None:
     """O logout pode acontecer no celular, sem passar por nos."""
 
-    repo = _RepoFake(_conexao(NOME), token="token-1")
-    provedor = _ProvedorFake(EstadoPareamento(conectado=False, pareado=False, nome_exibicao=None))
+    repo = _RepoFake(_conexao(NUMERO), token="token-1")
+    provedor = _ProvedorFake(
+        EstadoPareamento(conectado=False, pareado=False, nome_exibicao=None, numero=None)
+    )
     uow, _ = _montar(repo, provedor)
 
     estado = ConsultarConexaoWhatsApp(lambda: uow, provedor).executar(uuid.uuid4())
@@ -222,16 +234,21 @@ def test_consulta_desfaz_pareamento_quando_provedor_reporta_logout() -> None:
     assert repo.conexao is not None and repo.conexao.numero_pareado is None
 
 
-def test_consulta_pareada_sem_identificacao_preserva_o_que_ja_se_sabia() -> None:
-    """Resposta incompleta nao vale apagar informacao boa."""
+def test_consulta_pareada_sem_numero_preserva_o_que_ja_se_sabia() -> None:
+    """Acontece em conta com privacidade total: `@lid`, sem telefone nenhum.
 
-    repo = _RepoFake(_conexao(NOME), token="token-1")
-    provedor = _ProvedorFake(EstadoPareamento(conectado=True, pareado=True, nome_exibicao=None))
+    Resposta incompleta nao vale apagar informacao boa.
+    """
+
+    repo = _RepoFake(_conexao(NUMERO), token="token-1")
+    provedor = _ProvedorFake(
+        EstadoPareamento(conectado=True, pareado=True, nome_exibicao=None, numero=None)
+    )
     uow, _ = _montar(repo, provedor)
 
     estado = ConsultarConexaoWhatsApp(lambda: uow, provedor).executar(uuid.uuid4())
 
-    assert estado.nome_exibicao == NOME
+    assert estado.numero == NUMERO
     assert repo.gravacoes == []
 
 
@@ -254,7 +271,9 @@ def test_consulta_pendente_traz_o_qr_de_agora() -> None:
     """
 
     repo = _RepoFake(_conexao(), token="token-1")
-    provedor = _ProvedorFake(EstadoPareamento(conectado=True, pareado=False, nome_exibicao=None))
+    provedor = _ProvedorFake(
+        EstadoPareamento(conectado=True, pareado=False, nome_exibicao=None, numero=None)
+    )
     uow, _ = _montar(repo, provedor)
 
     estado = ConsultarConexaoWhatsApp(lambda: uow, provedor).executar(uuid.uuid4())
@@ -266,8 +285,10 @@ def test_consulta_pendente_traz_o_qr_de_agora() -> None:
 def test_consulta_pareada_nao_pede_qr() -> None:
     """Ja pareado nao tem o que escanear, e pedir gastaria chamada a toa."""
 
-    repo = _RepoFake(_conexao(NOME), token="token-1")
-    provedor = _ProvedorFake(EstadoPareamento(conectado=True, pareado=True, nome_exibicao=NOME))
+    repo = _RepoFake(_conexao(NUMERO), token="token-1")
+    provedor = _ProvedorFake(
+        EstadoPareamento(conectado=True, pareado=True, nome_exibicao=NOME, numero=NUMERO)
+    )
     uow, _ = _montar(repo, provedor)
 
     estado = ConsultarConexaoWhatsApp(lambda: uow, provedor).executar(uuid.uuid4())
@@ -281,7 +302,7 @@ def test_consulta_com_qr_ainda_gerando_devolve_none_em_vez_de_falhar() -> None:
 
     repo = _RepoFake(_conexao(), token="token-1")
     provedor = _ProvedorFake(
-        EstadoPareamento(conectado=True, pareado=False, nome_exibicao=None),
+        EstadoPareamento(conectado=True, pareado=False, nome_exibicao=None, numero=None),
         falhar_em_qrcode=QrCodeIndisponivelError("no QR code available"),
     )
     uow, _ = _montar(repo, provedor)
@@ -462,7 +483,7 @@ def test_qr_indisponivel_nao_apaga_a_instancia_ja_criada() -> None:
 
 
 def test_desconectar_mantem_a_instancia_e_so_desvincula_a_conta() -> None:
-    conexao = _conexao(NOME)
+    conexao = _conexao(NUMERO)
     repo = _RepoFake(conexao, token="token-1")
     provedor = _ProvedorFake()
     uow, auditoria = _montar(repo, provedor)
@@ -486,7 +507,7 @@ def test_desconectar_com_falha_apos_o_logout_registra_divergencia() -> None:
     local voltou a dizer "pareada". Quem investigar precisa ler divergencia.
     """
 
-    conexao = _conexao(NOME)
+    conexao = _conexao(NUMERO)
     repo = _RepoFake(conexao, token="token-1")
     provedor = _ProvedorFake()
     uow, auditoria = _montar(repo, provedor)
@@ -512,7 +533,7 @@ def test_desconectar_com_timeout_no_provedor_registra_divergencia() -> None:
     que a trilha nao permite retirar.
     """
 
-    conexao = _conexao(NOME)
+    conexao = _conexao(NUMERO)
     repo = _RepoFake(conexao, token="token-1")
     provedor = _ProvedorFake(falhar_em_desconectar=TimeoutError("sem resposta"))
     uow, auditoria = _montar(repo, provedor)

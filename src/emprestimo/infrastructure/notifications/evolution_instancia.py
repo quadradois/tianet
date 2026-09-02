@@ -76,6 +76,30 @@ class InstanciaCriada:
     token: str
 
 
+def numero_do_jid(jid: str | None) -> str | None:
+    """Extrai o telefone do `jid` do Evolution.
+
+    O formato observado em 2026-09-02 e `556299999999:74@s.whatsapp.net`: numero,
+    sufixo de dispositivo e dominio. O sufixo NAO faz parte do telefone — o
+    contrato §5.3 ja avisava para comparar pelo numero, nunca pela string
+    inteira.
+
+    Devolve `None` para o que nao for telefone, incluindo o `@lid` de contas com
+    privacidade de numero: ali o WhatsApp simplesmente nao entrega o dado, e
+    inventar um placeholder seria pior que admitir a ausencia.
+    """
+    if not jid:
+        return None
+    identificador, _, dominio = jid.partition("@")
+    # `@lid` tambem e so digitos — verificar `isdigit()` sozinho devolveria o
+    # identificador oculto COMO SE fosse telefone, que e precisamente o erro
+    # contra o qual o contrato §5.3 avisa. So `@s.whatsapp.net` e numero.
+    if dominio and dominio != "s.whatsapp.net":
+        return None
+    numero = identificador.split(":", 1)[0].strip()
+    return numero if numero.isdigit() else None
+
+
 @dataclass(frozen=True)
 class EstadoInstancia:
     """Estado do pareamento, como o provedor o reporta.
@@ -207,6 +231,32 @@ class EvolutionTenantClient:
         self._tenant_id = tenant_id.strip()
         self._api_key = api_key.strip()
         self._client = client or httpx.Client(base_url=_base(host), timeout=15.0, trust_env=False)
+
+    def jid_da_instancia(self, instancia_id: str) -> str | None:
+        """Le o `jid` da instancia — o unico caminho ate o telefone pareado.
+
+        Vive aqui, e nao no cliente de instancia, porque `/instance/info/:id`
+        exige a chave de **Tenant**. Foi por isso que o telefone parecia nao
+        existir: o `/instance/status`, autenticado pela instancia, nao o traz.
+        Verificado ao vivo em 2026-09-02.
+        """
+        dados = _json(
+            _executar(
+                lambda: self._client.get(
+                    f"/instance/info/{instancia_id}",
+                    headers={"apikey": self._api_key, "X-Tenant-ID": self._tenant_id},
+                ),
+                "/instance/info",
+            ),
+            "/instance/info",
+        )
+        corpo = dados.get("data", dados)
+        if isinstance(corpo, list):
+            corpo = corpo[0] if corpo else {}
+        if not isinstance(corpo, dict):
+            return None
+        jid = corpo.get("jid")
+        return jid if isinstance(jid, str) else None
 
     def criar_instancia(self, nome: str, *, token: str | None = None) -> InstanciaCriada:
         """Cria a instância. **Quem gera o token somos nós.**
@@ -405,15 +455,21 @@ class EvolutionProvedorWhatsApp(ProvedorWhatsApp):
             # `httpx` nem o vocabulario do Evolution.
             raise QrCodeIndisponivelError(str(exc)) from exc
 
-    def estado(self, token: str) -> EstadoPareamento:
+    def estado(self, token: str, instancia_id: str) -> EstadoPareamento:
         bruto = self._instancia(token).estado()
         return EstadoPareamento(
             conectado=bruto.conectado,
             pareado=bruto.pareado,
-            # `Name` e o push name do WhatsApp — "Barbosa" na resposta real de
-            # 2026-08-31 —, NAO o telefone. Chama-lo de numero faria a tela
-            # exibir um nome onde promete um numero.
+            # `Name` e o push name — "Barbosa" na resposta real —, NAO o
+            # telefone. Sao campos diferentes e a tela mostra os dois.
             nome_exibicao=bruto.nome_exibicao if bruto.pareado else None,
+            # Segunda chamada, e so quando ha o que buscar: enquanto o
+            # pareamento esta pendente nao existe `jid`, e a tela faz polling.
+            numero=(
+                numero_do_jid(self._tenant.jid_da_instancia(instancia_id))
+                if bruto.pareado
+                else None
+            ),
         )
 
     def desconectar(self, token: str) -> None:

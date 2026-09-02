@@ -20,6 +20,7 @@ from emprestimo.infrastructure.notifications.evolution_instancia import (
     EvolutionInstanciaClient,
     EvolutionTenantClient,
     QrCodeAindaGerandoError,
+    numero_do_jid,
 )
 
 HOST = "https://diamondgreen.com.br"
@@ -501,3 +502,62 @@ def test_erro_de_decodificacao_tambem_vira_erro_declarado() -> None:
     cli = EvolutionInstanciaClient(host=HOST, instancia_token=TOKEN, client=_cliente(handler))
     with pytest.raises(EvolutionIndisponivelError, match="inacessivel"):
         cli.estado()
+
+
+class TestNumeroDaContaPareada:
+    """O telefone existe, e mora atras da autenticacao de Tenant (2026-09-02).
+
+    Ate esta data o codigo assumia que `/instance/status` era a unica fonte de
+    estado — e ele nao traz telefone nenhum, so o push name. O fundador apontou
+    que o CRM exibe o numero conectado; a leitura ao vivo confirmou o campo
+    `jid` em `/instance/info/:id`, que responde a chave de Tenant.
+    """
+
+    @pytest.mark.parametrize(
+        ("jid", "esperado"),
+        [
+            ("556299999999:74@s.whatsapp.net", "556299999999"),
+            ("556299999999@s.whatsapp.net", "556299999999"),
+            ("556299999999:74", "556299999999"),
+            # Privacidade total: o WhatsApp entrega `@lid` e nenhum telefone.
+            ("204327894327894@lid", None),
+            ("", None),
+            (None, None),
+        ],
+    )
+    def test_extrai_o_telefone_do_jid(self, jid: str | None, esperado: str | None) -> None:
+        assert numero_do_jid(jid) == esperado
+
+    def test_le_o_jid_com_credencial_de_tenant(self) -> None:
+        """A chave da instancia nao alcanca esta rota — e por isso ela existe aqui."""
+        vistos: dict[str, Any] = {}
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            vistos["url"] = str(request.url)
+            vistos["apikey"] = request.headers.get("apikey")
+            vistos["tenant"] = request.headers.get("X-Tenant-ID")
+            return httpx.Response(
+                200,
+                json={"data": {"id": INSTANCIA_ID, "jid": "556299999999:74@s.whatsapp.net"}},
+            )
+
+        jid = EvolutionTenantClient(
+            host=HOST, tenant_id="tid", api_key="chave-do-tenant", client=_cliente(handler)
+        ).jid_da_instancia(INSTANCIA_ID)
+
+        assert numero_do_jid(jid) == "556299999999"
+        assert vistos["url"].endswith(f"/instance/info/{INSTANCIA_ID}")
+        assert vistos["apikey"] == "chave-do-tenant"
+        assert vistos["tenant"] == "tid"
+
+    def test_instancia_sem_jid_nao_inventa_numero(self) -> None:
+        """Instancia criada e nao pareada nao tem `jid` — e isso nao e erro."""
+
+        def handler(_: httpx.Request) -> httpx.Response:
+            return httpx.Response(200, json={"data": {"id": INSTANCIA_ID, "jid": ""}})
+
+        jid = EvolutionTenantClient(
+            host=HOST, tenant_id="tid", api_key="k", client=_cliente(handler)
+        ).jid_da_instancia(INSTANCIA_ID)
+
+        assert numero_do_jid(jid) is None

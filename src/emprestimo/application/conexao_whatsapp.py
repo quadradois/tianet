@@ -48,9 +48,11 @@ class EstadoConexaoWhatsApp:
     `existe` separado de `pareada` porque as duas ausências pedem ações
     diferentes.
 
-    `nome_exibicao` é o push name da conta pareada, e **não o telefone**: o
-    `/instance/status` não devolve número nenhum. A tela do IMP-369 precisa
-    saber disso antes de rotular o campo.
+    `numero` é o telefone da conta pareada, extraído do `jid` de
+    `/instance/info/:id` — que responde à autenticação de **Tenant**, e é por
+    isso que o `/instance/status` nunca o mostrou. `nome_exibicao` é o push name
+    (`"Barbosa"`), outra coisa: a tela mostra os dois, e rotulá-los trocados foi
+    o que uma rodada de review pegou.
 
     `qrcode_base64` vem preenchido enquanto o pareamento está pendente, e é
     buscado a cada consulta — o QR vive ~20s e o provedor rotaciona sozinho, de
@@ -64,6 +66,7 @@ class EstadoConexaoWhatsApp:
     conectado: bool
     instancia_nome: str | None
     nome_exibicao: str | None
+    numero: str | None
     qrcode_base64: str | None
 
 
@@ -124,15 +127,15 @@ def _sincronizar(
     agora, não fatos a guardar. Persistir qualquer um deles criaria um campo
     desatualizado desde o instante seguinte.
     """
-    estado = provedor.estado(token)
-    if estado.pareado and estado.nome_exibicao:
-        atualizada = conexao.parear(estado.nome_exibicao)
+    estado = provedor.estado(token, conexao.instancia_id)
+    if estado.pareado and estado.numero:
+        atualizada = conexao.parear(estado.numero)
     elif not estado.pareado:
         atualizada = conexao.desparear()
     else:
-        # Pareado sem identificação: o provedor confirmou vínculo mas não disse
-        # com quem. Preservar o que já se sabia é melhor que apagar por uma
-        # resposta incompleta.
+        # Pareado sem número: acontece com conta de privacidade total, onde o
+        # WhatsApp entrega `@lid` e nenhum telefone. Preservar o que já se sabia
+        # é melhor que apagar por uma resposta incompleta.
         return conexao, estado
 
     if atualizada.numero_pareado != conexao.numero_pareado:
@@ -162,6 +165,7 @@ class ConsultarConexaoWhatsApp:
                     conectado=False,
                     instancia_nome=None,
                     nome_exibicao=None,
+                    numero=None,
                     qrcode_base64=None,
                 )
             token = uow.conexao_whatsapp.find_token(tenant_id)
@@ -181,7 +185,8 @@ class ConsultarConexaoWhatsApp:
             pareada=estado.pareado,
             conectado=estado.conectado,
             instancia_nome=atualizada.instancia_nome,
-            nome_exibicao=atualizada.numero_pareado,
+            nome_exibicao=estado.nome_exibicao,
+            numero=atualizada.numero_pareado,
             qrcode_base64=None if estado.pareado else self._qrcode_pendente(token),
         )
 
@@ -425,6 +430,7 @@ class DesconectarWhatsApp:
             conectado=False,
             instancia_nome=despareada.instancia_nome,
             nome_exibicao=None,
+            numero=None,
             # Desconectar não gera QR: quem quiser reconectar chama `conectar`.
             qrcode_base64=None,
         )

@@ -182,7 +182,13 @@ class ProvedorWhatsApp(ABC):
         """QR em base64. Levanta `QrCodeIndisponivelError` enquanto gera."""
 
     @abstractmethod
-    def estado(self, token: str) -> EstadoPareamento: ...
+    def estado(self, token: str, instancia_id: str) -> EstadoPareamento:
+        """Estado do pareamento e, quando pareada, o numero da conta.
+
+        Recebe os dois identificadores porque as duas informacoes vivem atras de
+        autenticacoes diferentes no provedor: `LoggedIn` responde ao token da
+        instancia, e o `jid` com o telefone responde a chave de Tenant.
+        """
 
     @abstractmethod
     def desconectar(self, token: str) -> None:
