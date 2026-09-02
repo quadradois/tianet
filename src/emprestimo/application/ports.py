@@ -46,6 +46,7 @@ from emprestimo.domain.credit.ports import (
     SimulacaoComercialRepository,
 )
 from emprestimo.domain.platform.ports import (
+    ConexaoWhatsAppRepository,
     ConfiguracaoRepository,
     CredencialRepository,
     PerfilAcessoRepository,
@@ -175,6 +176,7 @@ class UnitOfWork(ABC):
     preferencia_notificacao: PreferenciaNotificacaoRepository
     template_notificacao: TemplateNotificacaoRepository
     solicitacao_notificacao: SolicitacaoNotificacaoRepository
+    conexao_whatsapp: ConexaoWhatsAppRepository
     idempotencia: IdempotenciaRegistro
 
     @abstractmethod

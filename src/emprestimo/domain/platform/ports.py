@@ -11,7 +11,7 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from typing import Literal
 
-from emprestimo.domain.platform.conexao_whatsapp import ConexaoWhatsApp
+from emprestimo.domain.platform.conexao_whatsapp import ConexaoWhatsApp, EstadoPareamento
 from emprestimo.domain.platform.configuracao import Configuracao
 from emprestimo.domain.platform.credencial import Credencial
 from emprestimo.domain.platform.perfil import PerfilAcesso
@@ -127,6 +127,97 @@ class ConexaoWhatsAppRepository(ABC):
     @abstractmethod
     def find_token(self, tenant_id: uuid.UUID) -> str | None:
         """Devolve o token decifrado. Unico caminho para obte-lo."""
+
+    @abstractmethod
+    def exigir_disponibilidade(self) -> None:
+        """Falha AGORA se este repositorio nao puder guardar segredo.
+
+        Existe para ser chamado antes de criar a instancia no provedor. Sem
+        isso, uma chave de cifra ausente so apareceria no `save` — depois de o
+        Evolution ja ter criado a instancia com o token que so nos tinhamos.
+        Instancia inalcancavel por causa de uma variavel de ambiente esquecida.
+        """
+
+    @abstractmethod
+    def bloquear_tenant(self, tenant_id: uuid.UUID) -> None:
+        """Serializa a criacao de conexao para este Tenant na transacao atual.
+
+        `UNIQUE (tenant_id)` so rejeita a segunda no commit — tarde demais, se as
+        duas ja tiverem criado instancia no provedor. O lock e sobre o Tenant, e
+        nao sobre a linha, porque no caso que importa a linha ainda nao existe.
+        """
+
+
+class QrCodeIndisponivelError(RuntimeError):
+    """O QR ainda nao existe. Estado NORMAL logo apos conectar, nao falha.
+
+    Nomeado no dominio para que a Application possa distinguir "espere e tente
+    de novo" de "o provedor caiu" sem importar o cliente HTTP.
+    """
+
+
+class EfeitoNaoAplicadoError(RuntimeError):
+    """A operacao **comprovadamente** nao aconteceu no provedor.
+
+    Espelha a allowlist da ADR-009 para envio, no outro sentido: so e levantada
+    quando ha prova de nao execucao — a requisicao nao saiu da maquina, ou o
+    provedor a recusou antes de agir. Toda falha ambigua fica de fora, porque a
+    Application usa esta excecao para decidir entre registrar rollback (o estado
+    voltou) e divergencia (o efeito externo ficou), e a segunda e a afirmacao
+    segura quando nao se sabe.
+    """
+
+
+class ProvedorWhatsApp(ABC):
+    """Operacoes de instancia no provedor, sem o protocolo HTTP a tiracolo.
+
+    A Application orquestra criar, conectar, ler estado e desconectar; nao
+    conhece rotas, chaves de tenant nem formato de QR. O token entra como
+    parametro em vez de virar estado do adapter porque quem sabe qual token usar
+    e o repositorio, e ele so entrega o valor a quem pedir explicitamente.
+    """
+
+    @abstractmethod
+    def instancia_existente(self, nome: str) -> tuple[str, str] | None:
+        """Procura instancia ja criada no provedor e devolve `(id, token)`.
+
+        Existe porque "nao ha registro local" nao significa "nao ha instancia".
+        A do TiaNet foi criada a mao antes desta tela existir, e um `create`
+        cego produziria uma SEGUNDA — nao pareada — enquanto o WhatsApp do
+        operador continua ligado na primeira.
+
+        Tambem fecha a janela do `create` cuja resposta se perdeu: a proxima
+        tentativa encontra a instancia em vez de criar outra.
+        """
+
+    @abstractmethod
+    def criar_instancia(self, nome: str) -> tuple[str, str]:
+        """Cria a instancia e devolve `(instancia_id, token)`.
+
+        **O token e gerado por nos**; o provedor apenas o ecoa. Quem procurar um
+        identificador emitido pelo servidor nao vai encontrar.
+        """
+
+    @abstractmethod
+    def conectar(self, token: str) -> None:
+        """Inicia o pareamento. Idempotente numa instancia ja conectada."""
+
+    @abstractmethod
+    def qrcode(self, token: str) -> str:
+        """QR em base64. Levanta `QrCodeIndisponivelError` enquanto gera."""
+
+    @abstractmethod
+    def estado(self, token: str, instancia_id: str) -> EstadoPareamento:
+        """Estado do pareamento e, quando pareada, o numero da conta.
+
+        Recebe os dois identificadores porque as duas informacoes vivem atras de
+        autenticacoes diferentes no provedor: `LoggedIn` responde ao token da
+        instancia, e o `jid` com o telefone responde a chave de Tenant.
+        """
+
+    @abstractmethod
+    def desconectar(self, token: str) -> None:
+        """Desvincula o numero. A instancia permanece."""
 
 
 class CredencialRepository(ABC):

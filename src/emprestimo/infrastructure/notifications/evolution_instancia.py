@@ -26,6 +26,13 @@ from typing import Any
 
 import httpx
 
+from emprestimo.domain.platform.conexao_whatsapp import EstadoPareamento
+from emprestimo.domain.platform.ports import (
+    EfeitoNaoAplicadoError,
+    ProvedorWhatsApp,
+    QrCodeIndisponivelError,
+)
+
 PREFIXO_QR = "data:image/png;base64,"
 """Prefixo que o contrato promete no campo `Qrcode`."""
 
@@ -52,6 +59,23 @@ class EvolutionIndisponivelError(RuntimeError):
     """
 
 
+class ProvedorNaoAlcancadoError(EvolutionIndisponivelError):
+    """A requisicao nao chegou a sair: conexao recusada, DNS, pool esgotado.
+
+    Distinta de `EvolutionIndisponivelError` generica porque prova algo — que o
+    efeito NAO aconteceu. Quem chama usa isso para nao registrar divergencia
+    onde houve apenas rollback.
+    """
+
+
+class RequisicaoRecusadaError(EvolutionIndisponivelError):
+    """O provedor respondeu recusando antes de agir (401/403).
+
+    Tenant inativo ou credencial invalida: ha resposta, e ela diz que nada foi
+    feito.
+    """
+
+
 class QrCodeAindaGerandoError(EvolutionIndisponivelError):
     """O QR ainda nao existe — estado NORMAL logo apos `/instance/connect`.
 
@@ -71,6 +95,30 @@ class InstanciaCriada:
     instancia_id: str
     nome: str
     token: str
+
+
+def numero_do_jid(jid: str | None) -> str | None:
+    """Extrai o telefone do `jid` do Evolution.
+
+    O formato observado em 2026-09-02 e `556299999999:74@s.whatsapp.net`: numero,
+    sufixo de dispositivo e dominio. O sufixo NAO faz parte do telefone — o
+    contrato §5.3 ja avisava para comparar pelo numero, nunca pela string
+    inteira.
+
+    Devolve `None` para o que nao for telefone, incluindo o `@lid` de contas com
+    privacidade de numero: ali o WhatsApp simplesmente nao entrega o dado, e
+    inventar um placeholder seria pior que admitir a ausencia.
+    """
+    if not jid:
+        return None
+    identificador, _, dominio = jid.partition("@")
+    # `@lid` tambem e so digitos — verificar `isdigit()` sozinho devolveria o
+    # identificador oculto COMO SE fosse telefone, que e precisamente o erro
+    # contra o qual o contrato §5.3 avisa. So `@s.whatsapp.net` e numero.
+    if dominio and dominio != "s.whatsapp.net":
+        return None
+    numero = identificador.split(":", 1)[0].strip()
+    return numero if numero.isdigit() else None
 
 
 @dataclass(frozen=True)
@@ -134,6 +182,10 @@ def _executar(chamada: Callable[[], httpx.Response], rota: str) -> httpx.Respons
     # timeout, transporte E `DecodingError` — esta ultima nao deriva de
     # `TransportError`, entao um `Content-Encoding: gzip` com corpo truncado
     # escaparia crua para o handler HTTP, que so trata o erro deste modulo.
+    except (httpx.ConnectTimeout, httpx.ConnectError, httpx.PoolTimeout) as exc:
+        # Allowlist da ADR-009, no sentido inverso: estas tres provam que a
+        # requisicao nao chegou a existir na rede.
+        raise ProvedorNaoAlcancadoError(f"{rota} inacessivel: {type(exc).__name__}") from exc
     except httpx.RequestError as exc:
         raise EvolutionIndisponivelError(f"{rota} inacessivel: {type(exc).__name__}") from exc
 
@@ -177,7 +229,13 @@ def _json(resposta: httpx.Response, rota: str) -> dict[str, Any]:
     if not resposta.is_success:
         detalhe = _mensagem_do_provedor(resposta)
         sufixo = f": {detalhe}" if detalhe else ""
-        raise EvolutionIndisponivelError(f"{rota} respondeu {resposta.status_code}{sufixo}")
+        mensagem = f"{rota} respondeu {resposta.status_code}{sufixo}"
+        # 401/403 sao recusa de autenticacao: houve resposta, e ela diz que o
+        # servidor nao executou nada. Quem chama usa isso para nao registrar
+        # divergencia — incidente inventado — onde nao houve efeito externo.
+        if resposta.status_code in (401, 403):
+            raise RequisicaoRecusadaError(mensagem)
+        raise EvolutionIndisponivelError(mensagem)
     try:
         corpo = resposta.json()
     except ValueError as exc:
@@ -204,6 +262,103 @@ class EvolutionTenantClient:
         self._tenant_id = tenant_id.strip()
         self._api_key = api_key.strip()
         self._client = client or httpx.Client(base_url=_base(host), timeout=15.0, trust_env=False)
+
+    def buscar_instancia(self, nome: str) -> InstanciaCriada | None:
+        """Localiza instancia ja existente pelo nome, com id e token.
+
+        `/instance/all` devolve o `token` de cada instancia do Tenant — e o que
+        permite adotar uma instancia criada fora da plataforma em vez de criar
+        outra por cima. Verificado ao vivo em 2026-09-02.
+        """
+        dados = _json(
+            _executar(
+                lambda: self._client.get(
+                    "/instance/all",
+                    headers={"apikey": self._api_key, "X-Tenant-ID": self._tenant_id},
+                ),
+                "/instance/all",
+            ),
+            "/instance/all",
+        )
+        achada: InstanciaCriada | None = None
+        itens = dados.get("data")
+        if not isinstance(itens, list):
+            # Resposta invalida NAO e "nao existe". Devolver `None` aqui faria
+            # `_garantir_instancia` criar uma segunda instancia por causa de um
+            # payload que o provedor mudou — o pior desfecho possivel a partir
+            # de um 2xx.
+            raise EvolutionIndisponivelError("/instance/all devolveu `data` fora do formato")
+        alvo = nome.strip()
+        # Falha fechada tambem no item: um elemento malformado ignorado faria o
+        # metodo terminar em `None`, e o chamador criaria uma segunda instancia
+        # sobre uma que talvez fosse exatamente a procurada.
+        for item in itens:
+            if not isinstance(item, dict) or not isinstance(item.get("name"), str):
+                raise EvolutionIndisponivelError(
+                    "/instance/all devolveu item sem `name` utilizavel"
+                )
+            if item["name"] != alvo:
+                continue
+            instancia_id = item.get("id")
+            token = item.get("token")
+            # `.strip()` e obrigatorio, nao cosmetico: `EvolutionInstanciaClient`
+            # normaliza ao autenticar, entao um token so de espacos passaria por
+            # "truthy" aqui e falharia em toda requisicao depois — conexao
+            # gravada, permanentemente inutil, sem nada indicando o motivo.
+            if isinstance(instancia_id, str) and isinstance(token, str):
+                limpos = (instancia_id.strip(), token.strip())
+                if all(limpos):
+                    if achada is not None:
+                        # Duas com o mesmo nome: escolher uma seria escolher no
+                        # escuro, e a plataforma poderia adotar a que ninguem
+                        # usa enquanto o WhatsApp do operador vive na outra.
+                        raise EvolutionIndisponivelError(
+                            f"o provedor tem mais de uma instancia chamada {alvo!r}: "
+                            "adotar uma delas seria escolher no escuro"
+                        )
+                    achada = InstanciaCriada(instancia_id=limpos[0], nome=alvo, token=limpos[1])
+                    continue
+            # Achada e sem credencial utilizavel. Nem adotar (a conexao
+            # existiria sem poder enviar nada) nem seguir para o `create`, que
+            # criaria uma segunda instancia sobre uma que comprovadamente
+            # existe. Recusar nomeando e o unico desfecho honesto.
+            raise EvolutionIndisponivelError(
+                f"instancia {alvo!r} existe no provedor sem token utilizavel: "
+                "adota-la ou criar outra por cima seriam ambos errados"
+            )
+        return achada
+
+    def jid_da_instancia(self, instancia_id: str) -> str | None:
+        """Le o `jid` da instancia — o unico caminho ate o telefone pareado.
+
+        Vive aqui, e nao no cliente de instancia, porque `/instance/info/:id`
+        exige a chave de **Tenant**. Foi por isso que o telefone parecia nao
+        existir: o `/instance/status`, autenticado pela instancia, nao o traz.
+        Verificado ao vivo em 2026-09-02.
+        """
+        dados = _json(
+            _executar(
+                lambda: self._client.get(
+                    f"/instance/info/{instancia_id}",
+                    headers={"apikey": self._api_key, "X-Tenant-ID": self._tenant_id},
+                ),
+                "/instance/info",
+            ),
+            "/instance/info",
+        )
+        corpo = dados.get("data", dados)
+        if isinstance(corpo, list):
+            corpo = corpo[0] if corpo else None
+        if not isinstance(corpo, dict) or "jid" not in corpo:
+            # Falha fechada: `None` aqui significa "pareada sem numero" para o
+            # chamador, que preserva o numero antigo. Um payload que mudou de
+            # forma passaria a manter dado velho na tela indefinidamente, sem
+            # ninguem perceber.
+            raise EvolutionIndisponivelError("/instance/info devolveu resposta sem `jid`")
+        jid = corpo["jid"]
+        if not isinstance(jid, str):
+            raise EvolutionIndisponivelError("/instance/info devolveu `jid` que nao e texto")
+        return jid
 
     def criar_instancia(self, nome: str, *, token: str | None = None) -> InstanciaCriada:
         """Cria a instância. **Quem gera o token somos nós.**
@@ -339,6 +494,103 @@ class EvolutionInstanciaClient:
         if not resposta.is_success:
             detalhe = _mensagem_do_provedor(resposta)
             sufixo = f": {detalhe}" if detalhe else ""
-            raise EvolutionIndisponivelError(
-                f"/instance/logout respondeu {resposta.status_code}{sufixo}"
-            )
+            mensagem = f"/instance/logout respondeu {resposta.status_code}{sufixo}"
+            # Mesma regra do `_json`: 401/403 sao recusa comprovada; qualquer
+            # outro status pode ter agido antes de falhar.
+            if resposta.status_code in (401, 403):
+                raise RequisicaoRecusadaError(mensagem)
+            raise EvolutionIndisponivelError(mensagem)
+
+
+class EvolutionProvedorWhatsApp(ProvedorWhatsApp):
+    """Compõe os dois clientes por trás de uma porta só (IMP-367).
+
+    A Application pede "crie", "conecte", "qual o estado" — e não precisa saber
+    que criar usa a chave de Tenant e o resto usa o token da instância. Essa
+    separação existe no provedor e continua existindo aqui, mas para dentro:
+    confundir as duas chaves é o erro que o `EvolutionTenantClient` e o
+    `EvolutionInstanciaClient` tornam impossível por construção.
+
+    O token entra por parâmetro em vez de virar estado: quem o guarda é o
+    repositório, e ele só o entrega a quem pedir explicitamente.
+    """
+
+    def __init__(
+        self,
+        *,
+        host: str,
+        tenant_id: str,
+        api_key: str,
+        client: httpx.Client | None = None,
+    ) -> None:
+        self._host = host
+        # Um cliente para o adapter inteiro. Sem isto, cada chamada de
+        # `_instancia()` abriria um pool novo que ninguem fecha — e a tela faz
+        # polling de estado e de QR, entao seriam sockets acumulando por
+        # segundo, nao por sessao.
+        self._client = client or httpx.Client(base_url=_base(host), timeout=15.0, trust_env=False)
+        self._tenant = EvolutionTenantClient(
+            host=host,
+            tenant_id=tenant_id,
+            api_key=api_key,
+            client=self._client,
+        )
+
+    def _instancia(self, token: str) -> EvolutionInstanciaClient:
+        return EvolutionInstanciaClient(
+            host=self._host,
+            instancia_token=token,
+            client=self._client,
+        )
+
+    def instancia_existente(self, nome: str) -> tuple[str, str] | None:
+        achada = self._tenant.buscar_instancia(nome)
+        return None if achada is None else (achada.instancia_id, achada.token)
+
+    def criar_instancia(self, nome: str) -> tuple[str, str]:
+        try:
+            criada = self._tenant.criar_instancia(nome)
+        except (ProvedorNaoAlcancadoError, RequisicaoRecusadaError) as exc:
+            # Sem esta traducao, o chamador nao distingue "nao criou" de "pode
+            # ter criado", e registra divergencia — incidente inventado numa
+            # trilha append-only — para uma recusa comprovada.
+            raise EfeitoNaoAplicadoError(str(exc)) from exc
+        return criada.instancia_id, criada.token
+
+    def conectar(self, token: str) -> None:
+        # Webhook vazio de propósito: a DR-006 apontou o webhook para o agente,
+        # não para a TiaNet. Mandar a nossa URL aqui roubaria os eventos dele.
+        self._instancia(token).conectar()
+
+    def qrcode(self, token: str) -> str:
+        try:
+            return self._instancia(token).qrcode()
+        except QrCodeAindaGerandoError as exc:
+            # Traduzida na fronteira: quem chama decide esperar sem conhecer
+            # `httpx` nem o vocabulario do Evolution.
+            raise QrCodeIndisponivelError(str(exc)) from exc
+
+    def estado(self, token: str, instancia_id: str) -> EstadoPareamento:
+        bruto = self._instancia(token).estado()
+        return EstadoPareamento(
+            conectado=bruto.conectado,
+            pareado=bruto.pareado,
+            # `Name` e o push name — "Barbosa" na resposta real —, NAO o
+            # telefone. Sao campos diferentes e a tela mostra os dois.
+            nome_exibicao=bruto.nome_exibicao if bruto.pareado else None,
+            # Segunda chamada, e so quando ha o que buscar: enquanto o
+            # pareamento esta pendente nao existe `jid`, e a tela faz polling.
+            numero=(
+                numero_do_jid(self._tenant.jid_da_instancia(instancia_id))
+                if bruto.pareado
+                else None
+            ),
+        )
+
+    def desconectar(self, token: str) -> None:
+        try:
+            self._instancia(token).desconectar()
+        except (ProvedorNaoAlcancadoError, RequisicaoRecusadaError) as exc:
+            # Traduzida na fronteira: a Application decide entre rollback e
+            # divergencia sem conhecer `httpx` nem codigo HTTP.
+            raise EfeitoNaoAplicadoError(str(exc)) from exc

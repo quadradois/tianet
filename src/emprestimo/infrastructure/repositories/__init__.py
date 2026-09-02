@@ -7,10 +7,11 @@ transacional pertencem ao Unit of Work da fase de Aplicação (IMP-014).
 from __future__ import annotations
 
 import uuid
+from collections.abc import Callable
 from datetime import date
 from math import ceil
 
-from sqlalchemy import delete, func, select
+from sqlalchemy import delete, func, select, text
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
@@ -1524,7 +1525,11 @@ class SqlAlchemyConexaoWhatsAppRepository(ConexaoWhatsAppRepository):
     entra em `save`, sai em `find_token`, e no meio existe apenas cifrado.
     """
 
-    def __init__(self, session: Session, cifra: CifraToken) -> None:
+    def __init__(self, session: Session, cifra: Callable[[], CifraToken]) -> None:
+        # Fabrica, nao instancia: montar a cifra exige a chave no ambiente, e
+        # esta classe e construida junto com o Unit of Work — que abre para todo
+        # caso de uso do sistema. Resolver aqui faria cadastrar um devedor
+        # depender do segredo do WhatsApp.
         self._session = session
         self._cifra = cifra
 
@@ -1538,7 +1543,7 @@ class SqlAlchemyConexaoWhatsAppRepository(ConexaoWhatsAppRepository):
                 )
             cifrado = existente.token_cifrado
         else:
-            cifrado = self._cifra.cifrar(token)
+            cifrado = self._cifra().cifrar(token)
         self._session.merge(
             ConexaoWhatsAppORM(
                 id=conexao.id,
@@ -1562,7 +1567,19 @@ class SqlAlchemyConexaoWhatsAppRepository(ConexaoWhatsAppRepository):
         row = self._session.scalar(
             select(ConexaoWhatsAppORM).where(ConexaoWhatsAppORM.tenant_id == tenant_id)
         )
-        return None if row is None else self._cifra.decifrar(row.token_cifrado)
+        return None if row is None else self._cifra().decifrar(row.token_cifrado)
+
+    def exigir_disponibilidade(self) -> None:
+        self._cifra()
+
+    def bloquear_tenant(self, tenant_id: uuid.UUID) -> None:
+        # Advisory lock de transacao: solta sozinho no commit ou no rollback, e
+        # nao depende de a linha existir — que e exatamente o caso aqui, porque
+        # o que se quer serializar e a criacao.
+        self._session.execute(
+            text("SELECT pg_advisory_xact_lock(hashtext(:chave))"),
+            {"chave": f"conexao_whatsapp:{tenant_id}"},
+        )
 
 
 def _to_conexao_whatsapp(row: ConexaoWhatsAppORM) -> ConexaoWhatsApp:

@@ -8,11 +8,13 @@ rollback automático no ``__exit__``.
 
 from __future__ import annotations
 
+import os
 from collections.abc import Callable
 
 from sqlalchemy.orm import Session
 
 from emprestimo.application.ports import UnitOfWork
+from emprestimo.infrastructure.cifra import CifraToken, resolver_cifra_token
 from emprestimo.infrastructure.idempotencia import SqlAlchemyIdempotenciaRegistro
 from emprestimo.infrastructure.repositories import (
     SqlAlchemyAcaoCobrancaRepository,
@@ -21,6 +23,7 @@ from emprestimo.infrastructure.repositories import (
     SqlAlchemyCalendarioFinanceiroRepository,
     SqlAlchemyCarteiraRepository,
     SqlAlchemyCobrancaCasoRepository,
+    SqlAlchemyConexaoWhatsAppRepository,
     SqlAlchemyConfiguracaoFinanceiraRepository,
     SqlAlchemyConfiguracaoRepository,
     SqlAlchemyContatoRepository,
@@ -54,8 +57,13 @@ from emprestimo.infrastructure.repositories import (
 class SqlAlchemyUnitOfWork(UnitOfWork):
     """Implementação SQLAlchemy do Unit of Work (AD-001)."""
 
-    def __init__(self, session_factory: Callable[[], Session]) -> None:
+    def __init__(
+        self,
+        session_factory: Callable[[], Session],
+        cifra_factory: Callable[[], CifraToken] | None = None,
+    ) -> None:
         self._session = session_factory()
+        self._cifra_factory = cifra_factory or (lambda: resolver_cifra_token(os.environ))
         self.tenant = SqlAlchemyTenantRepository(self._session)
         self.usuario = SqlAlchemyUsuarioRepository(self._session)
         self.configuracao = SqlAlchemyConfiguracaoRepository(self._session)
@@ -91,6 +99,12 @@ class SqlAlchemyUnitOfWork(UnitOfWork):
         self.preferencia_notificacao = SqlAlchemyPreferenciaNotificacaoRepository(self._session)
         self.template_notificacao = SqlAlchemyTemplateNotificacaoRepository(self._session)
         self.solicitacao_notificacao = SqlAlchemySolicitacaoNotificacaoRepository(self._session)
+        # A cifra e resolvida so quando a conexao for de fato usada: a chave
+        # `WHATSAPP_TOKEN_ENCRYPTION_KEY` nao pode virar requisito para abrir
+        # qualquer transacao do sistema.
+        self.conexao_whatsapp = SqlAlchemyConexaoWhatsAppRepository(
+            self._session, self._cifra_factory
+        )
         self.idempotencia = SqlAlchemyIdempotenciaRegistro(self._session)
 
     def commit(self) -> None:

@@ -19,6 +19,30 @@ from emprestimo.domain.common.errors import ViolacaoInvarianteError
 
 
 @dataclass(frozen=True)
+class EstadoPareamento:
+    """O que o provedor reporta sobre a instância, traduzido para o domínio.
+
+        Existe para que a Application não precise importar o cliente HTTP só para
+        nomear um estado. `conectado` é o socket de pé; `pareado` é o número
+        vinculado — e apenas o segundo significa WhatsApp funcionando.
+
+    São três coisas distintas, e confundi-las já custou uma rodada de review:
+
+        - `nome_exibicao` é o **push name** da conta (`Name` em `/instance/status`;
+          `"Barbosa"` na resposta real de 2026-08-31). Não é telefone;
+        - `numero` vem do **`jid`** de `/instance/info/:id`, que exige autenticação
+          de **Tenant** — é por isso que o `/instance/status`, autenticado pela
+          instância, nunca o mostrou. Verificado ao vivo em 2026-09-02;
+        - `pareado` continua sendo `LoggedIn`, e só ele.
+    """
+
+    conectado: bool
+    pareado: bool
+    nome_exibicao: str | None
+    numero: str | None
+
+
+@dataclass(frozen=True)
 class ConexaoWhatsApp:
     """Uma instância de WhatsApp pertencente a um Tenant.
 

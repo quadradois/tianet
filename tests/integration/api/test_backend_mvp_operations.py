@@ -53,11 +53,19 @@ def test_imp_266_quality_migrations_gate_e_unico_head_alembic() -> None:
     # o que impede migration entrando sem que alguem olhe o efeito no gate de
     # qualidade.
     #
-    # IMP-365 (PLAN-034) criou `conexao_whatsapp`. O que foi olhado antes de
-    # mover o head: a migration e aditiva, nao toca tabela existente, e o ciclo
-    # `upgrade head -> downgrade base -> upgrade head` roda inteiro — ela e
-    # reversivel de fato, nao no papel.
-    assert script.get_current_head() == "a7c3e5f19d82"
+    # IMP-367 (PLAN-034) concede `whatsapp.conexao.ler`, `whatsapp.conexao.gerir`
+    # e `usuario.criar` ao perfil `administrador_plataforma`. O que foi olhado
+    # antes de mover o head: sao apenas INSERTs com `ON CONFLICT DO NOTHING`,
+    # nenhum DDL, nenhuma tabela tocada, e o downgrade remove exatamente o que o
+    # upgrade inseriu. O ciclo `upgrade head -> downgrade base -> upgrade head`
+    # roda inteiro.
+    #
+    # `usuario.criar` entra aqui porque o IMP-355 o adicionou ao catalogo em
+    # memoria sem migration: em banco ja inicializado, `POST /iam/usuarios`
+    # responde 403 e nada indica o motivo. Mesma lacuna, corrigida junto.
+    #
+    # IMP-365 criou `conexao_whatsapp` (`a7c3e5f19d82`), tambem aditiva.
+    assert script.get_current_head() == "b58e3f21c4d7"
 
 
 def test_imp_267_health_correlation_e_erro_tecnico_sem_vazamento(
