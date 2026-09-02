@@ -189,6 +189,14 @@ nenhuma: reconectar nao muda o token, e a variavel de ambiente sobrevive. O que
 a persistencia resolve e o **nascimento** da instancia. Decisao correta, motivo
 errado; a proxima pessoa herda o raciocinio.
 
+**Enumerar e mais fragil que decidir o criterio.** A §3 listou tres vezes as
+excecoes que nao podem ser reenviadas, e faltou uma em cada rodada. A lista nao
+estava incompleta por descuido: o criterio que eu usava para monta-la — "depois
+de transmitir bytes" — nao e observavel a partir da excecao. Trocado por
+"prova de nao aceite", a regra virou allowlist curta com o resto seguro por
+omissao, e parou de precisar de rodada. Quando uma lista erra toda vez, o defeito
+costuma estar no criterio que a gera, nao nos itens.
+
 **Cuidado no desenho nao substitui revisao.** No IMP-366 eu distingui `Connected`
 de `LoggedIn` no dominio, no cliente e nos testes — e escrevi a conversao
 `bool("false")`, que e `True`, permitindo exatamente o erro que eu evitava.
