@@ -13,19 +13,22 @@ O que estes testes protegem, em ordem de importância:
 
 from __future__ import annotations
 
+import inspect
 import json
 import uuid
 
 import pytest
 
 from emprestimo.application.conexao_whatsapp import (
+    LIMITE_NOME_INSTANCIA,
     ConectarWhatsApp,
     ConsultarConexaoWhatsApp,
     DesconectarWhatsApp,
+    ExcluirConexaoWhatsApp,
+    nome_da_instancia,
 )
 from emprestimo.application.errors import (
     ConexaoWhatsAppNaoEncontradaError,
-    NomeInstanciaInvalidoError,
 )
 from emprestimo.application.ports import AuditoriaRegistro, UnitOfWork
 from emprestimo.domain.platform.conexao_whatsapp import ConexaoWhatsApp, EstadoPareamento
@@ -54,6 +57,7 @@ class _ProvedorFake(ProvedorWhatsApp):
         falhar_em_desconectar: Exception | None = None,
         existente: tuple[str, str] | None = None,
         falhar_em_criar: Exception | None = None,
+        falhar_em_excluir: Exception | None = None,
     ) -> None:
         self._estado = estado or EstadoPareamento(
             conectado=False, pareado=False, nome_exibicao=None, numero=None
@@ -62,6 +66,8 @@ class _ProvedorFake(ProvedorWhatsApp):
         self._falhar_em_desconectar = falhar_em_desconectar
         self._existente = existente
         self._falhar_em_criar = falhar_em_criar
+        self._falhar_em_excluir = falhar_em_excluir
+        self.excluidas: list[str] = []
         self.criadas: list[str] = []
         self.buscas: list[str] = []
         self.qrcodes_pedidos = 0
@@ -97,6 +103,11 @@ class _ProvedorFake(ProvedorWhatsApp):
             raise self._falhar_em_desconectar
         self.desconectadas.append(token)
 
+    def excluir_instancia(self, instancia_id: str) -> None:
+        if self._falhar_em_excluir is not None:
+            raise self._falhar_em_excluir
+        self.excluidas.append(instancia_id)
+
 
 class _RepoFake(ConexaoWhatsAppRepository):
     def __init__(
@@ -110,6 +121,7 @@ class _RepoFake(ConexaoWhatsAppRepository):
         self.token = token
         self.gravacoes: list[tuple[ConexaoWhatsApp, str | None]] = []
         self.bloqueios: list[uuid.UUID] = []
+        self.apagadas: list[uuid.UUID] = []
         self.ordem: list[str] = []
         self._cifra_indisponivel = cifra_indisponivel
 
@@ -133,6 +145,12 @@ class _RepoFake(ConexaoWhatsAppRepository):
 
     def find_token(self, tenant_id: uuid.UUID) -> str | None:
         return self.token
+
+    def delete(self, tenant_id: uuid.UUID) -> None:
+        self.ordem.append("apagar")
+        self.apagadas.append(tenant_id)
+        self.conexao = None
+        self.token = None
 
 
 class _UoWFake(UnitOfWork):
@@ -337,22 +355,37 @@ def test_consulta_com_qr_ainda_gerando_devolve_none_em_vez_de_falhar() -> None:
     assert estado.existe is True
 
 
-@pytest.mark.parametrize("nome", ["   ", "x" * 101])
-def test_conectar_recusa_nome_invalido_antes_de_criar_no_provedor(nome: str) -> None:
-    """O Evolution aceita nome que a nossa coluna nao comporta.
+def test_nome_da_instancia_e_derivado_do_tenant() -> None:
+    """O nome nao entra por parametro em lugar nenhum (IMP-368).
 
-    Descobrir isso no `save` deixaria a instancia criada la fora, inalcancavel:
-    o token so existia nesta requisicao.
+    Tres coisas dependem disso: a adocao casa pelo nome, a recuperacao do
+    `create` perdido tem o nome como unica pista, e um campo digitavel
+    transformaria erro de digitacao em segunda instancia no provedor.
     """
 
-    repo = _RepoFake()
-    provedor = _ProvedorFake()
-    uow, auditoria = _montar(repo, provedor)
+    tenant_id = uuid.uuid4()
 
-    with pytest.raises(NomeInstanciaInvalidoError):
-        ConectarWhatsApp(lambda: uow, provedor, auditoria).executar(uuid.uuid4(), nome)
+    assert nome_da_instancia(tenant_id) == f"tianet_{tenant_id}"
+    # Deterministico: mesma entrada, mesmo nome, em qualquer maquina e sem
+    # estado guardado — senao a recuperacao do `create` perdido nao acha nada.
+    assert nome_da_instancia(tenant_id) == nome_da_instancia(tenant_id)
+    assert nome_da_instancia(tenant_id) != nome_da_instancia(uuid.uuid4())
+    # Cabe na coluna `instancia_nome` (100). Estourar deixaria a instancia
+    # criada no provedor e o `save` recusando depois.
+    assert len(nome_da_instancia(tenant_id)) <= LIMITE_NOME_INSTANCIA
 
-    assert provedor.criadas == [], "nao pode existir instancia orfa no provedor"
+
+def test_conectar_nao_aceita_nome_de_instancia_de_quem_chama() -> None:
+    """Guardrail de assinatura, nao convencao.
+
+    Se alguem reintroduzir o parametro, este teste falha — e o defeito que ele
+    evita (segunda instancia nao pareada por um caractere diferente) e o mesmo
+    que o ciclo anterior gastou dezenove rodadas de review para fechar.
+    """
+
+    assinatura = inspect.signature(ConectarWhatsApp.executar)
+
+    assert list(assinatura.parameters) == ["self", "tenant_id", "usuario_id"]
 
 
 def test_conectar_recusa_antes_de_criar_no_provedor_se_a_cifra_faltar() -> None:
@@ -363,7 +396,7 @@ def test_conectar_recusa_antes_de_criar_no_provedor_se_a_cifra_faltar() -> None:
     uow, auditoria = _montar(repo, provedor)
 
     with pytest.raises(RuntimeError, match="ENCRYPTION_KEY"):
-        ConectarWhatsApp(lambda: uow, provedor, auditoria).executar(uuid.uuid4(), "tianet")
+        ConectarWhatsApp(lambda: uow, provedor, auditoria).executar(uuid.uuid4())
 
     assert provedor.criadas == [], "nao pode existir instancia orfa no provedor"
 
@@ -376,7 +409,7 @@ def test_conectar_serializa_a_criacao_pelo_tenant() -> None:
     uow, auditoria = _montar(repo, provedor)
     tenant_id = uuid.uuid4()
 
-    ConectarWhatsApp(lambda: uow, provedor, auditoria).executar(tenant_id, "tianet")
+    ConectarWhatsApp(lambda: uow, provedor, auditoria).executar(tenant_id)
 
     assert repo.bloqueios == [tenant_id]
 
@@ -392,11 +425,12 @@ def test_conectar_com_falha_ao_gravar_registra_divergencia() -> None:
     provedor = _ProvedorFake()
     uow, auditoria = _montar(repo, provedor)
     uow.falhar_no_commit = True
+    tenant_id = uuid.uuid4()
 
     with pytest.raises(RuntimeError):
-        ConectarWhatsApp(lambda: uow, provedor, auditoria).executar(uuid.uuid4(), "tianet")
+        ConectarWhatsApp(lambda: uow, provedor, auditoria).executar(tenant_id)
 
-    assert provedor.criadas == ["tianet"]
+    assert provedor.criadas == [nome_da_instancia(tenant_id)]
     acoes = [e[1] for e in auditoria.eventos]
     assert acoes == ["conectar.inicio", "conectar.divergencia", "conectar.falha"]
     divergencia = [e for e in auditoria.eventos if e[1] == "conectar.divergencia"][0]
@@ -500,13 +534,17 @@ def test_criacao_ambigua_registra_divergencia_com_o_nome() -> None:
     repo = _RepoFake()
     provedor = _ProvedorFake(falhar_em_criar=TimeoutError("sem resposta"))
     uow, auditoria = _montar(repo, provedor)
+    tenant_id = uuid.uuid4()
 
     with pytest.raises(TimeoutError):
-        ConectarWhatsApp(lambda: uow, provedor, auditoria).executar(uuid.uuid4(), "tianet")
+        ConectarWhatsApp(lambda: uow, provedor, auditoria).executar(tenant_id)
 
     divergencias = [e for e in auditoria.eventos if e[1] == "conectar.divergencia"]
     assert len(divergencias) == 1
-    assert json.loads(divergencias[0][3] or "{}")["instancia_nome"] == "tianet"
+    # O nome registrado tem de ser o MESMO que a proxima tentativa vai procurar:
+    # derivado do Tenant justamente para ser reconstruivel sem consultar nada.
+    esperado = nome_da_instancia(tenant_id)
+    assert json.loads(divergencias[0][3] or "{}")["instancia_nome"] == esperado
 
 
 def test_criacao_comprovadamente_nao_aplicada_nao_registra_divergencia() -> None:
@@ -517,7 +555,7 @@ def test_criacao_comprovadamente_nao_aplicada_nao_registra_divergencia() -> None
     uow, auditoria = _montar(repo, provedor)
 
     with pytest.raises(EfeitoNaoAplicadoError):
-        ConectarWhatsApp(lambda: uow, provedor, auditoria).executar(uuid.uuid4(), "tianet")
+        ConectarWhatsApp(lambda: uow, provedor, auditoria).executar(uuid.uuid4())
 
     # Prova de nao efeito externo: a ADR-002 pede o par falha + rollback, porque
     # quem le a trilha precisa saber se sobrou estado.
@@ -531,21 +569,24 @@ def test_criacao_comprovadamente_nao_aplicada_nao_registra_divergencia() -> None
 def test_conectar_adota_instancia_que_ja_existe_no_provedor() -> None:
     """Tabela local vazia nao significa provedor vazio.
 
-    A instancia do TiaNet foi criada a mao antes desta tela existir. Criar por
-    cima produziria uma SEGUNDA, nao pareada, enquanto o WhatsApp do operador
-    continua ligado na primeira.
+    O caso real e o `create` cuja resposta se perdeu: a instancia nasceu la fora
+    e nos nao guardamos o `instancia_id`. Criar por cima produziria uma SEGUNDA,
+    nao pareada, enquanto o WhatsApp do operador continua ligado na primeira.
     """
 
     repo = _RepoFake()
-    provedor = _ProvedorFake(existente=("instancia-manual", "token-manual"))
+    provedor = _ProvedorFake(existente=("instancia-orfa", "token-orfao"))
     uow, auditoria = _montar(repo, provedor)
+    tenant_id = uuid.uuid4()
 
-    ConectarWhatsApp(lambda: uow, provedor, auditoria).executar(uuid.uuid4(), "adm_tianet")
+    ConectarWhatsApp(lambda: uow, provedor, auditoria).executar(tenant_id)
 
     assert provedor.criadas == [], "nao pode criar uma segunda instancia"
-    assert provedor.buscas == ["adm_tianet"]
-    assert repo.conexao is not None and repo.conexao.instancia_id == "instancia-manual"
-    assert repo.token == "token-manual"
+    # Procurada pelo nome DERIVADO: e o que torna a recuperacao possivel sem
+    # ninguem lembrar como a instancia se chamava.
+    assert provedor.buscas == [nome_da_instancia(tenant_id)]
+    assert repo.conexao is not None and repo.conexao.instancia_id == "instancia-orfa"
+    assert repo.token == "token-orfao"
     assert "conectar.adocao" in [e[1] for e in auditoria.eventos]
 
 
@@ -553,11 +594,12 @@ def test_conectar_cria_instancia_quando_nao_existe_e_guarda_o_token() -> None:
     repo = _RepoFake()
     provedor = _ProvedorFake()
     uow, auditoria = _montar(repo, provedor)
+    tenant_id = uuid.uuid4()
 
-    resultado = ConectarWhatsApp(lambda: uow, provedor, auditoria).executar(uuid.uuid4(), "tianet")
+    resultado = ConectarWhatsApp(lambda: uow, provedor, auditoria).executar(tenant_id)
 
     assert resultado.qrcode_base64 == QRCODE
-    assert provedor.criadas == ["tianet"]
+    assert provedor.criadas == [nome_da_instancia(tenant_id)]
     assert repo.token == "token-novo"
     assert uow.commits == 1
 
@@ -569,7 +611,7 @@ def test_conectar_reaproveita_instancia_existente() -> None:
     provedor = _ProvedorFake()
     uow, auditoria = _montar(repo, provedor)
 
-    ConectarWhatsApp(lambda: uow, provedor, auditoria).executar(uuid.uuid4(), "tianet")
+    ConectarWhatsApp(lambda: uow, provedor, auditoria).executar(uuid.uuid4())
 
     assert provedor.criadas == []
     assert provedor.conectadas == ["token-1"]
@@ -582,7 +624,7 @@ def test_conectar_nao_registra_o_qr_na_trilha() -> None:
     provedor = _ProvedorFake()
     uow, auditoria = _montar(repo, provedor)
 
-    ConectarWhatsApp(lambda: uow, provedor, auditoria).executar(uuid.uuid4(), "tianet")
+    ConectarWhatsApp(lambda: uow, provedor, auditoria).executar(uuid.uuid4())
 
     assert auditoria.eventos, "nenhum evento registrado"
     for _, _, _, detalhes in auditoria.eventos:
@@ -598,9 +640,7 @@ def test_conectar_registra_autoria_em_todo_evento() -> None:
     provedor = _ProvedorFake()
     uow, auditoria = _montar(repo, provedor)
 
-    ConectarWhatsApp(lambda: uow, provedor, auditoria).executar(
-        uuid.uuid4(), "tianet", usuario_id=usuario_id
-    )
+    ConectarWhatsApp(lambda: uow, provedor, auditoria).executar(uuid.uuid4(), usuario_id=usuario_id)
 
     assert len(auditoria.eventos) == 2
     for _, _, _, detalhes in auditoria.eventos:
@@ -615,7 +655,7 @@ def test_conectar_falha_registra_so_o_tipo_do_erro() -> None:
     uow, auditoria = _montar(repo, provedor)
 
     with pytest.raises(RuntimeError):
-        ConectarWhatsApp(lambda: uow, provedor, auditoria).executar(uuid.uuid4(), "tianet")
+        ConectarWhatsApp(lambda: uow, provedor, auditoria).executar(uuid.uuid4())
 
     # Sem `conectar.rollback`: `_garantir_instancia` ja tinha commitado quando o
     # QR falhou. Registrar rollback aqui afirmaria, numa trilha append-only, que
@@ -639,7 +679,7 @@ def test_conectar_com_qr_ainda_gerando_devolve_pendente_em_vez_de_falhar() -> No
     provedor = _ProvedorFake(falhar_em_qrcode=QrCodeIndisponivelError("no QR code available"))
     uow, auditoria = _montar(repo, provedor)
 
-    resultado = ConectarWhatsApp(lambda: uow, provedor, auditoria).executar(uuid.uuid4(), "tianet")
+    resultado = ConectarWhatsApp(lambda: uow, provedor, auditoria).executar(uuid.uuid4())
 
     assert resultado.qrcode_base64 is None
     assert repo.conexao is not None, "a instancia tem de ficar gravada"
@@ -660,18 +700,21 @@ def test_qr_indisponivel_nao_apaga_a_instancia_ja_criada() -> None:
     provedor = _ProvedorFake(falhar_em_qrcode=RuntimeError("no QR code available"))
     uow, auditoria = _montar(repo, provedor)
     caso = ConectarWhatsApp(lambda: uow, provedor, auditoria)
+    tenant_id = uuid.uuid4()
 
     with pytest.raises(RuntimeError):
-        caso.executar(uuid.uuid4(), "tianet")
+        caso.executar(tenant_id)
 
     assert repo.conexao is not None, "a instancia criada no provedor tem de sobreviver"
     assert repo.token == "token-novo"
 
-    # A segunda tentativa reaproveita — nao cria uma instancia nova.
+    # A segunda tentativa reaproveita — nao cria uma instancia nova. O MESMO
+    # Tenant, e nao outro: e o tenant_id que decide o nome, e com ele que a
+    # segunda chamada encontra a instancia da primeira.
     with pytest.raises(RuntimeError):
-        caso.executar(uuid.uuid4(), "tianet")
+        caso.executar(tenant_id)
 
-    assert provedor.criadas == ["tianet"]
+    assert provedor.criadas == [nome_da_instancia(tenant_id)]
 
 
 def test_desconectar_mantem_a_instancia_e_so_desvincula_a_conta() -> None:
@@ -778,3 +821,143 @@ def test_desconectar_sem_conexao_e_erro_nomeado() -> None:
         "desconectar.falha",
         "desconectar.rollback",
     ]
+
+
+def test_excluir_apaga_primeiro_no_provedor_e_depois_o_registro_local() -> None:
+    """A ordem e o conteudo do teste, nao detalhe de arrumacao.
+
+    Apagar a linha primeiro deixaria a instancia orfa no provedor sem nada
+    apontando para ela — nem o `instancia_id`, que e o unico jeito de acha-la.
+    """
+
+    conexao = _conexao()
+    repo = _RepoFake(conexao, token="token-1")
+    provedor = _ProvedorFake()
+    uow, auditoria = _montar(repo, provedor)
+    tenant_id = uuid.uuid4()
+
+    estado = ExcluirConexaoWhatsApp(lambda: uow, provedor, auditoria).executar(tenant_id)
+
+    assert provedor.excluidas == [conexao.instancia_id]
+    assert repo.apagadas == [tenant_id]
+    assert repo.conexao is None
+    assert uow.commits == 1
+    # Bloquear, ler, e so entao apagar: o lock antes da leitura, como nos outros.
+    assert repo.ordem == ["bloquear", "ler", "apagar"]
+    # Mesmo formato do "nao existe" da consulta: a tela voltou ao ponto de
+    # partida, e ler dois formatos para o mesmo estado e como ela erra.
+    assert estado.existe is False
+    assert estado.pareada is False
+    assert estado.numero is None
+    assert [e[1] for e in auditoria.eventos] == ["excluir.inicio", "excluir.sucesso"]
+
+
+def test_excluir_nao_exige_o_token_da_instancia() -> None:
+    """`/instance/delete` autentica por Tenant — exigir o token prenderia a limpeza.
+
+    Conexao com token perdido ou cifra ilegivel e justamente a que mais precisa
+    ser removida. Se a exclusao dependesse do token, ela ficaria para sempre.
+    """
+
+    repo = _RepoFake(_conexao(), token=None)
+    provedor = _ProvedorFake()
+    uow, auditoria = _montar(repo, provedor)
+
+    ExcluirConexaoWhatsApp(lambda: uow, provedor, auditoria).executar(uuid.uuid4())
+
+    assert provedor.excluidas == ["instancia-1"]
+    assert repo.conexao is None
+
+
+def test_excluir_sem_conexao_e_erro_nomeado() -> None:
+    repo = _RepoFake()
+    provedor = _ProvedorFake()
+    uow, auditoria = _montar(repo, provedor)
+
+    with pytest.raises(ConexaoWhatsAppNaoEncontradaError):
+        ExcluirConexaoWhatsApp(lambda: uow, provedor, auditoria).executar(uuid.uuid4())
+
+    assert provedor.excluidas == []
+    # Rollback verdadeiro: nada foi feito no provedor.
+    assert [e[1] for e in auditoria.eventos] == [
+        "excluir.inicio",
+        "excluir.falha",
+        "excluir.rollback",
+    ]
+
+
+def test_excluir_recusado_pelo_provedor_e_rollback_e_nao_divergencia() -> None:
+    """401/403 e recusa comprovada: a instancia continua la, inteira."""
+
+    repo = _RepoFake(_conexao(), token="token-1")
+    provedor = _ProvedorFake(falhar_em_excluir=EfeitoNaoAplicadoError("401 tenant inativo"))
+    uow, auditoria = _montar(repo, provedor)
+
+    with pytest.raises(EfeitoNaoAplicadoError):
+        ExcluirConexaoWhatsApp(lambda: uow, provedor, auditoria).executar(uuid.uuid4())
+
+    assert repo.conexao is not None, "nada foi apagado la fora, nada some aqui"
+    assert [e[1] for e in auditoria.eventos] == [
+        "excluir.inicio",
+        "excluir.falha",
+        "excluir.rollback",
+    ]
+
+
+def test_excluir_com_timeout_no_provedor_registra_divergencia() -> None:
+    """Timeout nao prova que o provedor NAO apagou.
+
+    Chamar isso de `rollback_aplicado` numa trilha append-only afirmaria, para
+    sempre, que nada sobrou — quando a instancia pode ter sumido de verdade.
+    """
+
+    conexao = _conexao()
+    repo = _RepoFake(conexao, token="token-1")
+    provedor = _ProvedorFake(falhar_em_excluir=TimeoutError("sem resposta"))
+    uow, auditoria = _montar(repo, provedor)
+
+    with pytest.raises(TimeoutError):
+        ExcluirConexaoWhatsApp(lambda: uow, provedor, auditoria).executar(uuid.uuid4())
+
+    divergencias = [e for e in auditoria.eventos if e[1] == "excluir.divergencia"]
+    assert len(divergencias) == 1
+    assert divergencias[0][2] == "externo_aplicado_local_incerto"
+    # O `instancia_id` e o que permite conciliar depois.
+    assert json.loads(divergencias[0][3] or "{}")["instancia_id"] == conexao.instancia_id
+    assert "excluir.rollback" not in [e[1] for e in auditoria.eventos]
+
+
+def test_excluir_com_falha_no_commit_registra_divergencia() -> None:
+    """A instancia ja foi apagada la fora, e nenhum rollback a traz de volta."""
+
+    repo = _RepoFake(_conexao(), token="token-1")
+    provedor = _ProvedorFake()
+    uow, auditoria = _montar(repo, provedor)
+    uow.falhar_no_commit = True
+
+    with pytest.raises(RuntimeError):
+        ExcluirConexaoWhatsApp(lambda: uow, provedor, auditoria).executar(uuid.uuid4())
+
+    assert provedor.excluidas == ["instancia-1"]
+    assert [e[1] for e in auditoria.eventos] == [
+        "excluir.inicio",
+        "excluir.falha",
+        "excluir.divergencia",
+    ]
+
+
+def test_excluir_registra_autoria_em_todo_evento() -> None:
+    """IMP-361: inicio e sucesso carregam o mesmo Principal."""
+
+    usuario_id = uuid.uuid4()
+    repo = _RepoFake(_conexao(), token="token-1")
+    provedor = _ProvedorFake()
+    uow, auditoria = _montar(repo, provedor)
+
+    ExcluirConexaoWhatsApp(lambda: uow, provedor, auditoria).executar(
+        uuid.uuid4(), usuario_id=usuario_id
+    )
+
+    assert len(auditoria.eventos) == 2
+    for _, _, _, detalhes in auditoria.eventos:
+        assert json.loads(detalhes or "{}")["usuario_id"] == str(usuario_id)

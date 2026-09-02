@@ -283,7 +283,19 @@ obrigaria o consumidor a somar valores fora do Motor. Mudanca **aditiva**:
 **107 operacoes, 135 schemas**, SHA-256
 `23d8d91f5f5890ef5ca010d1fc45a458458e5028042c80e7e15dbf82052af76a`.
 
-Das nove regeracoes registradas, as do IMP-326, IMP-355 e IMP-362 sao aditivas. A do IMP-324
+Em 2026-09-02 o IMP-368 publicou as quatro operacoes da conexao de WhatsApp
+(`GET`, `POST` e `DELETE` em `/platform/whatsapp/conexao`, mais
+`DELETE /platform/whatsapp/conexao/instancia`). A quarta apaga a instancia no
+provedor, e entrou porque o `logout` sozinho acumula sessao morta no Evolution.
+Mudanca **aditiva**: **111 operacoes, 137 schemas**, SHA-256
+`c8868afbf0645165da9795f718d91b8fba41bcc2bb8fa111578ec39bed58df0b`.
+Este e o hash **vigente**. As tres escritas novas nao publicam
+`Idempotency-Key` e estao registradas como excecao justificada no guardrail do
+IMP-333 — o replay devolveria um QR expirado, e o `POST` nao tem corpo a
+divergir.
+
+Das dez regeracoes registradas, as do IMP-326, IMP-355, IMP-362 e IMP-368 sao
+aditivas. A do IMP-324
 retirou campos exigidos, a do IMP-327 retirou operacoes e schemas, a do
 IMP-328 retirou campos de sete schemas e a do IMP-351 retirou duas operacoes e
 tres schemas: as quatro **nao aditivas**, deliberadas, e amparadas pela
@@ -295,6 +307,7 @@ resolucao da DR-004 ou por decisao registrada. Nada do hardening foi desfeito.
 
 | Versao | Data | Descricao |
 |---|---|---|
+| 1.10.0 | 2026-09-02 | IMP-368: as quatro operacoes de `/platform/whatsapp/conexao` publicadas; snapshot 111/137 regerado. |
 | 1.9.0 | 2026-08-27 | IMP-362: `GET /credit/devedores/{devedor_id}/saldo` publicado; snapshot 107/135 regerado. |
 | 1.8.0 | 2026-08-27 | IMP-355: `POST /iam/usuarios` publicado; snapshot 106/133 regerado. Entrada acrescentada a cadeia, sem reescrever as anteriores. |
 | 1.7.0 | 2026-08-26 | IMP-351: provisionamento de Tenant por API e fluxo de ativacao removidos; snapshot 105/131 regerado. O registro de cada snapshot anterior permanece intacto — cadeia se acrescenta, nao se reescreve. |

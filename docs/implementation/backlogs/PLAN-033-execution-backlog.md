@@ -193,6 +193,14 @@ Toda afirmacao desta secao foi conferida no arquivo indicado.
   usuario copilot, refresh token, `COPILOT_OPERATOR_ALLOWLIST`, `EVOLUTION_HOST`
   e `EVOLUTION_INSTANCE_TOKEN`. A allowlist inicial contem somente o numero da
   Tia. Nenhum segredo entra em log, banco generico, imagem ou Git.
+- **`WHATSAPP_TOKEN_ENCRYPTION_KEY` (respondido em 2026-09-02):** e gerada
+  **aqui**, no provisionamento — hoje nao existe em lugar nenhum. A copia vai
+  para o mesmo canal de `docs/credenciais/`, ao lado do `evolution_api_key`, sem
+  cofre proprio e sem rotina de rotacao. O porque esta em
+  `docs/operations/contexto-externo.md` §2.1: o token que ela protege tem
+  segunda fonte no proprio provedor, entao esta chave e **menos** poderosa que a
+  chave de Tenant que ja vive naquele canal. Isto fecha a pergunta §5.1 #2 do
+  handoff de 2026-09-02, que era pre-requisito deste item.
 - **Limite de tenancy:** `docs/operations/contexto-externo.md` secao 6.1 limita a
   uma instancia Evolution por processo. O v1 opera o primeiro Tenant. Um segundo
   Tenant exige processo isolado ou cofre de segredos com criptografia e rotacao;

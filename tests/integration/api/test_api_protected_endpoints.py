@@ -48,6 +48,13 @@ RESPOSTA_401 = {
 }
 ERRO_RESPONSE_REF = {"$ref": "#/components/schemas/ErroResponse"}
 ROTAS_COM_404_DOCUMENTADO = {
+    # IMP-368: as quatro da conexao de WhatsApp. Ate a de leitura pode responder
+    # 404 — conexao gravada cujo token nao decifra existe e nao alcanca o
+    # provedor, e o caso de uso nomeia isso em vez de dizer "desconectada".
+    ("get", "/platform/whatsapp/conexao"),
+    ("post", "/platform/whatsapp/conexao"),
+    ("delete", "/platform/whatsapp/conexao"),
+    ("delete", "/platform/whatsapp/conexao/instancia"),
     # IMP-362: Devedor inexistente responde 404 em vez de zero — zero diria
     # "nao deve nada" sobre quem nem esta cadastrado.
     ("get", "/credit/devedores/{devedor_id}/saldo"),

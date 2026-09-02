@@ -7,6 +7,9 @@ x-backend: &backend
     APP_ENV: ${APP_ENV:-development}
     JWT_SECRET_KEY: ${JWT_SECRET_KEY:?defina JWT_SECRET_KEY no .env}
     EVOLUTION_HOST: ${EVOLUTION_HOST:-https://diamondgreen.com.br}
+    # Credenciais de Tenant: criar, listar e apagar instancia (IMP-368).
+    EVOLUTION_TENANT_ID: ${EVOLUTION_TENANT_ID:-}
+    EVOLUTION_API_KEY: ${EVOLUTION_API_KEY:-}
   depends_on:
     postgres:
       condition: service_healthy

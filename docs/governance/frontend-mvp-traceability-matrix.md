@@ -17,10 +17,14 @@ Context, EPIC, Feature ou User Story.
 
 A fonte contratual observada e o OpenAPI gerado por `create_app().openapi()` na
 worktree derivada do commit backend `e48cb72`, congelado no snapshot governado
-do PLAN-025. O contrato vigente possui 105 operacoes e 131 schemas; o SHA-256
+do PLAN-025. O contrato vigente possui 111 operacoes e 137 schemas; o SHA-256
 do snapshot e
-`23d8d91f5f5890ef5ca010d1fc45a458458e5028042c80e7e15dbf82052af76a`,
-atualizado pelo IMP-336, que retirou o campo obrigatorio `parcelas_liquidadas`
+`c8868afbf0645165da9795f718d91b8fba41bcc2bb8fa111578ec39bed58df0b`,
+atualizado pelo IMP-368, que acrescentou as quatro operacoes de
+`/platform/whatsapp/conexao`. A contagem anterior registrada aqui (105/131)
+estava desatualizada desde antes do IMP-362 — o hash acompanhava o contrato, os
+numeros nao. Anterior ao IMP-368 era o IMP-336, que retirou o campo obrigatorio
+`parcelas_liquidadas`
 de `PagamentoResponse` — **mudanca nao aditiva**, ultimo residuo do plano de
 parcelas no contrato publico, amparada pela DR-004.
 

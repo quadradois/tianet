@@ -1572,6 +1572,17 @@ class SqlAlchemyConexaoWhatsAppRepository(ConexaoWhatsAppRepository):
     def exigir_disponibilidade(self) -> None:
         self._cifra()
 
+    def delete(self, tenant_id: uuid.UUID) -> None:
+        """Apaga a conexao do Tenant. Ausente e sucesso (IMP-368).
+
+        `DELETE` direto em vez de carregar-e-remover porque nao ha nada a
+        inspecionar: o caso de uso ja leu a conexao sob lock antes de chamar o
+        provedor. E ausencia aqui e o mesmo desfecho pedido, nao um erro.
+        """
+        self._session.execute(
+            delete(ConexaoWhatsAppORM).where(ConexaoWhatsAppORM.tenant_id == tenant_id)
+        )
+
     def bloquear_tenant(self, tenant_id: uuid.UUID) -> None:
         # Advisory lock de transacao: solta sozinho no commit ou no rollback, e
         # nao depende de a linha existir — que e exatamente o caso aqui, porque

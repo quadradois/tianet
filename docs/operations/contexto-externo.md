@@ -1,6 +1,6 @@
 # Contexto Externo
 
-**Versao:** 1.5.0
+**Versao:** 1.7.0
 
 **Status:** Vivo — mantido manualmente
 
@@ -41,6 +41,79 @@ auditada contra o codigo em producao. Leia antes de integrar qualquer coisa.
 | Retry de webhook | 5 tentativas, 30s de intervalo, depois descarta — **nao existe replay** |
 | Tamanho de payload | midia vem em base64; `HistorySync` ja foi observado com 5,6MB |
 | Ambiente de teste | **Nao existe** — respondido em 2026-08-25. Validacoes controladas usam producao com o numero do fundador; ver §6.2 |
+
+### Estado real do tenant `tianet` no provedor (lido em 2026-09-02)
+
+Leitura ao vivo de `/instance/all` e `/instance/info/:id` com a chave de Tenant,
+durante o IMP-368. **Uma unica instancia existe:**
+
+| Campo | Valor |
+|---|---|
+| `name` | `adm_tianet` |
+| `id` | `8a8c901f-16f9-4431-b19d-ed69cccc46c0` |
+| Criada em | 2026-08-31 |
+| `connected` | `false` — `disconnect_reason: "401: logged out from another device"` |
+| `jid` | preenchido (`5562...`) **mesmo desconectada** |
+| `webhook` | vazio |
+
+O que cada linha ensina, e nao estava escrito em lugar nenhum:
+
+- **A instancia e artefato de teste nosso.** O fundador confirmou em 2026-09-02
+  que ela nasceu dos testes de comunicacao, nao de uma configuracao manual
+  anterior ao sistema. O IMP-367 tinha registrado a premissa contraria no
+  proprio codigo, e ela era falsa.
+- **Apagar do celular NAO apaga a instancia.** Desparear pelo aparelho produz o
+  `disconnect_reason` acima e a instancia continua existindo no provedor. So
+  `DELETE /instance/delete/:id` a remove — e ate o IMP-368 nenhum codigo nosso
+  chamava essa rota. E o motivo de a exclusao ter virado operacao propria.
+- **O `jid` sobrevive a desconexao.** Ler o telefone do `jid` sem cruzar com
+  `connected` mostraria "conectado no 6284290661" numa conexao caida.
+- **O `webhook` vazio e proposital**, nao pendencia: a DR-006 apontou o webhook
+  para o agente (§2.2), e mandar a URL da TiaNet roubaria os eventos dele.
+- **`/instance/info` com id inexistente responde `500` com
+  `{"error":"record not found"}`** — o status mente, o corpo nao. E por isso que
+  o adapter trata a ausencia pelo texto do corpo, e nao pelo `500`.
+
+**Consequencia operacional pendente:** a partir do IMP-368 a plataforma nomeia
+as instancias como `tianet_{tenant_id}`, entao ela **nao vai adotar** a
+`adm_tianet`. Essa instancia deve ser apagada (pela operacao nova, ou a mao no
+diamondgreen) antes do primeiro `conectar` valer como definitivo — senao ela
+fica para sempre como sessao morta, que e exatamente o acumulo que o fundador
+pediu para evitar.
+
+### Custodia da `WHATSAPP_TOKEN_ENCRYPTION_KEY` (decidido em 2026-09-02)
+
+**Onde mora:** o mesmo canal de `docs/credenciais/`, fora do git, entregue por
+canal direto — ao lado do `evolution_api_key`. Sem cofre proprio, sem rotina de
+rotacao. **Este documento nao carrega o valor**, so o lugar e o porque.
+
+**Estado hoje:** a chave **nao existe** em lugar nenhum, nem no `.env` de
+desenvolvimento. Ela nasce no IMP-359, com o provisionamento do VPS.
+
+**Por que a protecao e proporcional, e nao maior.** Ela e a primeira chave
+*decodificadora* do sistema — as outras sao substituiveis (`POSTGRES_PASSWORD`
+se redefine, `JWT_SECRET_KEY` perdido so obriga todo mundo a logar de novo, e o
+Evolution reemite a chave de Tenant por `/tenant/apikey/:id`). Isso legitima a
+pergunta pelo backup, e ela foi feita.
+
+Mas o que ela decodifica **tem segunda fonte**: `GET /instance/all`, com a chave
+de Tenant, devolve o mesmo token da instancia em texto claro — verificado ao
+vivo em 2026-09-02. Disso decorre a decisao: **a chave de cifra e estritamente
+menos poderosa que a `EVOLUTION_API_KEY`**, que ja vive naquele canal. Quem tem
+a segunda le o token direto do provedor sem precisar da primeira. Guardar a mais
+fraca com mais cerimonia que a mais forte seria teatro.
+
+O handoff de 2026-09-02 §5.1 registrava que perder a chave tornaria "todo token
+persistido irrecuperavel". **Esta secao corrige isso**: e recuperavel, e sem QR
+novo — a adocao por nome derivado (IMP-368) reencontra a instancia e regrava o
+token.
+
+**Custo real de perder a chave:** apagar a linha de `conexao_whatsapp` e chamar
+`conectar`. Hoje esse apagar e **manual**, porque a unica operacao que remove o
+registro local (`DELETE /platform/whatsapp/conexao/instancia`) apaga a instancia
+no provedor junto — e ai o QR volta a ser necessario sem precisar. Uma operacao
+que solte apenas o vinculo local esta anotada como candidata para depois do
+deploy; ate la, o caminho e um `DELETE` no banco.
 
 ### Recorte para a TiaNet
 

@@ -268,6 +268,21 @@ EXCECOES_IDEMPOTENCIA_ESCRITAS: dict[tuple[str, str], str] = {
         "Logout revoga a sessao apresentada e e naturalmente convergente; nao existe "
         "resultado de negocio reutilizavel por Idempotency-Key."
     ),
+    ("post", "/platform/whatsapp/conexao"): (
+        "PLAN-034 3.1: a chave replayaria o QR da primeira chamada, que vive ~20s. "
+        "Devolver um QR morto e pior que gerar outro. O que precisa ser idempotente "
+        "aqui e o nascimento da instancia, e UNIQUE (tenant_id) mais o lock por "
+        "Tenant ja garantem isso no caso de uso."
+    ),
+    ("delete", "/platform/whatsapp/conexao"): (
+        "Logout de instancia e naturalmente convergente: desvincular um numero ja "
+        "desvinculado nao produz resultado de negocio novo para replayar."
+    ),
+    ("delete", "/platform/whatsapp/conexao/instancia"): (
+        "IMP-368: apagar e convergente por definicao, e o adapter trata "
+        "'record not found' do provedor como sucesso. Uma chave guardaria o "
+        "resultado de uma exclusao que ja aconteceu."
+    ),
 }
 
 

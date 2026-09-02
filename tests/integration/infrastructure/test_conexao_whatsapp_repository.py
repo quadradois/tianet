@@ -130,3 +130,45 @@ def test_um_tenant_nao_pode_ter_duas_conexoes(session_factory: sessionmaker[Sess
             session.commit()
         session.rollback()
         session.execute(text("SELECT 1"))
+
+
+def test_delete_apaga_a_conexao_e_o_token_cifrado(
+    session_factory: sessionmaker[Session],
+) -> None:
+    """Par local do `excluir_instancia` (IMP-368).
+
+    Manter a linha depois de a instancia ter sido apagada no provedor deixaria
+    uma conexao apontando para nada e um token que nao autentica mais em lugar
+    nenhum — e o `UNIQUE (tenant_id)` impediria criar a proxima.
+    """
+    with session_factory() as session:
+        tenant_id = _tenant(session)
+        repo = _repo(session)
+        repo.save(_conexao(tenant_id), token=TOKEN)
+        session.commit()
+
+        repo.delete(tenant_id)
+        session.commit()
+
+        assert repo.find_by_tenant_id(tenant_id) is None
+        assert repo.find_token(tenant_id) is None
+        # Direto na tabela, filtrando por este Tenant: outros testes deste
+        # arquivo compartilham o banco, entao um `select` sem `where` mediria a
+        # sujeira deles, nao o efeito deste delete.
+        linha = session.scalar(
+            select(ConexaoWhatsAppORM).where(ConexaoWhatsAppORM.tenant_id == tenant_id)
+        )
+        assert linha is None
+
+
+def test_delete_de_conexao_ausente_nao_e_erro(
+    session_factory: sessionmaker[Session],
+) -> None:
+    """Ausencia e o mesmo desfecho pedido. Levantar aqui faria uma limpeza
+    repetida — ou concorrente — virar incidente."""
+    with session_factory() as session:
+        tenant_id = _tenant(session)
+        session.commit()
+
+        _repo(session).delete(tenant_id)
+        session.commit()

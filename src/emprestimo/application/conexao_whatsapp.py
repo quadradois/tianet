@@ -1,6 +1,6 @@
-"""Casos de uso da conexão de WhatsApp do Credor (IMP-367, PLAN-034).
+"""Casos de uso da conexão de WhatsApp do Credor (IMP-367/IMP-368, PLAN-034).
 
-Três operações, e a distinção entre elas é o conteúdo real deste módulo:
+Três estados, e a distinção entre eles é o conteúdo real deste módulo:
 
 - **inexistente** — nenhuma instância no provedor. Pede criar;
 - **pendente** — instância existe, número não vinculado. Pede escanear um QR;
@@ -13,6 +13,12 @@ recém-criada, verificado em 2026-08-31.
 
 **O QR nunca entra na trilha.** Ele é o material que pareia um número; a
 auditoria da ADR-002 é append-only, e o que entra lá não sai.
+
+**Desconectar e excluir não são a mesma coisa** (IMP-368). O logout desvincula
+o número e a instância continua lá, pronta para outro QR. Excluir apaga a
+instância no provedor. Sem a segunda, cada instância abandonada fica no
+Evolution para sempre — nome, token e sessão que ninguém usa — e o provedor
+enche de conexão morta.
 """
 
 from __future__ import annotations
@@ -91,8 +97,37 @@ class QrCodeConexao:
     qrcode_base64: str | None
 
 
+PREFIXO_NOME_INSTANCIA = "tianet_"
+
+
+def nome_da_instancia(tenant_id: uuid.UUID) -> str:
+    """O nome da instância deste Tenant. **Derivado, nunca digitado** (IMP-368).
+
+    Três coisas dependem disto, e nenhuma sobrevive a um nome que alguém teclou:
+
+    1. a adoção de `instancia_existente` casa **pelo nome**. Um caractere
+       diferente e ela não acha nada, o `create` roda, e nasce uma segunda
+       instância — não pareada — enquanto o WhatsApp do operador segue ligado
+       na primeira;
+    2. a recuperação do `create` cuja resposta se perdeu tem o nome como única
+       pista, e ela precisa ser reconstruível sem consultar ninguém;
+    3. um campo digitável transforma erro de digitação em instância nova e
+       silenciosa no provedor.
+
+    Determinístico a partir do `tenant_id`: a mesma entrada devolve o mesmo
+    nome em qualquer máquina, em qualquer momento, sem estado guardado.
+    """
+    return f"{PREFIXO_NOME_INSTANCIA}{tenant_id}"
+
+
 def _validar_nome(instancia_nome: str) -> str:
-    """Recusa aqui o que o banco recusaria depois do efeito externo."""
+    """Recusa aqui o que o banco recusaria depois do efeito externo.
+
+    O nome é gerado (`nome_da_instancia`) e hoje cabe folgado nos 100
+    caracteres da coluna. A guarda fica porque quem mudar o formato descobre o
+    estouro aqui, antes do provedor — e não no `save`, com a instância já
+    criada lá fora e o token perdido.
+    """
     limpo = instancia_nome.strip()
     if not limpo:
         raise NomeInstanciaInvalidoError("nome da instancia vazio")
@@ -262,7 +297,6 @@ class ConectarWhatsApp:
     def _garantir_instancia(
         self,
         tenant_id: uuid.UUID,
-        instancia_nome: str,
         autoria: dict[str, object],
     ) -> tuple[ConexaoWhatsApp, str]:
         """Devolve a conexao do Tenant, criando-a no provedor se preciso.
@@ -291,14 +325,13 @@ class ConectarWhatsApp:
             # Antes do efeito externo: uma chave de cifra ausente descoberta no
             # `save` deixaria a instância criada no provedor e o token perdido.
             uow.conexao_whatsapp.exigir_disponibilidade()
-            nome = _validar_nome(instancia_nome)
-            # Tabela local vazia NAO significa provedor vazio. A instancia do
-            # TiaNet foi criada a mao antes desta tela existir; criar por cima
-            # produziria uma segunda, nao pareada, enquanto o WhatsApp do
-            # operador continua ligado na primeira.
-            #
-            # Isto tambem fecha a janela do `create` cuja resposta se perdeu: a
-            # proxima tentativa adota em vez de criar outra orfa.
+            nome = _validar_nome(nome_da_instancia(tenant_id))
+            # Tabela local vazia NAO significa provedor vazio: o `create` pode
+            # ter criado a instancia e a resposta ter se perdido antes de
+            # chegarmos a gravar o `instancia_id`. Nessa janela o nome e a
+            # unica pista, e por isso ele e derivado do Tenant — a proxima
+            # tentativa reconstroi o mesmo nome e adota em vez de criar outra
+            # orfa.
             existente = self._provedor.instancia_existente(nome)
             if existente is not None:
                 instancia_id, token = existente
@@ -363,7 +396,6 @@ class ConectarWhatsApp:
     def executar(
         self,
         tenant_id: uuid.UUID,
-        instancia_nome: str,
         usuario_id: uuid.UUID | None = None,
     ) -> QrCodeConexao:
         autoria = _autoria(usuario_id)
@@ -382,7 +414,7 @@ class ConectarWhatsApp:
             # conexao local enquanto a instancia ja existe no provedor, com um
             # token que so nos tinhamos: instancia orfa, inalcancavel, e uma nova
             # criada a cada tentativa.
-            conexao, token = self._garantir_instancia(tenant_id, instancia_nome, autoria)
+            conexao, token = self._garantir_instancia(tenant_id, autoria)
             self._provedor.conectar(token)
             try:
                 qrcode: str | None = self._provedor.qrcode(token)
@@ -430,6 +462,9 @@ class DesconectarWhatsApp:
 
     Apagar a instância obrigaria a recriá-la — e com ela um token novo — a cada
     desconexão. Reconectar deve custar um QR, não um ciclo de provisionamento.
+
+    Quem quer a instância fora do provedor pede `ExcluirConexaoWhatsApp`, que é
+    outra intenção: aqui o operador troca de número, lá ele encerra a conexão.
     """
 
     def __init__(
@@ -534,5 +569,118 @@ class DesconectarWhatsApp:
             nome_exibicao=None,
             numero=None,
             # Desconectar não gera QR: quem quiser reconectar chama `conectar`.
+            qrcode_base64=None,
+        )
+
+
+class ExcluirConexaoWhatsApp:
+    """Apaga a instância no provedor e o registro local (IMP-368).
+
+    Existe porque o logout sozinho **acumula**: cada instância abandonada segue
+    no Evolution com nome, token e sessão que ninguém usa, e nada no sistema a
+    remove. Com o tempo o provedor enche de conexão morta, e descobrir qual
+    delas é a viva vira trabalho manual.
+
+    Ordem dos efeitos, e ela não é arbitrária: apaga **primeiro lá fora**, e só
+    então localmente. O inverso deixaria a instância órfã no provedor sem nada
+    apontando para ela — nem o `instancia_id`, que é o que permite achá-la.
+    """
+
+    def __init__(
+        self,
+        uow_factory: Callable[[], UnitOfWork],
+        provedor: ProvedorWhatsApp,
+        auditoria: AuditoriaRegistro,
+    ) -> None:
+        self._uow_factory = uow_factory
+        self._provedor = provedor
+        self._auditoria = auditoria
+
+    def executar(
+        self,
+        tenant_id: uuid.UUID,
+        usuario_id: uuid.UUID | None = None,
+    ) -> EstadoConexaoWhatsApp:
+        autoria = _autoria(usuario_id)
+        self._auditoria.registrar(
+            ENTIDADE_AUDITORIA,
+            None,
+            "excluir.inicio",
+            "iniciado",
+            detalhes=_detalhes(autoria),
+        )
+        excluido_no_provedor: str | None = None
+        try:
+            with self._uow_factory() as uow:
+                # Mesmo lock dos outros: sem ele um polling em voo grava
+                # "pareada" depois da exclusao, e a trilha fica com um
+                # pareamento posterior ao fim da conexao.
+                uow.conexao_whatsapp.bloquear_tenant(tenant_id)
+                conexao = uow.conexao_whatsapp.find_by_tenant_id(tenant_id)
+                if conexao is None:
+                    raise ConexaoWhatsAppNaoEncontradaError(tenant_id)
+
+                # O token NAO e lido aqui, e isso e proposital: `/instance/delete`
+                # autentica por Tenant. Exigir o token faria a limpeza depender
+                # justamente do que pode estar perdido — conexao com cifra
+                # ilegivel ou token ausente e exatamente a que mais precisa ser
+                # removida, e ela ficaria presa para sempre.
+                #
+                # Marcado ANTES da chamada, pela regra da ADR-009: timeout ou
+                # reset levantam sem provar que o provedor nao apagou. Marcar
+                # depois faria o caso ambiguo cair em `rollback_aplicado` — a
+                # afirmacao mais forte, e a unica que nao se retira.
+                excluido_no_provedor = conexao.instancia_id
+                self._provedor.excluir_instancia(conexao.instancia_id)
+                uow.conexao_whatsapp.delete(tenant_id)
+                uow.commit()
+        except Exception as exc:
+            self._auditoria.registrar(
+                ENTIDADE_AUDITORIA,
+                None,
+                "excluir.falha",
+                "falhou",
+                detalhes=_detalhes(autoria, erro_tipo=type(exc).__name__),
+            )
+            if excluido_no_provedor is not None and not isinstance(exc, EfeitoNaoAplicadoError):
+                # A instancia foi apagada la fora, ou pode ter sido — e nenhum
+                # rollback de banco a traz de volta. O registro local
+                # sobrevive apontando para uma instancia que talvez nao exista
+                # mais. Chamar isso de `rollback_aplicado` numa trilha
+                # append-only afirmaria, para sempre, que nada sobrou.
+                self._auditoria.registrar(
+                    ENTIDADE_AUDITORIA,
+                    None,
+                    "excluir.divergencia",
+                    "externo_aplicado_local_incerto",
+                    detalhes=_detalhes(autoria, instancia_id=excluido_no_provedor),
+                )
+            else:
+                self._auditoria.registrar(
+                    ENTIDADE_AUDITORIA,
+                    None,
+                    "excluir.rollback",
+                    "rollback_aplicado",
+                    detalhes=_detalhes(autoria),
+                )
+            raise
+
+        self._auditoria.registrar(
+            ENTIDADE_AUDITORIA,
+            conexao.id,
+            "excluir.sucesso",
+            "sucesso",
+            detalhes=_detalhes(autoria, instancia_id=excluido_no_provedor),
+        )
+        # O mesmo formato do "nao existe" da consulta, e nao um corpo proprio: a
+        # tela acabou de voltar ao ponto de partida, e ler dois formatos para o
+        # mesmo estado e como ela erra.
+        return EstadoConexaoWhatsApp(
+            existe=False,
+            pareada=False,
+            conectado=False,
+            instancia_nome=None,
+            nome_exibicao=None,
+            numero=None,
             qrcode_base64=None,
         )

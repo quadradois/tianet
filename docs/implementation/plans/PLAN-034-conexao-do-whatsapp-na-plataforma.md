@@ -83,8 +83,12 @@ volte:
   busca um QR novo, que é exatamente o comportamento desejado.
 
 O que a chave ainda daria é detecção de payload divergente — mesma chave com
-`instancia_nome` diferente. **Fica para o IMP-368**, junto com o contrato HTTP,
-porque é lá que se decide se o `POST` a exige no header.
+`instancia_nome` diferente. **Resolvido no IMP-368, e não como se esperava:**
+não há payload divergente a detectar porque **não há payload**. O nome da
+instância deixou de ser entrada e passou a ser derivado do Tenant
+(`nome_da_instancia`), então o `POST` não tem corpo e a última razão para exigir
+a chave caiu junto. As três rotas de escrita estão registradas como exceção
+justificada no guardrail do IMP-333.
 
 Três rodadas de review adversarial cobraram a chave; a decisão está aqui para
 que a quarta encontre a resposta em vez da pergunta.
@@ -172,19 +176,32 @@ texto convida a corrupção por encoding.
 
 # 6. API
 
-Três operações sobre um único recurso. Todas exigem Principal autenticado.
+**Quatro** operações sobre um único recurso — eram três até o IMP-368, e a
+quarta entrou por pedido do fundador em 2026-09-02: sem ela, cada instância
+abandonada fica no Evolution para sempre e o provedor enche de conexão morta.
+Todas exigem Principal autenticado.
 
 - `GET /platform/whatsapp/conexao` — estado da conexão. Permissão
   `whatsapp.conexao.ler`. Devolve estado, número pareado quando houver, e o QR
-  enquanto o pareamento estiver pendente. `404` quando nenhuma instância existe.
+  enquanto o pareamento estiver pendente. `404` quando a conexão existe e o
+  token não decifra — registro órfão, que não é o mesmo que "não existe".
 - `POST /platform/whatsapp/conexao` — cria a instância se necessário e inicia o
-  pareamento. Permissão `whatsapp.conexao.gerir`. Idempotente por
-  `Idempotency-Key` (AD-002). Devolve o QR.
+  pareamento. Permissão `whatsapp.conexao.gerir`. **Sem corpo e sem
+  `Idempotency-Key`** (§3.1): o nome da instância é derivado do Tenant, e
+  repetir a chamada reaproveita a instância e traz um QR novo.
 - `DELETE /platform/whatsapp/conexao` — encerra o pareamento (`logout` no
   Evolution). Permissão `whatsapp.conexao.gerir`. A instância permanece; apenas o
   número é desvinculado.
+- `DELETE /platform/whatsapp/conexao/instancia` — **apaga a instância no
+  provedor** (`DELETE /instance/delete/:id`, auth de Tenant) e o registro local,
+  nessa ordem. Permissão `whatsapp.conexao.gerir`. Rota própria, e não um
+  parâmetro do `desconectar`, porque são intenções diferentes: lá o operador
+  troca de número, aqui ele encerra a conexão.
 
-**Inventário:** de **107 operações e 135 schemas** para **110 e 138**.
+**Inventário:** de **107 operações e 135 schemas** para **111 e 137**. O plano
+previa 110/138 quando eram três operações e três schemas; a quarta operação
+reaproveita o `ConexaoWhatsAppResponse` do `desconectar` em vez de trazer corpo
+próprio, então entra uma operação a mais e um schema a menos que o previsto.
 
 **Permissões novas no catálogo:** `whatsapp.conexao.ler` e
 `whatsapp.conexao.gerir` — de 55 para 57. O catálogo é fonte canônica versionada,
