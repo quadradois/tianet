@@ -259,11 +259,32 @@ class ConectarWhatsApp:
             # `save` deixaria a instância criada no provedor e o token perdido.
             uow.conexao_whatsapp.exigir_disponibilidade()
             nome = _validar_nome(instancia_nome)
-            # LIMITE CONHECIDO: se `/instance/create` for aceito e a resposta se
-            # perder, a instancia fica no provedor sem registro local. Fechar
-            # essa janela exige um estado "provisionando" persistido antes da
-            # chamada — e a Entity exige `instancia_id`, que so existe depois
-            # dela. E desenho, nao ajuste; fica nomeado para o IMP-368 decidir.
+            # Tabela local vazia NAO significa provedor vazio. A instancia do
+            # TiaNet foi criada a mao antes desta tela existir; criar por cima
+            # produziria uma segunda, nao pareada, enquanto o WhatsApp do
+            # operador continua ligado na primeira.
+            #
+            # Isto tambem fecha a janela do `create` cuja resposta se perdeu: a
+            # proxima tentativa adota em vez de criar outra orfa.
+            existente = self._provedor.instancia_existente(nome)
+            if existente is not None:
+                instancia_id, token = existente
+                adotada = ConexaoWhatsApp.criar(
+                    tenant_id=tenant_id,
+                    instancia_id=instancia_id,
+                    instancia_nome=nome,
+                )
+                uow.conexao_whatsapp.save(adotada, token=token)
+                uow.commit()
+                self._auditoria.registrar(
+                    ENTIDADE_AUDITORIA,
+                    adotada.id,
+                    "conectar.adocao",
+                    "sucesso",
+                    detalhes=_detalhes(autoria, instancia_id=instancia_id),
+                )
+                return adotada, token
+
             instancia_id, token = self._provedor.criar_instancia(nome)
             conexao = ConexaoWhatsApp.criar(
                 tenant_id=tenant_id,

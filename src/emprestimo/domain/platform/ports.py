@@ -178,6 +178,19 @@ class ProvedorWhatsApp(ABC):
     """
 
     @abstractmethod
+    def instancia_existente(self, nome: str) -> tuple[str, str] | None:
+        """Procura instancia ja criada no provedor e devolve `(id, token)`.
+
+        Existe porque "nao ha registro local" nao significa "nao ha instancia".
+        A do TiaNet foi criada a mao antes desta tela existir, e um `create`
+        cego produziria uma SEGUNDA — nao pareada — enquanto o WhatsApp do
+        operador continua ligado na primeira.
+
+        Tambem fecha a janela do `create` cuja resposta se perdeu: a proxima
+        tentativa encontra a instancia em vez de criar outra.
+        """
+
+    @abstractmethod
     def criar_instancia(self, nome: str) -> tuple[str, str]:
         """Cria a instancia e devolve `(instancia_id, token)`.
 

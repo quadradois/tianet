@@ -47,17 +47,24 @@ class _ProvedorFake:
         *,
         falhar_em_qrcode: Exception | None = None,
         falhar_em_desconectar: Exception | None = None,
+        existente: tuple[str, str] | None = None,
     ) -> None:
         self._estado = estado or EstadoPareamento(
             conectado=False, pareado=False, nome_exibicao=None, numero=None
         )
         self._falhar_em_qrcode = falhar_em_qrcode
         self._falhar_em_desconectar = falhar_em_desconectar
+        self._existente = existente
         self.criadas: list[str] = []
+        self.buscas: list[str] = []
         self.qrcodes_pedidos = 0
         self.estados_pedidos: list[str] = []
         self.conectadas: list[str] = []
         self.desconectadas: list[str] = []
+
+    def instancia_existente(self, nome: str) -> tuple[str, str] | None:
+        self.buscas.append(nome)
+        return self._existente
 
     def criar_instancia(self, nome: str) -> tuple[str, str]:
         self.criadas.append(nome)
@@ -378,6 +385,27 @@ def test_conectar_com_falha_ao_gravar_registra_divergencia() -> None:
     divergencia = [e for e in auditoria.eventos if e[1] == "conectar.divergencia"][0]
     assert divergencia[2] == "efeito_externo_aplicado_registro_local_incerto"
     assert json.loads(divergencia[3] or "{}")["instancia_id"] == "instancia-nova"
+
+
+def test_conectar_adota_instancia_que_ja_existe_no_provedor() -> None:
+    """Tabela local vazia nao significa provedor vazio.
+
+    A instancia do TiaNet foi criada a mao antes desta tela existir. Criar por
+    cima produziria uma SEGUNDA, nao pareada, enquanto o WhatsApp do operador
+    continua ligado na primeira.
+    """
+
+    repo = _RepoFake()
+    provedor = _ProvedorFake(existente=("instancia-manual", "token-manual"))
+    uow, auditoria = _montar(repo, provedor)
+
+    ConectarWhatsApp(lambda: uow, provedor, auditoria).executar(uuid.uuid4(), "adm_tianet")
+
+    assert provedor.criadas == [], "nao pode criar uma segunda instancia"
+    assert provedor.buscas == ["adm_tianet"]
+    assert repo.conexao is not None and repo.conexao.instancia_id == "instancia-manual"
+    assert repo.token == "token-manual"
+    assert "conectar.adocao" in [e[1] for e in auditoria.eventos]
 
 
 def test_conectar_cria_instancia_quando_nao_existe_e_guarda_o_token() -> None:

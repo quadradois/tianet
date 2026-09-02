@@ -257,6 +257,39 @@ class EvolutionTenantClient:
         self._api_key = api_key.strip()
         self._client = client or httpx.Client(base_url=_base(host), timeout=15.0, trust_env=False)
 
+    def buscar_instancia(self, nome: str) -> InstanciaCriada | None:
+        """Localiza instancia ja existente pelo nome, com id e token.
+
+        `/instance/all` devolve o `token` de cada instancia do Tenant — e o que
+        permite adotar uma instancia criada fora da plataforma em vez de criar
+        outra por cima. Verificado ao vivo em 2026-09-02.
+        """
+        dados = _json(
+            _executar(
+                lambda: self._client.get(
+                    "/instance/all",
+                    headers={"apikey": self._api_key, "X-Tenant-ID": self._tenant_id},
+                ),
+                "/instance/all",
+            ),
+            "/instance/all",
+        )
+        itens = dados.get("data")
+        if not isinstance(itens, list):
+            return None
+        alvo = nome.strip()
+        for item in itens:
+            if not isinstance(item, dict) or item.get("name") != alvo:
+                continue
+            instancia_id = item.get("id")
+            token = item.get("token")
+            if isinstance(instancia_id, str) and isinstance(token, str) and instancia_id and token:
+                return InstanciaCriada(instancia_id=instancia_id, nome=alvo, token=token)
+            # Achada e sem credencial utilizavel: adotar sem token deixaria a
+            # conexao existindo sem poder enviar nada.
+            return None
+        return None
+
     def jid_da_instancia(self, instancia_id: str) -> str | None:
         """Le o `jid` da instancia — o unico caminho ate o telefone pareado.
 
@@ -466,6 +499,10 @@ class EvolutionProvedorWhatsApp(ProvedorWhatsApp):
             instancia_token=token,
             client=self._client,
         )
+
+    def instancia_existente(self, nome: str) -> tuple[str, str] | None:
+        achada = self._tenant.buscar_instancia(nome)
+        return None if achada is None else (achada.instancia_id, achada.token)
 
     def criar_instancia(self, nome: str) -> tuple[str, str]:
         criada = self._tenant.criar_instancia(nome)

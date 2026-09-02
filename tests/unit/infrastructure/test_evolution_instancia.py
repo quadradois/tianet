@@ -561,3 +561,65 @@ class TestNumeroDaContaPareada:
         ).jid_da_instancia(INSTANCIA_ID)
 
         assert numero_do_jid(jid) is None
+
+
+class TestAdocaoDeInstanciaExistente:
+    """`/instance/all` devolve o token — e o que permite adotar em vez de criar.
+
+    A instancia do TiaNet nasceu a mao, antes da tela. Sem esta leitura, o
+    primeiro `conectar` criaria uma segunda instancia e a plataforma passaria a
+    apontar para ela, nao pareada, enquanto o WhatsApp do operador continua na
+    primeira.
+    """
+
+    def test_encontra_pelo_nome_e_devolve_id_e_token(self) -> None:
+        vistos: dict[str, Any] = {}
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            vistos["url"] = str(request.url)
+            vistos["tenant"] = request.headers.get("X-Tenant-ID")
+            return httpx.Response(
+                200,
+                json={
+                    "data": [
+                        {"id": "outra", "name": "outro_nome", "token": "tok-outro"},
+                        {"id": INSTANCIA_ID, "name": "adm_tianet", "token": TOKEN},
+                    ]
+                },
+            )
+
+        achada = EvolutionTenantClient(
+            host=HOST, tenant_id="tid", api_key="k", client=_cliente(handler)
+        ).buscar_instancia("adm_tianet")
+
+        assert achada is not None
+        assert achada.instancia_id == INSTANCIA_ID
+        assert achada.token == TOKEN
+        assert vistos["url"].endswith("/instance/all")
+        assert vistos["tenant"] == "tid"
+
+    def test_nome_ausente_devolve_none(self) -> None:
+        def handler(_: httpx.Request) -> httpx.Response:
+            return httpx.Response(200, json={"data": [{"id": "x", "name": "z", "token": "t"}]})
+
+        assert (
+            EvolutionTenantClient(
+                host=HOST, tenant_id="tid", api_key="k", client=_cliente(handler)
+            ).buscar_instancia("adm_tianet")
+            is None
+        )
+
+    def test_instancia_sem_token_nao_e_adotada(self) -> None:
+        """Adotar sem credencial deixaria a conexao existindo sem poder enviar."""
+
+        def handler(_: httpx.Request) -> httpx.Response:
+            return httpx.Response(
+                200, json={"data": [{"id": INSTANCIA_ID, "name": "adm_tianet", "token": ""}]}
+            )
+
+        assert (
+            EvolutionTenantClient(
+                host=HOST, tenant_id="tid", api_key="k", client=_cliente(handler)
+            ).buscar_instancia("adm_tianet")
+            is None
+        )
