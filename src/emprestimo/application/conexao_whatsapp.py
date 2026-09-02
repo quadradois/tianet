@@ -283,7 +283,7 @@ class ConectarWhatsApp:
                     ENTIDADE_AUDITORIA,
                     None,
                     "conectar.divergencia",
-                    "efeito_externo_sem_registro_local",
+                    "efeito_externo_aplicado_registro_local_incerto",
                     detalhes=_detalhes(autoria, instancia_id=instancia_id),
                 )
                 raise
@@ -410,11 +410,16 @@ class DesconectarWhatsApp:
                 # `EfeitoNaoAplicadoError` e a excecao: o provedor recusou antes
                 # de agir (401/403) ou a requisicao nem saiu da maquina. Ai ha
                 # prova, e o rollback e verdadeiro.
+                #
+                # O status nao afirma que o registro local NAO existe: um
+                # `commit` pode levantar depois de o servidor te-lo confirmado.
+                # O que se sabe e o lado externo; o local fica declarado incerto,
+                # que e o que a conciliacao precisa conferir.
                 self._auditoria.registrar(
                     ENTIDADE_AUDITORIA,
                     None,
                     "desconectar.divergencia",
-                    "efeito_externo_sem_registro_local",
+                    "efeito_externo_aplicado_registro_local_incerto",
                     detalhes=_detalhes(autoria, instancia_id=desconectado_no_provedor),
                 )
             else:

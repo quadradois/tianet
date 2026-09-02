@@ -31,7 +31,12 @@ down_revision: str | None = "a7c3e5f19d82"
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 
-PERFIL_ADMIN = "administrador_plataforma"
+# Dois nomes, porque duas geracoes de instalacao. O bootstrap atual cria
+# `administrador_plataforma`; bancos migrados pelo `0008_iam_operacional` tem
+# `administrador`, com a capitalizacao preservada — aquele arquivo compara com
+# `casefold()`, e aqui vale o mesmo. Restringir a um so deixaria justamente a
+# instalacao antiga sem as permissoes que esta migration existe para conceder.
+PERFIS_ADMIN = ("administrador_plataforma", "administrador")
 NOVAS_DESTA_MIGRATION = (
     ("whatsapp.conexao.ler", "Consultar a conexao de WhatsApp"),
     ("whatsapp.conexao.gerir", "Conectar e desconectar o WhatsApp"),
@@ -55,10 +60,11 @@ def upgrade() -> None:
         bind.execute(
             sa.text(
                 "INSERT INTO perfil_permissao (perfil_id, permissao_codigo) "
-                "SELECT id, :codigo FROM perfil_acesso WHERE nome = :perfil "
+                "SELECT id, :codigo FROM perfil_acesso "
+                "WHERE lower(nome) = ANY(:perfis) "
                 "ON CONFLICT DO NOTHING"
             ),
-            {"codigo": codigo, "perfil": PERFIL_ADMIN},
+            {"codigo": codigo, "perfis": list(PERFIS_ADMIN)},
         )
 
 

@@ -376,7 +376,7 @@ def test_conectar_com_falha_ao_gravar_registra_divergencia() -> None:
     acoes = [e[1] for e in auditoria.eventos]
     assert acoes == ["conectar.inicio", "conectar.divergencia", "conectar.falha"]
     divergencia = [e for e in auditoria.eventos if e[1] == "conectar.divergencia"][0]
-    assert divergencia[2] == "efeito_externo_sem_registro_local"
+    assert divergencia[2] == "efeito_externo_aplicado_registro_local_incerto"
     assert json.loads(divergencia[3] or "{}")["instancia_id"] == "instancia-nova"
 
 
@@ -543,7 +543,7 @@ def test_desconectar_com_falha_apos_o_logout_registra_divergencia() -> None:
     acoes = [e[1] for e in auditoria.eventos]
     assert acoes == ["desconectar.inicio", "desconectar.falha", "desconectar.divergencia"]
     divergencia = auditoria.eventos[-1]
-    assert divergencia[2] == "efeito_externo_sem_registro_local"
+    assert divergencia[2] == "efeito_externo_aplicado_registro_local_incerto"
     assert json.loads(divergencia[3] or "{}")["instancia_id"] == conexao.instancia_id
 
 
