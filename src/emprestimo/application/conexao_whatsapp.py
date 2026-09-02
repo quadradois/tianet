@@ -324,7 +324,7 @@ class ConectarWhatsApp:
                     ENTIDADE_AUDITORIA,
                     None,
                     "conectar.divergencia",
-                    "efeito_externo_aplicado_registro_local_incerto",
+                    "externo_aplicado_local_incerto",
                     detalhes=_detalhes(autoria, instancia_nome=nome),
                 )
                 raise
@@ -346,7 +346,7 @@ class ConectarWhatsApp:
                     ENTIDADE_AUDITORIA,
                     None,
                     "conectar.divergencia",
-                    "efeito_externo_aplicado_registro_local_incerto",
+                    "externo_aplicado_local_incerto",
                     detalhes=_detalhes(autoria, instancia_id=instancia_id),
                 )
                 raise
@@ -486,7 +486,7 @@ class DesconectarWhatsApp:
                     ENTIDADE_AUDITORIA,
                     None,
                     "desconectar.divergencia",
-                    "efeito_externo_aplicado_registro_local_incerto",
+                    "externo_aplicado_local_incerto",
                     detalhes=_detalhes(autoria, instancia_id=desconectado_no_provedor),
                 )
             else:
