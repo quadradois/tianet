@@ -195,6 +195,14 @@ class ConsultarConexaoWhatsApp:
         # Depois do commit, e não dentro dele: a auditoria vive em sessão
         # independente (ADR-002) e não volta atrás. Registrar antes afirmaria
         # uma transição que o rollback desfaria — permanentemente.
+        #
+        # LIMITE CONHECIDO: o commit solta o advisory lock antes desta escrita,
+        # então dois pollings simultâneos podem gravar seus eventos fora da
+        # ordem em que commitaram. Serializar até aqui exigiria manter o lock
+        # sobre uma sessão que já fechou. O sistema é single-tenant com um
+        # operador (ADR-003) e o polling vem de uma aba — a ordem só se embaralha
+        # com requisições concorrentes do mesmo usuário, e o `instancia_id` de
+        # cada evento continua correlacionando corretamente.
         if mudou:
             self._auditoria.registrar(
                 ENTIDADE_AUDITORIA,
@@ -392,6 +400,18 @@ class ConectarWhatsApp:
                 # QR, e a trilha é append-only (IMP-361).
                 detalhes=_detalhes(autoria, erro_tipo=type(exc).__name__),
             )
+            if isinstance(exc, EfeitoNaoAplicadoError):
+                # Nome inválido, cifra ausente, provedor recusando: o UoW
+                # reverteu e nada aconteceu lá fora. A ADR-002 pede o evento de
+                # rollback justamente aqui — sem ele, a trilha mostra falha sem
+                # dizer se sobrou estado, que é a pergunta de quem investiga.
+                self._auditoria.registrar(
+                    ENTIDADE_AUDITORIA,
+                    None,
+                    "conectar.rollback",
+                    "rollback_aplicado",
+                    detalhes=_detalhes(autoria),
+                )
             raise
 
         self._auditoria.registrar(

@@ -511,7 +511,13 @@ def test_criacao_comprovadamente_nao_aplicada_nao_registra_divergencia() -> None
     with pytest.raises(EfeitoNaoAplicadoError):
         ConectarWhatsApp(lambda: uow, provedor, auditoria).executar(uuid.uuid4(), "tianet")
 
-    assert [e[1] for e in auditoria.eventos] == ["conectar.inicio", "conectar.falha"]
+    # Prova de nao efeito externo: a ADR-002 pede o par falha + rollback, porque
+    # quem le a trilha precisa saber se sobrou estado.
+    assert [e[1] for e in auditoria.eventos] == [
+        "conectar.inicio",
+        "conectar.falha",
+        "conectar.rollback",
+    ]
 
 
 def test_conectar_adota_instancia_que_ja_existe_no_provedor() -> None:
