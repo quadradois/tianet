@@ -2,7 +2,7 @@
 
 **ID:** FOUNDATION-008
 
-**Versão:** 1.1.0
+**Versão:** 1.2.0
 
 **Status:** Aprovado
 
@@ -180,5 +180,6 @@ Este documento será considerado aprovado quando:
 
 | Versão | Data | Descrição |
 |---------|------|-----------|
+| 1.2.0 | 01/09/2026 | Reconciliacao com decisoes aprovadas: Inteligencia Artificial e a integracao WhatsApp saem da lista de exclusoes, porque o PLAN-033 e o PLAN-034 estao aprovados e em execucao; "Multi-Tenant Nivel 1" vira isolamento estrutural por `tenant_id` (ADR-003); e "Usuarios" passa a dizer um operador humano, com o Copilot como identidade de servico propria (IMP-355). |
 | 1.1.0 | 23/08/2026 | Parcelas removidas do escopo do MVP: revogadas pela DR-004 (IMP-337). |
 | 1.0.0 | 01/08/2026 | Primeira versão oficial do Escopo do MVP. |

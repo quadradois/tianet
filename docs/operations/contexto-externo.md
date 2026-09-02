@@ -162,7 +162,7 @@ PLAN-034.
 
 **Um insumo externo permanece:** a escolha do provedor de IA com o cliente. Sem
 ela, `LLM_BASE_URL`, `LLM_API_KEY` e `LLM_MODEL` nao tem valor para provisionar,
-e o IMP-359 nao fecha. Ver DR-005 e §2.4.
+e o IMP-359 nao fecha. Ver DR-005 e §2.2.
 
 Nao existe pipeline de CD no repositorio: `.github/workflows/quality.yml` e o
 unico workflow e cobre apenas gates de qualidade.

@@ -277,9 +277,12 @@ conexao que nao sobrevive a um restart nao resolve nada.
 - `EVOLUTION_HOST` e as credenciais de **gestao** do tenant continuam em
   variavel de ambiente: nao sao geradas pela plataforma e nao mudam por acao de
   usuario;
-- **o ambiente mantem precedencia** enquanto o IMP-370 nao fechar. O worker
-  segue lendo `EVOLUTION_INSTANCE_TOKEN`; a migracao para o repositorio e fase
-  propria, porque trocar a origem do token junto com a criacao da tela
+- **o ambiente mantem precedencia**, e continua mantendo depois do IMP-370. O
+  criterio de pronto daquele item e explicito: com a variavel presente, ela
+  prevalece e o comportamento atual nao muda. O repositorio passa a ser a origem
+  quando a variavel esta ausente, nao no lugar dela.
+
+  A fase e propria porque trocar a origem do token junto com a criacao da tela
   arriscaria deixar o worker sem canal — e worker sem canal e operacao sem
   aviso.
 

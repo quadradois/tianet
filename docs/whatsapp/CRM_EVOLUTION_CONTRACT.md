@@ -537,9 +537,13 @@ identificador gerado pelo servidor. Duas consequências para quem integra:
 
 1. O critério de aceite `data.Info.ID` está correto — mas confirma apenas que o
    Evolution recebeu e aceitou, não que o WhatsApp entregou.
-2. Como o identificador é seu, ele serve de chave de idempotência ponta a ponta.
-   Em compensação, **não existe identificador do provedor** para consultar
-   depois: entrega só se confirma pelo webhook de `Receipt` (§5).
+2. Como o identificador é seu, ele **correlaciona** requisição e resposta — e é
+   o que permite ligar um reenvio à tentativa original. Mas correlacionar não é
+   deduplicar: **não foi verificado** se o Evolution ou o WhatsApp suprimem uma
+   segunda mensagem com o mesmo `id`. Um retry após timeout pode entregar duas
+   vezes; trate a supressão como desconhecida até alguém medir.
+3. **Não existe identificador do provedor** para consultar depois: entrega só se
+   confirma pelo webhook de `Receipt` (§5).
 
 O `Sender` traz o sufixo de dispositivo (`:74`), o `Chat` não. Compare sempre
 pelo número, não pela string inteira.
