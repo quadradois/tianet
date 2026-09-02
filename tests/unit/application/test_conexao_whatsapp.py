@@ -26,6 +26,7 @@ from emprestimo.application.conexao_whatsapp import (
 )
 from emprestimo.application.errors import ConexaoWhatsAppNaoEncontradaError
 from emprestimo.domain.platform.conexao_whatsapp import ConexaoWhatsApp, EstadoPareamento
+from emprestimo.domain.platform.ports import QrCodeIndisponivelError
 
 QRCODE = "data:image/png;base64,iVBORw0KGgo="
 NOME = "Barbosa"
@@ -46,6 +47,7 @@ class _ProvedorFake:
         )
         self._falhar_em_qrcode = falhar_em_qrcode
         self.criadas: list[str] = []
+        self.qrcodes_pedidos = 0
         self.conectadas: list[str] = []
         self.desconectadas: list[str] = []
 
@@ -57,6 +59,7 @@ class _ProvedorFake:
         self.conectadas.append(token)
 
     def qrcode(self, token: str) -> str:
+        self.qrcodes_pedidos += 1
         if self._falhar_em_qrcode is not None:
             raise self._falhar_em_qrcode
         return QRCODE
@@ -69,10 +72,25 @@ class _ProvedorFake:
 
 
 class _RepoFake:
-    def __init__(self, conexao: ConexaoWhatsApp | None = None, token: str | None = None) -> None:
+    def __init__(
+        self,
+        conexao: ConexaoWhatsApp | None = None,
+        token: str | None = None,
+        *,
+        cifra_indisponivel: bool = False,
+    ) -> None:
         self.conexao = conexao
         self.token = token
         self.gravacoes: list[tuple[ConexaoWhatsApp, str | None]] = []
+        self.bloqueios: list[uuid.UUID] = []
+        self._cifra_indisponivel = cifra_indisponivel
+
+    def exigir_disponibilidade(self) -> None:
+        if self._cifra_indisponivel:
+            raise RuntimeError("WHATSAPP_TOKEN_ENCRYPTION_KEY ausente")
+
+    def bloquear_tenant(self, tenant_id: uuid.UUID) -> None:
+        self.bloqueios.append(tenant_id)
 
     def save(self, conexao: ConexaoWhatsApp, *, token: str | None = None) -> None:
         self.conexao = conexao
@@ -216,6 +234,78 @@ def test_consulta_com_conexao_sem_token_e_erro_nomeado() -> None:
 
     with pytest.raises(ConexaoWhatsAppNaoEncontradaError):
         ConsultarConexaoWhatsApp(lambda: uow, provedor).executar(uuid.uuid4())
+
+
+def test_consulta_pendente_traz_o_qr_de_agora() -> None:
+    """O QR vive ~20s e o provedor rotaciona sozinho.
+
+    Devolver o da chamada anterior seria devolver um QR morto — por isso a
+    consulta busca a cada vez enquanto o pareamento esta pendente.
+    """
+
+    repo = _RepoFake(_conexao(), token="token-1")
+    provedor = _ProvedorFake(EstadoPareamento(conectado=True, pareado=False, nome_exibicao=None))
+    uow, _ = _montar(repo, provedor)
+
+    estado = ConsultarConexaoWhatsApp(lambda: uow, provedor).executar(uuid.uuid4())
+
+    assert estado.qrcode_base64 == QRCODE
+    assert provedor.qrcodes_pedidos == 1
+
+
+def test_consulta_pareada_nao_pede_qr() -> None:
+    """Ja pareado nao tem o que escanear, e pedir gastaria chamada a toa."""
+
+    repo = _RepoFake(_conexao(NOME), token="token-1")
+    provedor = _ProvedorFake(EstadoPareamento(conectado=True, pareado=True, nome_exibicao=NOME))
+    uow, _ = _montar(repo, provedor)
+
+    estado = ConsultarConexaoWhatsApp(lambda: uow, provedor).executar(uuid.uuid4())
+
+    assert estado.qrcode_base64 is None
+    assert provedor.qrcodes_pedidos == 0
+
+
+def test_consulta_com_qr_ainda_gerando_devolve_none_em_vez_de_falhar() -> None:
+    """E o estado normal logo apos conectar, e a tela ja faz polling."""
+
+    repo = _RepoFake(_conexao(), token="token-1")
+    provedor = _ProvedorFake(
+        EstadoPareamento(conectado=True, pareado=False, nome_exibicao=None),
+        falhar_em_qrcode=QrCodeIndisponivelError("no QR code available"),
+    )
+    uow, _ = _montar(repo, provedor)
+
+    estado = ConsultarConexaoWhatsApp(lambda: uow, provedor).executar(uuid.uuid4())
+
+    assert estado.qrcode_base64 is None
+    assert estado.existe is True
+
+
+def test_conectar_recusa_antes_de_criar_no_provedor_se_a_cifra_faltar() -> None:
+    """Descobrir isso no `save` deixaria a instancia criada e o token perdido."""
+
+    repo = _RepoFake(cifra_indisponivel=True)
+    provedor = _ProvedorFake()
+    uow, auditoria = _montar(repo, provedor)
+
+    with pytest.raises(RuntimeError, match="ENCRYPTION_KEY"):
+        ConectarWhatsApp(lambda: uow, provedor, auditoria).executar(uuid.uuid4(), "tianet")
+
+    assert provedor.criadas == [], "nao pode existir instancia orfa no provedor"
+
+
+def test_conectar_serializa_a_criacao_pelo_tenant() -> None:
+    """`UNIQUE (tenant_id)` so rejeita no commit, quando o efeito externo ja foi."""
+
+    repo = _RepoFake()
+    provedor = _ProvedorFake()
+    uow, auditoria = _montar(repo, provedor)
+    tenant_id = uuid.uuid4()
+
+    ConectarWhatsApp(lambda: uow, provedor, auditoria).executar(tenant_id, "tianet")
+
+    assert repo.bloqueios == [tenant_id]
 
 
 def test_conectar_cria_instancia_quando_nao_existe_e_guarda_o_token() -> None:

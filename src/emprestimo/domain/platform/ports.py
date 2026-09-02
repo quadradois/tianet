@@ -128,6 +128,33 @@ class ConexaoWhatsAppRepository(ABC):
     def find_token(self, tenant_id: uuid.UUID) -> str | None:
         """Devolve o token decifrado. Unico caminho para obte-lo."""
 
+    @abstractmethod
+    def exigir_disponibilidade(self) -> None:
+        """Falha AGORA se este repositorio nao puder guardar segredo.
+
+        Existe para ser chamado antes de criar a instancia no provedor. Sem
+        isso, uma chave de cifra ausente so apareceria no `save` — depois de o
+        Evolution ja ter criado a instancia com o token que so nos tinhamos.
+        Instancia inalcancavel por causa de uma variavel de ambiente esquecida.
+        """
+
+    @abstractmethod
+    def bloquear_tenant(self, tenant_id: uuid.UUID) -> None:
+        """Serializa a criacao de conexao para este Tenant na transacao atual.
+
+        `UNIQUE (tenant_id)` so rejeita a segunda no commit — tarde demais, se as
+        duas ja tiverem criado instancia no provedor. O lock e sobre o Tenant, e
+        nao sobre a linha, porque no caso que importa a linha ainda nao existe.
+        """
+
+
+class QrCodeIndisponivelError(RuntimeError):
+    """O QR ainda nao existe. Estado NORMAL logo apos conectar, nao falha.
+
+    Nomeado no dominio para que a Application possa distinguir "espere e tente
+    de novo" de "o provedor caiu" sem importar o cliente HTTP.
+    """
+
 
 class ProvedorWhatsApp(ABC):
     """Operacoes de instancia no provedor, sem o protocolo HTTP a tiracolo.

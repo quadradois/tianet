@@ -11,7 +11,7 @@ from collections.abc import Callable
 from datetime import date
 from math import ceil
 
-from sqlalchemy import delete, func, select
+from sqlalchemy import delete, func, select, text
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
@@ -1568,6 +1568,18 @@ class SqlAlchemyConexaoWhatsAppRepository(ConexaoWhatsAppRepository):
             select(ConexaoWhatsAppORM).where(ConexaoWhatsAppORM.tenant_id == tenant_id)
         )
         return None if row is None else self._cifra().decifrar(row.token_cifrado)
+
+    def exigir_disponibilidade(self) -> None:
+        self._cifra()
+
+    def bloquear_tenant(self, tenant_id: uuid.UUID) -> None:
+        # Advisory lock de transacao: solta sozinho no commit ou no rollback, e
+        # nao depende de a linha existir — que e exatamente o caso aqui, porque
+        # o que se quer serializar e a criacao.
+        self._session.execute(
+            text("SELECT pg_advisory_xact_lock(hashtext(:chave))"),
+            {"chave": f"conexao_whatsapp:{tenant_id}"},
+        )
 
 
 def _to_conexao_whatsapp(row: ConexaoWhatsAppORM) -> ConexaoWhatsApp:

@@ -27,7 +27,7 @@ from typing import Any
 import httpx
 
 from emprestimo.domain.platform.conexao_whatsapp import EstadoPareamento
-from emprestimo.domain.platform.ports import ProvedorWhatsApp
+from emprestimo.domain.platform.ports import ProvedorWhatsApp, QrCodeIndisponivelError
 
 PREFIXO_QR = "data:image/png;base64,"
 """Prefixo que o contrato promete no campo `Qrcode`."""
@@ -398,7 +398,12 @@ class EvolutionProvedorWhatsApp(ProvedorWhatsApp):
         self._instancia(token).conectar()
 
     def qrcode(self, token: str) -> str:
-        return self._instancia(token).qrcode()
+        try:
+            return self._instancia(token).qrcode()
+        except QrCodeAindaGerandoError as exc:
+            # Traduzida na fronteira: quem chama decide esperar sem conhecer
+            # `httpx` nem o vocabulario do Evolution.
+            raise QrCodeIndisponivelError(str(exc)) from exc
 
     def estado(self, token: str) -> EstadoPareamento:
         bruto = self._instancia(token).estado()

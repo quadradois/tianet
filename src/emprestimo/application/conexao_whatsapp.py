@@ -25,7 +25,7 @@ from dataclasses import dataclass
 from emprestimo.application.errors import ConexaoWhatsAppNaoEncontradaError
 from emprestimo.application.ports import AuditoriaRegistro, UnitOfWork
 from emprestimo.domain.platform.conexao_whatsapp import ConexaoWhatsApp, EstadoPareamento
-from emprestimo.domain.platform.ports import ProvedorWhatsApp
+from emprestimo.domain.platform.ports import ProvedorWhatsApp, QrCodeIndisponivelError
 
 ENTIDADE_AUDITORIA = "conexao_whatsapp"
 
@@ -40,6 +40,12 @@ class EstadoConexaoWhatsApp:
     `nome_exibicao` é o push name da conta pareada, e **não o telefone**: o
     `/instance/status` não devolve número nenhum. A tela do IMP-369 precisa
     saber disso antes de rotular o campo.
+
+    `qrcode_base64` vem preenchido enquanto o pareamento está pendente, e é
+    buscado a cada consulta — o QR vive ~20s e o provedor rotaciona sozinho, de
+    modo que devolver o da chamada anterior seria devolver um QR morto. `None`
+    significa "não há o que escanear": ou já pareou, ou o provedor ainda está
+    gerando e a próxima consulta traz.
     """
 
     existe: bool
@@ -47,6 +53,7 @@ class EstadoConexaoWhatsApp:
     conectado: bool
     instancia_nome: str | None
     nome_exibicao: str | None
+    qrcode_base64: str | None
 
 
 @dataclass(frozen=True)
@@ -127,6 +134,7 @@ class ConsultarConexaoWhatsApp:
                     conectado=False,
                     instancia_nome=None,
                     nome_exibicao=None,
+                    qrcode_base64=None,
                 )
             token = uow.conexao_whatsapp.find_token(tenant_id)
             if token is None:
@@ -136,15 +144,30 @@ class ConsultarConexaoWhatsApp:
 
             atualizada, estado = _sincronizar(uow, conexao, token, self._provedor)
             uow.commit()
-            return EstadoConexaoWhatsApp(
-                existe=True,
-                # Direto do provedor: `LoggedIn` é a verdade do pareamento, e o
-                # que guardamos localmente é consequência dele, não fonte.
-                pareada=estado.pareado,
-                conectado=estado.conectado,
-                instancia_nome=atualizada.instancia_nome,
-                nome_exibicao=atualizada.numero_pareado,
-            )
+
+        # Fora da transação: buscar o QR é efeito externo, e nada aqui escreve.
+        return EstadoConexaoWhatsApp(
+            existe=True,
+            # Direto do provedor: `LoggedIn` é a verdade do pareamento, e o que
+            # guardamos localmente é consequência dele, não fonte.
+            pareada=estado.pareado,
+            conectado=estado.conectado,
+            instancia_nome=atualizada.instancia_nome,
+            nome_exibicao=atualizada.numero_pareado,
+            qrcode_base64=None if estado.pareado else self._qrcode_pendente(token),
+        )
+
+    def _qrcode_pendente(self, token: str) -> str | None:
+        """QR de agora, ou `None` enquanto o provedor ainda o gera.
+
+        "Ainda gerando" é o estado normal logo após conectar, e a tela já faz
+        polling — transformá-lo em erro faria a consulta falhar exatamente no
+        momento em que ela é mais chamada.
+        """
+        try:
+            return self._provedor.qrcode(token)
+        except QrCodeIndisponivelError:
+            return None
 
 
 class ConectarWhatsApp:
@@ -182,6 +205,11 @@ class ConectarWhatsApp:
         ele ja e.
         """
         with self._uow_factory() as uow:
+            # Serializa antes de olhar: duas requisições sobrepostas passariam as
+            # duas por uma consulta sem lock e criariam duas instâncias no
+            # provedor. `UNIQUE (tenant_id)` só rejeitaria a segunda no commit,
+            # quando o efeito externo já aconteceu.
+            uow.conexao_whatsapp.bloquear_tenant(tenant_id)
             conexao = uow.conexao_whatsapp.find_by_tenant_id(tenant_id)
             if conexao is not None:
                 token = uow.conexao_whatsapp.find_token(tenant_id)
@@ -189,6 +217,9 @@ class ConectarWhatsApp:
                     raise ConexaoWhatsAppNaoEncontradaError(tenant_id)
                 return conexao, token
 
+            # Antes do efeito externo: uma chave de cifra ausente descoberta no
+            # `save` deixaria a instância criada no provedor e o token perdido.
+            uow.conexao_whatsapp.exigir_disponibilidade()
             instancia_id, token = self._provedor.criar_instancia(instancia_nome)
             conexao = ConexaoWhatsApp.criar(
                 tenant_id=tenant_id,
@@ -311,4 +342,6 @@ class DesconectarWhatsApp:
             conectado=False,
             instancia_nome=despareada.instancia_nome,
             nome_exibicao=None,
+            # Desconectar não gera QR: quem quiser reconectar chama `conectar`.
+            qrcode_base64=None,
         )
