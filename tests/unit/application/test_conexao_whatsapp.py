@@ -15,7 +15,6 @@ from __future__ import annotations
 
 import json
 import uuid
-from dataclasses import dataclass, field
 
 import pytest
 
@@ -28,8 +27,14 @@ from emprestimo.application.errors import (
     ConexaoWhatsAppNaoEncontradaError,
     NomeInstanciaInvalidoError,
 )
+from emprestimo.application.ports import AuditoriaRegistro, UnitOfWork
 from emprestimo.domain.platform.conexao_whatsapp import ConexaoWhatsApp, EstadoPareamento
-from emprestimo.domain.platform.ports import EfeitoNaoAplicadoError, QrCodeIndisponivelError
+from emprestimo.domain.platform.ports import (
+    ConexaoWhatsAppRepository,
+    EfeitoNaoAplicadoError,
+    ProvedorWhatsApp,
+    QrCodeIndisponivelError,
+)
 
 QRCODE = "data:image/png;base64,iVBORw0KGgo="
 NOME = "Barbosa"
@@ -38,7 +43,7 @@ NUMERO = "556299999999"
 """`Name` do provedor e o push name da conta, nao o telefone (resposta real de 2026-08-31)."""
 
 
-class _ProvedorFake:
+class _ProvedorFake(ProvedorWhatsApp):
     """Provedor controlado pelo teste, contando o que foi chamado."""
 
     def __init__(
@@ -93,7 +98,7 @@ class _ProvedorFake:
         self.desconectadas.append(token)
 
 
-class _RepoFake:
+class _RepoFake(ConexaoWhatsAppRepository):
     def __init__(
         self,
         conexao: ConexaoWhatsApp | None = None,
@@ -130,11 +135,14 @@ class _RepoFake:
         return self.token
 
 
-@dataclass
-class _UoWFake:
-    conexao_whatsapp: _RepoFake
-    commits: int = 0
-    falhar_no_commit: bool = False
+class _UoWFake(UnitOfWork):
+    """Herda a ABC de proposito: o gate roda `mypy src tests`, e fake
+    estrutural nao satisfaz um parametro tipado pelo contrato."""
+
+    def __init__(self, conexao_whatsapp: _RepoFake) -> None:
+        self.conexao_whatsapp = conexao_whatsapp
+        self.commits = 0
+        self.falhar_no_commit = False
 
     def commit(self) -> None:
         if self.falhar_no_commit:
@@ -154,9 +162,9 @@ class _UoWFake:
         self.close()
 
 
-@dataclass
-class _AuditoriaFake:
-    eventos: list[tuple[str, str, str, str | None]] = field(default_factory=list)
+class _AuditoriaFake(AuditoriaRegistro):
+    def __init__(self) -> None:
+        self.eventos: list[tuple[str, str, str, str | None]] = []
 
     def registrar(
         self,
