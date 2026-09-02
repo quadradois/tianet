@@ -58,14 +58,19 @@ class EstadoConexaoWhatsApp:
 
 @dataclass(frozen=True)
 class QrCodeConexao:
-    """QR pronto para exibição, em base64.
+    """QR pronto para exibição, ou `None` enquanto o provedor ainda o gera.
 
     Tipo próprio em vez de `str` solta para que o valor não se confunda com
     nome, id ou token em nenhuma assinatura — e para que qualquer log acidental
     tenha de mencionar o nome deste campo.
+
+    `None` **não é falha**: o contrato descreve a corrida — logo após conectar, o
+    provedor responde "no QR code available, aguarde e tente de novo", até 5
+    vezes. A tela já faz polling, então o pendente é um estado a devolver, não
+    uma exceção a propagar.
     """
 
-    qrcode_base64: str
+    qrcode_base64: str | None
 
 
 def _autoria(usuario_id: uuid.UUID | None) -> dict[str, object]:
@@ -220,6 +225,11 @@ class ConectarWhatsApp:
             # Antes do efeito externo: uma chave de cifra ausente descoberta no
             # `save` deixaria a instância criada no provedor e o token perdido.
             uow.conexao_whatsapp.exigir_disponibilidade()
+            # LIMITE CONHECIDO: se `/instance/create` for aceito e a resposta se
+            # perder, a instancia fica no provedor sem registro local. Fechar
+            # essa janela exige um estado "provisionando" persistido antes da
+            # chamada — e a Entity exige `instancia_id`, que so existe depois
+            # dela. E desenho, nao ajuste; fica nomeado para o IMP-368 decidir.
             instancia_id, token = self._provedor.criar_instancia(instancia_nome)
             conexao = ConexaoWhatsApp.criar(
                 tenant_id=tenant_id,
@@ -254,7 +264,12 @@ class ConectarWhatsApp:
             # criada a cada tentativa.
             conexao, token = self._garantir_instancia(tenant_id, instancia_nome)
             self._provedor.conectar(token)
-            qrcode = self._provedor.qrcode(token)
+            try:
+                qrcode: str | None = self._provedor.qrcode(token)
+            except QrCodeIndisponivelError:
+                # Estado normal, e o mais provavel: a instancia acabou de
+                # conectar. Virar 5xx aqui faria o caminho feliz parecer falha.
+                qrcode = None
         except Exception as exc:
             self._auditoria.registrar(
                 ENTIDADE_AUDITORIA,

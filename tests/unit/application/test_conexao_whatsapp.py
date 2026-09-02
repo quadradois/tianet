@@ -383,6 +383,24 @@ def test_conectar_falha_registra_so_o_tipo_do_erro() -> None:
     assert QRCODE not in (falha[0][3] or "")
 
 
+def test_conectar_com_qr_ainda_gerando_devolve_pendente_em_vez_de_falhar() -> None:
+    """O caminho mais provavel logo apos conectar nao pode parecer erro.
+
+    O contrato descreve a corrida: o provedor responde "no QR code available"
+    e manda esperar 3s e repetir, ate 5 vezes. A tela ja faz polling.
+    """
+
+    repo = _RepoFake()
+    provedor = _ProvedorFake(falhar_em_qrcode=QrCodeIndisponivelError("no QR code available"))
+    uow, auditoria = _montar(repo, provedor)
+
+    resultado = ConectarWhatsApp(lambda: uow, provedor, auditoria).executar(uuid.uuid4(), "tianet")
+
+    assert resultado.qrcode_base64 is None
+    assert repo.conexao is not None, "a instancia tem de ficar gravada"
+    assert [e[1] for e in auditoria.eventos] == ["conectar.inicio", "conectar.sucesso"]
+
+
 def test_qr_indisponivel_nao_apaga_a_instancia_ja_criada() -> None:
     """O caso mais provavel de todos, e o que mais custava caro.
 
