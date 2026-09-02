@@ -313,9 +313,13 @@ estourar na primeira escrita, sem nenhum byte na rede. O criterio da ADR e a
 **todo o resto**, `5xx` incluido, e desconhecido — inclusive uma excecao nova da
 biblioteca, que assim cai no lado seguro sozinha.
 
-**Estado atual: corrigido.** Os dois adapters aplicam essa allowlist, o `5xx` do
-WhatsApp virou `DESCONHECIDO`, e o `except` passou a capturar `RequestError` —
-que engloba `DecodingError`. Os testes cobrem os tres caminhos anteriores ao
+**Estado atual: corrigido.** O adapter do WhatsApp aplica essa allowlist, seu
+`5xx` virou `DESCONHECIDO`, e nos **dois** adapters o `except` passou a capturar
+`RequestError`, que engloba `DecodingError`. O do Resend continua mais restrito
+de proposito: manda **toda** falha de transporte para desconhecido, inclusive as
+tres que a ADR permitiria reenviar. Bloquear retry demais e seguro, e e-mail esta
+fora do escopo do MVP — quem reativar o canal deve esperar zero retry
+automatico ali, nao a allowlist do WhatsApp. Os testes cobrem os tres caminhos anteriores ao
 envio e os sete que nao provam nada. O que **continua aberto** e a pergunta de
 fundo: nao foi medido se o Evolution deduplica pelo `id`. Enquanto nao for, cada
 `resultado_desconhecido` vira conciliacao humana — o custo real de nao ter
