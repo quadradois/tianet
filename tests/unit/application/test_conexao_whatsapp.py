@@ -112,8 +112,11 @@ class _RepoFake:
 class _UoWFake:
     conexao_whatsapp: _RepoFake
     commits: int = 0
+    falhar_no_commit: bool = False
 
     def commit(self) -> None:
+        if self.falhar_no_commit:
+            raise RuntimeError("commit falhou")
         self.commits += 1
 
     def rollback(self) -> None: ...
@@ -471,6 +474,31 @@ def test_desconectar_mantem_a_instancia_e_so_desvincula_a_conta() -> None:
     assert repo.token == "token-1", "o token nao pode ser apagado no logout"
 
 
+def test_desconectar_com_falha_apos_o_logout_registra_divergencia() -> None:
+    """`logout` feito no provedor nao volta atras por rollback de banco.
+
+    A trilha e append-only: dizer `rollback_aplicado` aqui afirmaria que o
+    efeito foi revertido, quando o numero esta desvinculado la e o registro
+    local voltou a dizer "pareada". Quem investigar precisa ler divergencia.
+    """
+
+    conexao = _conexao(NOME)
+    repo = _RepoFake(conexao, token="token-1")
+    provedor = _ProvedorFake()
+    uow, auditoria = _montar(repo, provedor)
+    uow.falhar_no_commit = True
+
+    with pytest.raises(RuntimeError):
+        DesconectarWhatsApp(lambda: uow, provedor, auditoria).executar(uuid.uuid4())
+
+    assert provedor.desconectadas == ["token-1"]
+    acoes = [e[1] for e in auditoria.eventos]
+    assert acoes == ["desconectar.inicio", "desconectar.falha", "desconectar.divergencia"]
+    divergencia = auditoria.eventos[-1]
+    assert divergencia[2] == "efeito_externo_sem_registro_local"
+    assert json.loads(divergencia[3] or "{}")["instancia_id"] == conexao.instancia_id
+
+
 def test_desconectar_sem_conexao_e_erro_nomeado() -> None:
     repo = _RepoFake()
     provedor = _ProvedorFake()
@@ -480,8 +508,9 @@ def test_desconectar_sem_conexao_e_erro_nomeado() -> None:
         DesconectarWhatsApp(lambda: uow, provedor, auditoria).executar(uuid.uuid4())
 
     assert provedor.desconectadas == []
-    # ADR-002: falha diz que deu errado, rollback diz que nada ficou meio
-    # gravado. Quem le a trilha precisa dos dois para saber se sobrou estado.
+    # Aqui o rollback e verdadeiro: nada foi feito no provedor. A ADR-002 pede os
+    # dois eventos — a falha diz que deu errado, o rollback diz que nada ficou
+    # meio gravado.
     assert [e[1] for e in auditoria.eventos] == [
         "desconectar.inicio",
         "desconectar.falha",

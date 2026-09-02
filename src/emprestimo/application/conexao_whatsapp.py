@@ -221,6 +221,7 @@ class ConectarWhatsApp:
         self,
         tenant_id: uuid.UUID,
         instancia_nome: str,
+        autoria: dict[str, object],
     ) -> tuple[ConexaoWhatsApp, str]:
         """Devolve a conexao do Tenant, criando-a no provedor se preciso.
 
@@ -272,7 +273,7 @@ class ConectarWhatsApp:
                     None,
                     "conectar.rollback",
                     "rollback_aplicado",
-                    detalhes=_detalhes(_autoria(None), instancia_id=instancia_id),
+                    detalhes=_detalhes(autoria, instancia_id=instancia_id),
                 )
                 raise
             return conexao, token
@@ -299,7 +300,7 @@ class ConectarWhatsApp:
             # conexao local enquanto a instancia ja existe no provedor, com um
             # token que so nos tinhamos: instancia orfa, inalcancavel, e uma nova
             # criada a cada tentativa.
-            conexao, token = self._garantir_instancia(tenant_id, instancia_nome)
+            conexao, token = self._garantir_instancia(tenant_id, instancia_nome, autoria)
             self._provedor.conectar(token)
             try:
                 qrcode: str | None = self._provedor.qrcode(token)
@@ -360,6 +361,7 @@ class DesconectarWhatsApp:
             "iniciado",
             detalhes=_detalhes(autoria),
         )
+        desconectado_no_provedor: str | None = None
         try:
             with self._uow_factory() as uow:
                 conexao = uow.conexao_whatsapp.find_by_tenant_id(tenant_id)
@@ -368,6 +370,9 @@ class DesconectarWhatsApp:
                     raise ConexaoWhatsAppNaoEncontradaError(tenant_id)
 
                 self._provedor.desconectar(token)
+                # Guarda o identificador, nao um booleano: no `except`, quem
+                # investiga precisa saber QUAL instancia ficou divergente.
+                desconectado_no_provedor = conexao.instancia_id
                 despareada = conexao.desparear()
                 uow.conexao_whatsapp.save(despareada)
                 uow.commit()
@@ -379,13 +384,27 @@ class DesconectarWhatsApp:
                 "falhou",
                 detalhes=_detalhes(autoria, erro_tipo=type(exc).__name__),
             )
-            self._auditoria.registrar(
-                ENTIDADE_AUDITORIA,
-                None,
-                "desconectar.rollback",
-                "rollback_aplicado",
-                detalhes=_detalhes(autoria),
-            )
+            if desconectado_no_provedor is not None:
+                # O `logout` no provedor JA aconteceu, e nenhum rollback de banco
+                # o desfaz: o numero esta desvinculado la, e o registro local
+                # voltou a dizer "pareada". Chamar isso de `rollback_aplicado`
+                # numa trilha append-only afirmaria que o efeito foi revertido.
+                # E divergencia, e quem investigar precisa ler exatamente isso.
+                self._auditoria.registrar(
+                    ENTIDADE_AUDITORIA,
+                    None,
+                    "desconectar.divergencia",
+                    "efeito_externo_sem_registro_local",
+                    detalhes=_detalhes(autoria, instancia_id=desconectado_no_provedor),
+                )
+            else:
+                self._auditoria.registrar(
+                    ENTIDADE_AUDITORIA,
+                    None,
+                    "desconectar.rollback",
+                    "rollback_aplicado",
+                    detalhes=_detalhes(autoria),
+                )
             raise
 
         self._auditoria.registrar(
