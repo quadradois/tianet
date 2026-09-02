@@ -3,7 +3,7 @@
 **Versao:** 1.0.0
 
 **Status:** PLAN-034 com **3 dos 7 itens** (cifra, persistencia, cliente do
-provedor). Documentacao reconciliada com as decisoes recentes. **Dois defeitos
+provedor). Documentacao reconciliada com as decisoes recentes. **Tres defeitos
 operacionais abertos**, descritos na §3 — o item mais urgente deste handoff.
 
 **Periodo coberto:** 2026-09-01 a 2026-09-02
@@ -62,7 +62,7 @@ reenviado:
 | `falha_temporaria` | 429, conflito concorrente da mesma chave ou **falha comprovadamente anterior ao envio de bytes** | retry |
 | `resultado_desconhecido` | **5xx**, 2xx malformado, **timeout/reset apos transmitir bytes** ou qualquer resposta sem prova de nao aceite | **bloquear retry** e conciliar |
 
-`EvolutionWhatsAppNotificationChannel` viola isso em **dois pontos**, e os dois
+`EvolutionWhatsAppNotificationChannel` viola isso em **tres pontos**, e os tres
 levam ao mesmo lugar: **o devedor recebe a mesma cobranca duas vezes**.
 
 **3.1 — Resposta 5xx** (`whatsapp.py:87`). A ADR nomeia `5xx` como o primeiro
@@ -75,6 +75,16 @@ um 500 que aceitou nada.
 vira `FALHA_TEMPORARIA`. A ADR so autoriza retry quando a falha e
 **comprovadamente anterior** ao envio de bytes, e o `except` nao faz essa
 distincao.
+
+**3.3 — `DecodingError` escapa** (`whatsapp.py:52`, `resend.py:52,59`). O
+`except` captura `(TimeoutException, TransportError)`, e `httpx.DecodingError`
+**nao e `TransportError`** — e `RequestError` irmao dele. Entao ela sobe do
+adapter, e `SchedulerWorker._execute` converte **qualquer** excecao do handler em
+`FALHA_TEMPORARIA` (`scheduler_worker.py:191-201`), que reenvia. Como o decoding
+falha ao ler o **corpo da resposta**, a requisicao ja foi enviada e pode ter sido
+aceita: mesmo retry inseguro dos itens anteriores, por um terceiro caminho.
+
+Este estava listado como caveat de higiene (§4.6). Nao e: e o mesmo defeito.
 
 A correcao e separar o que a ADR separa:
 
@@ -90,8 +100,9 @@ O proprio adapter ja classifica **2xx malformado** como `DESCONHECIDO`, que e a
 linha vizinha da mesma tabela. E o **adapter do Resend**, mais antigo e escrito
 sob a mesma ADR, mapeia `5xx` e toda falha de transporte para `DESCONHECIDO`
 (`resend.py:52-64`) — ele e conservador ate demais, tratando como desconhecido
-tambem o que a ADR permitiria reenviar. O do WhatsApp diverge da ADR e do
-irmao ao mesmo tempo: os dois pontos acima sao omissao, nao desenho.
+tambem o que a ADR permitiria reenviar. No 5xx e no timeout, o do WhatsApp diverge da ADR e do
+irmao ao mesmo tempo; no `DecodingError` os dois erram junto. Sao omissoes, nao
+desenho.
 
 Agrava: **nao foi medido** se o Evolution ou o WhatsApp suprimem uma segunda
 mensagem com o mesmo `id`. O eco do `id` correlaciona requisicao e resposta, mas
@@ -115,9 +126,9 @@ Em resumo:
 | 4.3 | `scheduler_worker.py` em 69,91% |
 | 4.4 | CPFs historicos em `audit_log` — limpar e mudanca destrutiva, decisao separada |
 | 4.5 | `CLAUDE.md` da raiz e gitignored; `frontend/CLAUDE.md` e versionado |
-| 4.6 | `DecodingError` nao tratado em `resend.py` (2x) e `whatsapp.py` |
+| 4.6 | `DecodingError` nao tratado em `resend.py` (2x) e `whatsapp.py` — **nao e higiene**, e o terceiro caminho de retry inseguro da §3.3 |
 | 4.7 | Suite Playwright deixa servidor orfao; a proxima falha **sem imprimir nada** |
-| 4.8 | **NOVO** — as duas violacoes da ADR-009 descritas na §3 (5xx e timeout), ambas capazes de duplicar cobranca |
+| 4.8 | **NOVO** — as tres violacoes da ADR-009 descritas na §3 (5xx, timeout e `DecodingError`), todas capazes de duplicar cobranca |
 | 4.9 | **NOVO** — o guardrail da ADR-003 casa por texto, nao por ideia. Pega a frase que o regex conhece; deixou passar "Multi-Tenant Nivel 1", que e a mesma decisao. Ha **quatro linhas** com essa forma em `ADR-001:25`, `AMP-001:141` e `PLAN-001:17,161` |
 
 ---
@@ -190,4 +201,4 @@ sobre CPFs historicos (§4.4) e o `CLAUDE.md` (§4.5).
 
 | Versao | Data | Descricao |
 |---|---|---|
-| 1.0.0 | 2026-09-02 | Auditoria de consistencia documental com 38 correcoes em onze arquivos; as duas violacoes da ADR-009 no adapter do WhatsApp (5xx e timeout), que podem duplicar cobranca ao devedor; dois caveats novos; e o que nove rodadas de review ensinaram sobre editar documentacao cruzada ponto a ponto. |
+| 1.0.0 | 2026-09-02 | Auditoria de consistencia documental com 38 correcoes em onze arquivos; as tres violacoes da ADR-009 nos adapters de notificacao (5xx, timeout indistinto e `DecodingError` escapando para o retry do Scheduler), que podem duplicar cobranca ao devedor; dois caveats novos; e o que nove rodadas de review ensinaram sobre editar documentacao cruzada ponto a ponto. |
