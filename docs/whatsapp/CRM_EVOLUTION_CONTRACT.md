@@ -388,7 +388,9 @@ Não existe um único evento `CONNECTION_UPDATE` com um campo `state`. São even
 { "event": "LoggedOut", "instanceId": "...", "data": { "reason": "...", "...": "..." } }
 ```
 
-**Ação no CRM:** `"LoggedOut"`/`"Disconnected"`/`"ConnectFailure"` significam desconectado — acione a lógica de reconexão do Evento 4.
+**Ação no CRM:** `"LoggedOut"`/`"Disconnected"`/`"ConnectFailure"` significam desconectado. Acione a reconexão do Evento 4 **somente se a desconexão não foi pedida por você**.
+
+⚠️ Um `logout` deliberado — por exemplo o `DELETE /platform/whatsapp/conexao` do PLAN-034 §6 — também emite `LoggedOut`. Reconectar nesse caso desfaz, em segundos, a ação que o operador acabou de tomar. Guarde a intenção antes de chamar o `logout` e ignore o evento correspondente.
 
 ⚠️ **`Connected` NÃO é o mesmo que "número pareado".** Verificado ao vivo em 2026-08-31: uma instância recém-criada responde `Connected: true` com `LoggedIn: false` — o socket está de pé e nenhum WhatsApp está vinculado. Tratar `Connected` como estado operacional faz o CRM anunciar WhatsApp funcionando sem ninguém do outro lado.
 

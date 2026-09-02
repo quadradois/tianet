@@ -155,10 +155,14 @@ Docker, validada ponta a ponta.
 | Backup do PostgreSQL | *pendente* |
 | CD e endurecimento | *pendentes* |
 
-O insumo externo que bloqueava o **IMP-359** deixou de existir: a maquina e o
-dominio estao disponiveis. O que falta e trabalho nosso — deploy, TLS, backup,
-CD e endurecimento —, e a sequencia acordada com o fundador poe isso **depois**
-do PLAN-034.
+O insumo de **servidor** que bloqueava o **IMP-359** deixou de existir: a maquina
+e o dominio estao disponiveis. Falta trabalho nosso — deploy, TLS, backup, CD e
+endurecimento —, e a sequencia acordada com o fundador poe isso **depois** do
+PLAN-034.
+
+**Um insumo externo permanece:** a escolha do provedor de IA com o cliente. Sem
+ela, `LLM_BASE_URL`, `LLM_API_KEY` e `LLM_MODEL` nao tem valor para provisionar,
+e o IMP-359 nao fecha. Ver DR-005 e §2.4.
 
 Nao existe pipeline de CD no repositorio: `.github/workflows/quality.yml` e o
 unico workflow e cobre apenas gates de qualidade.
