@@ -168,6 +168,10 @@ class ConsultarConexaoWhatsApp:
     ) -> EstadoConexaoWhatsApp:
         autoria = _autoria(usuario_id)
         with self._uow_factory() as uow:
+            # Lock ANTES da leitura. Adquiri-lo depois nao serializa nada: a
+            # segunda requisicao esperaria, e entao compararia contra o objeto
+            # que carregou antes do lock — velho — e repetiria a escrita.
+            uow.conexao_whatsapp.bloquear_tenant(tenant_id)
             conexao = uow.conexao_whatsapp.find_by_tenant_id(tenant_id)
             if conexao is None:
                 return EstadoConexaoWhatsApp(
@@ -184,11 +188,6 @@ class ConsultarConexaoWhatsApp:
                 # Conexão sem token é registro órfão: existe, e não pode falar
                 # com o provedor. Nomear em vez de fingir que está desconectada.
                 raise ConexaoWhatsAppNaoEncontradaError(tenant_id)
-
-            # A tela faz polling: duas leituras sobrepostas veriam a mesma linha
-            # velha, as duas concluiriam "mudou" e a trilha ganharia a mesma
-            # transição duas vezes. Append-only, então o duplicado fica.
-            uow.conexao_whatsapp.bloquear_tenant(tenant_id)
 
             atualizada, estado, mudou = _sincronizar(uow, conexao, token, self._provedor)
             uow.commit()

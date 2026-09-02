@@ -105,6 +105,7 @@ class _RepoFake:
         self.token = token
         self.gravacoes: list[tuple[ConexaoWhatsApp, str | None]] = []
         self.bloqueios: list[uuid.UUID] = []
+        self.ordem: list[str] = []
         self._cifra_indisponivel = cifra_indisponivel
 
     def exigir_disponibilidade(self) -> None:
@@ -113,6 +114,7 @@ class _RepoFake:
 
     def bloquear_tenant(self, tenant_id: uuid.UUID) -> None:
         self.bloqueios.append(tenant_id)
+        self.ordem.append("bloquear")
 
     def save(self, conexao: ConexaoWhatsApp, *, token: str | None = None) -> None:
         self.conexao = conexao
@@ -121,6 +123,7 @@ class _RepoFake:
         self.gravacoes.append((conexao, token))
 
     def find_by_tenant_id(self, tenant_id: uuid.UUID) -> ConexaoWhatsApp | None:
+        self.ordem.append("ler")
         return self.conexao
 
     def find_token(self, tenant_id: uuid.UUID) -> str | None:
@@ -474,6 +477,9 @@ def test_consulta_serializa_o_polling_pelo_tenant() -> None:
     ConsultarConexaoWhatsApp(lambda: uow, provedor, auditoria).executar(tenant_id)
 
     assert repo.bloqueios == [tenant_id]
+    # O lock tem de vir ANTES da leitura: adquirido depois, a segunda requisicao
+    # esperaria e entao compararia contra o objeto que carregou antes dele.
+    assert repo.ordem[0] == "bloquear"
 
 
 def test_criacao_ambigua_registra_divergencia_com_o_nome() -> None:

@@ -229,7 +229,13 @@ def _json(resposta: httpx.Response, rota: str) -> dict[str, Any]:
     if not resposta.is_success:
         detalhe = _mensagem_do_provedor(resposta)
         sufixo = f": {detalhe}" if detalhe else ""
-        raise EvolutionIndisponivelError(f"{rota} respondeu {resposta.status_code}{sufixo}")
+        mensagem = f"{rota} respondeu {resposta.status_code}{sufixo}"
+        # 401/403 sao recusa de autenticacao: houve resposta, e ela diz que o
+        # servidor nao executou nada. Quem chama usa isso para nao registrar
+        # divergencia — incidente inventado — onde nao houve efeito externo.
+        if resposta.status_code in (401, 403):
+            raise RequisicaoRecusadaError(mensagem)
+        raise EvolutionIndisponivelError(mensagem)
     try:
         corpo = resposta.json()
     except ValueError as exc:
@@ -489,9 +495,8 @@ class EvolutionInstanciaClient:
             detalhe = _mensagem_do_provedor(resposta)
             sufixo = f": {detalhe}" if detalhe else ""
             mensagem = f"/instance/logout respondeu {resposta.status_code}{sufixo}"
-            # 401/403 sao recusa de autenticacao — o servidor respondeu sem
-            # tocar na sessao. Qualquer outro status pode ter agido antes de
-            # falhar, e nao autoriza afirmar que nada aconteceu.
+            # Mesma regra do `_json`: 401/403 sao recusa comprovada; qualquer
+            # outro status pode ter agido antes de falhar.
             if resposta.status_code in (401, 403):
                 raise RequisicaoRecusadaError(mensagem)
             raise EvolutionIndisponivelError(mensagem)
@@ -543,7 +548,13 @@ class EvolutionProvedorWhatsApp(ProvedorWhatsApp):
         return None if achada is None else (achada.instancia_id, achada.token)
 
     def criar_instancia(self, nome: str) -> tuple[str, str]:
-        criada = self._tenant.criar_instancia(nome)
+        try:
+            criada = self._tenant.criar_instancia(nome)
+        except (ProvedorNaoAlcancadoError, RequisicaoRecusadaError) as exc:
+            # Sem esta traducao, o chamador nao distingue "nao criou" de "pode
+            # ter criado", e registra divergencia — incidente inventado numa
+            # trilha append-only — para uma recusa comprovada.
+            raise EfeitoNaoAplicadoError(str(exc)) from exc
         return criada.instancia_id, criada.token
 
     def conectar(self, token: str) -> None:
