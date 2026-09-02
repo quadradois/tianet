@@ -25,7 +25,7 @@ precisao. **38 correcoes no total**, em onze arquivos.
 
 O resultado que mais importa nao foi contar inconsistencias — foi **descobrir
 defeitos de codigo** que ninguem tinha visto, e que podem mandar a mesma
-cobranca duas vezes ao devedor.
+mensagem duas vezes ao destinatario.
 
 ---
 
@@ -63,46 +63,63 @@ reenviado:
 | `resultado_desconhecido` | **5xx**, 2xx malformado, **timeout/reset apos transmitir bytes** ou qualquer resposta sem prova de nao aceite | **bloquear retry** e conciliar |
 
 `EvolutionWhatsAppNotificationChannel` viola isso em **tres pontos**, e os tres
-levam ao mesmo lugar: **o devedor recebe a mesma cobranca duas vezes**.
+levam ao mesmo lugar: **o destinatario recebe a mesma mensagem duas vezes**.
+
+**Que mensagem, exatamente.** O adapter do WhatsApp esta ligado a
+`enviar_comprovante` e `enviar_aviso_sobra` (`scheduler_worker.py:346-354`);
+`enviar_lembrete` usa o canal de e-mail. Entao o que duplica hoje e **comprovante
+de pagamento e aviso de sobra**, nao cobranca. Menos grave, e nao inocuo: dois
+comprovantes do mesmo pagamento, ou dois avisos de sobra, sao ambiguos sobre
+dinheiro para quem recebe. Quando o lembrete migrar para o WhatsApp, o mesmo
+defeito passa a duplicar cobranca.
 
 **3.1 — Resposta 5xx** (`whatsapp.py:87`). A ADR nomeia `5xx` como o primeiro
 item de `resultado_desconhecido`; o adapter devolve `FALHA_TEMPORARIA` com
 codigo `provider_5xx`, e o Scheduler reenvia. Um 502 ou 504 de gateway chega
 depois de o upstream ter aceitado a mensagem — e nao ha como distinguir isso de
-um 500 que aceitou nada.
+um 500 que nao aceitou nada.
 
-**3.2 — Timeout indistinto** (`whatsapp.py:53`). Todo `httpx.TimeoutException`
-vira `FALHA_TEMPORARIA`. A ADR so autoriza retry quando a falha e
-**comprovadamente anterior** ao envio de bytes, e o `except` nao faz essa
-distincao.
+**3.2 — Transporte indistinto** (`whatsapp.py:52-53`). O `except` unico devolve
+`FALHA_TEMPORARIA` para todo `TimeoutException` **e** todo `TransportError`. A
+ADR so autoriza retry para falha **comprovadamente anterior** ao envio de bytes,
+e esses dois ramos misturam os dois lados: `ConnectTimeout` e `ConnectError` sao
+anteriores, mas `ReadError`, `WriteError` e `RemoteProtocolError` sao resets
+**depois** de transmitir — exatamente o caso que a ADR nomeia ao lado do timeout.
 
-**3.3 — `DecodingError` escapa** (`whatsapp.py:52`, `resend.py:52,59`). O
-`except` captura `(TimeoutException, TransportError)`, e `httpx.DecodingError`
-**nao e `TransportError`** — e `RequestError` irmao dele. Entao ela sobe do
-adapter, e `SchedulerWorker._execute` converte **qualquer** excecao do handler em
-`FALHA_TEMPORARIA` (`scheduler_worker.py:191-201`), que reenvia. Como o decoding
-falha ao ler o **corpo da resposta**, a requisicao ja foi enviada e pode ter sido
-aceita: mesmo retry inseguro dos itens anteriores, por um terceiro caminho.
+**3.3 — `DecodingError` escapa** (`whatsapp.py:52`, `resend.py:52`). Ela e
+`RequestError`, **nao** `TransportError` — irma dele na hierarquia, fora do
+`except`. Sobe do adapter, e `SchedulerWorker._execute` converte **qualquer**
+excecao do handler em `FALHA_TEMPORARIA` (`scheduler_worker.py:191-201`), que
+reenvia. O decoding falha lendo o **corpo da resposta**: a requisicao ja foi
+enviada e pode ter sido aceita.
 
-Este estava listado como caveat de higiene (§4.6). Nao e: e o mesmo defeito.
+Estava listado como caveat de higiene (§4.6). Nao e: e o mesmo defeito.
+
+**Uma ocorrencia dela e outra coisa.** Em `resend.py:59`, dentro de
+`consultar_status`, o unico chamador e `NotificationService.conciliar`
+(`notifications.py:637`) — fluxo administrativo, disparado por gente, com motivo
+e IAM. Ali a excecao nao vira retry: vira erro nao tratado no meio da
+conciliacao. Defeito tambem, consequencia diferente; nao confundir os dois ao
+corrigir.
 
 A correcao e separar o que a ADR separa:
 
-- `ConnectTimeout`, `ConnectError` e **`PoolTimeout`** — falhas anteriores ao
-  envio de bytes: temporarias, podem reenviar. O `PoolTimeout` estoura
-  **esperando uma conexao do pool**, antes de existir requisicao — trata-lo como
-  desconhecido bloquearia retry legitimo sob contencao;
-- `ReadTimeout`, `WriteTimeout` e os demais — sem prova de nao aceite: e
+- **Anterior ao envio** — `ConnectTimeout`, `ConnectError` e **`PoolTimeout`**:
+  temporarias, podem reenviar. O `PoolTimeout` estoura **esperando uma conexao do
+  pool**, antes de existir requisicao; trata-lo como desconhecido bloquearia
+  retry legitimo sob contencao;
+- **Depois de transmitir** — `ReadTimeout`, `WriteTimeout`, `ReadError`,
+  `WriteError`, `RemoteProtocolError` e `DecodingError`: sem prova de nao aceite,
   `resultado_desconhecido`;
-- `provider_5xx` — `RESULTADO_DESCONHECIDO`, como a tabela manda.
+- **`provider_5xx`** — `RESULTADO_DESCONHECIDO`, como a tabela manda.
 
 O proprio adapter ja classifica **2xx malformado** como `DESCONHECIDO`, que e a
 linha vizinha da mesma tabela. E o **adapter do Resend**, mais antigo e escrito
 sob a mesma ADR, mapeia `5xx` e toda falha de transporte para `DESCONHECIDO`
-(`resend.py:52-64`) — ele e conservador ate demais, tratando como desconhecido
-tambem o que a ADR permitiria reenviar. No 5xx e no timeout, o do WhatsApp diverge da ADR e do
-irmao ao mesmo tempo; no `DecodingError` os dois erram junto. Sao omissoes, nao
-desenho.
+(`resend.py:52-64`) — conservador ate demais, tratando como desconhecido tambem o
+que a ADR permitiria reenviar. No 5xx e no transporte, o do WhatsApp diverge da
+ADR e do irmao ao mesmo tempo; no `DecodingError` os dois erram junto. Sao
+omissoes, nao desenho.
 
 Agrava: **nao foi medido** se o Evolution ou o WhatsApp suprimem uma segunda
 mensagem com o mesmo `id`. O eco do `id` correlaciona requisicao e resposta, mas
@@ -126,9 +143,9 @@ Em resumo:
 | 4.3 | `scheduler_worker.py` em 69,91% |
 | 4.4 | CPFs historicos em `audit_log` — limpar e mudanca destrutiva, decisao separada |
 | 4.5 | `CLAUDE.md` da raiz e gitignored; `frontend/CLAUDE.md` e versionado |
-| 4.6 | `DecodingError` nao tratado em `resend.py` (2x) e `whatsapp.py` — **nao e higiene**, e o terceiro caminho de retry inseguro da §3.3 |
+| 4.6 | `DecodingError` nao tratado em `resend.py` (2x) e `whatsapp.py` — **nao e higiene**: no envio e o terceiro caminho de retry inseguro (§3.3); no `consultar_status` e erro nao tratado na conciliacao |
 | 4.7 | Suite Playwright deixa servidor orfao; a proxima falha **sem imprimir nada** |
-| 4.8 | **NOVO** — as tres violacoes da ADR-009 descritas na §3 (5xx, timeout e `DecodingError`), todas capazes de duplicar cobranca |
+| 4.8 | **NOVO** — as tres violacoes da ADR-009 descritas na §3 (5xx, transporte indistinto e `DecodingError`), que hoje duplicam comprovante e aviso de sobra, e duplicariam cobranca quando o lembrete migrar para o WhatsApp |
 | 4.9 | **NOVO** — o guardrail da ADR-003 casa por texto, nao por ideia. Pega a frase que o regex conhece; deixou passar "Multi-Tenant Nivel 1", que e a mesma decisao. Ha **quatro linhas** com essa forma em `ADR-001:25`, `AMP-001:141` e `PLAN-001:17,161` |
 
 ---
@@ -201,4 +218,4 @@ sobre CPFs historicos (§4.4) e o `CLAUDE.md` (§4.5).
 
 | Versao | Data | Descricao |
 |---|---|---|
-| 1.0.0 | 2026-09-02 | Auditoria de consistencia documental com 38 correcoes em onze arquivos; as tres violacoes da ADR-009 nos adapters de notificacao (5xx, timeout indistinto e `DecodingError` escapando para o retry do Scheduler), que podem duplicar cobranca ao devedor; dois caveats novos; e o que nove rodadas de review ensinaram sobre editar documentacao cruzada ponto a ponto. |
+| 1.0.0 | 2026-09-02 | Auditoria de consistencia documental com 38 correcoes em onze arquivos; as tres violacoes da ADR-009 nos adapters de notificacao (5xx, transporte indistinto e `DecodingError` escapando para o retry do Scheduler), que hoje duplicam comprovante e aviso de sobra; dois caveats novos; e o que nove rodadas de review ensinaram sobre editar documentacao cruzada ponto a ponto. |

@@ -70,7 +70,8 @@ escopo, e o Evento 6 corresponde a inativacao de Tenant ja existente.
 
   Isso **correlaciona** requisicao e resposta, e nao mais que isso: nao foi
   medido se o provedor suprime uma segunda mensagem com o mesmo `id`, entao um
-  retry apos timeout pode entregar duas vezes. E **nao existe id do provedor**
+  retry apos timeout, reset ou 5xx pode entregar duas vezes (§6.2). E **nao
+  existe id do provedor**
   para consultar depois — entrega so se confirma por `Receipt`, que e o que
   `consultar_status` ja declarava.
 
@@ -276,27 +277,36 @@ decidida** na ADR-009: timeout ou reset *depois de transmitir bytes* e
 de que a requisicao nao foi aceita.
 
 Sao **tres pontos** no adapter, e os tres levam a mesma consequencia concreta:
-se o Evolution aceitou antes de o cliente desistir, o devedor recebe a cobranca
-duas vezes.
+se o Evolution aceitou antes de o cliente desistir, o destinatario recebe a
+mensagem duas vezes. Hoje o adapter do WhatsApp esta ligado a **comprovante de
+pagamento** e **aviso de sobra** (`enviar_lembrete` usa o canal de e-mail), entao
+o que duplica sao esses dois — ambiguos sobre dinheiro, ainda que menos graves
+que cobranca. Quando o lembrete migrar para o WhatsApp, passa a duplicar
+cobranca.
 
 - **Resposta 5xx** (`whatsapp.py:87`) — a tabela da ADR nomeia `5xx` como o
   primeiro item de `resultado_desconhecido`; o adapter devolve
   `FALHA_TEMPORARIA` com codigo `provider_5xx`. Um 502 ou 504 de gateway chega
   depois de o upstream ter aceitado, e nao ha como distinguir isso de um 500 que
   nao aceitou nada;
-- **Timeout indistinto** (`whatsapp.py:53`) — todo `httpx.TimeoutException` vira
-  `FALHA_TEMPORARIA`, sem a distincao que a ADR exige;
-- **`DecodingError` escapa** (`whatsapp.py:52`) — ela e `RequestError`, nao
-  `TransportError`, entao o `except` nao a captura; sobe do adapter, e o
-  `SchedulerWorker` converte qualquer excecao do handler em `FALHA_TEMPORARIA`.
-  Como o decoding falha lendo o **corpo da resposta**, a requisicao ja foi
-  enviada. O `resend.py` erra igual, nos dois `except`.
+- **Transporte indistinto** (`whatsapp.py:52-53`) — o `except` unico devolve
+  `FALHA_TEMPORARIA` para todo `TimeoutException` e todo `TransportError`,
+  misturando `ConnectTimeout`/`ConnectError` (anteriores ao envio) com
+  `ReadError`, `WriteError` e `RemoteProtocolError` (resets **depois** de
+  transmitir, que a ADR nomeia ao lado do timeout);
+- **`DecodingError` escapa** (`whatsapp.py:52`, `resend.py:52`) — ela e
+  `RequestError`, nao `TransportError`, entao o `except` nao a captura; sobe do
+  adapter, e o `SchedulerWorker` converte qualquer excecao do handler em
+  `FALHA_TEMPORARIA`. Como o decoding falha lendo o **corpo da resposta**, a
+  requisicao ja foi enviada. Em `resend.py:59` (`consultar_status`) a mesma
+  excecao nao vira retry: vira erro nao tratado na conciliacao administrativa.
 
 A correcao e separar o que a ADR separa: `ConnectTimeout`, `ConnectError` e
 `PoolTimeout` sao falhas *comprovadamente anteriores* ao envio de bytes —
 temporarias, podem reenviar (o `PoolTimeout` estoura esperando uma conexao do
-pool, antes de existir requisicao); `ReadTimeout`, `WriteTimeout` e o `5xx` nao
-tem prova de nao aceite, e viram `resultado_desconhecido`.
+pool, antes de existir requisicao); `ReadTimeout`, `WriteTimeout`, `ReadError`,
+`WriteError`, `RemoteProtocolError`, `DecodingError` e o `5xx` nao tem prova de
+nao aceite, e viram `resultado_desconhecido`.
 
 O proprio adapter ja classifica **2xx malformado** como desconhecido, que e a
 linha vizinha da mesma tabela — os tres pontos acima sao omissao, nao desenho.
@@ -308,7 +318,7 @@ Corrigir isso e item de codigo, nao de documentacao.
 
 | Versao | Data | Descricao |
 |---|---|---|
-| 1.3.1 | 2026-09-02 | A §6.2 registrava so um terco do problema. Alem do timeout indistinto: **resposta 5xx** vira `FALHA_TEMPORARIA` e a tabela da ADR-009 poe `5xx` em `resultado_desconhecido`; e **`DecodingError` escapa** do `except` (e `RequestError`, nao `TransportError`) direto para o retry do Scheduler. Sao tres pontos, nao um. E o `PoolTimeout` entra na lista de falhas anteriores ao envio de bytes — estoura esperando conexao do pool, antes de existir requisicao. |
+| 1.3.1 | 2026-09-02 | A §6.2 registrava so um terco do problema. Alem do timeout indistinto: **resposta 5xx** vira `FALHA_TEMPORARIA` e a tabela da ADR-009 poe `5xx` em `resultado_desconhecido`; e **`DecodingError` escapa** do `except` (e `RequestError`, nao `TransportError`) direto para o retry do Scheduler. Sao tres pontos, nao um; e o `except` de transporte ainda mistura falhas anteriores ao envio com resets posteriores (`ReadError`, `WriteError`, `RemoteProtocolError`). Registrado tambem o que de fato duplica hoje: comprovante e aviso de sobra, nao cobranca — o lembrete usa o canal de e-mail. E o `PoolTimeout` entra na lista de falhas anteriores ao envio de bytes — estoura esperando conexao do pool, antes de existir requisicao. |
 | 1.3.0 | 2026-08-27 | Reconciliacoes do PLAN-033/IMP-358: conversas do agente saem de `RegistroComunicacao` (devedor_id obrigatorio impede) e ganham modelo proprio; contextos Operadora/Pre-cadastro e o limite da allowlist registrados na §2.2. |
 | 1.2.0 | 2026-08-25 | As cinco perguntas em aberto foram respondidas pelo fundador e a secao §6 deixou de ser duvida para virar registro. E-mail saiu do escopo do MVP e o worker deixou de ser derrubado por falta de conta Resend — com recusa nomeada no lugar do fake que fingia entrega. Topologia do agente decidida sem webhook publico. Segredo do Evolution fica em variavel de ambiente, com o limite de uma instancia por processo declarado. |
 | 1.1.0 | 2026-08-16 | WhatsApp preenchido a partir do contrato Evolution Go versionado em `docs/whatsapp/`: modelo de tenant, tres niveis de autenticacao, limites de retry e payload, recorte para a TiaNet e achados que condicionam o desenho. |
