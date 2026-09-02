@@ -609,17 +609,26 @@ class TestAdocaoDeInstanciaExistente:
             is None
         )
 
-    def test_instancia_sem_token_nao_e_adotada(self) -> None:
-        """Adotar sem credencial deixaria a conexao existindo sem poder enviar."""
+    def test_instancia_sem_token_recusa_em_vez_de_devolver_none(self) -> None:
+        """`None` aqui viraria `create`, e criaria uma segunda sobre a existente."""
 
         def handler(_: httpx.Request) -> httpx.Response:
             return httpx.Response(
                 200, json={"data": [{"id": INSTANCIA_ID, "name": "adm_tianet", "token": ""}]}
             )
 
-        assert (
+        with pytest.raises(EvolutionIndisponivelError, match="sem token utilizavel"):
             EvolutionTenantClient(
                 host=HOST, tenant_id="tid", api_key="k", client=_cliente(handler)
             ).buscar_instancia("adm_tianet")
-            is None
-        )
+
+    def test_listagem_fora_do_formato_nao_e_lida_como_ausencia(self) -> None:
+        """2xx com `data` invalido nao autoriza concluir que nao ha instancia."""
+
+        def handler(_: httpx.Request) -> httpx.Response:
+            return httpx.Response(200, json={"message": "success"})
+
+        with pytest.raises(EvolutionIndisponivelError, match="fora do formato"):
+            EvolutionTenantClient(
+                host=HOST, tenant_id="tid", api_key="k", client=_cliente(handler)
+            ).buscar_instancia("adm_tianet")

@@ -276,7 +276,11 @@ class EvolutionTenantClient:
         )
         itens = dados.get("data")
         if not isinstance(itens, list):
-            return None
+            # Resposta invalida NAO e "nao existe". Devolver `None` aqui faria
+            # `_garantir_instancia` criar uma segunda instancia por causa de um
+            # payload que o provedor mudou — o pior desfecho possivel a partir
+            # de um 2xx.
+            raise EvolutionIndisponivelError("/instance/all devolveu `data` fora do formato")
         alvo = nome.strip()
         for item in itens:
             if not isinstance(item, dict) or item.get("name") != alvo:
@@ -285,9 +289,14 @@ class EvolutionTenantClient:
             token = item.get("token")
             if isinstance(instancia_id, str) and isinstance(token, str) and instancia_id and token:
                 return InstanciaCriada(instancia_id=instancia_id, nome=alvo, token=token)
-            # Achada e sem credencial utilizavel: adotar sem token deixaria a
-            # conexao existindo sem poder enviar nada.
-            return None
+            # Achada e sem credencial utilizavel. Nem adotar (a conexao
+            # existiria sem poder enviar nada) nem seguir para o `create`, que
+            # criaria uma segunda instancia sobre uma que comprovadamente
+            # existe. Recusar nomeando e o unico desfecho honesto.
+            raise EvolutionIndisponivelError(
+                f"instancia {alvo!r} existe no provedor sem token utilizavel: "
+                "adota-la ou criar outra por cima seriam ambos errados"
+            )
         return None
 
     def jid_da_instancia(self, instancia_id: str) -> str | None:
