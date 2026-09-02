@@ -115,8 +115,10 @@ aceita — **verificado em 2026-08-31**, não inferido.
 
 O worker lê o token do ambiente. Este plano **não muda isso**. Quando a tela criar
 a instância, o token passa a existir também no banco; a leitura pelo worker migra
-para o repositório em fase própria, com o ambiente como precedência enquanto a
-migração não fecha. Trocar as duas coisas ao mesmo tempo arriscaria deixar o
+para o repositório em fase própria, e **o ambiente mantém precedência também
+depois dela**: o critério de pronto do IMP-370 é explícito — com a variável
+presente, ela prevalece e o comportamento não muda. O repositório passa a ser a
+origem quando a variável está ausente, não no lugar dela. Trocar as duas coisas ao mesmo tempo arriscaria deixar o
 worker sem canal — e worker sem canal é operação sem aviso.
 
 ---
@@ -210,8 +212,8 @@ lugar que não seja o campo cifrado — resposta de API, log ou trilha.
 |---|---|
 | Confundir chave de tenant com token de instância — o incidente do contrato §0 | Classes separadas (§4.1); o tipo impede a troca |
 | QR vazar em log e permitir pareamento indevido | Guardrail de teste (§7); QR nunca entra em trilha |
-| Perder a chave de cifra e tornar o token irrecuperável | Recusa nomeada no start sem a variável; reconectar pela tela regenera o token |
-| Worker ficar sem canal durante a migração de leitura | §4.5: ambiente tem precedência até a fase própria fechar |
+| Perder a chave de cifra e tornar o token irrecuperável | Recusa nomeada no start sem a variável. **Reconectar não regenera o token** — o reconnect preserva o valor da instância. Recuperar exige criar instância nova, com token novo, e reparear |
+| Worker ficar sem canal durante a migração de leitura | §4.5: o ambiente tem precedência, e continua tendo depois do IMP-370 |
 | Rede do Evolution instável durante o pareamento | Estado vem sempre do provedor, nunca de cache local; `Connected` ≠ `LoggedIn` |
 
 ---

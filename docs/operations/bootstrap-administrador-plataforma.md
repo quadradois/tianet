@@ -8,9 +8,12 @@
 
 - cria um Tenant de controle ativo, um Usuario convidado e o Perfil
   `administrador_plataforma` em uma unica transacao;
-- concede o **catalogo inteiro** de permissoes ao Usuario criado. Ate o IMP-363
-  eram apenas as cinco `tenant.*`, e isso produzia deadlock: o unico usuario nao
-  conseguia operar nem se autoconceder permissao. Coerente com a
+- concede o **catalogo inteiro** de permissoes ao Usuario criado — **na primeira
+  execucao**. Em banco inicializado antes do IMP-363 a garantia nao vale no
+  replay: a operacao e idempotente, devolve o registro existente e nao reconcede
+  nada, entao o perfil antigo continua com as cinco `tenant.*`. Para esses,
+  use `scripts/seed_operador_local.py` (ver `ambiente-local-docker.md` §6).
+  Coerente com a
   [ADR-003](../architecture/adrs/ADR-003-escopo-single-tenant-do-v1.md) — separar
   papel administrativo de operacional so faz sentido com mais de uma pessoa;
 - define a credencial inicial por hash PBKDF2 e ativa o Usuario no mesmo commit;

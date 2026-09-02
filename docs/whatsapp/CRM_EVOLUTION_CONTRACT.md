@@ -545,11 +545,12 @@ identificador gerado pelo servidor. Duas consequências para quem integra:
    deduplicar: **não foi verificado** se o Evolution ou o WhatsApp suprimem uma
    segunda mensagem com o mesmo `id`.
 
-   ⚠️ **Esse cenário está vivo hoje.** `EvolutionWhatsAppNotificationChannel`
-   classifica timeout como `FALHA_TEMPORARIA`, e o Scheduler reenvia. Se o
-   Evolution tiver aceitado a mensagem antes do timeout do cliente, o devedor
-   recebe duas vezes. Trate a supressão como desconhecida até alguém medir — e
-   veja o caveat correspondente em `contexto-externo.md` §6.2.
+   ⚠️ **Esse cenário está vivo hoje, e é um defeito conhecido.**
+   `EvolutionWhatsAppNotificationChannel` classifica todo timeout como
+   `FALHA_TEMPORARIA` e o Scheduler reenvia — o que **viola a ADR-009**, que
+   manda tratar timeout após transmitir bytes como `resultado_desconhecido`,
+   bloqueando retry. Se o Evolution aceitou antes do timeout do cliente, o
+   devedor recebe duas vezes. Ver `contexto-externo.md` §6.2.
 3. **Não existe identificador do provedor** para consultar depois: entrega só se
    confirma pelo webhook de `Receipt` (§5).
 

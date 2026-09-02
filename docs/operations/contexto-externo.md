@@ -269,12 +269,21 @@ Nao ha ambiente de teste do Evolution — a validacao acima foi feita em produca
 para o numero do proprio fundador, sem que nenhum devedor real recebesse
 mensagem. Esse continua sendo o unico caminho para conferencias futuras.
 
-**O que ficou aberto.** A validacao respondeu o formato, nao a deduplicacao: nao
-se mediu se o provedor suprime uma segunda mensagem com o mesmo `id`. E o
-adapter classifica timeout como `FALHA_TEMPORARIA`, entao o Scheduler reenvia —
-se o Evolution tiver aceitado antes do timeout do cliente, o devedor recebe duas
-vezes. Medir isso, ou reclassificar o timeout, e decisao com troca: nao reenviar
-troca risco de duplicata por risco de aviso perdido.
+**O que ficou aberto — e nao e uma decisao, e um defeito.** A validacao
+respondeu o formato, nao a deduplicacao. Mas a politica para esse caso **ja esta
+decidida** na ADR-009: timeout ou reset *depois de transmitir bytes* e
+`resultado_desconhecido`, que **bloqueia retry e concilia** — porque nao ha prova
+de que a requisicao nao foi aceita.
+
+O adapter classifica todo `httpx.TimeoutException` como `FALHA_TEMPORARIA`, e o
+Scheduler reenvia. Isso **viola a ADR-009**, e a consequencia e concreta: se o
+Evolution aceitou antes do timeout do cliente, o devedor recebe a cobranca duas
+vezes.
+
+A distincao que o codigo nao faz e a que a ADR exige: falha *comprovadamente
+anterior* ao envio de bytes (`ConnectTimeout`, `ConnectError`) e temporaria e
+pode reenviar; timeout *depois* de transmitir (`ReadTimeout`) nao tem prova, e
+nao pode. Corrigir isso e item de codigo, nao de documentacao.
 
 ---
 
