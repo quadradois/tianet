@@ -232,3 +232,16 @@ class TransicaoEstadoInvalidaError(DomainError):
         self.tenant_id = tenant_id
         self.acao = acao
         self.motivo = motivo
+
+
+class ConexaoWhatsAppNaoEncontradaError(DomainError):
+    """Nenhuma instância existe para o Tenant (IMP-367, PLAN-034).
+
+    "Não existe" é diferente de "existe e não está pareada": a primeira pede
+    criar a instância, a segunda pede escanear um QR. Colapsar as duas faria a
+    tela oferecer a ação errada.
+    """
+
+    def __init__(self, tenant_id: object) -> None:
+        super().__init__(f"Nenhuma conexão de WhatsApp para o Tenant {tenant_id}")
+        self.tenant_id = tenant_id

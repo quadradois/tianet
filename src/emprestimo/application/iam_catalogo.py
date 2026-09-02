@@ -2,7 +2,7 @@
 
 from emprestimo.domain.platform.permissao import Permissao
 
-CATALOGO_PERMISSOES_VERSAO = "1.0.0"
+CATALOGO_PERMISSOES_VERSAO = "1.1.0"
 
 CATALOGO_PERMISSOES = (
     # IMP-351: o endpoint POST /platform/tenants saiu, mas esta permissao NAO.
@@ -69,6 +69,11 @@ CATALOGO_PERMISSOES = (
     # IMP-355: ate 2026-08-27 nao havia rota de criacao de Usuario — cada Tenant
     # ficava limitado ao administrador criado pela CLI de bootstrap.
     Permissao("usuario.criar", "Criar Usuarios do Tenant"),
+    # IMP-367: ler e gerir separadas porque sao riscos diferentes. Ver o estado
+    # da conexao e rotina; conectar gera token novo e desconectar derruba o
+    # canal de comunicacao inteiro do Credor.
+    Permissao("whatsapp.conexao.ler", "Consultar a conexao de WhatsApp"),
+    Permissao("whatsapp.conexao.gerir", "Conectar e desconectar o WhatsApp"),
     Permissao("credencial.redefinir", "Redefinir credenciais"),
     Permissao("perfil.gerir", "Gerir perfis e atribuicoes"),
     Permissao("perfil.ler", "Consultar perfis e permissoes"),

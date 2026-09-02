@@ -30,7 +30,8 @@ def _tenant(session: Session) -> uuid.UUID:
 
 
 def _repo(session: Session) -> SqlAlchemyConexaoWhatsAppRepository:
-    return SqlAlchemyConexaoWhatsAppRepository(session, CifraToken(CifraToken.gerar_chave()))
+    cifra = CifraToken(CifraToken.gerar_chave())
+    return SqlAlchemyConexaoWhatsAppRepository(session, lambda: cifra)
 
 
 def _conexao(tenant_id: uuid.UUID) -> ConexaoWhatsApp:

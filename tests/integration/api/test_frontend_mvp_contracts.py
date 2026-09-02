@@ -208,12 +208,15 @@ def test_imp_278_catalogo_reflete_fonte_canonica_versionada(
 
     assert resposta.status_code == 200
     corpo = resposta.json()
-    assert corpo["versao"] == "1.0.0"
+    assert corpo["versao"] == "1.1.0"
     assert [item["codigo"] for item in corpo["itens"]] == sorted(
         permissao.codigo for permissao in CATALOGO_PERMISSOES
     )
-    # IMP-355: 55 com `usuario.criar`; 54 vieram do IMP-360 (`proposta.submeter`).
-    assert len(corpo["itens"]) == len(CATALOGO_PERMISSOES) == 55
+    # IMP-367: 57 com `whatsapp.conexao.ler` e `whatsapp.conexao.gerir`; eram 55
+    # desde o IMP-355 (`usuario.criar`), e 54 desde o IMP-360
+    # (`proposta.submeter`). A versao do catalogo sobe junto — o contador sozinho
+    # nao diz ao frontend que o conjunto mudou.
+    assert len(corpo["itens"]) == len(CATALOGO_PERMISSOES) == 57
     assert all(item["grupo"] == item["codigo"].split(".", maxsplit=1)[0] for item in corpo["itens"])
 
 

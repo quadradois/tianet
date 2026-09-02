@@ -26,6 +26,9 @@ from typing import Any
 
 import httpx
 
+from emprestimo.domain.platform.conexao_whatsapp import EstadoPareamento
+from emprestimo.domain.platform.ports import ProvedorWhatsApp
+
 PREFIXO_QR = "data:image/png;base64,"
 """Prefixo que o contrato promete no campo `Qrcode`."""
 
@@ -342,3 +345,64 @@ class EvolutionInstanciaClient:
             raise EvolutionIndisponivelError(
                 f"/instance/logout respondeu {resposta.status_code}{sufixo}"
             )
+
+
+class EvolutionProvedorWhatsApp(ProvedorWhatsApp):
+    """Compõe os dois clientes por trás de uma porta só (IMP-367).
+
+    A Application pede "crie", "conecte", "qual o estado" — e não precisa saber
+    que criar usa a chave de Tenant e o resto usa o token da instância. Essa
+    separação existe no provedor e continua existindo aqui, mas para dentro:
+    confundir as duas chaves é o erro que o `EvolutionTenantClient` e o
+    `EvolutionInstanciaClient` tornam impossível por construção.
+
+    O token entra por parâmetro em vez de virar estado: quem o guarda é o
+    repositório, e ele só o entrega a quem pedir explicitamente.
+    """
+
+    def __init__(
+        self,
+        *,
+        host: str,
+        tenant_id: str,
+        api_key: str,
+        client: httpx.Client | None = None,
+    ) -> None:
+        self._host = host
+        self._client = client
+        self._tenant = EvolutionTenantClient(
+            host=host,
+            tenant_id=tenant_id,
+            api_key=api_key,
+            client=client,
+        )
+
+    def _instancia(self, token: str) -> EvolutionInstanciaClient:
+        return EvolutionInstanciaClient(
+            host=self._host,
+            instancia_token=token,
+            client=self._client,
+        )
+
+    def criar_instancia(self, nome: str) -> tuple[str, str]:
+        criada = self._tenant.criar_instancia(nome)
+        return criada.instancia_id, criada.token
+
+    def conectar(self, token: str) -> None:
+        # Webhook vazio de propósito: a DR-006 apontou o webhook para o agente,
+        # não para a TiaNet. Mandar a nossa URL aqui roubaria os eventos dele.
+        self._instancia(token).conectar()
+
+    def qrcode(self, token: str) -> str:
+        return self._instancia(token).qrcode()
+
+    def estado(self, token: str) -> EstadoPareamento:
+        bruto = self._instancia(token).estado()
+        return EstadoPareamento(
+            conectado=bruto.conectado,
+            pareado=bruto.pareado,
+            numero=bruto.nome_exibicao if bruto.pareado else None,
+        )
+
+    def desconectar(self, token: str) -> None:
+        self._instancia(token).desconectar()

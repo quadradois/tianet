@@ -11,7 +11,7 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from typing import Literal
 
-from emprestimo.domain.platform.conexao_whatsapp import ConexaoWhatsApp
+from emprestimo.domain.platform.conexao_whatsapp import ConexaoWhatsApp, EstadoPareamento
 from emprestimo.domain.platform.configuracao import Configuracao
 from emprestimo.domain.platform.credencial import Credencial
 from emprestimo.domain.platform.perfil import PerfilAcesso
@@ -127,6 +127,39 @@ class ConexaoWhatsAppRepository(ABC):
     @abstractmethod
     def find_token(self, tenant_id: uuid.UUID) -> str | None:
         """Devolve o token decifrado. Unico caminho para obte-lo."""
+
+
+class ProvedorWhatsApp(ABC):
+    """Operacoes de instancia no provedor, sem o protocolo HTTP a tiracolo.
+
+    A Application orquestra criar, conectar, ler estado e desconectar; nao
+    conhece rotas, chaves de tenant nem formato de QR. O token entra como
+    parametro em vez de virar estado do adapter porque quem sabe qual token usar
+    e o repositorio, e ele so entrega o valor a quem pedir explicitamente.
+    """
+
+    @abstractmethod
+    def criar_instancia(self, nome: str) -> tuple[str, str]:
+        """Cria a instancia e devolve `(instancia_id, token)`.
+
+        **O token e gerado por nos**; o provedor apenas o ecoa. Quem procurar um
+        identificador emitido pelo servidor nao vai encontrar.
+        """
+
+    @abstractmethod
+    def conectar(self, token: str) -> None:
+        """Inicia o pareamento. Idempotente numa instancia ja conectada."""
+
+    @abstractmethod
+    def qrcode(self, token: str) -> str:
+        """QR em base64. Levanta `QrCodeIndisponivelError` enquanto gera."""
+
+    @abstractmethod
+    def estado(self, token: str) -> EstadoPareamento: ...
+
+    @abstractmethod
+    def desconectar(self, token: str) -> None:
+        """Desvincula o numero. A instancia permanece."""
 
 
 class CredencialRepository(ABC):
