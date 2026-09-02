@@ -545,12 +545,20 @@ identificador gerado pelo servidor. Duas consequências para quem integra:
    deduplicar: **não foi verificado** se o Evolution ou o WhatsApp suprimem uma
    segunda mensagem com o mesmo `id`.
 
-   ⚠️ **Esse cenário está vivo hoje, e é um defeito conhecido.**
-   `EvolutionWhatsAppNotificationChannel` classifica todo timeout como
-   `FALHA_TEMPORARIA` e o Scheduler reenvia — o que **viola a ADR-009**, que
-   manda tratar timeout após transmitir bytes como `resultado_desconhecido`,
-   bloqueando retry. Se o Evolution aceitou antes do timeout do cliente, o
-   devedor recebe duas vezes. Ver `contexto-externo.md` §6.2.
+   ⚠️ **Esse cenário está vivo hoje, e são três defeitos conhecidos.**
+   `EvolutionWhatsAppNotificationChannel` classifica **todo timeout e todo erro
+   de transporte** (incluindo resets *depois* do envio, como `ReadError`,
+   `CloseError` e `RemoteProtocolError`) e **toda resposta 5xx** como `FALHA_TEMPORARIA`, e
+   deixa **`DecodingError` escapar** para o Scheduler, que trata qualquer
+   exceção como temporária — nos três casos ele reenvia — o que
+   **viola a ADR-009**, cuja tabela põe `5xx` e "timeout/reset após transmitir
+   bytes" em `resultado_desconhecido`, que bloqueia retry. Se o Evolution
+   aceitou antes de o cliente desistir e o provedor não deduplicar pelo `id`, o
+   destinatário recebe duas vezes — hoje o **comprovante do lançamento** do
+   empréstimo e o **aviso de sobra de pagamento**, que são os dois jobs ligados a
+   este adapter. Só `ConnectTimeout`, `ConnectError` e `PoolTimeout` provam
+   que a requisição não chegou a existir na rede; todo o resto, `5xx` incluído,
+   é resultado desconhecido. Ver `contexto-externo.md` §6.2.
 3. **Não existe identificador do provedor** para consultar depois: entrega só se
    confirma pelo webhook de `Receipt` (§5).
 
@@ -570,7 +578,8 @@ Conhecidos, confirmados no código, ainda não corrigidos. Desenhe sua integraç
 5. **`POST /instance/connect` numa instância já conectada é idempotente** — só atualiza `webhookUrl`/`subscribe`/configurações, não força QR novo nem derruba a sessão. Seguro de chamar repetidamente pra rotacionar o segredo do webhook.
 6. **QR code expira em ~20s, até 5 por ciclo**, depois reinicia sozinho um novo ciclo. Buscar um QR e não escanear na hora dá erro no app ("não foi possível conectar o dispositivo") — não é bug, é o código já ter rotacionado.
 7. **Sessão sobrevive a restart do servidor** (fica persistida no Postgres) — reconectar depois de um restart normalmente não pede QR novo, só uma chamada de `/instance/connect`. Exceção observada: pareamentos muito recentes (poucas horas) podem não ter sido gravados a tempo antes de um restart — nesse caso específico, vai pedir QR novo mesmo.
-8. **Nenhum endpoint existe pra inspecionar ou drenar webhooks que falharam** — depois das 5 tentativas de retry (Seção 6.3), o evento simplesmente some.
+8. **O adapter da TiaNet reenvia em timeout, em reset pós-envio, em 5xx e em erro de decoding da resposta**, violando a ADR-009 — é defeito nosso, não do Evolution, mas condiciona a integração: enquanto não for corrigido, uma resposta 5xx, um `ReadTimeout` ou um reset pós-envio faz o Scheduler reenviar sem prova de não aceite — e, como não foi verificado se o provedor deduplica pelo `id` (§8, item 2), isso pode virar mensagem duplicada. Hoje atinge o comprovante do lançamento e o aviso de sobra; a cobrança ainda sai por e-mail.
+9. **Nenhum endpoint existe pra inspecionar ou drenar webhooks que falharam** — depois das 5 tentativas de retry (Seção 6.3), o evento simplesmente some.
 
 ---
 

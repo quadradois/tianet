@@ -1,6 +1,6 @@
 # Contexto Externo
 
-**Versao:** 1.3.0
+**Versao:** 1.3.1
 
 **Status:** Vivo — mantido manualmente
 
@@ -70,7 +70,8 @@ escopo, e o Evento 6 corresponde a inativacao de Tenant ja existente.
 
   Isso **correlaciona** requisicao e resposta, e nao mais que isso: nao foi
   medido se o provedor suprime uma segunda mensagem com o mesmo `id`, entao um
-  retry apos timeout pode entregar duas vezes. E **nao existe id do provedor**
+  retry apos timeout, reset ou 5xx pode entregar duas vezes (§6.2). E **nao
+  existe id do provedor**
   para consultar depois — entrega so se confirma por `Receipt`, que e o que
   `consultar_status` ja declarava.
 
@@ -269,21 +270,51 @@ Nao ha ambiente de teste do Evolution — a validacao acima foi feita em produca
 para o numero do proprio fundador, sem que nenhum devedor real recebesse
 mensagem. Esse continua sendo o unico caminho para conferencias futuras.
 
-**O que ficou aberto — e nao e uma decisao, e um defeito.** A validacao
+**O que ficou aberto — e nao e uma decisao, sao defeitos.** A validacao
 respondeu o formato, nao a deduplicacao. Mas a politica para esse caso **ja esta
-decidida** na ADR-009: timeout ou reset *depois de transmitir bytes* e
-`resultado_desconhecido`, que **bloqueia retry e concilia** — porque nao ha prova
-de que a requisicao nao foi aceita.
+decidida** na ADR-009: retry so quando ha **prova** de que o provedor nao
+aceitou; na duvida — a ADR cita "timeout ou reset depois do envio de bytes" como
+exemplo, nao como limite —, vale `resultado_desconhecido`, que **bloqueia retry
+e concilia**.
 
-O adapter classifica todo `httpx.TimeoutException` como `FALHA_TEMPORARIA`, e o
-Scheduler reenvia. Isso **viola a ADR-009**, e a consequencia e concreta: se o
-Evolution aceitou antes do timeout do cliente, o devedor recebe a cobranca duas
-vezes.
+Sao **tres pontos** no adapter, e os tres levam a mesma consequencia concreta:
+o Scheduler reenvia sem prova de que o primeiro envio nao foi aceito. Se o
+provedor nao deduplicar pelo `id` — nao medido —, o destinatario recebe duas
+vezes. Hoje o adapter do WhatsApp esta ligado ao **comprovante do lancamento** do
+emprestimo e ao **aviso de sobra de pagamento** (`enviar_lembrete` usa o canal de
+e-mail), entao sao esses dois — dois comprovantes do mesmo emprestimo sugerem
+dois emprestimos. Quando o lembrete migrar para o WhatsApp, alcanca cobranca.
 
-A distincao que o codigo nao faz e a que a ADR exige: falha *comprovadamente
-anterior* ao envio de bytes (`ConnectTimeout`, `ConnectError`) e temporaria e
-pode reenviar; timeout *depois* de transmitir (`ReadTimeout`) nao tem prova, e
-nao pode. Corrigir isso e item de codigo, nao de documentacao.
+- **Resposta 5xx** (`_classificar_resposta`, codigo `provider_5xx`) — a tabela
+  da ADR nomeia `5xx` como o primeiro item de `resultado_desconhecido`; o adapter
+  devolve `FALHA_TEMPORARIA`. Nenhum 5xx prova recusa: um 502 pode ser o gateway
+  sem alcancar o upstream, mas tambem pode chegar depois de ele ter aceitado; um
+  504 so diz que o gateway desistiu de esperar;
+- **Transporte indistinto** (o `except` de `enviar`) — o `except` unico devolve
+  `FALHA_TEMPORARIA` para todo `TimeoutException` e todo `TransportError`,
+  varrendo junto o que prova nao-aceitacao (`ConnectTimeout`, `ConnectError`) e o
+  que nao prova nada (`ReadTimeout`, `ReadError`, `WriteError`, `CloseError`,
+  `RemoteProtocolError`);
+- **`DecodingError` escapa** (o mesmo `except`, nos dois adapters) — ela e
+  `RequestError`, nao `TransportError`, entao o `except` nao a captura; sobe do
+  adapter, e o `SchedulerWorker` converte qualquer excecao do handler em
+  `FALHA_TEMPORARIA`. Como o decoding falha lendo o **corpo da resposta**, a
+  requisicao ja foi enviada. Em `consultar_status` a mesma
+  excecao nao vira retry: vira erro nao tratado na conciliacao administrativa.
+
+A correcao nao e uma lista maior de excecoes, e inverter o padrao. "Depois de
+transmitir bytes" nao e verificavel a partir da excecao — um `WriteError` pode
+estourar na primeira escrita, sem nenhum byte na rede. O criterio da ADR e a
+**prova**: retry so quando ha prova de que o provedor nao aceitou; na duvida,
+`resultado_desconhecido`. Entao: reenviam apenas `ConnectTimeout`,
+`ConnectError` e `PoolTimeout`, onde a requisicao nao chegou a existir na rede
+(o `PoolTimeout` estoura esperando conexao do pool, antes de haver requisicao);
+**todo o resto**, `5xx` incluido, e desconhecido — inclusive uma excecao nova da
+biblioteca, que assim cai no lado seguro sozinha.
+
+O proprio adapter ja classifica **2xx malformado** como desconhecido, que e a
+linha vizinha da mesma tabela — os tres pontos acima sao omissao, nao desenho.
+Corrigir isso e item de codigo, nao de documentacao.
 
 ---
 
@@ -291,6 +322,7 @@ nao pode. Corrigir isso e item de codigo, nao de documentacao.
 
 | Versao | Data | Descricao |
 |---|---|---|
+| 1.3.1 | 2026-09-02 | A §6.2 registrava so um terco do problema. Alem do timeout indistinto: **resposta 5xx** vira `FALHA_TEMPORARIA` e a tabela da ADR-009 poe `5xx` em `resultado_desconhecido`; e **`DecodingError` escapa** do `except` (e `RequestError`, nao `TransportError`) direto para o retry do Scheduler. Sao tres pontos, nao um. E a receita mudou de forma: em vez de enumerar excecoes "de depois do envio" — enumeracao que faltou uma em cada tentativa —, a regra vira allowlist. So `ConnectTimeout`, `ConnectError` e `PoolTimeout` provam que a requisicao nao chegou a existir na rede; todo o resto e desconhecido por omissao, `5xx` incluido. "Depois de transmitir bytes" nao e verificavel a partir da excecao. Registrado tambem o que de fato pode duplicar hoje: comprovante do lancamento e aviso de sobra, nao cobranca — o lembrete usa o canal de e-mail. |
 | 1.3.0 | 2026-08-27 | Reconciliacoes do PLAN-033/IMP-358: conversas do agente saem de `RegistroComunicacao` (devedor_id obrigatorio impede) e ganham modelo proprio; contextos Operadora/Pre-cadastro e o limite da allowlist registrados na §2.2. |
 | 1.2.0 | 2026-08-25 | As cinco perguntas em aberto foram respondidas pelo fundador e a secao §6 deixou de ser duvida para virar registro. E-mail saiu do escopo do MVP e o worker deixou de ser derrubado por falta de conta Resend — com recusa nomeada no lugar do fake que fingia entrega. Topologia do agente decidida sem webhook publico. Segredo do Evolution fica em variavel de ambiente, com o limite de uma instancia por processo declarado. |
 | 1.1.0 | 2026-08-16 | WhatsApp preenchido a partir do contrato Evolution Go versionado em `docs/whatsapp/`: modelo de tenant, tres niveis de autenticacao, limites de retry e payload, recorte para a TiaNet e achados que condicionam o desenho. |
