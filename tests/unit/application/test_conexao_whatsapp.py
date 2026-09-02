@@ -28,7 +28,8 @@ from emprestimo.application.errors import ConexaoWhatsAppNaoEncontradaError
 from emprestimo.domain.platform.conexao_whatsapp import ConexaoWhatsApp, EstadoPareamento
 
 QRCODE = "data:image/png;base64,iVBORw0KGgo="
-NUMERO = "5511999999999"
+NOME = "Barbosa"
+"""`Name` do provedor e o push name da conta, nao o telefone (resposta real de 2026-08-31)."""
 
 
 class _ProvedorFake:
@@ -40,7 +41,9 @@ class _ProvedorFake:
         *,
         falhar_em_qrcode: Exception | None = None,
     ) -> None:
-        self._estado = estado or EstadoPareamento(conectado=False, pareado=False, numero=None)
+        self._estado = estado or EstadoPareamento(
+            conectado=False, pareado=False, nome_exibicao=None
+        )
         self._falhar_em_qrcode = falhar_em_qrcode
         self.criadas: list[str] = []
         self.conectadas: list[str] = []
@@ -120,13 +123,13 @@ class _AuditoriaFake:
         self.eventos.append((entidade, acao, status, detalhes))
 
 
-def _conexao(numero: str | None = None) -> ConexaoWhatsApp:
+def _conexao(identificacao: str | None = None) -> ConexaoWhatsApp:
     base = ConexaoWhatsApp.criar(
         tenant_id=uuid.uuid4(),
         instancia_id="instancia-1",
         instancia_nome="tianet",
     )
-    return base.parear(numero) if numero else base
+    return base.parear(identificacao) if identificacao else base
 
 
 def _montar(
@@ -156,33 +159,33 @@ def test_consulta_connected_sem_loggedin_nao_conta_como_pareada() -> None:
     """
 
     repo = _RepoFake(_conexao(), token="token-1")
-    provedor = _ProvedorFake(EstadoPareamento(conectado=True, pareado=False, numero=None))
+    provedor = _ProvedorFake(EstadoPareamento(conectado=True, pareado=False, nome_exibicao=None))
     uow, _ = _montar(repo, provedor)
 
     estado = ConsultarConexaoWhatsApp(lambda: uow, provedor).executar(uuid.uuid4())
 
     assert estado.conectado is True
     assert estado.pareada is False
-    assert estado.numero is None
+    assert estado.nome_exibicao is None
 
 
-def test_consulta_pareada_traz_o_numero_do_provedor() -> None:
+def test_consulta_pareada_traz_a_identificacao_do_provedor() -> None:
     repo = _RepoFake(_conexao(), token="token-1")
-    provedor = _ProvedorFake(EstadoPareamento(conectado=True, pareado=True, numero=NUMERO))
+    provedor = _ProvedorFake(EstadoPareamento(conectado=True, pareado=True, nome_exibicao=NOME))
     uow, _ = _montar(repo, provedor)
 
     estado = ConsultarConexaoWhatsApp(lambda: uow, provedor).executar(uuid.uuid4())
 
     assert estado.pareada is True
-    assert estado.numero == NUMERO
-    assert repo.conexao is not None and repo.conexao.numero_pareado == NUMERO
+    assert estado.nome_exibicao == NOME
+    assert repo.conexao is not None and repo.conexao.numero_pareado == NOME
 
 
 def test_consulta_desfaz_pareamento_quando_provedor_reporta_logout() -> None:
     """O logout pode acontecer no celular, sem passar por nos."""
 
-    repo = _RepoFake(_conexao(NUMERO), token="token-1")
-    provedor = _ProvedorFake(EstadoPareamento(conectado=False, pareado=False, numero=None))
+    repo = _RepoFake(_conexao(NOME), token="token-1")
+    provedor = _ProvedorFake(EstadoPareamento(conectado=False, pareado=False, nome_exibicao=None))
     uow, _ = _montar(repo, provedor)
 
     estado = ConsultarConexaoWhatsApp(lambda: uow, provedor).executar(uuid.uuid4())
@@ -191,16 +194,16 @@ def test_consulta_desfaz_pareamento_quando_provedor_reporta_logout() -> None:
     assert repo.conexao is not None and repo.conexao.numero_pareado is None
 
 
-def test_consulta_pareada_sem_numero_preserva_o_que_ja_se_sabia() -> None:
+def test_consulta_pareada_sem_identificacao_preserva_o_que_ja_se_sabia() -> None:
     """Resposta incompleta nao vale apagar informacao boa."""
 
-    repo = _RepoFake(_conexao(NUMERO), token="token-1")
-    provedor = _ProvedorFake(EstadoPareamento(conectado=True, pareado=True, numero=None))
+    repo = _RepoFake(_conexao(NOME), token="token-1")
+    provedor = _ProvedorFake(EstadoPareamento(conectado=True, pareado=True, nome_exibicao=None))
     uow, _ = _montar(repo, provedor)
 
     estado = ConsultarConexaoWhatsApp(lambda: uow, provedor).executar(uuid.uuid4())
 
-    assert estado.numero == NUMERO
+    assert estado.nome_exibicao == NOME
     assert repo.gravacoes == []
 
 
@@ -288,11 +291,38 @@ def test_conectar_falha_registra_so_o_tipo_do_erro() -> None:
     detalhes = json.loads(falha[0][3] or "{}")
     assert detalhes["erro_tipo"] == "RuntimeError"
     assert QRCODE not in (falha[0][3] or "")
-    assert uow.commits == 0
 
 
-def test_desconectar_mantem_a_instancia_e_so_desvincula_o_numero() -> None:
-    conexao = _conexao(NUMERO)
+def test_qr_indisponivel_nao_apaga_a_instancia_ja_criada() -> None:
+    """O caso mais provavel de todos, e o que mais custava caro.
+
+    `qrcode()` levantar "ainda gerando" e estado NORMAL logo apos o `connect` —
+    o contrato manda esperar 3s e repetir, ate 5 vezes. Se essa excecao
+    desfizesse a transacao, a conexao local sumiria enquanto a instancia
+    continuaria existindo no provedor, com um token que so nos tinhamos. A cada
+    tentativa nasceria outra instancia orfa e inalcancavel.
+    """
+
+    repo = _RepoFake()
+    provedor = _ProvedorFake(falhar_em_qrcode=RuntimeError("no QR code available"))
+    uow, auditoria = _montar(repo, provedor)
+    caso = ConectarWhatsApp(lambda: uow, provedor, auditoria)
+
+    with pytest.raises(RuntimeError):
+        caso.executar(uuid.uuid4(), "tianet")
+
+    assert repo.conexao is not None, "a instancia criada no provedor tem de sobreviver"
+    assert repo.token == "token-novo"
+
+    # A segunda tentativa reaproveita — nao cria uma instancia nova.
+    with pytest.raises(RuntimeError):
+        caso.executar(uuid.uuid4(), "tianet")
+
+    assert provedor.criadas == ["tianet"]
+
+
+def test_desconectar_mantem_a_instancia_e_so_desvincula_a_conta() -> None:
+    conexao = _conexao(NOME)
     repo = _RepoFake(conexao, token="token-1")
     provedor = _ProvedorFake()
     uow, auditoria = _montar(repo, provedor)
@@ -301,7 +331,7 @@ def test_desconectar_mantem_a_instancia_e_so_desvincula_o_numero() -> None:
 
     assert estado.existe is True
     assert estado.pareada is False
-    assert estado.numero is None
+    assert estado.nome_exibicao is None
     assert provedor.desconectadas == ["token-1"]
     assert repo.conexao is not None
     assert repo.conexao.instancia_id == conexao.instancia_id

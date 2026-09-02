@@ -25,11 +25,16 @@ class EstadoPareamento:
     Existe para que a Application não precise importar o cliente HTTP só para
     nomear um estado. `conectado` é o socket de pé; `pareado` é o número
     vinculado — e apenas o segundo significa WhatsApp funcionando.
+
+    `nome_exibicao` é o push name da conta pareada, **não o telefone**: o
+    `/instance/status` do Evolution devolve `Name` (`"Barbosa"`, na resposta
+    real de 2026-08-31) e nenhum campo com o número. Quem precisar do número
+    tem de achar outra fonte antes de prometê-lo na interface.
     """
 
     conectado: bool
     pareado: bool
-    numero: str | None
+    nome_exibicao: str | None
 
 
 @dataclass(frozen=True)

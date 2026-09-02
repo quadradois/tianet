@@ -24,7 +24,7 @@ from dataclasses import dataclass
 
 from emprestimo.application.errors import ConexaoWhatsAppNaoEncontradaError
 from emprestimo.application.ports import AuditoriaRegistro, UnitOfWork
-from emprestimo.domain.platform.conexao_whatsapp import ConexaoWhatsApp
+from emprestimo.domain.platform.conexao_whatsapp import ConexaoWhatsApp, EstadoPareamento
 from emprestimo.domain.platform.ports import ProvedorWhatsApp
 
 ENTIDADE_AUDITORIA = "conexao_whatsapp"
@@ -35,15 +35,18 @@ class EstadoConexaoWhatsApp:
     """O que a Presentation precisa para decidir o que oferecer ao operador.
 
     `existe` separado de `pareada` porque as duas ausências pedem ações
-    diferentes. `numero` só é preenchido quando pareada — antes disso não há
-    número, e inventar um placeholder faria a tela exibir vínculo inexistente.
+    diferentes.
+
+    `nome_exibicao` é o push name da conta pareada, e **não o telefone**: o
+    `/instance/status` não devolve número nenhum. A tela do IMP-369 precisa
+    saber disso antes de rotular o campo.
     """
 
     existe: bool
     pareada: bool
     conectado: bool
     instancia_nome: str | None
-    numero: str | None
+    nome_exibicao: str | None
 
 
 @dataclass(frozen=True)
@@ -75,31 +78,32 @@ def _sincronizar(
     conexao: ConexaoWhatsApp,
     token: str,
     provedor: ProvedorWhatsApp,
-) -> tuple[ConexaoWhatsApp, bool]:
+) -> tuple[ConexaoWhatsApp, EstadoPareamento]:
     """Alinha o número guardado ao que o provedor reporta agora.
 
     O pareamento acontece **fora** daqui: o operador escaneia o QR no celular, e
     nenhuma requisição nossa observa esse instante. Por isso o número vem sempre
     de uma leitura do provedor, e nunca de inferência local.
 
-    Devolve também `conectado`, que não é estado persistido — é o socket de
-    agora, e guardá-lo criaria um campo desatualizado desde o instante seguinte.
+    Devolve também o estado bruto do provedor: `conectado` e `pareado` são o
+    agora, não fatos a guardar. Persistir qualquer um deles criaria um campo
+    desatualizado desde o instante seguinte.
     """
     estado = provedor.estado(token)
-    if estado.pareado and estado.numero:
-        atualizada = conexao.parear(estado.numero)
+    if estado.pareado and estado.nome_exibicao:
+        atualizada = conexao.parear(estado.nome_exibicao)
     elif not estado.pareado:
         atualizada = conexao.desparear()
     else:
-        # Pareado sem número: o provedor confirmou vínculo mas não disse com
-        # quem. Preservar o que já se sabia é melhor que apagar por uma resposta
-        # incompleta.
-        return conexao, estado.conectado
+        # Pareado sem identificação: o provedor confirmou vínculo mas não disse
+        # com quem. Preservar o que já se sabia é melhor que apagar por uma
+        # resposta incompleta.
+        return conexao, estado
 
     if atualizada.numero_pareado != conexao.numero_pareado:
         uow.conexao_whatsapp.save(atualizada)
-        return atualizada, estado.conectado
-    return conexao, estado.conectado
+        return atualizada, estado
+    return conexao, estado
 
 
 class ConsultarConexaoWhatsApp:
@@ -122,7 +126,7 @@ class ConsultarConexaoWhatsApp:
                     pareada=False,
                     conectado=False,
                     instancia_nome=None,
-                    numero=None,
+                    nome_exibicao=None,
                 )
             token = uow.conexao_whatsapp.find_token(tenant_id)
             if token is None:
@@ -130,14 +134,16 @@ class ConsultarConexaoWhatsApp:
                 # com o provedor. Nomear em vez de fingir que está desconectada.
                 raise ConexaoWhatsAppNaoEncontradaError(tenant_id)
 
-            atualizada, conectado = _sincronizar(uow, conexao, token, self._provedor)
+            atualizada, estado = _sincronizar(uow, conexao, token, self._provedor)
             uow.commit()
             return EstadoConexaoWhatsApp(
                 existe=True,
-                pareada=atualizada.pareada,
-                conectado=conectado,
+                # Direto do provedor: `LoggedIn` é a verdade do pareamento, e o
+                # que guardamos localmente é consequência dele, não fonte.
+                pareada=estado.pareado,
+                conectado=estado.conectado,
                 instancia_nome=atualizada.instancia_nome,
-                numero=atualizada.numero_pareado,
+                nome_exibicao=atualizada.numero_pareado,
             )
 
 
@@ -160,6 +166,39 @@ class ConectarWhatsApp:
         self._provedor = provedor
         self._auditoria = auditoria
 
+    def _garantir_instancia(
+        self,
+        tenant_id: uuid.UUID,
+        instancia_nome: str,
+    ) -> tuple[ConexaoWhatsApp, str]:
+        """Devolve a conexao do Tenant, criando-a no provedor se preciso.
+
+        Idempotente por construcao: `UNIQUE (tenant_id)` no banco e a consulta
+        antes da criacao garantem uma instancia por Tenant, e repetir a chamada
+        reaproveita em vez de criar outra. E por isso que este caso de uso nao
+        registra `Idempotency-Key`: a chave replayaria o **QR** da primeira
+        chamada, que expira em ~20s — devolver um QR morto e pior que gerar um
+        novo. O que precisa ser idempotente aqui e o nascimento da instancia, e
+        ele ja e.
+        """
+        with self._uow_factory() as uow:
+            conexao = uow.conexao_whatsapp.find_by_tenant_id(tenant_id)
+            if conexao is not None:
+                token = uow.conexao_whatsapp.find_token(tenant_id)
+                if token is None:
+                    raise ConexaoWhatsAppNaoEncontradaError(tenant_id)
+                return conexao, token
+
+            instancia_id, token = self._provedor.criar_instancia(instancia_nome)
+            conexao = ConexaoWhatsApp.criar(
+                tenant_id=tenant_id,
+                instancia_id=instancia_id,
+                instancia_nome=instancia_nome,
+            )
+            uow.conexao_whatsapp.save(conexao, token=token)
+            uow.commit()
+            return conexao, token
+
     def executar(
         self,
         tenant_id: uuid.UUID,
@@ -175,25 +214,16 @@ class ConectarWhatsApp:
             detalhes=_detalhes(autoria),
         )
         try:
-            with self._uow_factory() as uow:
-                conexao = uow.conexao_whatsapp.find_by_tenant_id(tenant_id)
-                if conexao is None:
-                    instancia_id, token = self._provedor.criar_instancia(instancia_nome)
-                    conexao = ConexaoWhatsApp.criar(
-                        tenant_id=tenant_id,
-                        instancia_id=instancia_id,
-                        instancia_nome=instancia_nome,
-                    )
-                    uow.conexao_whatsapp.save(conexao, token=token)
-                else:
-                    guardado = uow.conexao_whatsapp.find_token(tenant_id)
-                    if guardado is None:
-                        raise ConexaoWhatsAppNaoEncontradaError(tenant_id)
-                    token = guardado
-
-                self._provedor.conectar(token)
-                qrcode = self._provedor.qrcode(token)
-                uow.commit()
+            # A transacao termina ANTES de pedir o QR, e isso nao e detalhe de
+            # organizacao. `qrcode()` levanta `QrCodeAindaGerandoError` como
+            # estado NORMAL logo apos o `connect` — o contrato manda esperar e
+            # repetir. Se essa excecao atravessasse o UoW, o rollback apagaria a
+            # conexao local enquanto a instancia ja existe no provedor, com um
+            # token que so nos tinhamos: instancia orfa, inalcancavel, e uma nova
+            # criada a cada tentativa.
+            conexao, token = self._garantir_instancia(tenant_id, instancia_nome)
+            self._provedor.conectar(token)
+            qrcode = self._provedor.qrcode(token)
         except Exception as exc:
             self._auditoria.registrar(
                 ENTIDADE_AUDITORIA,
@@ -280,5 +310,5 @@ class DesconectarWhatsApp:
             pareada=False,
             conectado=False,
             instancia_nome=despareada.instancia_nome,
-            numero=None,
+            nome_exibicao=None,
         )

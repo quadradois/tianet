@@ -369,12 +369,16 @@ class EvolutionProvedorWhatsApp(ProvedorWhatsApp):
         client: httpx.Client | None = None,
     ) -> None:
         self._host = host
-        self._client = client
+        # Um cliente para o adapter inteiro. Sem isto, cada chamada de
+        # `_instancia()` abriria um pool novo que ninguem fecha — e a tela faz
+        # polling de estado e de QR, entao seriam sockets acumulando por
+        # segundo, nao por sessao.
+        self._client = client or httpx.Client(base_url=_base(host), timeout=15.0, trust_env=False)
         self._tenant = EvolutionTenantClient(
             host=host,
             tenant_id=tenant_id,
             api_key=api_key,
-            client=client,
+            client=self._client,
         )
 
     def _instancia(self, token: str) -> EvolutionInstanciaClient:
@@ -401,7 +405,10 @@ class EvolutionProvedorWhatsApp(ProvedorWhatsApp):
         return EstadoPareamento(
             conectado=bruto.conectado,
             pareado=bruto.pareado,
-            numero=bruto.nome_exibicao if bruto.pareado else None,
+            # `Name` e o push name do WhatsApp — "Barbosa" na resposta real de
+            # 2026-08-31 —, NAO o telefone. Chama-lo de numero faria a tela
+            # exibir um nome onde promete um numero.
+            nome_exibicao=bruto.nome_exibicao if bruto.pareado else None,
         )
 
     def desconectar(self, token: str) -> None:
