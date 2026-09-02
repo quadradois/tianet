@@ -27,7 +27,11 @@ from typing import Any
 import httpx
 
 from emprestimo.domain.platform.conexao_whatsapp import EstadoPareamento
-from emprestimo.domain.platform.ports import ProvedorWhatsApp, QrCodeIndisponivelError
+from emprestimo.domain.platform.ports import (
+    EfeitoNaoAplicadoError,
+    ProvedorWhatsApp,
+    QrCodeIndisponivelError,
+)
 
 PREFIXO_QR = "data:image/png;base64,"
 """Prefixo que o contrato promete no campo `Qrcode`."""
@@ -52,6 +56,23 @@ class EvolutionIndisponivelError(RuntimeError):
 
     Distinta de erro de negócio: aqui não há decisão a tomar, há um serviço
     externo fora do ar ou mudando contrato sem avisar.
+    """
+
+
+class ProvedorNaoAlcancadoError(EvolutionIndisponivelError):
+    """A requisicao nao chegou a sair: conexao recusada, DNS, pool esgotado.
+
+    Distinta de `EvolutionIndisponivelError` generica porque prova algo — que o
+    efeito NAO aconteceu. Quem chama usa isso para nao registrar divergencia
+    onde houve apenas rollback.
+    """
+
+
+class RequisicaoRecusadaError(EvolutionIndisponivelError):
+    """O provedor respondeu recusando antes de agir (401/403).
+
+    Tenant inativo ou credencial invalida: ha resposta, e ela diz que nada foi
+    feito.
     """
 
 
@@ -161,6 +182,10 @@ def _executar(chamada: Callable[[], httpx.Response], rota: str) -> httpx.Respons
     # timeout, transporte E `DecodingError` — esta ultima nao deriva de
     # `TransportError`, entao um `Content-Encoding: gzip` com corpo truncado
     # escaparia crua para o handler HTTP, que so trata o erro deste modulo.
+    except (httpx.ConnectTimeout, httpx.ConnectError, httpx.PoolTimeout) as exc:
+        # Allowlist da ADR-009, no sentido inverso: estas tres provam que a
+        # requisicao nao chegou a existir na rede.
+        raise ProvedorNaoAlcancadoError(f"{rota} inacessivel: {type(exc).__name__}") from exc
     except httpx.RequestError as exc:
         raise EvolutionIndisponivelError(f"{rota} inacessivel: {type(exc).__name__}") from exc
 
@@ -392,9 +417,13 @@ class EvolutionInstanciaClient:
         if not resposta.is_success:
             detalhe = _mensagem_do_provedor(resposta)
             sufixo = f": {detalhe}" if detalhe else ""
-            raise EvolutionIndisponivelError(
-                f"/instance/logout respondeu {resposta.status_code}{sufixo}"
-            )
+            mensagem = f"/instance/logout respondeu {resposta.status_code}{sufixo}"
+            # 401/403 sao recusa de autenticacao — o servidor respondeu sem
+            # tocar na sessao. Qualquer outro status pode ter agido antes de
+            # falhar, e nao autoriza afirmar que nada aconteceu.
+            if resposta.status_code in (401, 403):
+                raise RequisicaoRecusadaError(mensagem)
+            raise EvolutionIndisponivelError(mensagem)
 
 
 class EvolutionProvedorWhatsApp(ProvedorWhatsApp):
@@ -473,4 +502,9 @@ class EvolutionProvedorWhatsApp(ProvedorWhatsApp):
         )
 
     def desconectar(self, token: str) -> None:
-        self._instancia(token).desconectar()
+        try:
+            self._instancia(token).desconectar()
+        except (ProvedorNaoAlcancadoError, RequisicaoRecusadaError) as exc:
+            # Traduzida na fronteira: a Application decide entre rollback e
+            # divergencia sem conhecer `httpx` nem codigo HTTP.
+            raise EfeitoNaoAplicadoError(str(exc)) from exc

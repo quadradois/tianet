@@ -29,7 +29,7 @@ from emprestimo.application.errors import (
     NomeInstanciaInvalidoError,
 )
 from emprestimo.domain.platform.conexao_whatsapp import ConexaoWhatsApp, EstadoPareamento
-from emprestimo.domain.platform.ports import QrCodeIndisponivelError
+from emprestimo.domain.platform.ports import EfeitoNaoAplicadoError, QrCodeIndisponivelError
 
 QRCODE = "data:image/png;base64,iVBORw0KGgo="
 NOME = "Barbosa"
@@ -543,6 +543,28 @@ def test_desconectar_com_timeout_no_provedor_registra_divergencia() -> None:
 
     acoes = [e[1] for e in auditoria.eventos]
     assert acoes == ["desconectar.inicio", "desconectar.falha", "desconectar.divergencia"]
+
+
+def test_desconectar_recusado_pelo_provedor_e_rollback_e_nao_divergencia() -> None:
+    """Recusa comprovada nao e ambiguidade.
+
+    401/403, conexao recusada ou pool esgotado provam que o `logout` nao
+    aconteceu. Registrar divergencia ai poluiria a trilha com incidente
+    inexistente — e a trilha e append-only, entao o ruido fica.
+    """
+
+    repo = _RepoFake(_conexao(NUMERO), token="token-1")
+    provedor = _ProvedorFake(falhar_em_desconectar=EfeitoNaoAplicadoError("401 tenant inativo"))
+    uow, auditoria = _montar(repo, provedor)
+
+    with pytest.raises(EfeitoNaoAplicadoError):
+        DesconectarWhatsApp(lambda: uow, provedor, auditoria).executar(uuid.uuid4())
+
+    assert [e[1] for e in auditoria.eventos] == [
+        "desconectar.inicio",
+        "desconectar.falha",
+        "desconectar.rollback",
+    ]
 
 
 def test_desconectar_sem_conexao_e_erro_nomeado() -> None:

@@ -28,7 +28,11 @@ from emprestimo.application.errors import (
 )
 from emprestimo.application.ports import AuditoriaRegistro, UnitOfWork
 from emprestimo.domain.platform.conexao_whatsapp import ConexaoWhatsApp, EstadoPareamento
-from emprestimo.domain.platform.ports import ProvedorWhatsApp, QrCodeIndisponivelError
+from emprestimo.domain.platform.ports import (
+    EfeitoNaoAplicadoError,
+    ProvedorWhatsApp,
+    QrCodeIndisponivelError,
+)
 
 ENTIDADE_AUDITORIA = "conexao_whatsapp"
 
@@ -393,13 +397,17 @@ class DesconectarWhatsApp:
                 "falhou",
                 detalhes=_detalhes(autoria, erro_tipo=type(exc).__name__),
             )
-            if desconectado_no_provedor is not None:
+            if desconectado_no_provedor is not None and not isinstance(exc, EfeitoNaoAplicadoError):
                 # O `logout` no provedor aconteceu, ou pode ter acontecido — e
                 # nenhum rollback de banco o desfaz. O numero fica desvinculado
                 # la enquanto o registro local volta a dizer "pareada". Chamar
                 # isso de `rollback_aplicado` numa trilha append-only afirmaria
                 # que o efeito foi revertido, para sempre. E divergencia, e quem
                 # investigar precisa ler exatamente isso.
+                #
+                # `EfeitoNaoAplicadoError` e a excecao: o provedor recusou antes
+                # de agir (401/403) ou a requisicao nem saiu da maquina. Ai ha
+                # prova, e o rollback e verdadeiro.
                 self._auditoria.registrar(
                     ENTIDADE_AUDITORIA,
                     None,

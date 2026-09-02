@@ -156,6 +156,18 @@ class QrCodeIndisponivelError(RuntimeError):
     """
 
 
+class EfeitoNaoAplicadoError(RuntimeError):
+    """A operacao **comprovadamente** nao aconteceu no provedor.
+
+    Espelha a allowlist da ADR-009 para envio, no outro sentido: so e levantada
+    quando ha prova de nao execucao — a requisicao nao saiu da maquina, ou o
+    provedor a recusou antes de agir. Toda falha ambigua fica de fora, porque a
+    Application usa esta excecao para decidir entre registrar rollback (o estado
+    voltou) e divergencia (o efeito externo ficou), e a segunda e a afirmacao
+    segura quando nao se sabe.
+    """
+
+
 class ProvedorWhatsApp(ABC):
     """Operacoes de instancia no provedor, sem o protocolo HTTP a tiracolo.
 
