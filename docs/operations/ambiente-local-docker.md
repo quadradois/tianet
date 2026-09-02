@@ -131,12 +131,16 @@ recrie a API.
 
 ---
 
-# 6. Liberar as jornadas para teste manual
+# 6. Liberar as jornadas para teste manual — **apenas em banco anterior ao IMP-363**
 
-Com apenas `tenant.*`, o unico caminho navegavel e a administracao de Tenants —
-nao da para percorrer Devedores, Comercial, Contratos, Motor ou Operacao Diaria.
-Para teste manual local, `scripts/seed_operador_local.py` cria um Perfil com o
-catalogo completo e o atribui ao usuario:
+> **Banco criado depois do IMP-363 nao precisa desta secao.** O bootstrap ja
+> concede o catalogo inteiro, e o Dashboard abre operacional. Pule para a §7.
+
+Em banco antigo, o perfil tem apenas `tenant.*`, e o unico caminho navegavel e a
+administracao de Tenants — nao da para percorrer Devedores, Comercial,
+Contratos, Motor ou Operacao Diaria. Nesse caso, `scripts/seed_operador_local.py`
+cria um Perfil com o catalogo completo e o atribui ao usuario, **sem apagar
+nada**:
 
 ```bash
 docker compose run --rm -T -v "C:\emprestimo\scripts:/app/scripts:ro" api \

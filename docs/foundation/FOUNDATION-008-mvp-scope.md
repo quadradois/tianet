@@ -33,11 +33,14 @@ O escopo do MVP deverá permanecer estável durante todo o ciclo de desenvolvime
 - Isolamento por `tenant_id` — escopo estrutural, **não** multi-Tenant de produto
   (ver [ADR-003](../architecture/adrs/ADR-003-escopo-single-tenant-do-v1.md));
 - Tenant;
-- Usuários — **um operador humano** no v1, conforme a mesma ADR. O Copilot tem
-  **identidade propria de servico**, com perfil minimamente privilegiado e
-  revogavel (IMP-355), que nunca recebe `comercial.proposta.decidir` — e por isso
-  o IMP-360 separou submeter de decidir. Um agente que age precisa ser
-  identificavel na trilha (IMP-361); "um usuario" nunca significou "um Principal";
+- Usuários — **um operador humano** no v1, conforme a mesma ADR. O escopo
+  **prevê** identidade própria de serviço para o Copilot, com perfil minimamente
+  privilegiado e revogável que nunca recebe `comercial.proposta.decidir`; a rota
+  de criação existe desde o IMP-355, e **o seed do perfil `copilot` fica para a
+  Fase C**, quando houver agente a quem atribuí-lo. A separação entre submeter e
+  decidir (IMP-360) e o registro de autoria na trilha (IMP-361) já existem,
+  porque valem para operadores humanos também. "Um usuário" nunca significou
+  "um Principal";
 - Autenticação;
 - Perfis de Acesso;
 - Permissões.

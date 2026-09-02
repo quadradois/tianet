@@ -16,10 +16,11 @@ destrutiva de validacao de migrations criada no P4/IMP-079 e IMP-080.
 # 2. Pre-condicoes
 
 - PostgreSQL local saudavel em `localhost:5432`, conforme `docker-compose.yml`.
-- `DATABASE_URL` apontando para um Postgres **local**. O banco descartavel e
-  derivado dele (`<nome>_test`) e criado automaticamente — nao e preciso
-  provisionar container ou banco separado a mao. Host remoto e recusado com erro
-  nomeado.
+- `DATABASE_URL` apontando para um Postgres **local** — o mesmo do
+  `docker-compose.yml` serve. O banco descartavel e derivado dele
+  (`<nome>_test`) e criado automaticamente: nao e preciso provisionar container
+  nem banco separado a mao, e a stack de desenvolvimento **nao e tocada** (ver
+  `ambiente-local-docker.md` §7.1). Host remoto e recusado com erro nomeado.
 - `JWT_SECRET_KEY` definido para os testes de autenticacao.
 
 Para iniciar o banco local:
