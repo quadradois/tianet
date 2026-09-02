@@ -57,6 +57,25 @@ Esta ADR **emite a reserva ADR-003** do `AMP-001` §8. A reserva perguntava
 a pergunta **fica sem objeto** enquanto houver um único Credor — e não que se
 tenha escolhido um dos níveis.
 
+### Clarificação de 2026-09-01 — "um usuário" é um operador **humano**
+
+Esta ADR foi lida como se proibisse um segundo Principal no IAM. Não proíbe, e a
+diferença importa: o **Copilot tem identidade própria de serviço**, provisionada
+pelo IMP-355 (*"Provisionar usuario e perfil copilot por Tenant"*), com perfil
+minimamente privilegiado e revogável que **nunca recebe**
+`comercial.proposta.decidir` — foi por isso que o IMP-360 separou submeter de
+decidir, e por isso que o IMP-361 registra a autoria das escritas que ele
+dispara.
+
+**Um agente que age precisa ser identificável na trilha.** Dar ao Copilot o
+Principal do humano apagaria justamente a distinção que a ADR-002 existe para
+preservar.
+
+O que esta ADR decide continua valendo sem alteração: **um Credor, um Tenant, um
+operador humano**. "Um usuário" nunca significou "um Principal" — significou que
+não há uma segunda *pessoa* operando, e portanto separar papel administrativo de
+operacional não faz sentido no v1, que foi a conclusão do IMP-363.
+
 ### O que esta decisão NÃO faz
 
 **Não remove `tenant_id` de lugar nenhum.** Esta é a parte mais importante desta
@@ -131,4 +150,5 @@ o problema que ela resolve é precisamente esse.
 
 | Versão | Data | Descrição |
 |---|---|---|
+| 1.1.0 | 2026-09-01 | Clarificação: "um usuário" é um operador humano; o Copilot tem identidade de serviço própria (IMP-355), minimamente privilegiada e revogável. Nada do que a ADR decide muda — errada estava a leitura de que ela proibiria um segundo Principal. |
 | 1.0.0 | 2026-08-31 | Emissão da reserva ADR-003 com escopo diferente do reservado: decide o escopo single-tenant do v1 em vez do nível de isolamento, preserva `tenant_id` como invariante estrutural e suspende o FOUNDATION-006. |

@@ -454,7 +454,13 @@ X-Tenant-ID: {evolution_tenant_id}
 
 ```
 Para cada instância retornada:
-  operacional = connected AND loggedIn      # as duas coisas, nao so a primeira
+  # `/instance/all` traz `connected`; o pareamento vem de `/instance/status`,
+  # que e a unica resposta verificada ao vivo contendo `LoggedIn`.
+  se connected = false:
+    operacional = false
+  senao:
+    operacional = GET /instance/status (auth: instancia) → LoggedIn
+
   se operacional = false e status no CRM = 'conectado':
     → atualizar status para 'desconectado'
     → tentar reconectar (POST /instance/reconnect)

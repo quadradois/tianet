@@ -119,9 +119,12 @@ o unico usuario ficava sem conseguir operar nem se autoconceder permissao.
 **Se o seu banco foi criado ANTES do IMP-363**, o perfil existente continua com
 as cinco `tenant.*`, e rodar o bootstrap de novo **nao corrige**: ele e
 idempotente e devolve o registro guardado sem reconceder nada. O Dashboard vai
-mostrar "Sem permissao" nas secoes operacionais. A saida mais simples em
-ambiente local e recriar do zero — `docker compose down -v`, subir e rodar o
-bootstrap —, ja que nao ha dado a preservar.
+mostrar "Sem permissao" nas secoes operacionais.
+
+A saida e o `scripts/seed_operador_local.py` da secao seguinte, que concede o
+catalogo ao usuario existente **sem apagar nada**. Nao use `docker compose down
+-v` para isso: ele destroi todo o dado local acumulado para resolver um problema
+de permissao que o seed resolve no lugar.
 
 Apos criar o administrador, volte `PLATFORM_ADMIN_BOOTSTRAP_ENABLED=false` e
 recrie a API.
