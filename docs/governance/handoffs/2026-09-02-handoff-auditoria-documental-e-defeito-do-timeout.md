@@ -3,8 +3,8 @@
 **Versao:** 1.0.0
 
 **Status:** PLAN-034 com **3 dos 7 itens** (cifra, persistencia, cliente do
-provedor). Documentacao reconciliada com as decisoes recentes. **Um defeito
-operacional aberto**, descrito na §3 — e o item mais urgente deste handoff.
+provedor). Documentacao reconciliada com as decisoes recentes. **Dois defeitos
+operacionais abertos**, descritos na §3 — o item mais urgente deste handoff.
 
 **Periodo coberto:** 2026-09-01 a 2026-09-02
 
@@ -23,9 +23,9 @@ que atravessam varios documentos. Encontrou **11 inconsistencias**; corrigi-las
 gerou outras, e foram **nove rodadas de review** ate os achados virarem de
 precisao. **38 correcoes no total**, em onze arquivos.
 
-O resultado que mais importa nao foi contar inconsistencias — foi **descobrir um
-defeito de codigo** que ninguem tinha visto, e que pode mandar a mesma cobranca
-duas vezes ao devedor.
+O resultado que mais importa nao foi contar inconsistencias — foi **descobrir
+defeitos de codigo** que ninguem tinha visto, e que podem mandar a mesma
+cobranca duas vezes ao devedor.
 
 ---
 
@@ -52,35 +52,54 @@ a governanca real), e aceitei.
 
 ---
 
-# 3. O defeito aberto — leia antes de tocar em notificacao
+# 3. Os defeitos abertos — leia antes de tocar em notificacao
 
-**A ADR-009 §§53-80 ja decidiu** o tratamento de timeout:
+**A ADR-009 ja decidiu**, na tabela de estados externos, quando um envio pode ser
+reenviado:
 
-> "Se nao for possivel provar que uma requisicao anterior nao foi aceita,
-> **inclusive timeout** ou reset depois do envio de bytes, o estado e
-> `resultado_desconhecido`"
+| Estado | Evidencia | Acao |
+|---|---|---|
+| `falha_temporaria` | 429, conflito concorrente da mesma chave ou **falha comprovadamente anterior ao envio de bytes** | retry |
+| `resultado_desconhecido` | **5xx**, 2xx malformado, **timeout/reset apos transmitir bytes** ou qualquer resposta sem prova de nao aceite | **bloquear retry** e conciliar |
 
-E a tabela manda **bloquear retry e conciliar**.
+`EvolutionWhatsAppNotificationChannel` viola isso em **dois pontos**, e os dois
+levam ao mesmo lugar: **o devedor recebe a mesma cobranca duas vezes**.
 
-**O codigo viola isso.** `EvolutionWhatsAppNotificationChannel` classifica todo
-`httpx.TimeoutException` como `FALHA_TEMPORARIA`, e o Scheduler reenvia. Se o
-Evolution aceitou a mensagem antes do timeout do cliente, **o devedor recebe a
-cobranca duas vezes**.
+**3.1 — Resposta 5xx** (`whatsapp.py:87`). A ADR nomeia `5xx` como o primeiro
+item de `resultado_desconhecido`; o adapter devolve `FALHA_TEMPORARIA` com
+codigo `provider_5xx`, e o Scheduler reenvia. Um 502 ou 504 de gateway chega
+depois de o upstream ter aceitado a mensagem — e nao ha como distinguir isso de
+um 500 que aceitou nada.
+
+**3.2 — Timeout indistinto** (`whatsapp.py:53`). Todo `httpx.TimeoutException`
+vira `FALHA_TEMPORARIA`. A ADR so autoriza retry quando a falha e
+**comprovadamente anterior** ao envio de bytes, e o `except` nao faz essa
+distincao.
+
+A correcao e separar o que a ADR separa:
+
+- `ConnectTimeout`, `ConnectError` e **`PoolTimeout`** — falhas anteriores ao
+  envio de bytes: temporarias, podem reenviar. O `PoolTimeout` estoura
+  **esperando uma conexao do pool**, antes de existir requisicao — trata-lo como
+  desconhecido bloquearia retry legitimo sob contencao;
+- `ReadTimeout`, `WriteTimeout` e os demais — sem prova de nao aceite: e
+  `resultado_desconhecido`;
+- `provider_5xx` — `RESULTADO_DESCONHECIDO`, como a tabela manda.
+
+O proprio adapter ja classifica **2xx malformado** como `DESCONHECIDO`, que e a
+linha vizinha da mesma tabela. E o **adapter do Resend**, mais antigo e escrito
+sob a mesma ADR, mapeia `5xx` e toda falha de transporte para `DESCONHECIDO`
+(`resend.py:52-64`) — ele e conservador ate demais, tratando como desconhecido
+tambem o que a ADR permitiria reenviar. O do WhatsApp diverge da ADR e do
+irmao ao mesmo tempo: os dois pontos acima sao omissao, nao desenho.
 
 Agrava: **nao foi medido** se o Evolution ou o WhatsApp suprimem uma segunda
 mensagem com o mesmo `id`. O eco do `id` correlaciona requisicao e resposta, mas
 correlacionar nao e deduplicar.
 
-**A correcao e a distincao que a ADR exige e o codigo nao faz:**
-
-- `ConnectTimeout` e `ConnectError` — falha comprovadamente **anterior** ao envio
-  de bytes: temporaria, pode reenviar;
-- `ReadTimeout` e demais — timeout **depois** de transmitir: sem prova de nao
-  aceite, e `resultado_desconhecido`.
-
-**Nao e decisao do fundador.** Eu cheguei a leva-la como "decisao com troca", e
-estava errado: a ADR decidiu em agosto. E defeito de conformidade, e o item mais
-urgente que este handoff deixa.
+**Nao e decisao do fundador.** Eu cheguei a levar o item do timeout como
+"decisao com troca", e estava errado: a ADR decidiu em agosto. Sao defeitos de
+conformidade, e o item mais urgente que este handoff deixa.
 
 ---
 
@@ -98,7 +117,7 @@ Em resumo:
 | 4.5 | `CLAUDE.md` da raiz e gitignored; `frontend/CLAUDE.md` e versionado |
 | 4.6 | `DecodingError` nao tratado em `resend.py` (2x) e `whatsapp.py` |
 | 4.7 | Suite Playwright deixa servidor orfao; a proxima falha **sem imprimir nada** |
-| 4.8 | **NOVO** — a violacao da ADR-009 descrita na §3 |
+| 4.8 | **NOVO** — as duas violacoes da ADR-009 descritas na §3 (5xx e timeout), ambas capazes de duplicar cobranca |
 | 4.9 | **NOVO** — o guardrail da ADR-003 casa por texto, nao por ideia. Pega a frase que o regex conhece; deixou passar "Multi-Tenant Nivel 1", que e a mesma decisao. Ha **quatro linhas** com essa forma em `ADR-001:25`, `AMP-001:141` e `PLAN-001:17,161` |
 
 ---
@@ -151,8 +170,8 @@ o monitor precisa detectar log estagnado, nao so mudanca de status.
 
 # 7. Proximo ciclo
 
-1. **Corrigir a violacao da ADR-009** (§3). Pequeno, delimitado, e o unico item
-   com risco operacional real.
+1. **Corrigir as violacoes da ADR-009** (§3). Pequeno, delimitado, e o unico
+   item com risco operacional real.
 2. **IMP-367** — casos de uso e permissoes. Primeiro item que consome as tres
    camadas prontas do PLAN-034.
 3. **IMP-368** — endpoints e contrato; o guardrail cobra plano, contadores e
@@ -171,4 +190,4 @@ sobre CPFs historicos (§4.4) e o `CLAUDE.md` (§4.5).
 
 | Versao | Data | Descricao |
 |---|---|---|
-| 1.0.0 | 2026-09-02 | Auditoria de consistencia documental com 38 correcoes em onze arquivos; a violacao da ADR-009 no tratamento de timeout, que pode duplicar cobranca ao devedor; dois caveats novos; e o que nove rodadas de review ensinaram sobre editar documentacao cruzada ponto a ponto. |
+| 1.0.0 | 2026-09-02 | Auditoria de consistencia documental com 38 correcoes em onze arquivos; as duas violacoes da ADR-009 no adapter do WhatsApp (5xx e timeout), que podem duplicar cobranca ao devedor; dois caveats novos; e o que nove rodadas de review ensinaram sobre editar documentacao cruzada ponto a ponto. |

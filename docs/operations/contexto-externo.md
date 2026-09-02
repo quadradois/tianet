@@ -1,6 +1,6 @@
 # Contexto Externo
 
-**Versao:** 1.3.0
+**Versao:** 1.3.1
 
 **Status:** Vivo — mantido manualmente
 
@@ -269,21 +269,33 @@ Nao ha ambiente de teste do Evolution — a validacao acima foi feita em produca
 para o numero do proprio fundador, sem que nenhum devedor real recebesse
 mensagem. Esse continua sendo o unico caminho para conferencias futuras.
 
-**O que ficou aberto — e nao e uma decisao, e um defeito.** A validacao
+**O que ficou aberto — e nao e uma decisao, sao defeitos.** A validacao
 respondeu o formato, nao a deduplicacao. Mas a politica para esse caso **ja esta
 decidida** na ADR-009: timeout ou reset *depois de transmitir bytes* e
 `resultado_desconhecido`, que **bloqueia retry e concilia** — porque nao ha prova
 de que a requisicao nao foi aceita.
 
-O adapter classifica todo `httpx.TimeoutException` como `FALHA_TEMPORARIA`, e o
-Scheduler reenvia. Isso **viola a ADR-009**, e a consequencia e concreta: se o
-Evolution aceitou antes do timeout do cliente, o devedor recebe a cobranca duas
-vezes.
+Sao **dois pontos** no adapter, e os dois levam a mesma consequencia concreta:
+se o Evolution aceitou antes de o cliente desistir, o devedor recebe a cobranca
+duas vezes.
 
-A distincao que o codigo nao faz e a que a ADR exige: falha *comprovadamente
-anterior* ao envio de bytes (`ConnectTimeout`, `ConnectError`) e temporaria e
-pode reenviar; timeout *depois* de transmitir (`ReadTimeout`) nao tem prova, e
-nao pode. Corrigir isso e item de codigo, nao de documentacao.
+- **Resposta 5xx** (`whatsapp.py:87`) — a tabela da ADR nomeia `5xx` como o
+  primeiro item de `resultado_desconhecido`; o adapter devolve
+  `FALHA_TEMPORARIA` com codigo `provider_5xx`. Um 502 ou 504 de gateway chega
+  depois de o upstream ter aceitado, e nao ha como distinguir isso de um 500 que
+  nao aceitou nada;
+- **Timeout indistinto** (`whatsapp.py:53`) — todo `httpx.TimeoutException` vira
+  `FALHA_TEMPORARIA`, sem a distincao que a ADR exige.
+
+A correcao e separar o que a ADR separa: `ConnectTimeout`, `ConnectError` e
+`PoolTimeout` sao falhas *comprovadamente anteriores* ao envio de bytes —
+temporarias, podem reenviar (o `PoolTimeout` estoura esperando uma conexao do
+pool, antes de existir requisicao); `ReadTimeout`, `WriteTimeout` e o `5xx` nao
+tem prova de nao aceite, e viram `resultado_desconhecido`.
+
+O proprio adapter ja classifica **2xx malformado** como desconhecido, que e a
+linha vizinha da mesma tabela — os dois pontos acima sao omissao, nao desenho.
+Corrigir isso e item de codigo, nao de documentacao.
 
 ---
 
@@ -291,6 +303,7 @@ nao pode. Corrigir isso e item de codigo, nao de documentacao.
 
 | Versao | Data | Descricao |
 |---|---|---|
+| 1.3.1 | 2026-09-02 | A §6.2 registrava so metade do problema: alem do timeout indistinto, o adapter classifica **resposta 5xx** como `FALHA_TEMPORARIA`, e a tabela da ADR-009 poe `5xx` em `resultado_desconhecido`. Sao dois pontos, nao um. E o `PoolTimeout` entra na lista de falhas anteriores ao envio de bytes — estoura esperando conexao do pool, antes de existir requisicao. |
 | 1.3.0 | 2026-08-27 | Reconciliacoes do PLAN-033/IMP-358: conversas do agente saem de `RegistroComunicacao` (devedor_id obrigatorio impede) e ganham modelo proprio; contextos Operadora/Pre-cadastro e o limite da allowlist registrados na §2.2. |
 | 1.2.0 | 2026-08-25 | As cinco perguntas em aberto foram respondidas pelo fundador e a secao §6 deixou de ser duvida para virar registro. E-mail saiu do escopo do MVP e o worker deixou de ser derrubado por falta de conta Resend — com recusa nomeada no lugar do fake que fingia entrega. Topologia do agente decidida sem webhook publico. Segredo do Evolution fica em variavel de ambiente, com o limite de uma instancia por processo declarado. |
 | 1.1.0 | 2026-08-16 | WhatsApp preenchido a partir do contrato Evolution Go versionado em `docs/whatsapp/`: modelo de tenant, tres niveis de autenticacao, limites de retry e payload, recorte para a TiaNet e achados que condicionam o desenho. |
