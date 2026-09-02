@@ -120,6 +120,8 @@ def _sincronizar(
     conexao: ConexaoWhatsApp,
     token: str,
     provedor: ProvedorWhatsApp,
+    auditoria: AuditoriaRegistro,
+    autoria: dict[str, object],
 ) -> tuple[ConexaoWhatsApp, EstadoPareamento]:
     """Alinha o número guardado ao que o provedor reporta agora.
 
@@ -144,6 +146,20 @@ def _sincronizar(
 
     if atualizada.numero_pareado != conexao.numero_pareado:
         uow.conexao_whatsapp.save(atualizada)
+        # Escrita e escrita, mesmo dentro de uma consulta: o pareamento nasce e
+        # morre no celular do operador, e esta e a UNICA linha do sistema que
+        # observa a transicao. Sem evento, a trilha da ADR-002 nao tem como
+        # dizer quando o WhatsApp foi vinculado ou caiu — e essa e justamente a
+        # pergunta de quem investiga cobranca que nao saiu.
+        auditoria.registrar(
+            ENTIDADE_AUDITORIA,
+            atualizada.id,
+            "sincronizar.pareamento" if atualizada.pareada else "sincronizar.desparelhamento",
+            "sucesso",
+            # Sem o numero: a trilha e append-only e o telefone e do devedor
+            # tanto quanto do operador. `instancia_id` basta para correlacionar.
+            detalhes=_detalhes(autoria, instancia_id=atualizada.instancia_id),
+        )
         return atualizada, estado
     return conexao, estado
 
@@ -155,11 +171,18 @@ class ConsultarConexaoWhatsApp:
         self,
         uow_factory: Callable[[], UnitOfWork],
         provedor: ProvedorWhatsApp,
+        auditoria: AuditoriaRegistro,
     ) -> None:
         self._uow_factory = uow_factory
         self._provedor = provedor
+        self._auditoria = auditoria
 
-    def executar(self, tenant_id: uuid.UUID) -> EstadoConexaoWhatsApp:
+    def executar(
+        self,
+        tenant_id: uuid.UUID,
+        usuario_id: uuid.UUID | None = None,
+    ) -> EstadoConexaoWhatsApp:
+        autoria = _autoria(usuario_id)
         with self._uow_factory() as uow:
             conexao = uow.conexao_whatsapp.find_by_tenant_id(tenant_id)
             if conexao is None:
@@ -178,7 +201,9 @@ class ConsultarConexaoWhatsApp:
                 # com o provedor. Nomear em vez de fingir que está desconectada.
                 raise ConexaoWhatsAppNaoEncontradaError(tenant_id)
 
-            atualizada, estado = _sincronizar(uow, conexao, token, self._provedor)
+            atualizada, estado = _sincronizar(
+                uow, conexao, token, self._provedor, self._auditoria, autoria
+            )
             uow.commit()
 
         # Fora da transação: buscar o QR é efeito externo, e nada aqui escreve.

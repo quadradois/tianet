@@ -274,6 +274,7 @@ class EvolutionTenantClient:
             ),
             "/instance/all",
         )
+        achada: InstanciaCriada | None = None
         itens = dados.get("data")
         if not isinstance(itens, list):
             # Resposta invalida NAO e "nao existe". Devolver `None` aqui faria
@@ -282,8 +283,15 @@ class EvolutionTenantClient:
             # de um 2xx.
             raise EvolutionIndisponivelError("/instance/all devolveu `data` fora do formato")
         alvo = nome.strip()
+        # Falha fechada tambem no item: um elemento malformado ignorado faria o
+        # metodo terminar em `None`, e o chamador criaria uma segunda instancia
+        # sobre uma que talvez fosse exatamente a procurada.
         for item in itens:
-            if not isinstance(item, dict) or item.get("name") != alvo:
+            if not isinstance(item, dict) or not isinstance(item.get("name"), str):
+                raise EvolutionIndisponivelError(
+                    "/instance/all devolveu item sem `name` utilizavel"
+                )
+            if item["name"] != alvo:
                 continue
             instancia_id = item.get("id")
             token = item.get("token")
@@ -294,7 +302,16 @@ class EvolutionTenantClient:
             if isinstance(instancia_id, str) and isinstance(token, str):
                 limpos = (instancia_id.strip(), token.strip())
                 if all(limpos):
-                    return InstanciaCriada(instancia_id=limpos[0], nome=alvo, token=limpos[1])
+                    if achada is not None:
+                        # Duas com o mesmo nome: escolher uma seria escolher no
+                        # escuro, e a plataforma poderia adotar a que ninguem
+                        # usa enquanto o WhatsApp do operador vive na outra.
+                        raise EvolutionIndisponivelError(
+                            f"o provedor tem mais de uma instancia chamada {alvo!r}: "
+                            "adotar uma delas seria escolher no escuro"
+                        )
+                    achada = InstanciaCriada(instancia_id=limpos[0], nome=alvo, token=limpos[1])
+                    continue
             # Achada e sem credencial utilizavel. Nem adotar (a conexao
             # existiria sem poder enviar nada) nem seguir para o `create`, que
             # criaria uma segunda instancia sobre uma que comprovadamente
@@ -303,7 +320,7 @@ class EvolutionTenantClient:
                 f"instancia {alvo!r} existe no provedor sem token utilizavel: "
                 "adota-la ou criar outra por cima seriam ambos errados"
             )
-        return None
+        return achada
 
     def jid_da_instancia(self, instancia_id: str) -> str | None:
         """Le o `jid` da instancia — o unico caminho ate o telefone pareado.

@@ -182,9 +182,11 @@ def test_consulta_sem_instancia_nao_e_o_mesmo_que_nao_pareada() -> None:
     """Inexistente pede criar; pendente pede escanear. A tela decide por isto."""
 
     repo = _RepoFake()
-    uow, _ = _montar(repo, _ProvedorFake())
+    uow, auditoria = _montar(repo, _ProvedorFake())
 
-    estado = ConsultarConexaoWhatsApp(lambda: uow, _ProvedorFake()).executar(uuid.uuid4())
+    estado = ConsultarConexaoWhatsApp(lambda: uow, _ProvedorFake(), auditoria).executar(
+        uuid.uuid4()
+    )
 
     assert estado.existe is False
     assert estado.pareada is False
@@ -201,9 +203,9 @@ def test_consulta_connected_sem_loggedin_nao_conta_como_pareada() -> None:
     provedor = _ProvedorFake(
         EstadoPareamento(conectado=True, pareado=False, nome_exibicao=None, numero=None)
     )
-    uow, _ = _montar(repo, provedor)
+    uow, auditoria = _montar(repo, provedor)
 
-    estado = ConsultarConexaoWhatsApp(lambda: uow, provedor).executar(uuid.uuid4())
+    estado = ConsultarConexaoWhatsApp(lambda: uow, provedor, auditoria).executar(uuid.uuid4())
 
     assert estado.conectado is True
     assert estado.pareada is False
@@ -215,9 +217,9 @@ def test_consulta_pareada_traz_a_identificacao_do_provedor() -> None:
     provedor = _ProvedorFake(
         EstadoPareamento(conectado=True, pareado=True, nome_exibicao=NOME, numero=NUMERO)
     )
-    uow, _ = _montar(repo, provedor)
+    uow, auditoria = _montar(repo, provedor)
 
-    estado = ConsultarConexaoWhatsApp(lambda: uow, provedor).executar(uuid.uuid4())
+    estado = ConsultarConexaoWhatsApp(lambda: uow, provedor, auditoria).executar(uuid.uuid4())
 
     assert estado.pareada is True
     # Duas coisas diferentes, e a tela mostra as duas.
@@ -233,9 +235,9 @@ def test_consulta_desfaz_pareamento_quando_provedor_reporta_logout() -> None:
     provedor = _ProvedorFake(
         EstadoPareamento(conectado=False, pareado=False, nome_exibicao=None, numero=None)
     )
-    uow, _ = _montar(repo, provedor)
+    uow, auditoria = _montar(repo, provedor)
 
-    estado = ConsultarConexaoWhatsApp(lambda: uow, provedor).executar(uuid.uuid4())
+    estado = ConsultarConexaoWhatsApp(lambda: uow, provedor, auditoria).executar(uuid.uuid4())
 
     assert estado.pareada is False
     assert repo.conexao is not None and repo.conexao.numero_pareado is None
@@ -251,9 +253,9 @@ def test_consulta_pareada_sem_numero_preserva_o_que_ja_se_sabia() -> None:
     provedor = _ProvedorFake(
         EstadoPareamento(conectado=True, pareado=True, nome_exibicao=None, numero=None)
     )
-    uow, _ = _montar(repo, provedor)
+    uow, auditoria = _montar(repo, provedor)
 
-    estado = ConsultarConexaoWhatsApp(lambda: uow, provedor).executar(uuid.uuid4())
+    estado = ConsultarConexaoWhatsApp(lambda: uow, provedor, auditoria).executar(uuid.uuid4())
 
     assert estado.numero == NUMERO
     assert repo.gravacoes == []
@@ -264,10 +266,10 @@ def test_consulta_com_conexao_sem_token_e_erro_nomeado() -> None:
 
     repo = _RepoFake(_conexao(), token=None)
     provedor = _ProvedorFake()
-    uow, _ = _montar(repo, provedor)
+    uow, auditoria = _montar(repo, provedor)
 
     with pytest.raises(ConexaoWhatsAppNaoEncontradaError):
-        ConsultarConexaoWhatsApp(lambda: uow, provedor).executar(uuid.uuid4())
+        ConsultarConexaoWhatsApp(lambda: uow, provedor, auditoria).executar(uuid.uuid4())
 
 
 def test_consulta_pendente_traz_o_qr_de_agora() -> None:
@@ -281,9 +283,9 @@ def test_consulta_pendente_traz_o_qr_de_agora() -> None:
     provedor = _ProvedorFake(
         EstadoPareamento(conectado=True, pareado=False, nome_exibicao=None, numero=None)
     )
-    uow, _ = _montar(repo, provedor)
+    uow, auditoria = _montar(repo, provedor)
 
-    estado = ConsultarConexaoWhatsApp(lambda: uow, provedor).executar(uuid.uuid4())
+    estado = ConsultarConexaoWhatsApp(lambda: uow, provedor, auditoria).executar(uuid.uuid4())
 
     assert estado.qrcode_base64 == QRCODE
     assert provedor.qrcodes_pedidos == 1
@@ -296,9 +298,9 @@ def test_consulta_pareada_nao_pede_qr() -> None:
     provedor = _ProvedorFake(
         EstadoPareamento(conectado=True, pareado=True, nome_exibicao=NOME, numero=NUMERO)
     )
-    uow, _ = _montar(repo, provedor)
+    uow, auditoria = _montar(repo, provedor)
 
-    estado = ConsultarConexaoWhatsApp(lambda: uow, provedor).executar(uuid.uuid4())
+    estado = ConsultarConexaoWhatsApp(lambda: uow, provedor, auditoria).executar(uuid.uuid4())
 
     assert estado.qrcode_base64 is None
     assert provedor.qrcodes_pedidos == 0
@@ -312,9 +314,9 @@ def test_consulta_com_qr_ainda_gerando_devolve_none_em_vez_de_falhar() -> None:
         EstadoPareamento(conectado=True, pareado=False, nome_exibicao=None, numero=None),
         falhar_em_qrcode=QrCodeIndisponivelError("no QR code available"),
     )
-    uow, _ = _montar(repo, provedor)
+    uow, auditoria = _montar(repo, provedor)
 
-    estado = ConsultarConexaoWhatsApp(lambda: uow, provedor).executar(uuid.uuid4())
+    estado = ConsultarConexaoWhatsApp(lambda: uow, provedor, auditoria).executar(uuid.uuid4())
 
     assert estado.qrcode_base64 is None
     assert estado.existe is True
@@ -385,6 +387,54 @@ def test_conectar_com_falha_ao_gravar_registra_divergencia() -> None:
     divergencia = [e for e in auditoria.eventos if e[1] == "conectar.divergencia"][0]
     assert divergencia[2] == "efeito_externo_aplicado_registro_local_incerto"
     assert json.loads(divergencia[3] or "{}")["instancia_id"] == "instancia-nova"
+
+
+def test_consulta_registra_o_pareamento_observado_no_polling() -> None:
+    """A transicao acontece no celular; esta e a unica linha que a observa.
+
+    Sem evento, a trilha da ADR-002 nao sabe dizer quando o WhatsApp foi
+    vinculado — que e a pergunta de quem investiga cobranca que nao saiu.
+    """
+
+    repo = _RepoFake(_conexao(), token="token-1")
+    provedor = _ProvedorFake(
+        EstadoPareamento(conectado=True, pareado=True, nome_exibicao=NOME, numero=NUMERO)
+    )
+    uow, auditoria = _montar(repo, provedor)
+
+    ConsultarConexaoWhatsApp(lambda: uow, provedor, auditoria).executar(uuid.uuid4())
+
+    eventos = [e for e in auditoria.eventos if e[1] == "sincronizar.pareamento"]
+    assert len(eventos) == 1
+    detalhes = json.loads(eventos[0][3] or "{}")
+    assert detalhes["instancia_id"] == "instancia-1"
+    assert NUMERO not in (eventos[0][3] or ""), "telefone nao entra na trilha"
+
+
+def test_consulta_registra_o_desparelhamento_feito_no_celular() -> None:
+    repo = _RepoFake(_conexao(NUMERO), token="token-1")
+    provedor = _ProvedorFake(
+        EstadoPareamento(conectado=False, pareado=False, nome_exibicao=None, numero=None)
+    )
+    uow, auditoria = _montar(repo, provedor)
+
+    ConsultarConexaoWhatsApp(lambda: uow, provedor, auditoria).executar(uuid.uuid4())
+
+    assert [e[1] for e in auditoria.eventos] == ["sincronizar.desparelhamento"]
+
+
+def test_consulta_sem_mudanca_nao_polui_a_trilha() -> None:
+    """Polling roda o tempo todo; evento por leitura afogaria a trilha."""
+
+    repo = _RepoFake(_conexao(NUMERO), token="token-1")
+    provedor = _ProvedorFake(
+        EstadoPareamento(conectado=True, pareado=True, nome_exibicao=NOME, numero=NUMERO)
+    )
+    uow, auditoria = _montar(repo, provedor)
+
+    ConsultarConexaoWhatsApp(lambda: uow, provedor, auditoria).executar(uuid.uuid4())
+
+    assert auditoria.eventos == []
 
 
 def test_conectar_adota_instancia_que_ja_existe_no_provedor() -> None:
