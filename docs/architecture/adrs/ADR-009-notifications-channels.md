@@ -263,11 +263,15 @@ variavel de ambiente, nunca em log ou banco". A parte de **log continua valendo,
 e sem excecao**. A parte de **banco mudou**, e o motivo e ergonomia operacional,
 nao conveniencia.
 
-**Por que mudou.** Quem opera a TiaNet nao tem conta no servidor Evolution.
-Enquanto o token so existisse no ambiente, cada numero novo — e **cada
-reconexao** — dependia de alguem com acesso administrativo editar o `.env` e
-reiniciar. A DR-006 decidiu trazer a conexao para dentro da plataforma, e uma
-conexao que nao sobrevive a um restart nao resolve nada.
+**Por que mudou.** Quem opera a TiaNet nao tem conta no servidor Evolution, e a
+DR-006 decidiu trazer a criacao da instancia para dentro da plataforma. Ao criar,
+**a plataforma gera o token** — o Evolution apenas o ecoa. Sem persistir, esse
+valor existiria so na requisicao que o criou, e alguem teria de copia-lo para o
+`.env` a mao: exatamente o atrito que a tela vem eliminar.
+
+Reconectar uma instancia que ja existe e outra coisa e **nao** exige isso: o
+token nao muda no reconnect, e a variavel de ambiente sobrevive a restart. O que
+a persistencia resolve e o **nascimento** da instancia, nao a sua reconexao.
 
 **O que muda, exatamente:**
 

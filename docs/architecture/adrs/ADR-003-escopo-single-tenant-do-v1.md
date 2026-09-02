@@ -60,12 +60,15 @@ tenha escolhido um dos níveis.
 ### Clarificação de 2026-09-01 — "um usuário" é um operador **humano**
 
 Esta ADR foi lida como se proibisse um segundo Principal no IAM. Não proíbe, e a
-diferença importa: o **Copilot tem identidade própria de serviço**, provisionada
-pelo IMP-355 (*"Provisionar usuario e perfil copilot por Tenant"*), com perfil
-minimamente privilegiado e revogável que **nunca recebe**
-`comercial.proposta.decidir` — foi por isso que o IMP-360 separou submeter de
-decidir, e por isso que o IMP-361 registra a autoria das escritas que ele
-dispara.
+diferença importa: o desenho **prevê** identidade própria de serviço para o
+Copilot, com perfil minimamente privilegiado e revogável que nunca receberá
+`comercial.proposta.decidir`.
+
+**Ainda não existe.** O IMP-355 entregou a rota genérica `POST /iam/usuarios`; o
+seed e a atribuição do perfil `copilot` ficam para a Fase C, quando houver agente
+a quem atribuí-lo. Já existem, e valem também para operadores humanos, a
+separação entre submeter e decidir (IMP-360) e o registro de autoria na trilha
+(IMP-361).
 
 **Um agente que age precisa ser identificável na trilha.** Dar ao Copilot o
 Principal do humano apagaria justamente a distinção que a ADR-002 existe para
@@ -150,5 +153,5 @@ o problema que ela resolve é precisamente esse.
 
 | Versão | Data | Descrição |
 |---|---|---|
-| 1.1.0 | 2026-09-01 | Clarificação: "um usuário" é um operador humano; o Copilot tem identidade de serviço própria (IMP-355), minimamente privilegiada e revogável. Nada do que a ADR decide muda — errada estava a leitura de que ela proibiria um segundo Principal. |
+| 1.1.0 | 2026-09-01 | Clarificação: "um usuário" é um operador humano. O desenho **prevê** identidade de serviço própria para o Copilot, ainda não provisionada — o IMP-355 entregou a rota genérica, e o perfil `copilot` fica para a Fase C. Nada do que a ADR decide muda; errada estava a leitura de que ela proibiria um segundo Principal. |
 | 1.0.0 | 2026-08-31 | Emissão da reserva ADR-003 com escopo diferente do reservado: decide o escopo single-tenant do v1 em vez do nível de isolamento, preserva `tenant_id` como invariante estrutural e suspende o FOUNDATION-006. |
