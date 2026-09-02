@@ -22,12 +22,23 @@ import uuid
 from collections.abc import Callable
 from dataclasses import dataclass
 
-from emprestimo.application.errors import ConexaoWhatsAppNaoEncontradaError
+from emprestimo.application.errors import (
+    ConexaoWhatsAppNaoEncontradaError,
+    NomeInstanciaInvalidoError,
+)
 from emprestimo.application.ports import AuditoriaRegistro, UnitOfWork
 from emprestimo.domain.platform.conexao_whatsapp import ConexaoWhatsApp, EstadoPareamento
 from emprestimo.domain.platform.ports import ProvedorWhatsApp, QrCodeIndisponivelError
 
 ENTIDADE_AUDITORIA = "conexao_whatsapp"
+
+LIMITE_NOME_INSTANCIA = 100
+"""Tamanho da coluna `instancia_nome` (IMP-365).
+
+Validado ANTES de chamar o provedor: o Evolution aceita nomes que o nosso banco
+recusa, e descobrir isso no `save` deixaria a instancia criada la fora sem
+registro aqui.
+"""
 
 
 @dataclass(frozen=True)
@@ -71,6 +82,18 @@ class QrCodeConexao:
     """
 
     qrcode_base64: str | None
+
+
+def _validar_nome(instancia_nome: str) -> str:
+    """Recusa aqui o que o banco recusaria depois do efeito externo."""
+    limpo = instancia_nome.strip()
+    if not limpo:
+        raise NomeInstanciaInvalidoError("nome da instancia vazio")
+    if len(limpo) > LIMITE_NOME_INSTANCIA:
+        raise NomeInstanciaInvalidoError(
+            f"nome da instancia com {len(limpo)} caracteres; o limite e {LIMITE_NOME_INSTANCIA}"
+        )
+    return limpo
 
 
 def _autoria(usuario_id: uuid.UUID | None) -> dict[str, object]:
@@ -225,19 +248,33 @@ class ConectarWhatsApp:
             # Antes do efeito externo: uma chave de cifra ausente descoberta no
             # `save` deixaria a instância criada no provedor e o token perdido.
             uow.conexao_whatsapp.exigir_disponibilidade()
+            nome = _validar_nome(instancia_nome)
             # LIMITE CONHECIDO: se `/instance/create` for aceito e a resposta se
             # perder, a instancia fica no provedor sem registro local. Fechar
             # essa janela exige um estado "provisionando" persistido antes da
             # chamada — e a Entity exige `instancia_id`, que so existe depois
             # dela. E desenho, nao ajuste; fica nomeado para o IMP-368 decidir.
-            instancia_id, token = self._provedor.criar_instancia(instancia_nome)
+            instancia_id, token = self._provedor.criar_instancia(nome)
             conexao = ConexaoWhatsApp.criar(
                 tenant_id=tenant_id,
                 instancia_id=instancia_id,
-                instancia_nome=instancia_nome,
+                instancia_nome=nome,
             )
-            uow.conexao_whatsapp.save(conexao, token=token)
-            uow.commit()
+            try:
+                uow.conexao_whatsapp.save(conexao, token=token)
+                uow.commit()
+            except Exception:
+                # A instancia existe la fora e o registro local nao vai existir:
+                # o rollback e real, e o unico momento em que este caso de uso
+                # pode dizer isso com honestidade.
+                self._auditoria.registrar(
+                    ENTIDADE_AUDITORIA,
+                    None,
+                    "conectar.rollback",
+                    "rollback_aplicado",
+                    detalhes=_detalhes(_autoria(None), instancia_id=instancia_id),
+                )
+                raise
             return conexao, token
 
     def executar(
@@ -279,16 +316,6 @@ class ConectarWhatsApp:
                 # Só o tipo: a mensagem do provedor pode carregar o token ou o
                 # QR, e a trilha é append-only (IMP-361).
                 detalhes=_detalhes(autoria, erro_tipo=type(exc).__name__),
-            )
-            # Evento próprio, como manda a ADR-002: a falha diz que deu errado,
-            # o rollback diz que nada ficou meio gravado. Quem lê a trilha
-            # precisa dos dois para saber se sobrou estado.
-            self._auditoria.registrar(
-                ENTIDADE_AUDITORIA,
-                None,
-                "conectar.rollback",
-                "rollback_aplicado",
-                detalhes=_detalhes(autoria),
             )
             raise
 

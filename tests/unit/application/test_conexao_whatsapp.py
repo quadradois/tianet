@@ -24,7 +24,10 @@ from emprestimo.application.conexao_whatsapp import (
     ConsultarConexaoWhatsApp,
     DesconectarWhatsApp,
 )
-from emprestimo.application.errors import ConexaoWhatsAppNaoEncontradaError
+from emprestimo.application.errors import (
+    ConexaoWhatsAppNaoEncontradaError,
+    NomeInstanciaInvalidoError,
+)
 from emprestimo.domain.platform.conexao_whatsapp import ConexaoWhatsApp, EstadoPareamento
 from emprestimo.domain.platform.ports import QrCodeIndisponivelError
 
@@ -282,6 +285,24 @@ def test_consulta_com_qr_ainda_gerando_devolve_none_em_vez_de_falhar() -> None:
     assert estado.existe is True
 
 
+@pytest.mark.parametrize("nome", ["   ", "x" * 101])
+def test_conectar_recusa_nome_invalido_antes_de_criar_no_provedor(nome: str) -> None:
+    """O Evolution aceita nome que a nossa coluna nao comporta.
+
+    Descobrir isso no `save` deixaria a instancia criada la fora, inalcancavel:
+    o token so existia nesta requisicao.
+    """
+
+    repo = _RepoFake()
+    provedor = _ProvedorFake()
+    uow, auditoria = _montar(repo, provedor)
+
+    with pytest.raises(NomeInstanciaInvalidoError):
+        ConectarWhatsApp(lambda: uow, provedor, auditoria).executar(uuid.uuid4(), nome)
+
+    assert provedor.criadas == [], "nao pode existir instancia orfa no provedor"
+
+
 def test_conectar_recusa_antes_de_criar_no_provedor_se_a_cifra_faltar() -> None:
     """Descobrir isso no `save` deixaria a instancia criada e o token perdido."""
 
@@ -376,11 +397,10 @@ def test_conectar_falha_registra_so_o_tipo_do_erro() -> None:
     with pytest.raises(RuntimeError):
         ConectarWhatsApp(lambda: uow, provedor, auditoria).executar(uuid.uuid4(), "tianet")
 
-    assert [e[1] for e in auditoria.eventos] == [
-        "conectar.inicio",
-        "conectar.falha",
-        "conectar.rollback",
-    ]
+    # Sem `conectar.rollback`: `_garantir_instancia` ja tinha commitado quando o
+    # QR falhou. Registrar rollback aqui afirmaria, numa trilha append-only, que
+    # o estado foi desfeito — e ele nao foi. A instancia continua gravada.
+    assert [e[1] for e in auditoria.eventos] == ["conectar.inicio", "conectar.falha"]
     falha = [e for e in auditoria.eventos if e[1] == "conectar.falha"]
     assert len(falha) == 1
     detalhes = json.loads(falha[0][3] or "{}")
