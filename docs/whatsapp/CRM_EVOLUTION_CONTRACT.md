@@ -556,8 +556,9 @@ identificador gerado pelo servidor. Duas consequências para quem integra:
    aceitou antes de o cliente desistir e o provedor não deduplicar pelo `id`, o
    destinatário recebe duas vezes — hoje o **comprovante do lançamento** do
    empréstimo e o **aviso de sobra de pagamento**, que são os dois jobs ligados a
-   este adapter. Só `ConnectTimeout`, `ConnectError` e `PoolTimeout` são
-   comprovadamente anteriores ao envio de bytes. Ver `contexto-externo.md` §6.2.
+   este adapter. Só `ConnectTimeout`, `ConnectError` e `PoolTimeout` provam
+   que a requisição não chegou a existir na rede; todo o resto, `5xx` incluído,
+   é resultado desconhecido. Ver `contexto-externo.md` §6.2.
 3. **Não existe identificador do provedor** para consultar depois: entrega só se
    confirma pelo webhook de `Receipt` (§5).
 

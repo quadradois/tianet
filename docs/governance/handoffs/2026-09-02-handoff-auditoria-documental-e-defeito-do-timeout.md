@@ -79,43 +79,56 @@ migrar para o WhatsApp, o mesmo defeito passa a alcancar cobranca.
 
 **3.1 — Resposta 5xx** (`whatsapp.py`, `_classificar_resposta`, codigo `provider_5xx`). A ADR nomeia `5xx` como o primeiro
 item de `resultado_desconhecido`; o adapter devolve `FALHA_TEMPORARIA` com
-codigo `provider_5xx`, e o Scheduler reenvia. Um 502 ou 504 de gateway chega
-depois de o upstream ter aceitado a mensagem — e nao ha como distinguir isso de
-um 500 que nao aceitou nada.
+codigo `provider_5xx`, e o Scheduler reenvia. Nenhum 5xx prova que o upstream
+recusou: um 502 pode ser o gateway sem conseguir falar com ele, mas tambem pode
+chegar depois de o upstream ter aceitado; um 504 so diz que o gateway desistiu de
+esperar. E prova de recusa que a ADR exige para reenviar.
 
-**3.2 — Transporte indistinto** (`whatsapp.py`, o `except` de `enviar`). O `except` unico devolve
-`FALHA_TEMPORARIA` para todo `TimeoutException` **e** todo `TransportError`. A
-ADR so autoriza retry para falha **comprovadamente anterior** ao envio de bytes,
-e esses dois ramos misturam os dois lados: `ConnectTimeout` e `ConnectError` sao
-anteriores, mas `ReadError`, `WriteError`, `CloseError` e `RemoteProtocolError`
-sao resets **depois** de transmitir — exatamente o caso que a ADR nomeia ao lado do timeout.
+**3.2 — Transporte indistinto** (`whatsapp.py`, o `except` de `enviar`). O
+`except` unico devolve `FALHA_TEMPORARIA` para todo `TimeoutException` **e** todo
+`TransportError`. A ADR so autoriza retry quando a nao-aceitacao e
+**comprovada**, e esses dois ramos varrem junto o que prova (`ConnectTimeout`,
+`ConnectError`) e o que nao prova nada (`ReadTimeout`, `ReadError`, `WriteError`,
+`CloseError`, `RemoteProtocolError`).
 
 **3.3 — `DecodingError` escapa** (o mesmo `except` em `whatsapp.py` e em
-`resend.py`). Ela e
-`RequestError`, **nao** `TransportError` — irma dele na hierarquia, fora do
-`except`. Sobe do adapter, e `SchedulerWorker._execute` converte **qualquer**
-excecao do handler em `FALHA_TEMPORARIA` (`SchedulerWorker._execute`), que reenvia. O decoding falha lendo o **corpo da resposta**: a requisicao ja foi
-enviada e pode ter sido aceita.
+`resend.py`). Ela e `RequestError`, **nao** `TransportError` — irma dele na
+hierarquia, fora do `except`. Sobe do adapter, e `SchedulerWorker._execute`
+converte **qualquer** excecao do handler em `FALHA_TEMPORARIA`, que reenvia. Aqui
+a requisicao comprovadamente foi enviada — ha uma resposta, so nao da para
+decodifica-la.
 
 Estava listado como caveat de higiene (§4.6). Nao e: e o mesmo defeito.
 
-**Uma ocorrencia dela e outra coisa.** Em `resend.py`, dentro de `consultar_status`, o
-unico chamador e `NotificationService.conciliar` — fluxo administrativo, disparado por gente, com motivo
-e IAM. Ali a excecao nao vira retry: vira erro nao tratado no meio da
-conciliacao. Defeito tambem, consequencia diferente; nao confundir os dois ao
-corrigir.
+**Uma ocorrencia dela e outra coisa.** Em `resend.py`, dentro de
+`consultar_status`, o unico chamador e `NotificationService.conciliar` — fluxo
+administrativo, disparado por gente, com motivo e IAM. Ali a excecao nao vira
+retry: vira erro nao tratado no meio da conciliacao. Defeito tambem, consequencia
+diferente; nao confundir os dois ao corrigir.
 
-A correcao e separar o que a ADR separa:
+**A correcao nao e uma lista maior, e inverter o padrao.** Tentei enumerar as
+excecoes "de depois do envio" tres vezes e faltou uma em cada — `PoolTimeout`,
+depois `ReadError`/`RemoteProtocolError`, depois `CloseError`. O erro nao era a
+lista: era o criterio. "Depois de transmitir bytes" **nao e verificavel** a
+partir da excecao. Um `WriteError` pode estourar na primeira escrita, sem nenhum
+byte na rede; a biblioteca nao diz qual foi.
 
-- **Anterior ao envio** — `ConnectTimeout`, `ConnectError` e **`PoolTimeout`**:
-  temporarias, podem reenviar. O `PoolTimeout` estoura **esperando uma conexao do
-  pool**, antes de existir requisicao; trata-lo como desconhecido bloquearia
-  retry legitimo sob contencao;
-- **Depois de transmitir** — `ReadTimeout`, `WriteTimeout`, `ReadError`,
-  `WriteError`, `CloseError`, `RemoteProtocolError` e `DecodingError`: sem prova
-  de nao aceite, `resultado_desconhecido`. O `CloseError` estoura fechando o
-  stream da resposta, ou seja, depois de tudo ter sido enviado;
-- **`provider_5xx`** — `RESULTADO_DESCONHECIDO`, como a tabela manda.
+O criterio da ADR nao e o momento fisico, e a **prova**: "retry somente ocorre
+quando ha prova de que o provedor nao aceitou o efeito", e "na duvida, prevalece
+`resultado_desconhecido`". Entao a regra e uma allowlist curta, e o resto cai no
+seguro por omissao:
+
+- **Retry so aqui** — `ConnectTimeout`, `ConnectError` e `PoolTimeout`: a
+  requisicao **nao chegou a existir na rede**, e isso e verificavel. O
+  `PoolTimeout` estoura esperando uma conexao do pool, antes de haver requisicao;
+  trata-lo como desconhecido bloquearia retry legitimo sob contencao;
+- **Todo o resto** — `resultado_desconhecido`. Nao por serem posteriores ao
+  envio, mas por **nao provarem nada**. Escrito assim, uma excecao nova do httpx
+  cai no lado seguro sozinha, em vez de esperar a quarta rodada de review;
+- **`provider_5xx`** — `RESULTADO_DESCONHECIDO`, como a tabela manda, e pela
+  mesma razao: um 502 pode ser falha de conexao do gateway com o upstream, e um
+  504 so diz que o gateway desistiu de esperar. Nenhum dos dois prova aceite —
+  nem prova o contrario, que e o que faria falta.
 
 O proprio adapter ja classifica **2xx malformado** como `DESCONHECIDO`, que e a
 linha vizinha da mesma tabela. E o **adapter do Resend**, mais antigo e escrito
