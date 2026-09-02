@@ -1,6 +1,6 @@
 # 2026-09-02 (noite) - Handoff: a ADR-009 corrigida, a conexão do WhatsApp, e o que 19 rodadas de review ensinaram
 
-**Versao:** 1.0.0
+**Versao:** 1.1.0
 
 **Status:** PLAN-034 com **4 dos 7 itens**. O defeito operacional que o handoff
 da manhã deixou aberto **foi corrigido**. Próximo item: IMP-368 (endpoints).
@@ -139,7 +139,64 @@ caveat.
 
 ---
 
-# 5. Fluxo de trabalho vigente
+# 5. Protocolo socrático — o que perguntar antes de escrever código
+
+**Por que esta seção existe.** As duas descobertas da §2 não estavam em lugar
+nenhum do repositório, e as duas custaram caro: o `jid` custou uma conclusão
+errada (*"a fonte não existe"*), e a instância existente quase custou uma segunda
+instância em produção. Nenhuma análise de código as encontraria. A primeira veio
+do fundador, no meio da execução — tarde.
+
+**A regra.** Antes de implementar, separe as decisões em duas pilhas: as que o
+repositório responde, e as que dependem de algo **fora** dele — o servidor, o
+provedor, o cliente, o histórico do fundador. A segunda pilha vira pergunta,
+**antes** de virar código. `docs/operations/contexto-externo.md` cobre parte do
+que existe lá fora; o que ele não cobre, só o fundador sabe.
+
+**O gatilho, em uma frase:** se a resposta certa depende do estado de um sistema
+que você não pode ler, pergunte — não infira do que o código sugere.
+
+## 5.1 — Perguntas abertas para o próximo ciclo
+
+Cada uma abaixo muda o trabalho conforme a resposta. Não são curiosidades.
+
+**1. O nome da instância é `adm_tianet` e continua sendo?**
+A adoção que o IMP-367 implementou **casa pelo nome**. Se o IMP-368 enviar
+qualquer outro, a adoção não encontra nada, o `create` roda, e nasce a segunda
+instância não pareada — exatamente o defeito que este ciclo corrigiu, reintroduzido
+pela porta da frente. E a pergunta seguinte: esse nome vira constante no código,
+configuração, ou campo que o operador digita? **Se for campo digitável, um erro de
+digitação cria instância nova sem avisar.**
+
+**2. Quem guarda a `WHATSAPP_TOKEN_ENCRYPTION_KEY`, e onde está o backup dela?**
+Perder essa chave torna **todo token persistido irrecuperável** — a conexão
+existe no banco e não decifra. Não há modo degradado, por decisão do IMP-364.
+Isso precisa estar respondido antes do IMP-359, não durante.
+
+**3. O agente de IA já está no ar, e em qual endereço?**
+A DR-006 apontou o webhook do Evolution para o agente, não para a TiaNet. O
+IMP-368 e o IMP-369 não tocam nisso, mas o deploy toca: se o agente ainda não
+existe no endereço final, o webhook aponta para o vazio e ninguém percebe até
+alguém responder uma mensagem.
+
+**4. Quando o `EVOLUTION_INSTANCE_TOKEN` sai do ambiente do servidor?**
+O IMP-370 faz o worker ler do banco, com o ambiente mantendo precedência. Isso é
+proposital — mas a variável precisa sair em algum momento, ou o repositório nunca
+vira a fonte de verdade. Quem remove, e depois de qual verificação?
+
+**5. O que a tela mostra: número, nome, ou os dois?**
+Agora existem os dois (`numero` do `jid`, `nome_exibicao` do push name). Rotular
+o nome como número é o defeito que o review pegou — a decisão de rótulo é de
+produto, e é sua.
+
+**6. Há algo mais no servidor que o `contexto-externo.md` não registra?**
+Esta é a pergunta guarda-chuva, e a que teria evitado o dia de hoje. Instâncias
+antigas, tenants de teste, configurações feitas à mão, integrações que alguém
+ligou e esqueceu — qualquer uma muda o que o código deve assumir.
+
+---
+
+# 6. Fluxo de trabalho vigente
 
 ```
 commit local  →  review do Codex até aprovar  →  abre PR  →  Claude merga  →  CI  →  próximo
@@ -150,7 +207,7 @@ PR** — são commits diferentes.
 
 ---
 
-# 6. Próximo ciclo
+# 7. Próximo ciclo
 
 1. **IMP-368** — endpoints e contrato. Herda três decisões já tomadas: a
    `Idempotency-Key` fica de fora (PLAN-034 §3.1, com o porquê), o RBAC usa as
@@ -166,8 +223,9 @@ as decisões sobre CPFs históricos (§3.4) e o `CLAUDE.md` (§3.5).
 
 ---
 
-# 7. Historico de Versoes
+# 8. Historico de Versoes
 
 | Versao | Data | Descricao |
 |---|---|---|
+| 1.1.0 | 2026-09-02 | §5: protocolo socratico. As duas descobertas da §2 nao estavam no repositorio e custaram caro — uma conclusao errada e quase uma segunda instancia em producao. A secao fixa a regra (decisao que depende de sistema ilegivel vira pergunta, nao inferencia) e instancia seis perguntas concretas para o proximo ciclo, comecando pelo nome da instancia, de que a adocao do IMP-367 depende literalmente. |
 | 1.0.0 | 2026-09-02 | A violação da ADR-009 corrigida com allowlist em vez de enumeração; o IMP-367 entregue com adoção de instância existente e o telefone da conta pareada localizado no `jid` — descoberta que veio do fundador, não do código; e o que 19 rodadas de review ensinaram, incluindo um guardrail que falhou exatamente do jeito que seu próprio docstring descrevia. |
