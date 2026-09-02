@@ -68,40 +68,39 @@ foi aceito**. Se o provedor nao deduplicar pelo `id` — e isso **nao foi medido
 —, o destinatario recebe a mesma mensagem duas vezes.
 
 **Que mensagem, exatamente.** O adapter do WhatsApp esta ligado a
-`enviar_comprovante_whatsapp` e `enviar_aviso_sobra`
-(`scheduler_worker.py:346-354`); `enviar_lembrete` usa o canal de e-mail. E o
+`enviar_comprovante_whatsapp` e `avisar_sobra_pagamento_whatsapp`
+(`scheduler_worker.py`, mapa `handlers`); `enviar_lembrete` usa o canal de e-mail. E o
 comprovante e o do **lancamento do emprestimo** — origem `comprovante_lancamento`,
-corpo encabecado "Comprovante do lancamento" (`comprovante.py:33-68`) —, nao de
+corpo encabecado "Comprovante do lancamento" (`montar_texto_comprovante`) —, nao de
 pagamento. Entao o que pode duplicar hoje e **o comprovante de contratacao e o
 aviso de sobra de pagamento**, nao cobranca. Menos grave, e nao inocuo: dois
 comprovantes do mesmo emprestimo sugerem dois emprestimos. Quando o lembrete
 migrar para o WhatsApp, o mesmo defeito passa a alcancar cobranca.
 
-**3.1 — Resposta 5xx** (`whatsapp.py:87`). A ADR nomeia `5xx` como o primeiro
+**3.1 — Resposta 5xx** (`whatsapp.py`, `_classificar_resposta`, codigo `provider_5xx`). A ADR nomeia `5xx` como o primeiro
 item de `resultado_desconhecido`; o adapter devolve `FALHA_TEMPORARIA` com
 codigo `provider_5xx`, e o Scheduler reenvia. Um 502 ou 504 de gateway chega
 depois de o upstream ter aceitado a mensagem — e nao ha como distinguir isso de
 um 500 que nao aceitou nada.
 
-**3.2 — Transporte indistinto** (`whatsapp.py:52-53`). O `except` unico devolve
+**3.2 — Transporte indistinto** (`whatsapp.py`, o `except` de `enviar`). O `except` unico devolve
 `FALHA_TEMPORARIA` para todo `TimeoutException` **e** todo `TransportError`. A
 ADR so autoriza retry para falha **comprovadamente anterior** ao envio de bytes,
 e esses dois ramos misturam os dois lados: `ConnectTimeout` e `ConnectError` sao
-anteriores, mas `ReadError`, `WriteError` e `RemoteProtocolError` sao resets
-**depois** de transmitir — exatamente o caso que a ADR nomeia ao lado do timeout.
+anteriores, mas `ReadError`, `WriteError`, `CloseError` e `RemoteProtocolError`
+sao resets **depois** de transmitir — exatamente o caso que a ADR nomeia ao lado do timeout.
 
-**3.3 — `DecodingError` escapa** (`whatsapp.py:52`, `resend.py:52`). Ela e
+**3.3 — `DecodingError` escapa** (o mesmo `except` em `whatsapp.py` e em
+`resend.py`). Ela e
 `RequestError`, **nao** `TransportError` — irma dele na hierarquia, fora do
 `except`. Sobe do adapter, e `SchedulerWorker._execute` converte **qualquer**
-excecao do handler em `FALHA_TEMPORARIA` (`scheduler_worker.py:191-201`), que
-reenvia. O decoding falha lendo o **corpo da resposta**: a requisicao ja foi
+excecao do handler em `FALHA_TEMPORARIA` (`SchedulerWorker._execute`), que reenvia. O decoding falha lendo o **corpo da resposta**: a requisicao ja foi
 enviada e pode ter sido aceita.
 
 Estava listado como caveat de higiene (§4.6). Nao e: e o mesmo defeito.
 
-**Uma ocorrencia dela e outra coisa.** Em `resend.py:59`, dentro de
-`consultar_status`, o unico chamador e `NotificationService.conciliar`
-(`notifications.py:637`) — fluxo administrativo, disparado por gente, com motivo
+**Uma ocorrencia dela e outra coisa.** Em `resend.py`, dentro de `consultar_status`, o
+unico chamador e `NotificationService.conciliar` — fluxo administrativo, disparado por gente, com motivo
 e IAM. Ali a excecao nao vira retry: vira erro nao tratado no meio da
 conciliacao. Defeito tambem, consequencia diferente; nao confundir os dois ao
 corrigir.
@@ -113,14 +112,14 @@ A correcao e separar o que a ADR separa:
   pool**, antes de existir requisicao; trata-lo como desconhecido bloquearia
   retry legitimo sob contencao;
 - **Depois de transmitir** — `ReadTimeout`, `WriteTimeout`, `ReadError`,
-  `WriteError`, `RemoteProtocolError` e `DecodingError`: sem prova de nao aceite,
-  `resultado_desconhecido`;
+  `WriteError`, `CloseError`, `RemoteProtocolError` e `DecodingError`: sem prova
+  de nao aceite, `resultado_desconhecido`. O `CloseError` estoura fechando o
+  stream da resposta, ou seja, depois de tudo ter sido enviado;
 - **`provider_5xx`** — `RESULTADO_DESCONHECIDO`, como a tabela manda.
 
 O proprio adapter ja classifica **2xx malformado** como `DESCONHECIDO`, que e a
 linha vizinha da mesma tabela. E o **adapter do Resend**, mais antigo e escrito
-sob a mesma ADR, mapeia `5xx` e toda falha de transporte para `DESCONHECIDO`
-(`resend.py:52-64`) — conservador ate demais, tratando como desconhecido tambem o
+sob a mesma ADR, mapeia `5xx` e toda falha de transporte para `DESCONHECIDO` — conservador ate demais, tratando como desconhecido tambem o
 que a ADR permitiria reenviar. No 5xx e no transporte, o do WhatsApp diverge da
 ADR e do irmao ao mesmo tempo; no `DecodingError` os dois erram junto. Sao
 omissoes, nao desenho.

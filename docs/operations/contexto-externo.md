@@ -284,28 +284,28 @@ emprestimo e ao **aviso de sobra de pagamento** (`enviar_lembrete` usa o canal d
 e-mail), entao sao esses dois — dois comprovantes do mesmo emprestimo sugerem
 dois emprestimos. Quando o lembrete migrar para o WhatsApp, alcanca cobranca.
 
-- **Resposta 5xx** (`whatsapp.py:87`) — a tabela da ADR nomeia `5xx` como o
+- **Resposta 5xx** (`_classificar_resposta`, codigo `provider_5xx`) — a tabela da ADR nomeia `5xx` como o
   primeiro item de `resultado_desconhecido`; o adapter devolve
   `FALHA_TEMPORARIA` com codigo `provider_5xx`. Um 502 ou 504 de gateway chega
   depois de o upstream ter aceitado, e nao ha como distinguir isso de um 500 que
   nao aceitou nada;
-- **Transporte indistinto** (`whatsapp.py:52-53`) — o `except` unico devolve
+- **Transporte indistinto** (o `except` de `enviar`) — o `except` unico devolve
   `FALHA_TEMPORARIA` para todo `TimeoutException` e todo `TransportError`,
   misturando `ConnectTimeout`/`ConnectError` (anteriores ao envio) com
-  `ReadError`, `WriteError` e `RemoteProtocolError` (resets **depois** de
+  `ReadError`, `WriteError`, `CloseError` e `RemoteProtocolError` (resets **depois** de
   transmitir, que a ADR nomeia ao lado do timeout);
-- **`DecodingError` escapa** (`whatsapp.py:52`, `resend.py:52`) — ela e
+- **`DecodingError` escapa** (o mesmo `except`, nos dois adapters) — ela e
   `RequestError`, nao `TransportError`, entao o `except` nao a captura; sobe do
   adapter, e o `SchedulerWorker` converte qualquer excecao do handler em
   `FALHA_TEMPORARIA`. Como o decoding falha lendo o **corpo da resposta**, a
-  requisicao ja foi enviada. Em `resend.py:59` (`consultar_status`) a mesma
+  requisicao ja foi enviada. Em `consultar_status` a mesma
   excecao nao vira retry: vira erro nao tratado na conciliacao administrativa.
 
 A correcao e separar o que a ADR separa: `ConnectTimeout`, `ConnectError` e
 `PoolTimeout` sao falhas *comprovadamente anteriores* ao envio de bytes —
 temporarias, podem reenviar (o `PoolTimeout` estoura esperando uma conexao do
 pool, antes de existir requisicao); `ReadTimeout`, `WriteTimeout`, `ReadError`,
-`WriteError`, `RemoteProtocolError`, `DecodingError` e o `5xx` nao tem prova de
+`WriteError`, `CloseError`, `RemoteProtocolError`, `DecodingError` e o `5xx` nao tem prova de
 nao aceite, e viram `resultado_desconhecido`.
 
 O proprio adapter ja classifica **2xx malformado** como desconhecido, que e a
