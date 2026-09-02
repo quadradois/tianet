@@ -1,6 +1,6 @@
 # Contexto Externo
 
-**Versao:** 1.3.1
+**Versao:** 1.4.0
 
 **Status:** Vivo — mantido manualmente
 
@@ -270,14 +270,15 @@ Nao ha ambiente de teste do Evolution — a validacao acima foi feita em produca
 para o numero do proprio fundador, sem que nenhum devedor real recebesse
 mensagem. Esse continua sendo o unico caminho para conferencias futuras.
 
-**O que ficou aberto — e nao e uma decisao, sao defeitos.** A validacao
+**O que ficou aberto, e foi corrigido em 2026-09-02.** A validacao
 respondeu o formato, nao a deduplicacao. Mas a politica para esse caso **ja esta
 decidida** na ADR-009: retry so quando ha **prova** de que o provedor nao
 aceitou; na duvida — a ADR cita "timeout ou reset depois do envio de bytes" como
 exemplo, nao como limite —, vale `resultado_desconhecido`, que **bloqueia retry
 e concilia**.
 
-Sao **tres pontos** no adapter, e os tres levam a mesma consequencia concreta:
+Eram **tres pontos** no adapter, e os tres levavam a mesma consequencia
+concreta:
 o Scheduler reenvia sem prova de que o primeiro envio nao foi aceito. Se o
 provedor nao deduplicar pelo `id` — nao medido —, o destinatario recebe duas
 vezes. Hoje o adapter do WhatsApp esta ligado ao **comprovante do lancamento** do
@@ -295,7 +296,7 @@ dois emprestimos. Quando o lembrete migrar para o WhatsApp, alcanca cobranca.
   varrendo junto o que prova nao-aceitacao (`ConnectTimeout`, `ConnectError`) e o
   que nao prova nada (`ReadTimeout`, `ReadError`, `WriteError`, `CloseError`,
   `RemoteProtocolError`);
-- **`DecodingError` escapa** (o mesmo `except`, nos dois adapters) — ela e
+- **`DecodingError` escapava** (o mesmo `except`, nos dois adapters) — ela e
   `RequestError`, nao `TransportError`, entao o `except` nao a captura; sobe do
   adapter, e o `SchedulerWorker` converte qualquer excecao do handler em
   `FALHA_TEMPORARIA`. Como o decoding falha lendo o **corpo da resposta**, a
@@ -312,6 +313,14 @@ estourar na primeira escrita, sem nenhum byte na rede. O criterio da ADR e a
 **todo o resto**, `5xx` incluido, e desconhecido — inclusive uma excecao nova da
 biblioteca, que assim cai no lado seguro sozinha.
 
+**Estado atual: corrigido.** Os dois adapters aplicam essa allowlist, o `5xx` do
+WhatsApp virou `DESCONHECIDO`, e o `except` passou a capturar `RequestError` —
+que engloba `DecodingError`. Os testes cobrem os tres caminhos anteriores ao
+envio e os sete que nao provam nada. O que **continua aberto** e a pergunta de
+fundo: nao foi medido se o Evolution deduplica pelo `id`. Enquanto nao for, cada
+`resultado_desconhecido` vira conciliacao humana — o custo real de nao ter
+medido.
+
 O proprio adapter ja classifica **2xx malformado** como desconhecido, que e a
 linha vizinha da mesma tabela — os tres pontos acima sao omissao, nao desenho.
 Corrigir isso e item de codigo, nao de documentacao.
@@ -322,6 +331,7 @@ Corrigir isso e item de codigo, nao de documentacao.
 
 | Versao | Data | Descricao |
 |---|---|---|
+| 1.4.0 | 2026-09-02 | Os tres defeitos da §6.2 foram corrigidos no mesmo dia em que acabaram de ser descritos: os adapters aplicam a allowlist, o `5xx` do WhatsApp virou desconhecido e o `except` passou a capturar `RequestError`, que engloba `DecodingError`. O que continua aberto e a premissa — ninguem mediu se o Evolution deduplica pelo `id`, e por isso cada resultado desconhecido vira conciliacao humana. |
 | 1.3.1 | 2026-09-02 | A §6.2 registrava so um terco do problema. Alem do timeout indistinto: **resposta 5xx** vira `FALHA_TEMPORARIA` e a tabela da ADR-009 poe `5xx` em `resultado_desconhecido`; e **`DecodingError` escapa** do `except` (e `RequestError`, nao `TransportError`) direto para o retry do Scheduler. Sao tres pontos, nao um. E a receita mudou de forma: em vez de enumerar excecoes "de depois do envio" — enumeracao que faltou uma em cada tentativa —, a regra vira allowlist. So `ConnectTimeout`, `ConnectError` e `PoolTimeout` provam que a requisicao nao chegou a existir na rede; todo o resto e desconhecido por omissao, `5xx` incluido. "Depois de transmitir bytes" nao e verificavel a partir da excecao. Registrado tambem o que de fato pode duplicar hoje: comprovante do lancamento e aviso de sobra, nao cobranca — o lembrete usa o canal de e-mail. |
 | 1.3.0 | 2026-08-27 | Reconciliacoes do PLAN-033/IMP-358: conversas do agente saem de `RegistroComunicacao` (devedor_id obrigatorio impede) e ganham modelo proprio; contextos Operadora/Pre-cadastro e o limite da allowlist registrados na §2.2. |
 | 1.2.0 | 2026-08-25 | As cinco perguntas em aberto foram respondidas pelo fundador e a secao §6 deixou de ser duvida para virar registro. E-mail saiu do escopo do MVP e o worker deixou de ser derrubado por falta de conta Resend — com recusa nomeada no lugar do fake que fingia entrega. Topologia do agente decidida sem webhook publico. Segredo do Evolution fica em variavel de ambiente, com o limite de uma instancia por processo declarado. |

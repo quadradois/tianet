@@ -49,14 +49,14 @@ class ResendNotificationChannel(NotificationChannel):
                     "headers": {"X-Entity-Ref-ID": chave_idempotente},
                 },
             )
-        except (httpx.TimeoutException, httpx.TransportError):
+        except httpx.RequestError:
             return ResultadoEnvio(ResultadoCanal.DESCONHECIDO, codigo="transport_unknown")
         return _classificar_resposta(response, chave_idempotente)
 
     def consultar_status(self, provider_message_id: str) -> ResultadoEnvio:
         try:
             response = self._client.get(f"/emails/{provider_message_id}")
-        except (httpx.TimeoutException, httpx.TransportError):
+        except httpx.RequestError:
             return ResultadoEnvio(ResultadoCanal.DESCONHECIDO, codigo="status_unknown")
         if response.status_code == 404:
             return ResultadoEnvio(ResultadoCanal.FALHA_PERMANENTE, codigo="provider_not_found")
