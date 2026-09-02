@@ -44,11 +44,13 @@ class _ProvedorFake:
         estado: EstadoPareamento | None = None,
         *,
         falhar_em_qrcode: Exception | None = None,
+        falhar_em_desconectar: Exception | None = None,
     ) -> None:
         self._estado = estado or EstadoPareamento(
             conectado=False, pareado=False, nome_exibicao=None
         )
         self._falhar_em_qrcode = falhar_em_qrcode
+        self._falhar_em_desconectar = falhar_em_desconectar
         self.criadas: list[str] = []
         self.qrcodes_pedidos = 0
         self.conectadas: list[str] = []
@@ -71,6 +73,8 @@ class _ProvedorFake:
         return self._estado
 
     def desconectar(self, token: str) -> None:
+        if self._falhar_em_desconectar is not None:
+            raise self._falhar_em_desconectar
         self.desconectadas.append(token)
 
 
@@ -497,6 +501,27 @@ def test_desconectar_com_falha_apos_o_logout_registra_divergencia() -> None:
     divergencia = auditoria.eventos[-1]
     assert divergencia[2] == "efeito_externo_sem_registro_local"
     assert json.loads(divergencia[3] or "{}")["instancia_id"] == conexao.instancia_id
+
+
+def test_desconectar_com_timeout_no_provedor_registra_divergencia() -> None:
+    """Timeout nao prova que o `logout` nao foi aceito.
+
+    Mesma regra da ADR-009 para envio: sem prova de nao aceite, assume-se que o
+    efeito externo aconteceu. Marcar a divergencia so depois da chamada faria o
+    caso ambiguo cair em `rollback_aplicado` — a afirmacao mais forte, e a unica
+    que a trilha nao permite retirar.
+    """
+
+    conexao = _conexao(NOME)
+    repo = _RepoFake(conexao, token="token-1")
+    provedor = _ProvedorFake(falhar_em_desconectar=TimeoutError("sem resposta"))
+    uow, auditoria = _montar(repo, provedor)
+
+    with pytest.raises(TimeoutError):
+        DesconectarWhatsApp(lambda: uow, provedor, auditoria).executar(uuid.uuid4())
+
+    acoes = [e[1] for e in auditoria.eventos]
+    assert acoes == ["desconectar.inicio", "desconectar.falha", "desconectar.divergencia"]
 
 
 def test_desconectar_sem_conexao_e_erro_nomeado() -> None:

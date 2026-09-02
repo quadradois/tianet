@@ -369,10 +369,14 @@ class DesconectarWhatsApp:
                 if conexao is None or token is None:
                     raise ConexaoWhatsAppNaoEncontradaError(tenant_id)
 
-                self._provedor.desconectar(token)
-                # Guarda o identificador, nao um booleano: no `except`, quem
-                # investiga precisa saber QUAL instancia ficou divergente.
+                # Marcado ANTES da chamada, e nao depois: um timeout ou reset
+                # levanta sem provar que o `logout` nao foi aceito. E a mesma
+                # regra da ADR-009 para envio — na duvida, assume-se que o
+                # efeito externo aconteceu. Marcar depois faria justamente o
+                # caso ambiguo cair em `rollback_aplicado`, que e a afirmacao
+                # mais forte e a unica que nao se pode retirar.
                 desconectado_no_provedor = conexao.instancia_id
+                self._provedor.desconectar(token)
                 despareada = conexao.desparear()
                 uow.conexao_whatsapp.save(despareada)
                 uow.commit()
@@ -385,11 +389,12 @@ class DesconectarWhatsApp:
                 detalhes=_detalhes(autoria, erro_tipo=type(exc).__name__),
             )
             if desconectado_no_provedor is not None:
-                # O `logout` no provedor JA aconteceu, e nenhum rollback de banco
-                # o desfaz: o numero esta desvinculado la, e o registro local
-                # voltou a dizer "pareada". Chamar isso de `rollback_aplicado`
-                # numa trilha append-only afirmaria que o efeito foi revertido.
-                # E divergencia, e quem investigar precisa ler exatamente isso.
+                # O `logout` no provedor aconteceu, ou pode ter acontecido — e
+                # nenhum rollback de banco o desfaz. O numero fica desvinculado
+                # la enquanto o registro local volta a dizer "pareada". Chamar
+                # isso de `rollback_aplicado` numa trilha append-only afirmaria
+                # que o efeito foi revertido, para sempre. E divergencia, e quem
+                # investigar precisa ler exatamente isso.
                 self._auditoria.registrar(
                     ENTIDADE_AUDITORIA,
                     None,
