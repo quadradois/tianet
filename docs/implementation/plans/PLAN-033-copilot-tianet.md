@@ -4,7 +4,8 @@
 
 **Versao:** 1.0.0
 
-**Status:** Em execucao — GATE-E1a cumprido, GATE-E1b bloqueado
+**Status:** Em execucao — GATE-E1a cumprido; GATE-E1b parcial (IMP-352
+cumprido em 2026-08-31, resta IMP-359, sequenciado depois do PLAN-034)
 
 **Backlog de execucao:**
 `docs/implementation/backlogs/PLAN-033-execution-backlog.md`
@@ -96,7 +97,7 @@ Execution Gates conforme o
 | Gate | Conteudo | Estado |
 |---|---|---|
 | GATE-E1a | governanca (IMP-358) | **cumprido** em 2026-08-27 |
-| GATE-E1b | canal validado e producao pronta (IMP-352, IMP-359) | bloqueado por insumo externo |
+| GATE-E1b | canal validado e producao pronta (IMP-352, IMP-359) | **parcial** — IMP-352 cumprido em 2026-08-31, com o canal validado contra o servidor real. Resta o IMP-359, e o insumo de **servidor** deixou de ser bloqueio: a VPS e o dominio existem. Continua pendente a **escolha do provedor de IA** com o cliente, sem a qual `LLM_BASE_URL`, `LLM_API_KEY` e `LLM_MODEL` nao tem valor. O deploy foi sequenciado **depois** do PLAN-034 por decisao do fundador |
 | GATE-E2 | Fase A e Fase B | em execucao |
 | GATE-E3 | Fase C | nao iniciado |
 | GATE-E4 | Fase D | nao iniciado |

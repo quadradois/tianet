@@ -247,3 +247,49 @@ entrega/leitura e conciliacao automatica continuam fora, como o texto original
 decidiu; o resultado `DESCONHECIDO` do Evolution segue terminal ate que um
 desenho de receipt seja aprovado.
 
+
+---
+
+## Adendo 2026-09-01 — o token da instancia passa a viver cifrado no banco
+
+**Autoridade do adendo:** Arquitetura, via
+[DR-006](../../governance/decision-requests/DR-006-conexao-do-whatsapp-dentro-da-plataforma.md),
+resolvida pelo fundador em 2026-08-31, e materializada pelo
+[PLAN-034](../../implementation/plans/PLAN-034-conexao-do-whatsapp-na-plataforma.md).
+Como no adendo anterior, **nada acima foi reescrito**.
+
+O adendo de 2026-08-27 registra que o `EVOLUTION_INSTANCE_TOKEN` "vive em
+variavel de ambiente, nunca em log ou banco". A parte de **log continua valendo,
+e sem excecao**. A parte de **banco mudou**, e o motivo e ergonomia operacional,
+nao conveniencia.
+
+**Por que mudou.** Quem opera a TiaNet nao tem conta no servidor Evolution, e a
+DR-006 decidiu trazer a criacao da instancia para dentro da plataforma. Ao criar,
+**a plataforma gera o token** — o Evolution apenas o ecoa. Sem persistir, esse
+valor existiria so na requisicao que o criou, e alguem teria de copia-lo para o
+`.env` a mao: exatamente o atrito que a tela vem eliminar.
+
+Reconectar uma instancia que ja existe e outra coisa e **nao** exige isso: o
+token nao muda no reconnect, e a variavel de ambiente sobrevive a restart. O que
+a persistencia resolve e o **nascimento** da instancia, nao a sua reconexao.
+
+**O que muda, exatamente:**
+
+- o **token da instancia** e persistido **cifrado em repouso** (Fernet, chave em
+  `WHATSAPP_TOKEN_ENCRYPTION_KEY`, fora do banco). Nunca em texto claro, e a
+  recusa e nomeada quando a chave falta — nao ha modo degradado;
+- `EVOLUTION_HOST` e as credenciais de **gestao** do tenant continuam em
+  variavel de ambiente: nao sao geradas pela plataforma e nao mudam por acao de
+  usuario;
+- **o ambiente mantem precedencia**, e continua mantendo depois do IMP-370. O
+  criterio de pronto daquele item e explicito: com a variavel presente, ela
+  prevalece e o comportamento atual nao muda. O repositorio passa a ser a origem
+  quando a variavel esta ausente, nao no lugar dela.
+
+  A fase e propria porque trocar a origem do token junto com a criacao da tela
+  arriscaria deixar o worker sem canal — e worker sem canal e operacao sem
+  aviso.
+
+**O que nao muda.** Nenhuma outra regra desta ADR: a porta continua sem decidir
+elegibilidade, sem retry interno e sem abrir transacao de dominio. E o token
+continua **fora de log**, de trilha e de metrica.

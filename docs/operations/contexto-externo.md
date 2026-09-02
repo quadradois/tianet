@@ -40,7 +40,7 @@ auditada contra o codigo em producao. Leia antes de integrar qualquer coisa.
 | Autenticacao | tres niveis: Global (`/tenant/*`), Tenant (`/instance/*` de gestao), Instancia (envio e conexao) |
 | Retry de webhook | 5 tentativas, 30s de intervalo, depois descarta — **nao existe replay** |
 | Tamanho de payload | midia vem em base64; `HistorySync` ja foi observado com 5,6MB |
-| Ambiente de teste | *a preencher* |
+| Ambiente de teste | **Nao existe** — respondido em 2026-08-25. Validacoes controladas usam producao com o numero do fundador; ver §6.2 |
 
 ### Recorte para a TiaNet
 
@@ -59,15 +59,20 @@ escopo, e o Evento 6 corresponde a inativacao de Tenant ja existente.
   adapter precisara ler recibos armazenados, ou a porta muda.
 - **Conexao e pre-requisito das duas direcoes**: nao se envia nada sem instancia
   conectada, o que exige criar tenant, criar instancia e escanear o QR.
-- **O contrato nao descreve o formato de `POST /send/text`** (adicionado em
-  2026-08-22, no IMP-346): ele fixa o nivel de autenticacao da rota e o
-  comportamento de tenant inativo, mas nao traz exemplo de requisicao nem de
-  resposta. O adapter foi escrito com payload `{number, text, id}` e aceite por
-  `data.Info.ID`, extrapolados da documentacao publica do Evolution Go. **Nao
-  esta validado contra o servidor.** Se divergir, envios bem-sucedidos viram
-  `DESCONHECIDO` — sem risco de duplicata, porque esse resultado nao dispara
-  retry, mas com prejuizo de escrituracao. Conferir no primeiro envio real e
-  atualizar o contrato com o formato observado.
+- **O formato de `POST /send/text` foi VALIDADO em 2026-08-31** (IMP-352). O
+  contrato nao o descrevia, e o adapter usava `{number, text, id}` com aceite por
+  `data.Info.ID` extrapolados da documentacao publica. **Nao divergia.** Corpo e
+  resposta observados foram incorporados a secao 8.1 de
+  `docs/whatsapp/CRM_EVOLUTION_CONTRACT.md`.
+
+  O que a resposta real ensinou, e nao estava em lugar nenhum: **`data.Info.ID` e
+  eco** do `id` que enviamos, nao identificador gerado pelo servidor.
+
+  Isso **correlaciona** requisicao e resposta, e nao mais que isso: nao foi
+  medido se o provedor suprime uma segunda mensagem com o mesmo `id`, entao um
+  retry apos timeout pode entregar duas vezes. E **nao existe id do provedor**
+  para consultar depois — entrega so se confirma por `Receipt`, que e o que
+  `consultar_status` ja declarava.
 
 Consequencias ja incorporadas ao desenho:
 
@@ -146,11 +151,21 @@ Docker, validada ponta a ponta.
 
 | Campo | Valor |
 |---|---|
-| Situacao | **nao provisionado** |
-| Tipo (VPS, cloud gerenciada, PaaS) | *a preencher* |
-| Dominio | *a preencher* |
-| TLS | *a preencher* |
-| Backup do PostgreSQL | *a preencher* |
+| Situacao | **VPS provisionada em 2026-08-31.** Sem deploy ainda |
+| Tipo | VPS |
+| Dominio | `tianet.com.br` — ativo |
+| TLS | *pendente* |
+| Backup do PostgreSQL | *pendente* |
+| CD e endurecimento | *pendentes* |
+
+O insumo de **servidor** que bloqueava o **IMP-359** deixou de existir: a maquina
+e o dominio estao disponiveis. Falta trabalho nosso — deploy, TLS, backup, CD e
+endurecimento —, e a sequencia acordada com o fundador poe isso **depois** do
+PLAN-034.
+
+**Um insumo externo permanece:** a escolha do provedor de IA com o cliente. Sem
+ela, `LLM_BASE_URL`, `LLM_API_KEY` e `LLM_MODEL` nao tem valor para provisionar,
+e o IMP-359 nao fecha. Ver DR-005 e §2.2.
 
 Nao existe pipeline de CD no repositorio: `.github/workflows/quality.yml` e o
 unico workflow e cobre apenas gates de qualidade.
@@ -195,7 +210,7 @@ registradas com a resposta, para que ninguem as reabra como se fossem duvida.
 | 2 | Onde ficam `evolution_tenant_id` e `evolution_api_key`? | **Variavel de ambiente**, como ja e hoje (`EVOLUTION_INSTANCE_TOKEN`). Ver abaixo. |
 | 3 | Ha ambiente de teste do Evolution? | **Nao.** A validacao sera em producao, com o numero do proprio fundador. Ver abaixo. |
 | 4 | Ha conta Resend ativa? | **Nao.** E-mail fora do escopo do MVP. Ver §2.3. |
-| 5 | Qual servidor recebe o deploy? | **Ainda nao provisionado.** Ver §3.2. |
+| 5 | Qual servidor recebe o deploy? | **VPS provisionada e dominio `tianet.com.br` ativo** desde 2026-08-31. Faltam deploy, TLS, backup, CD e endurecimento. Ver §3.2. |
 
 ## 6.1 Segredo do Evolution: variavel de ambiente
 
@@ -244,19 +259,31 @@ migracao.
 > secao 8.1 de `docs/whatsapp/CRM_EVOLUTION_CONTRACT.md`, que ate entao listava
 > a rota sem fixar seu formato.
 >
-> Consequencia registrada: como o identificador e nosso, ele serve de chave de
-> idempotencia ponta a ponta, mas **nao ha identificador do provedor para
-> consultar depois** — entrega so se confirma por `Receipt`. Isso ja era o que o
-> adapter declarava em `consultar_status`; agora esta verificado, nao suposto.
+> Consequencia registrada: como o identificador e nosso, ele **correlaciona**
+> requisicao e resposta. Nao foi medido se o provedor suprime uma segunda
+> mensagem com o mesmo `id`, entao correlacionar nao e deduplicar. E **nao ha
+> identificador do provedor** para consultar depois — entrega so se confirma por
+> `Receipt`, o que o adapter ja declarava em `consultar_status`.
 
-Nao ha ambiente de teste do Evolution. A validacao do caveat 4.1 do handoff sera
-feita **em producao, enviando para o numero do proprio fundador** — nenhum
-devedor real recebe mensagem durante a conferencia.
+Nao ha ambiente de teste do Evolution — a validacao acima foi feita em producao,
+para o numero do proprio fundador, sem que nenhum devedor real recebesse
+mensagem. Esse continua sendo o unico caminho para conferencias futuras.
 
-Um unico envio basta: o que se quer observar e o **formato da resposta**, para
-confirmar ou corrigir o criterio de aceite `data.Info.ID`. Enquanto isso nao for
-feito, envios bem-sucedidos podem estar sendo classificados como `DESCONHECIDO`
-— sem risco de duplicata para o devedor, com prejuizo de escrituracao.
+**O que ficou aberto — e nao e uma decisao, e um defeito.** A validacao
+respondeu o formato, nao a deduplicacao. Mas a politica para esse caso **ja esta
+decidida** na ADR-009: timeout ou reset *depois de transmitir bytes* e
+`resultado_desconhecido`, que **bloqueia retry e concilia** — porque nao ha prova
+de que a requisicao nao foi aceita.
+
+O adapter classifica todo `httpx.TimeoutException` como `FALHA_TEMPORARIA`, e o
+Scheduler reenvia. Isso **viola a ADR-009**, e a consequencia e concreta: se o
+Evolution aceitou antes do timeout do cliente, o devedor recebe a cobranca duas
+vezes.
+
+A distincao que o codigo nao faz e a que a ADR exige: falha *comprovadamente
+anterior* ao envio de bytes (`ConnectTimeout`, `ConnectError`) e temporaria e
+pode reenviar; timeout *depois* de transmitir (`ReadTimeout`) nao tem prova, e
+nao pode. Corrigir isso e item de codigo, nao de documentacao.
 
 ---
 

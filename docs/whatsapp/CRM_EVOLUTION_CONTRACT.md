@@ -388,11 +388,19 @@ Não existe um único evento `CONNECTION_UPDATE` com um campo `state`. São even
 { "event": "LoggedOut", "instanceId": "...", "data": { "reason": "...", "...": "..." } }
 ```
 
-**Ação no CRM:** tratar `"Connected"`/`"PairSuccess"` como "conectado"; `"LoggedOut"`/`"Disconnected"`/`"ConnectFailure"` como "desconectado", e então acionar a mesma lógica de reconexão descrita no Evento 4 se aplicável.
+**Ação no CRM:** `"LoggedOut"`/`"Disconnected"`/`"ConnectFailure"` significam desconectado. Acione a reconexão do Evento 4 **somente se a desconexão não foi pedida por você**.
+
+⚠️ Um `logout` deliberado — por exemplo o `DELETE /platform/whatsapp/conexao` do PLAN-034 §6 — também emite `LoggedOut`. Reconectar nesse caso desfaz, em segundos, a ação que o operador acabou de tomar. Guarde a intenção antes de chamar o `logout` e ignore o evento correspondente.
+
+⚠️ **`Connected` NÃO é o mesmo que "número pareado".** Verificado ao vivo em 2026-08-31: uma instância recém-criada responde `Connected: true` com `LoggedIn: false` — o socket está de pé e nenhum WhatsApp está vinculado. Tratar `Connected` como estado operacional faz o CRM anunciar WhatsApp funcionando sem ninguém do outro lado.
+
+Use `"PairSuccess"`, ou `LoggedIn` em `GET /instance/status`, para o estado operacional. Reserve `Connected` para "transporte ativo".
 
 ### 5.5 — Reconexão automática
 
-Continua válida a recomendação original: em desconexão, chamar `POST /instance/reconnect` (auth: instância) com backoff, e se continuar falhando, tratar como sessão expirada e reiniciar o fluxo de QR (Evento 4).
+Em desconexão **não solicitada**, chamar `POST /instance/reconnect` (auth: instância) com backoff, e se continuar falhando, tratar como sessão expirada e reiniciar o fluxo de QR (Evento 4).
+
+⚠️ A ressalva da §5.4 vale aqui também: se o `logout` foi pedido pelo operador, reconectar desfaz a ação dele. Verifique a intenção registrada antes de reconectar.
 
 ---
 
@@ -435,7 +443,12 @@ Ao reconectar uma instância, o servidor pode disparar eventos `HistorySync` com
 
 ## 7. Monitoramento — healthcheck periódico
 
-Sem mudanças em relação à versão anterior — validado, está correto:
+⚠️ **Atualizado em 2026-09-01:** o algoritmo abaixo reagia apenas a
+`connected = false`. Com a distinção entre `Connected` e `LoggedIn` verificada ao
+vivo (§5.4), isso deixava o CRM marcado como conectado no estado
+`Connected: true, LoggedIn: false` — socket de pé, **nenhum número vinculado**.
+É exatamente o cenário de uma sessão expirada, que é o que o monitoramento
+existe para detectar.
 
 ```http
 GET {EVOLUTION_HOST}/instance/all
@@ -445,9 +458,17 @@ X-Tenant-ID: {evolution_tenant_id}
 
 ```
 Para cada instância retornada:
-  se connected = false e status no CRM = 'conectado':
+  # `/instance/all` traz `connected`; o pareamento vem de `/instance/status`,
+  # que e a unica resposta verificada ao vivo contendo `LoggedIn`.
+  se connected = false:
+    operacional = false
+  senao:
+    operacional = GET /instance/status (auth: instancia) → LoggedIn
+
+  se operacional = false e status no CRM = 'conectado':
     → atualizar status para 'desconectado'
-    → tentar reconectar (POST /instance/reconnect)
+    → se a desconexao foi PEDIDA pelo operador (ver §5.4): parar aqui
+    → senao: tentar reconectar (POST /instance/reconnect)
     → se 3 falhas: notificar cliente via CRM
 ```
 
@@ -519,9 +540,19 @@ identificador gerado pelo servidor. Duas consequências para quem integra:
 
 1. O critério de aceite `data.Info.ID` está correto — mas confirma apenas que o
    Evolution recebeu e aceitou, não que o WhatsApp entregou.
-2. Como o identificador é seu, ele serve de chave de idempotência ponta a ponta.
-   Em compensação, **não existe identificador do provedor** para consultar
-   depois: entrega só se confirma pelo webhook de `Receipt` (§5).
+2. Como o identificador é seu, ele **correlaciona** requisição e resposta — e é
+   o que permite ligar um reenvio à tentativa original. Mas correlacionar não é
+   deduplicar: **não foi verificado** se o Evolution ou o WhatsApp suprimem uma
+   segunda mensagem com o mesmo `id`.
+
+   ⚠️ **Esse cenário está vivo hoje, e é um defeito conhecido.**
+   `EvolutionWhatsAppNotificationChannel` classifica todo timeout como
+   `FALHA_TEMPORARIA` e o Scheduler reenvia — o que **viola a ADR-009**, que
+   manda tratar timeout após transmitir bytes como `resultado_desconhecido`,
+   bloqueando retry. Se o Evolution aceitou antes do timeout do cliente, o
+   devedor recebe duas vezes. Ver `contexto-externo.md` §6.2.
+3. **Não existe identificador do provedor** para consultar depois: entrega só se
+   confirma pelo webhook de `Receipt` (§5).
 
 O `Sender` traz o sufixo de dispositivo (`:74`), o `Chat` não. Compare sempre
 pelo número, não pela string inteira.

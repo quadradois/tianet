@@ -138,7 +138,7 @@ O IMP-366 não depende de nada e pode andar em paralelo com 364/365.
 - **Múltiplas instâncias por Tenant.** A ADR-003 fixou o escopo single-tenant;
   `UNIQUE (tenant_id)` expressa isso no banco.
 - **Rotação da chave de cifra.** Vira item próprio quando houver segundo segredo
-  cifrado; hoje reconectar pela tela regenera o token.
+  cifrado. **Reconectar nao regenera o token**: o reconnect preserva o valor da instancia, entao recuperar de chave perdida exige criar instancia nova e reparear.
 
 ---
 

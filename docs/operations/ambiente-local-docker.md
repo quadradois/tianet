@@ -111,22 +111,36 @@ docker compose run --rm api emprestimo-bootstrap-plataforma \
 O comando pede o segredo de autorizacao e a credencial inicial por prompt, sem
 eco. Nao passe segredo por linha de comando nem por variavel exportada no shell.
 
-O Administrador criado recebe apenas as permissoes `tenant.*`. No Dashboard, as
-secoes operacionais aparecem como "Sem permissao" — isso e o RBAC correto, nao
-falha de ambiente. Perfis com permissao operacional sao criados depois, pela
-tela de IAM.
+O Administrador criado recebe o **catalogo inteiro** de permissoes desde o
+IMP-363, entao o Dashboard abre operacional — nao ha passo de seed nem criacao
+de perfil para fazer depois. Ate aquele item eram apenas as cinco `tenant.*`, e
+o unico usuario ficava sem conseguir operar nem se autoconceder permissao.
+
+**Se o seu banco foi criado ANTES do IMP-363**, o perfil existente continua com
+as cinco `tenant.*`, e rodar o bootstrap de novo **nao corrige**: ele e
+idempotente e devolve o registro guardado sem reconceder nada. O Dashboard vai
+mostrar "Sem permissao" nas secoes operacionais.
+
+A saida e o `scripts/seed_operador_local.py` da secao seguinte, que concede o
+catalogo ao usuario existente **sem apagar nada**. Nao use `docker compose down
+-v` para isso: ele destroi todo o dado local acumulado para resolver um problema
+de permissao que o seed resolve no lugar.
 
 Apos criar o administrador, volte `PLATFORM_ADMIN_BOOTSTRAP_ENABLED=false` e
 recrie a API.
 
 ---
 
-# 6. Liberar as jornadas para teste manual
+# 6. Liberar as jornadas para teste manual — **apenas em banco anterior ao IMP-363**
 
-Com apenas `tenant.*`, o unico caminho navegavel e a administracao de Tenants —
-nao da para percorrer Devedores, Comercial, Contratos, Motor ou Operacao Diaria.
-Para teste manual local, `scripts/seed_operador_local.py` cria um Perfil com o
-catalogo completo e o atribui ao usuario:
+> **Banco criado depois do IMP-363 nao precisa desta secao.** O bootstrap ja
+> concede o catalogo inteiro, e o Dashboard abre operacional. Pule para a §7.
+
+Em banco antigo, o perfil tem apenas `tenant.*`, e o unico caminho navegavel e a
+administracao de Tenants — nao da para percorrer Devedores, Comercial,
+Contratos, Motor ou Operacao Diaria. Nesse caso, `scripts/seed_operador_local.py`
+cria um Perfil com o catalogo completo e o atribui ao usuario, **sem apagar
+nada**:
 
 ```bash
 docker compose run --rm -T -v "C:\emprestimo\scripts:/app/scripts:ro" api \
@@ -177,11 +191,22 @@ Verificacao de fronteira de sessao, no console do navegador ja autenticado:
 Esperado: ambos vazios. O cookie de sessao e `httpOnly` e nenhum token pode
 estar acessivel ao JavaScript.
 
-## 7.1 Nao aponte `uv run pytest` para esta stack
+## 7.1 A suite usa banco proprio, e nao apaga mais esta stack
 
-`tests/conftest.py` recria o schema e trunca as tabelas a cada sessao de teste.
-Apontar a suite de integracao para o banco desta stack **apaga o Tenant, o
-administrador e todos os dados de teste**.
+`tests/conftest.py` recria o schema e trunca as tabelas a cada sessao — mas
+desde 2026-09-01 ele faz isso em **`emprestimo_test`**, derivado do
+`DATABASE_URL` e criado sozinho. O banco `emprestimo` desta stack **nao e mais
+tocado**, nem pela suite nem pelo ciclo de validacao de migrations.
+
+Ate essa data os dois compartilhavam o mesmo banco, e rodar `pytest` apagava o
+Tenant e o administrador — a API respondia 503 e o worker morria com
+`relation "audit_log" does not exist`.
+
+Se voce encontrar essa cena num banco antigo, `docker compose run --rm migrate`
+**nao basta**: o schema apagado levou junto o Tenant e o administrador, e a
+migration so recria tabelas vazias. A API volta a responder, mas nao ha com quem
+autenticar. Rode o bootstrap depois da migration — ou recrie do zero com
+`docker compose down -v`, que e mais rapido quando nao ha dado a preservar.
 
 A `POSTGRES_PASSWORD` gerada protege contra isso por acidente: a suite usa a
 credencial padrao (`emprestimo:emprestimo`) e falha a conexao em vez de
