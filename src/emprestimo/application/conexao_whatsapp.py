@@ -120,9 +120,7 @@ def _sincronizar(
     conexao: ConexaoWhatsApp,
     token: str,
     provedor: ProvedorWhatsApp,
-    auditoria: AuditoriaRegistro,
-    autoria: dict[str, object],
-) -> tuple[ConexaoWhatsApp, EstadoPareamento]:
+) -> tuple[ConexaoWhatsApp, EstadoPareamento, bool]:
     """Alinha o número guardado ao que o provedor reporta agora.
 
     O pareamento acontece **fora** daqui: o operador escaneia o QR no celular, e
@@ -142,26 +140,12 @@ def _sincronizar(
         # Pareado sem número: acontece com conta de privacidade total, onde o
         # WhatsApp entrega `@lid` e nenhum telefone. Preservar o que já se sabia
         # é melhor que apagar por uma resposta incompleta.
-        return conexao, estado
+        return conexao, estado, False
 
     if atualizada.numero_pareado != conexao.numero_pareado:
         uow.conexao_whatsapp.save(atualizada)
-        # Escrita e escrita, mesmo dentro de uma consulta: o pareamento nasce e
-        # morre no celular do operador, e esta e a UNICA linha do sistema que
-        # observa a transicao. Sem evento, a trilha da ADR-002 nao tem como
-        # dizer quando o WhatsApp foi vinculado ou caiu — e essa e justamente a
-        # pergunta de quem investiga cobranca que nao saiu.
-        auditoria.registrar(
-            ENTIDADE_AUDITORIA,
-            atualizada.id,
-            "sincronizar.pareamento" if atualizada.pareada else "sincronizar.desparelhamento",
-            "sucesso",
-            # Sem o numero: a trilha e append-only e o telefone e do devedor
-            # tanto quanto do operador. `instancia_id` basta para correlacionar.
-            detalhes=_detalhes(autoria, instancia_id=atualizada.instancia_id),
-        )
-        return atualizada, estado
-    return conexao, estado
+        return atualizada, estado, True
+    return conexao, estado, False
 
 
 class ConsultarConexaoWhatsApp:
@@ -201,10 +185,27 @@ class ConsultarConexaoWhatsApp:
                 # com o provedor. Nomear em vez de fingir que está desconectada.
                 raise ConexaoWhatsAppNaoEncontradaError(tenant_id)
 
-            atualizada, estado = _sincronizar(
-                uow, conexao, token, self._provedor, self._auditoria, autoria
-            )
+            # A tela faz polling: duas leituras sobrepostas veriam a mesma linha
+            # velha, as duas concluiriam "mudou" e a trilha ganharia a mesma
+            # transição duas vezes. Append-only, então o duplicado fica.
+            uow.conexao_whatsapp.bloquear_tenant(tenant_id)
+
+            atualizada, estado, mudou = _sincronizar(uow, conexao, token, self._provedor)
             uow.commit()
+
+        # Depois do commit, e não dentro dele: a auditoria vive em sessão
+        # independente (ADR-002) e não volta atrás. Registrar antes afirmaria
+        # uma transição que o rollback desfaria — permanentemente.
+        if mudou:
+            self._auditoria.registrar(
+                ENTIDADE_AUDITORIA,
+                atualizada.id,
+                "sincronizar.pareamento" if atualizada.pareada else "sincronizar.desparelhamento",
+                "sucesso",
+                # Sem o telefone: a trilha é append-only, e `instancia_id` já
+                # correlaciona.
+                detalhes=_detalhes(autoria, instancia_id=atualizada.instancia_id),
+            )
 
         # Fora da transação: buscar o QR é efeito externo, e nada aqui escreve.
         return EstadoConexaoWhatsApp(
@@ -310,7 +311,24 @@ class ConectarWhatsApp:
                 )
                 return adotada, token
 
-            instancia_id, token = self._provedor.criar_instancia(nome)
+            try:
+                instancia_id, token = self._provedor.criar_instancia(nome)
+            except EfeitoNaoAplicadoError:
+                # Prova de nao criacao: nao ha orfa, nao ha o que conciliar.
+                raise
+            except Exception:
+                # Timeout de leitura, reset, 5xx ou 2xx malformado: o provedor
+                # pode ter criado a instancia e a resposta se perdido. Sem
+                # `instancia_id`, o nome e a unica pista — e e o que a adoção da
+                # proxima tentativa vai usar para achá-la.
+                self._auditoria.registrar(
+                    ENTIDADE_AUDITORIA,
+                    None,
+                    "conectar.divergencia",
+                    "efeito_externo_aplicado_registro_local_incerto",
+                    detalhes=_detalhes(autoria, instancia_nome=nome),
+                )
+                raise
             conexao = ConexaoWhatsApp.criar(
                 tenant_id=tenant_id,
                 instancia_id=instancia_id,

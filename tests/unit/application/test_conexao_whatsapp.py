@@ -48,6 +48,7 @@ class _ProvedorFake:
         falhar_em_qrcode: Exception | None = None,
         falhar_em_desconectar: Exception | None = None,
         existente: tuple[str, str] | None = None,
+        falhar_em_criar: Exception | None = None,
     ) -> None:
         self._estado = estado or EstadoPareamento(
             conectado=False, pareado=False, nome_exibicao=None, numero=None
@@ -55,6 +56,7 @@ class _ProvedorFake:
         self._falhar_em_qrcode = falhar_em_qrcode
         self._falhar_em_desconectar = falhar_em_desconectar
         self._existente = existente
+        self._falhar_em_criar = falhar_em_criar
         self.criadas: list[str] = []
         self.buscas: list[str] = []
         self.qrcodes_pedidos = 0
@@ -67,6 +69,8 @@ class _ProvedorFake:
         return self._existente
 
     def criar_instancia(self, nome: str) -> tuple[str, str]:
+        if self._falhar_em_criar is not None:
+            raise self._falhar_em_criar
         self.criadas.append(nome)
         return "instancia-nova", "token-novo"
 
@@ -435,6 +439,73 @@ def test_consulta_sem_mudanca_nao_polui_a_trilha() -> None:
     ConsultarConexaoWhatsApp(lambda: uow, provedor, auditoria).executar(uuid.uuid4())
 
     assert auditoria.eventos == []
+
+
+def test_consulta_nao_registra_transicao_se_o_commit_falhar() -> None:
+    """A auditoria vive em sessao independente e nao volta atras (ADR-002).
+
+    Registrar antes do commit afirmaria — para sempre — uma transicao que o
+    rollback desfez.
+    """
+
+    repo = _RepoFake(_conexao(), token="token-1")
+    provedor = _ProvedorFake(
+        EstadoPareamento(conectado=True, pareado=True, nome_exibicao=NOME, numero=NUMERO)
+    )
+    uow, auditoria = _montar(repo, provedor)
+    uow.falhar_no_commit = True
+
+    with pytest.raises(RuntimeError):
+        ConsultarConexaoWhatsApp(lambda: uow, provedor, auditoria).executar(uuid.uuid4())
+
+    assert auditoria.eventos == []
+
+
+def test_consulta_serializa_o_polling_pelo_tenant() -> None:
+    """Duas leituras sobrepostas apendariam a mesma transicao duas vezes."""
+
+    repo = _RepoFake(_conexao(), token="token-1")
+    provedor = _ProvedorFake(
+        EstadoPareamento(conectado=True, pareado=True, nome_exibicao=NOME, numero=NUMERO)
+    )
+    uow, auditoria = _montar(repo, provedor)
+    tenant_id = uuid.uuid4()
+
+    ConsultarConexaoWhatsApp(lambda: uow, provedor, auditoria).executar(tenant_id)
+
+    assert repo.bloqueios == [tenant_id]
+
+
+def test_criacao_ambigua_registra_divergencia_com_o_nome() -> None:
+    """Timeout depois do `create` pode ter deixado instancia orfa.
+
+    Sem `instancia_id`, o nome e a unica pista — e e por ele que a adocao da
+    proxima tentativa vai encontra-la.
+    """
+
+    repo = _RepoFake()
+    provedor = _ProvedorFake(falhar_em_criar=TimeoutError("sem resposta"))
+    uow, auditoria = _montar(repo, provedor)
+
+    with pytest.raises(TimeoutError):
+        ConectarWhatsApp(lambda: uow, provedor, auditoria).executar(uuid.uuid4(), "tianet")
+
+    divergencias = [e for e in auditoria.eventos if e[1] == "conectar.divergencia"]
+    assert len(divergencias) == 1
+    assert json.loads(divergencias[0][3] or "{}")["instancia_nome"] == "tianet"
+
+
+def test_criacao_comprovadamente_nao_aplicada_nao_registra_divergencia() -> None:
+    """Recusa provada nao deixa orfa — inventar incidente poluiria a trilha."""
+
+    repo = _RepoFake()
+    provedor = _ProvedorFake(falhar_em_criar=EfeitoNaoAplicadoError("401"))
+    uow, auditoria = _montar(repo, provedor)
+
+    with pytest.raises(EfeitoNaoAplicadoError):
+        ConectarWhatsApp(lambda: uow, provedor, auditoria).executar(uuid.uuid4(), "tianet")
+
+    assert [e[1] for e in auditoria.eventos] == ["conectar.inicio", "conectar.falha"]
 
 
 def test_conectar_adota_instancia_que_ja_existe_no_provedor() -> None:
