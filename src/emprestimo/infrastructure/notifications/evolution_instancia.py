@@ -287,8 +287,14 @@ class EvolutionTenantClient:
                 continue
             instancia_id = item.get("id")
             token = item.get("token")
-            if isinstance(instancia_id, str) and isinstance(token, str) and instancia_id and token:
-                return InstanciaCriada(instancia_id=instancia_id, nome=alvo, token=token)
+            # `.strip()` e obrigatorio, nao cosmetico: `EvolutionInstanciaClient`
+            # normaliza ao autenticar, entao um token so de espacos passaria por
+            # "truthy" aqui e falharia em toda requisicao depois — conexao
+            # gravada, permanentemente inutil, sem nada indicando o motivo.
+            if isinstance(instancia_id, str) and isinstance(token, str):
+                limpos = (instancia_id.strip(), token.strip())
+                if all(limpos):
+                    return InstanciaCriada(instancia_id=limpos[0], nome=alvo, token=limpos[1])
             # Achada e sem credencial utilizavel. Nem adotar (a conexao
             # existiria sem poder enviar nada) nem seguir para o `create`, que
             # criaria uma segunda instancia sobre uma que comprovadamente
@@ -319,11 +325,17 @@ class EvolutionTenantClient:
         )
         corpo = dados.get("data", dados)
         if isinstance(corpo, list):
-            corpo = corpo[0] if corpo else {}
-        if not isinstance(corpo, dict):
-            return None
-        jid = corpo.get("jid")
-        return jid if isinstance(jid, str) else None
+            corpo = corpo[0] if corpo else None
+        if not isinstance(corpo, dict) or "jid" not in corpo:
+            # Falha fechada: `None` aqui significa "pareada sem numero" para o
+            # chamador, que preserva o numero antigo. Um payload que mudou de
+            # forma passaria a manter dado velho na tela indefinidamente, sem
+            # ninguem perceber.
+            raise EvolutionIndisponivelError("/instance/info devolveu resposta sem `jid`")
+        jid = corpo["jid"]
+        if not isinstance(jid, str):
+            raise EvolutionIndisponivelError("/instance/info devolveu `jid` que nao e texto")
+        return jid
 
     def criar_instancia(self, nome: str, *, token: str | None = None) -> InstanciaCriada:
         """Cria a instância. **Quem gera o token somos nós.**

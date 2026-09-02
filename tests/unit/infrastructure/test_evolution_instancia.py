@@ -550,6 +550,33 @@ class TestNumeroDaContaPareada:
         assert vistos["apikey"] == "chave-do-tenant"
         assert vistos["tenant"] == "tid"
 
+    def test_info_sem_jid_recusa_em_vez_de_devolver_none(self) -> None:
+        """`None` significa "pareada sem numero", e preserva o numero antigo.
+
+        Um payload que mudou de forma manteria dado velho na tela para sempre.
+        """
+
+        def handler(_: httpx.Request) -> httpx.Response:
+            return httpx.Response(200, json={"data": {"id": INSTANCIA_ID}})
+
+        with pytest.raises(EvolutionIndisponivelError, match="sem `jid`"):
+            EvolutionTenantClient(
+                host=HOST, tenant_id="tid", api_key="k", client=_cliente(handler)
+            ).jid_da_instancia(INSTANCIA_ID)
+
+    def test_token_so_com_espacos_nao_e_adotado(self) -> None:
+        """O cliente normaliza ao autenticar: adotar isso e conexao inutil."""
+
+        def handler(_: httpx.Request) -> httpx.Response:
+            return httpx.Response(
+                200, json={"data": [{"id": INSTANCIA_ID, "name": "adm_tianet", "token": "   "}]}
+            )
+
+        with pytest.raises(EvolutionIndisponivelError, match="sem token utilizavel"):
+            EvolutionTenantClient(
+                host=HOST, tenant_id="tid", api_key="k", client=_cliente(handler)
+            ).buscar_instancia("adm_tianet")
+
     def test_instancia_sem_jid_nao_inventa_numero(self) -> None:
         """Instancia criada e nao pareada nao tem `jid` — e isso nao e erro."""
 
