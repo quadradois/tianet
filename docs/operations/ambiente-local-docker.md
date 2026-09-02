@@ -116,6 +116,13 @@ IMP-363, entao o Dashboard abre operacional — nao ha passo de seed nem criacao
 de perfil para fazer depois. Ate aquele item eram apenas as cinco `tenant.*`, e
 o unico usuario ficava sem conseguir operar nem se autoconceder permissao.
 
+**Se o seu banco foi criado ANTES do IMP-363**, o perfil existente continua com
+as cinco `tenant.*`, e rodar o bootstrap de novo **nao corrige**: ele e
+idempotente e devolve o registro guardado sem reconceder nada. O Dashboard vai
+mostrar "Sem permissao" nas secoes operacionais. A saida mais simples em
+ambiente local e recriar do zero — `docker compose down -v`, subir e rodar o
+bootstrap —, ja que nao ha dado a preservar.
+
 Apos criar o administrador, volte `PLATFORM_ADMIN_BOOTSTRAP_ENABLED=false` e
 recrie a API.
 
@@ -186,8 +193,13 @@ tocado**, nem pela suite nem pelo ciclo de validacao de migrations.
 
 Ate essa data os dois compartilhavam o mesmo banco, e rodar `pytest` apagava o
 Tenant e o administrador — a API respondia 503 e o worker morria com
-`relation "audit_log" does not exist`. Se voce encontrar essa cena, o banco esta
-desatualizado: rode `docker compose run --rm migrate`.
+`relation "audit_log" does not exist`.
+
+Se voce encontrar essa cena num banco antigo, `docker compose run --rm migrate`
+**nao basta**: o schema apagado levou junto o Tenant e o administrador, e a
+migration so recria tabelas vazias. A API volta a responder, mas nao ha com quem
+autenticar. Rode o bootstrap depois da migration — ou recrie do zero com
+`docker compose down -v`, que e mais rapido quando nao ha dado a preservar.
 
 A `POSTGRES_PASSWORD` gerada protege contra isso por acidente: a suite usa a
 credencial padrao (`emprestimo:emprestimo`) e falha a conexao em vez de

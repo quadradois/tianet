@@ -33,7 +33,11 @@ O escopo do MVP deverá permanecer estável durante todo o ciclo de desenvolvime
 - Isolamento por `tenant_id` — escopo estrutural, **não** multi-Tenant de produto
   (ver [ADR-003](../architecture/adrs/ADR-003-escopo-single-tenant-do-v1.md));
 - Tenant;
-- Usuários — **um** no v1, conforme a mesma ADR;
+- Usuários — **um operador humano** no v1, conforme a mesma ADR. O Copilot tem
+  **identidade propria de servico**, com perfil minimamente privilegiado e
+  revogavel (IMP-355), que nunca recebe `comercial.proposta.decidir` — e por isso
+  o IMP-360 separou submeter de decidir. Um agente que age precisa ser
+  identificavel na trilha (IMP-361); "um usuario" nunca significou "um Principal";
 - Autenticação;
 - Perfis de Acesso;
 - Permissões.
@@ -123,7 +127,9 @@ As funcionalidades abaixo não fazem parte da versão 1 da plataforma:
 - Multi-Carteira operacional;
 - Billing;
 - Assinaturas;
-- Integrações com terceiros **além do WhatsApp**;
+- Integrações com terceiros **além do WhatsApp e do provedor de IA**. O Copilot
+  opera em BYOK contra uma API compatível com OpenAI (DR-005, PLAN-033) — é
+  integração de terceiro por definição, e está dentro do escopo aprovado;
 - Automações avançadas.
 
 ---

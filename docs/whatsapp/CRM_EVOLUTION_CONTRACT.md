@@ -439,7 +439,12 @@ Ao reconectar uma instância, o servidor pode disparar eventos `HistorySync` com
 
 ## 7. Monitoramento — healthcheck periódico
 
-Sem mudanças em relação à versão anterior — validado, está correto:
+⚠️ **Atualizado em 2026-09-01:** o algoritmo abaixo reagia apenas a
+`connected = false`. Com a distinção entre `Connected` e `LoggedIn` verificada ao
+vivo (§5.4), isso deixava o CRM marcado como conectado no estado
+`Connected: true, LoggedIn: false` — socket de pé, **nenhum número vinculado**.
+É exatamente o cenário de uma sessão expirada, que é o que o monitoramento
+existe para detectar.
 
 ```http
 GET {EVOLUTION_HOST}/instance/all
@@ -449,7 +454,8 @@ X-Tenant-ID: {evolution_tenant_id}
 
 ```
 Para cada instância retornada:
-  se connected = false e status no CRM = 'conectado':
+  operacional = connected AND loggedIn      # as duas coisas, nao so a primeira
+  se operacional = false e status no CRM = 'conectado':
     → atualizar status para 'desconectado'
     → tentar reconectar (POST /instance/reconnect)
     → se 3 falhas: notificar cliente via CRM
