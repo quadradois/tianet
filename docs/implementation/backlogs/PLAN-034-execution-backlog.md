@@ -146,6 +146,37 @@ um operador, e o caso ainda nao aconteceu), e por isso fica como candidato e nao
 como item: construir agora seria antecipar uma operacao para um cenario que
 ninguem viveu.
 
+### Caveat registrado — a janela entre o efeito externo e o commit
+
+**Aberto pelo review do Codex no IMP-368 (2026-09-02), fechado como caveat e nao
+como defeito.** O revisor apontou tres pontos — `desconectar`, `excluir` e
+`criar` — e os tres sao o mesmo pedido: gravar um registro duravel de "operacao
+pendente" **antes** de cada efeito externo, para que um crash entre a chamada e
+o commit deixe rastro conciliavel.
+
+Isso e um outbox/saga, e a **ADR-001 o adia por decisao**: "Repository Pattern +
+Unit of Work: transacao unica (AD-001), *evolucao futura para Saga*". A janela
+descrita nao e propria deste item — e a mesma de todo efeito externo do sistema,
+incluindo o codigo do IMP-367 que ja passou por dezenove rodadas de review.
+
+O que foi verificado antes de fechar:
+
+- **a alegacao de violacao do contrato nao se sustenta hoje.** O
+  `CRM_EVOLUTION_CONTRACT.md` §5.4 exige guardar a intencao antes do `logout`
+  para nao reconectar por engano — mas a regra e **condicional** a acionar a
+  reconexao do Evento 4, e `grep` em `src/` nao encontra nenhum consumidor de
+  `LoggedOut` nem qualquer reconexao. A exigencia passa a valer no dia em que
+  alguem construir o reator; ate la nao ha o que violar;
+- **a exclusao ja converge sozinha:** o adapter trata `record not found` do
+  provedor como sucesso, entao repetir o `DELETE` fecha a divergencia;
+- **a criacao ja tem mitigacao registrada** (caveat 3.9 do handoff de
+  2026-09-02): a adocao pelo nome derivado reencontra a instancia orfa na
+  proxima tentativa.
+
+**Quando isto deixa de ser caveat:** quando existir mais de um operador
+concorrente, ou quando algum componente passar a reagir a `LoggedOut`. Ai a
+conciliacao deixa de ser "repetir a chamada" e passa a exigir estado.
+
 ---
 
 # 4. Ordem e dependências

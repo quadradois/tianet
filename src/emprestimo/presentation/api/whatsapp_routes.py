@@ -1,9 +1,18 @@
 """Rotas da conexão de WhatsApp do Credor (IMP-368, PLAN-034).
 
-**Sem `Idempotency-Key`**, e isso é decisão registrada (PLAN-034 §3.1), não
-esquecimento: a chave replayaria o QR da primeira chamada, que vive ~20s. O que
-precisa ser idempotente aqui é o nascimento da instância, e `UNIQUE (tenant_id)`
-mais o lock por Tenant já garantem isso no caso de uso.
+**Sem `Idempotency-Key`** nas tres escritas, e isso é decisão registrada
+(PLAN-034 §3.1), não esquecimento. O motivo **não é o mesmo nas tres**, e
+generalizá-lo foi imprecisão pega em review:
+
+- `POST /conexao` — a chave replayaria o QR da primeira chamada, que vive ~20s.
+  Devolver um QR morto é pior que gerar outro. O que precisa ser idempotente
+  aqui é o nascimento da instância, e `UNIQUE (tenant_id)` mais o lock por
+  Tenant já garantem isso no caso de uso;
+- `DELETE /conexao` e `DELETE /conexao/instancia` — **não devolvem QR nenhum**.
+  Aqui a razão é convergência: desvincular um número já desvinculado, ou apagar
+  uma instância que já não existe, não produz resultado de negócio novo a
+  replayar. O adapter trata `record not found` do provedor como sucesso
+  justamente por isso.
 
 **Nenhuma rota aceita o nome da instância.** Ele é derivado do Tenant
 (`nome_da_instancia`): a adoção casa pelo nome, e um campo digitável
