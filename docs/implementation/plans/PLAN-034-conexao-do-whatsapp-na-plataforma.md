@@ -59,13 +59,23 @@ fronteiras se um dia houver.
 
 | Caso de uso | Responsabilidade |
 |---|---|
-| `ConsultarConexaoWhatsApp` | Estado atual: existe instância, está pareada, qual número, há QR pendente |
+| `ConsultarConexaoWhatsApp` | Estado atual: existe instância, está pareada, qual número. **Não devolve o QR** — ver abaixo |
 | `ConectarWhatsApp` | Cria a instância se ainda não existe, conecta, devolve o QR |
 | `DesconectarWhatsApp` | `logout` no Evolution; a instância permanece, o pareamento cai |
 
-O QR **não é persistido**. Ele vive segundos, é buscado no Evolution a cada
-consulta enquanto o pareamento estiver pendente, e some quando `LoggedIn` vira
-verdadeiro.
+O QR **não é persistido**, e **não sai pela consulta** — corrigido no review do
+IMP-368. Ele vive segundos e é buscado no Evolution a cada `conectar`.
+
+**Por que não pela consulta**, que seria o caminho óbvio para uma tela que faz
+polling: o QR não é informação, é **capacidade**. Quem o escaneia vincula uma
+conta de WhatsApp ao Tenant. A consulta é servida sob `whatsapp.conexao.ler`, e
+enquanto o QR viajava nela um principal somente-leitura **alterava** a conexão —
+`whatsapp.conexao.gerir` existia e não protegia este caminho.
+
+**Consequência para a tela (IMP-369):** o polling de status continua no `GET`,
+mas obter ou renovar o QR exige chamar o `POST`, protegido por `gerir`. Isso
+significa que **um operador somente-leitura não pareia**, e isso é decisão de
+produto, não efeito colateral.
 
 ### 3.1 — `ConectarWhatsApp` não registra `Idempotency-Key` (decidido no IMP-367)
 
@@ -83,11 +93,23 @@ volte:
   busca um QR novo, que é exatamente o comportamento desejado.
 
 O que a chave ainda daria é detecção de payload divergente — mesma chave com
-`instancia_nome` diferente. **Fica para o IMP-368**, junto com o contrato HTTP,
-porque é lá que se decide se o `POST` a exige no header.
+`instancia_nome` diferente. **Resolvido no IMP-368, e não como se esperava:**
+não há payload divergente a detectar porque **não há payload**. O nome da
+instância deixou de ser entrada e passou a ser derivado do Tenant
+(`nome_da_instancia`), então o `POST` não tem corpo e a última razão para exigir
+a chave caiu junto. As três rotas de escrita estão registradas como exceção
+justificada no guardrail do IMP-333.
 
 Três rodadas de review adversarial cobraram a chave; a decisão está aqui para
 que a quarta encontre a resposta em vez da pergunta.
+
+**A quarta cobrou assim mesmo, em 2026-09-03, e classificou como bloqueante.**
+O raciocínio acima não estava errado — o lugar estava. Exceção justificada
+dentro de um plano de execução não é exceção à regra arquitetural; é
+contradição entre dois documentos, e quem chega sem contexto lê a regra. A
+decisão foi promovida a
+[ADR-019](../../architecture/adrs/ADR-019-isencao-de-idempotency-key-nas-escritas-da-conexao-de-whatsapp.md),
+que é onde ela para de reabrir. Esta seção permanece como registro de origem.
 
 ---
 
@@ -172,19 +194,33 @@ texto convida a corrupção por encoding.
 
 # 6. API
 
-Três operações sobre um único recurso. Todas exigem Principal autenticado.
+**Quatro** operações sobre um único recurso — eram três até o IMP-368, e a
+quarta entrou por pedido do fundador em 2026-09-02: sem ela, cada instância
+abandonada fica no Evolution para sempre e o provedor enche de conexão morta.
+Todas exigem Principal autenticado.
 
 - `GET /platform/whatsapp/conexao` — estado da conexão. Permissão
-  `whatsapp.conexao.ler`. Devolve estado, número pareado quando houver, e o QR
-  enquanto o pareamento estiver pendente. `404` quando nenhuma instância existe.
+  `whatsapp.conexao.ler`. Devolve estado e número pareado quando houver.
+  **Nunca devolve o QR** (§3): ele é credencial de pareamento e sairia sob a
+  permissão errada. `404` quando a conexão existe e o token não decifra —
+  registro órfão, que não é o mesmo que "não existe".
 - `POST /platform/whatsapp/conexao` — cria a instância se necessário e inicia o
-  pareamento. Permissão `whatsapp.conexao.gerir`. Idempotente por
-  `Idempotency-Key` (AD-002). Devolve o QR.
+  pareamento. Permissão `whatsapp.conexao.gerir`. **Sem corpo e sem
+  `Idempotency-Key`** (§3.1): o nome da instância é derivado do Tenant, e
+  repetir a chamada reaproveita a instância e traz um QR novo.
 - `DELETE /platform/whatsapp/conexao` — encerra o pareamento (`logout` no
   Evolution). Permissão `whatsapp.conexao.gerir`. A instância permanece; apenas o
   número é desvinculado.
+- `DELETE /platform/whatsapp/conexao/instancia` — **apaga a instância no
+  provedor** (`DELETE /instance/delete/:id`, auth de Tenant) e o registro local,
+  nessa ordem. Permissão `whatsapp.conexao.gerir`. Rota própria, e não um
+  parâmetro do `desconectar`, porque são intenções diferentes: lá o operador
+  troca de número, aqui ele encerra a conexão.
 
-**Inventário:** de **107 operações e 135 schemas** para **110 e 138**.
+**Inventário:** de **107 operações e 135 schemas** para **111 e 137**. O plano
+previa 110/138 quando eram três operações e três schemas; a quarta operação
+reaproveita o `ConexaoWhatsAppResponse` do `desconectar` em vez de trazer corpo
+próprio, então entra uma operação a mais e um schema a menos que o previsto.
 
 **Permissões novas no catálogo:** `whatsapp.conexao.ler` e
 `whatsapp.conexao.gerir` — de 55 para 57. O catálogo é fonte canônica versionada,
@@ -201,10 +237,10 @@ de auditoria, não em métrica.
 | Camada | O que cobre |
 |---|---|
 | Unitário — cifra | ida e volta do token; chave ausente recusa; texto cifrado difere do claro |
-| Unitário — cliente Evolution | as cinco rotas com respostas reais capturadas em 2026-08-31, inclusive `webhookUrl` vazia aceita |
-| Unitário — casos de uso | instância inexistente, pendente e pareada; `Connected` sem `LoggedIn` **não** é conectado |
-| Contrato | as três operações no snapshot OpenAPI; contadores conferidos |
-| Integração | RBAC das duas permissões; 401, 403 e 404 |
+| Unitário — cliente Evolution | as rotas de gestão com respostas reais capturadas em 2026-08-31, inclusive `webhookUrl` vazia aceita, `instance/all` para adoção e `instance/delete` |
+| Unitário — casos de uso | instância inexistente, pendente e pareada; `Connected` sem `LoggedIn` **não** é conectado; sequência de auditoria distinguindo rollback, divergência e falha |
+| Contrato | as **quatro** operações no snapshot OpenAPI; contadores conferidos; isenções de `Idempotency-Key` justificadas uma a uma |
+| Integração | RBAC das duas permissões; 401, 403 e 404; **o QR nunca chega a quem só tem `ler`** |
 | Playwright | tela renderiza QR, faz polling e mostra o número ao parear |
 
 **Nenhum teste chama o Evolution real.** As respostas capturadas viram fixture; a
@@ -212,6 +248,13 @@ suíte não pode depender de rede nem criar instância em servidor de verdade.
 
 **Guardrail:** teste que reprova se o token aparecer em texto claro em qualquer
 lugar que não seja o campo cifrado — resposta de API, log ou trilha.
+
+**Segundo guardrail, acrescentado no review do IMP-368:** teste que reprova se a
+consulta voltar a **pedir o QR ao provedor**. O QR é credencial de pareamento, a
+consulta é servida sob `whatsapp.conexao.ler`, e enquanto ele viajava ali um
+usuário somente-leitura alterava a conexão — `gerir` existia e não protegia este
+caminho. O guardrail conta a **chamada**, não o campo: um DTO limpo com a busca
+de volta reintroduziria a escalada sem falhar nenhum teste de contrato.
 
 ---
 

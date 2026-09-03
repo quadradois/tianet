@@ -831,6 +831,66 @@
         "title": "CondicoesLancamentoRequest",
         "type": "object"
       },
+      "ConexaoWhatsAppResponse": {
+        "description": "Estado da conexão, e o que a tela deve oferecer a partir dele.\n\n`existe` e `pareada` são separados de propósito: \"não existe\" pede criar a\ninstância, \"existe e não pareou\" pede escanear o QR. Uma flag só faria a\ntela oferecer a ação errada em metade dos casos.\n\n`numero` e `nome_exibicao` são **coisas diferentes** — o telefone da conta e\no push name (`\"Barbosa\"`). Rotular um como o outro foi defeito real, pego em\nreview; a tela mostra os dois, cada um com seu rótulo.\n\n**Não há QR aqui.** Esta resposta é servida sob `whatsapp.conexao.ler`, e o\nQR é credencial de pareamento — quem o escaneia altera a conexão. Expô-lo a\nquem só pode ler seria dar escrita por outra porta. O QR vem do `POST`, que\nexige `whatsapp.conexao.gerir`.",
+        "properties": {
+          "conectado": {
+            "title": "Conectado",
+            "type": "boolean"
+          },
+          "existe": {
+            "title": "Existe",
+            "type": "boolean"
+          },
+          "instancia_nome": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Nome da instância no provedor. Gerado pela plataforma, nunca digitado.",
+            "title": "Instancia Nome"
+          },
+          "nome_exibicao": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Push name da conta do WhatsApp — NÃO é o telefone.",
+            "title": "Nome Exibicao"
+          },
+          "numero": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Telefone da conta pareada, extraído do jid do provedor.",
+            "title": "Numero"
+          },
+          "pareada": {
+            "title": "Pareada",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "existe",
+          "pareada",
+          "conectado"
+        ],
+        "title": "ConexaoWhatsAppResponse",
+        "type": "object"
+      },
       "ConfiguracaoFinanceiraCreateRequest": {
         "additionalProperties": false,
         "properties": {
@@ -3842,6 +3902,24 @@
           "parametros"
         ],
         "title": "PropostaComercialUpdateRequest",
+        "type": "object"
+      },
+      "QrCodeConexaoResponse": {
+        "description": "QR de agora, ou nulo enquanto o provedor ainda o gera.\n\nNulo **não é falha**: logo após conectar, o provedor responde \"no QR code\navailable, aguarde e tente de novo\". A tela faz polling; transformar isso em\nerro faria o caminho feliz parecer quebrado.",
+        "properties": {
+          "qrcode_base64": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Qrcode Base64"
+          }
+        },
+        "title": "QrCodeConexaoResponse",
         "type": "object"
       },
       "QuitacaoCalculadaResponse": {
@@ -23439,6 +23517,478 @@
         "summary": "Reativar um Tenant (IMP-036, US-014, DA-205)",
         "tags": [
           "platform"
+        ]
+      }
+    },
+    "/platform/whatsapp/conexao": {
+      "delete": {
+        "description": "Desvincula o número. **A instância permanece** — reconectar custa um QR.\n\nPara tirar a instância do provedor, `DELETE /conexao/instancia`.",
+        "operationId": "desconectar_platform_whatsapp_conexao_delete",
+        "parameters": [
+          {
+            "description": "Identificador tecnico de correlacao aceito ou gerado pela API.",
+            "in": "header",
+            "name": "X-Correlation-ID",
+            "required": false,
+            "schema": {
+              "maxLength": 128,
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConexaoWhatsAppResponse"
+                }
+              }
+            },
+            "description": "Successful Response",
+            "headers": {
+              "X-Correlation-ID": {
+                "description": "Identificador tecnico de correlacao da requisicao.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErroResponse"
+                }
+              }
+            },
+            "description": "Autenticacao recusada por token ausente, invalido ou expirado.",
+            "headers": {
+              "X-Correlation-ID": {
+                "description": "Identificador tecnico de correlacao da requisicao.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErroResponse"
+                }
+              }
+            },
+            "description": "Principal autenticado nao possui permissao para a operacao.",
+            "headers": {
+              "X-Correlation-ID": {
+                "description": "Identificador tecnico de correlacao da requisicao.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErroResponse"
+                }
+              }
+            },
+            "description": "Recurso inexistente ou indisponivel para o Tenant autenticado.",
+            "headers": {
+              "X-Correlation-ID": {
+                "description": "Identificador tecnico de correlacao da requisicao.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErroResponse"
+                }
+              }
+            },
+            "description": "Erro tecnico inesperado com resposta segura e correlacionavel.",
+            "headers": {
+              "X-Correlation-ID": {
+                "description": "Identificador tecnico de correlacao da requisicao.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "summary": "Desconectar",
+        "tags": [
+          "WhatsApp"
+        ]
+      },
+      "get": {
+        "description": "Estado real da conexão, lido do provedor — não o último estado conhecido.",
+        "operationId": "consultar_conexao_platform_whatsapp_conexao_get",
+        "parameters": [
+          {
+            "description": "Identificador tecnico de correlacao aceito ou gerado pela API.",
+            "in": "header",
+            "name": "X-Correlation-ID",
+            "required": false,
+            "schema": {
+              "maxLength": 128,
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConexaoWhatsAppResponse"
+                }
+              }
+            },
+            "description": "Successful Response",
+            "headers": {
+              "X-Correlation-ID": {
+                "description": "Identificador tecnico de correlacao da requisicao.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErroResponse"
+                }
+              }
+            },
+            "description": "Autenticacao recusada por token ausente, invalido ou expirado.",
+            "headers": {
+              "X-Correlation-ID": {
+                "description": "Identificador tecnico de correlacao da requisicao.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErroResponse"
+                }
+              }
+            },
+            "description": "Principal autenticado nao possui permissao para a operacao.",
+            "headers": {
+              "X-Correlation-ID": {
+                "description": "Identificador tecnico de correlacao da requisicao.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErroResponse"
+                }
+              }
+            },
+            "description": "Recurso inexistente ou indisponivel para o Tenant autenticado.",
+            "headers": {
+              "X-Correlation-ID": {
+                "description": "Identificador tecnico de correlacao da requisicao.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErroResponse"
+                }
+              }
+            },
+            "description": "Erro tecnico inesperado com resposta segura e correlacionavel.",
+            "headers": {
+              "X-Correlation-ID": {
+                "description": "Identificador tecnico de correlacao da requisicao.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "summary": "Consultar Conexao",
+        "tags": [
+          "WhatsApp"
+        ]
+      },
+      "post": {
+        "description": "Cria a instância se preciso e devolve o QR para escanear.\n\nRepetir é seguro e é o uso normal: o QR expira em ~20s, e cada chamada traz\no de agora sobre a MESMA instância.",
+        "operationId": "conectar_platform_whatsapp_conexao_post",
+        "parameters": [
+          {
+            "description": "Identificador tecnico de correlacao aceito ou gerado pela API.",
+            "in": "header",
+            "name": "X-Correlation-ID",
+            "required": false,
+            "schema": {
+              "maxLength": 128,
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/QrCodeConexaoResponse"
+                }
+              }
+            },
+            "description": "Successful Response",
+            "headers": {
+              "X-Correlation-ID": {
+                "description": "Identificador tecnico de correlacao da requisicao.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErroResponse"
+                }
+              }
+            },
+            "description": "Autenticacao recusada por token ausente, invalido ou expirado.",
+            "headers": {
+              "X-Correlation-ID": {
+                "description": "Identificador tecnico de correlacao da requisicao.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErroResponse"
+                }
+              }
+            },
+            "description": "Principal autenticado nao possui permissao para a operacao.",
+            "headers": {
+              "X-Correlation-ID": {
+                "description": "Identificador tecnico de correlacao da requisicao.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErroResponse"
+                }
+              }
+            },
+            "description": "Recurso inexistente ou indisponivel para o Tenant autenticado.",
+            "headers": {
+              "X-Correlation-ID": {
+                "description": "Identificador tecnico de correlacao da requisicao.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErroResponse"
+                }
+              }
+            },
+            "description": "Erro tecnico inesperado com resposta segura e correlacionavel.",
+            "headers": {
+              "X-Correlation-ID": {
+                "description": "Identificador tecnico de correlacao da requisicao.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "summary": "Conectar",
+        "tags": [
+          "WhatsApp"
+        ]
+      }
+    },
+    "/platform/whatsapp/conexao/instancia": {
+      "delete": {
+        "description": "Apaga a instância no provedor e o registro local.\n\nRota própria, e não um parâmetro do `desconectar`, porque são intenções\ndiferentes: lá o operador troca de número, aqui ele encerra a conexão. Sem\nesta operação o provedor acumula instância morta — nome, token e sessão que\nninguém usa — e nada no sistema as remove.",
+        "operationId": "excluir_instancia_platform_whatsapp_conexao_instancia_delete",
+        "parameters": [
+          {
+            "description": "Identificador tecnico de correlacao aceito ou gerado pela API.",
+            "in": "header",
+            "name": "X-Correlation-ID",
+            "required": false,
+            "schema": {
+              "maxLength": 128,
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConexaoWhatsAppResponse"
+                }
+              }
+            },
+            "description": "Successful Response",
+            "headers": {
+              "X-Correlation-ID": {
+                "description": "Identificador tecnico de correlacao da requisicao.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErroResponse"
+                }
+              }
+            },
+            "description": "Autenticacao recusada por token ausente, invalido ou expirado.",
+            "headers": {
+              "X-Correlation-ID": {
+                "description": "Identificador tecnico de correlacao da requisicao.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErroResponse"
+                }
+              }
+            },
+            "description": "Principal autenticado nao possui permissao para a operacao.",
+            "headers": {
+              "X-Correlation-ID": {
+                "description": "Identificador tecnico de correlacao da requisicao.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErroResponse"
+                }
+              }
+            },
+            "description": "Recurso inexistente ou indisponivel para o Tenant autenticado.",
+            "headers": {
+              "X-Correlation-ID": {
+                "description": "Identificador tecnico de correlacao da requisicao.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErroResponse"
+                }
+              }
+            },
+            "description": "Erro tecnico inesperado com resposta segura e correlacionavel.",
+            "headers": {
+              "X-Correlation-ID": {
+                "description": "Identificador tecnico de correlacao da requisicao.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "summary": "Excluir Instancia",
+        "tags": [
+          "WhatsApp"
         ]
       }
     }

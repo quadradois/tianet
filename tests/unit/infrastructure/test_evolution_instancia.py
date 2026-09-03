@@ -20,6 +20,7 @@ from emprestimo.infrastructure.notifications.evolution_instancia import (
     EvolutionInstanciaClient,
     EvolutionTenantClient,
     QrCodeAindaGerandoError,
+    RequisicaoRecusadaError,
     numero_do_jid,
 )
 
@@ -144,6 +145,86 @@ class TestEvolutionTenantClient:
     def test_credenciais_incompletas_recusam_na_construcao(self) -> None:
         with pytest.raises(ValueError, match="incompletas"):
             EvolutionTenantClient(host=HOST, tenant_id="  ", api_key="k")
+
+    def test_excluir_instancia_usa_delete_com_auth_de_tenant(self) -> None:
+        """`/instance/delete/:id` responde a chave de Tenant, nao ao token."""
+        vistos: dict[str, Any] = {}
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            vistos["metodo"] = request.method
+            vistos["url"] = str(request.url)
+            vistos["apikey"] = request.headers.get("apikey")
+            vistos["tenant"] = request.headers.get("X-Tenant-ID")
+            return httpx.Response(200, json={"message": "success"})
+
+        EvolutionTenantClient(
+            host=HOST, tenant_id="tid", api_key="chave-do-tenant", client=_cliente(handler)
+        ).excluir_instancia(INSTANCIA_ID)
+
+        assert vistos["metodo"] == "DELETE"
+        assert vistos["url"].endswith(f"/instance/delete/{INSTANCIA_ID}")
+        assert vistos["apikey"] == "chave-do-tenant"
+        assert vistos["tenant"] == "tid"
+
+    def test_excluir_instancia_ja_ausente_e_sucesso(self) -> None:
+        """O provedor diz "nao existe" no CORPO, com status 500.
+
+        Verificado ao vivo em 2026-09-02. Levantar aqui tornaria impossivel
+        limpar uma instancia que ja sumiu — o fim pedido ja aconteceu.
+        """
+
+        def handler(_: httpx.Request) -> httpx.Response:
+            return httpx.Response(500, json={"error": "record not found"})
+
+        EvolutionTenantClient(
+            host=HOST, tenant_id="tid", api_key="k", client=_cliente(handler)
+        ).excluir_instancia(INSTANCIA_ID)
+
+    def test_excluir_instancia_com_outro_500_nao_e_sucesso(self) -> None:
+        """Tratar todo 500 como "ja foi" apagaria o registro local afirmando uma
+        exclusao que talvez nao tenha acontecido — e a orfa ficaria sem nada
+        apontando para ela."""
+
+        def handler(_: httpx.Request) -> httpx.Response:
+            return httpx.Response(500, json={"error": "database is down"})
+
+        with pytest.raises(EvolutionIndisponivelError, match="500"):
+            EvolutionTenantClient(
+                host=HOST, tenant_id="tid", api_key="k", client=_cliente(handler)
+            ).excluir_instancia(INSTANCIA_ID)
+
+    def test_excluir_instancia_recusada_e_erro_de_recusa_e_nao_de_indisponibilidade(
+        self,
+    ) -> None:
+        """401/403 sao prova de que o provedor nao agiu.
+
+        A Application usa essa distincao para registrar rollback em vez de
+        divergencia — incidente inventado numa trilha append-only.
+        """
+
+        def handler(_: httpx.Request) -> httpx.Response:
+            return httpx.Response(401, json={"error": "not authorized"})
+
+        with pytest.raises(RequisicaoRecusadaError):
+            EvolutionTenantClient(
+                host=HOST, tenant_id="tid", api_key="k", client=_cliente(handler)
+            ).excluir_instancia(INSTANCIA_ID)
+
+    def test_excluir_instancia_sem_id_nao_chama_o_provedor(self) -> None:
+        """`/instance/delete/` sem id e outra rota — um 404 dela passaria por
+        "ja nao existe" e apagaria o registro de uma instancia viva."""
+        chamadas = []
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            chamadas.append(str(request.url))
+            return httpx.Response(200, json={})
+
+        with pytest.raises(ValueError, match="instancia_id vazio"):
+            EvolutionTenantClient(
+                host=HOST, tenant_id="tid", api_key="k", client=_cliente(handler)
+            ).excluir_instancia("   ")
+
+        assert chamadas == []
 
 
 class TestEvolutionInstanciaClient:

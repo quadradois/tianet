@@ -3,6 +3,20 @@
 A camada Domain comunica violações de regras através de exceções próprias,
 nunca de exceções de infraestrutura (ADR-001): a aplicação traduz
 DomainError em respostas HTTP sem conhecer detalhes de persistência.
+
+**Onde mora o código estável, e por que nem toda exceção carrega um.**
+Formalizado em 2026-09-03, depois de um review cobrar `codigo` numa exceção que
+seguia a convenção real do repositório — a convenção é que estava implícita.
+
+- **Violação de invariante carrega o código na exceção** (`ViolacaoInvarianteError`,
+  com `INV-xxx` / `RN-xxx`). Existem muitas, cada uma diz uma coisa diferente, e
+  quem consome precisa distinguir *qual* regra caiu.
+- **Erro de "não encontrado" não carrega**: o código estável é do **contrato
+  HTTP** (`recurso_nao_encontrado`), emitido pelo handler. Todas elas —
+  `CarteiraNaoEncontradaError`, `ConexaoWhatsAppNaoEncontradaError`,
+  `TokenConexaoIlegivelError` — colapsam para a mesma resposta de propósito:
+  distinguir *o que* não foi encontrado, através da fronteira, vazaria
+  existência. Dar código só a uma delas a tornaria a exceção da exceção.
 """
 
 from __future__ import annotations
@@ -26,6 +40,32 @@ class ViolacaoInvarianteError(DomainError):
         super().__init__(f"Invariante {codigo} violada: {mensagem}")
         self.codigo = codigo
         self.mensagem = mensagem
+
+
+class TokenConexaoIlegivelError(DomainError):
+    """A linha existe, e o token guardado nao abre com a chave atual.
+
+    `DomainError`, e nao `RuntimeError`: a Presentation captura esta excecao num
+    handler HTTP, e todo handler do sistema captura `DomainError`. Um
+    `RuntimeError` solto ali era o unico fora do padrao, e foi apontado em
+    review — a inconsistencia importa porque um `except DomainError` de captura
+    ampla, se algum dia existir, deixaria este caso escapar em silencio para o
+    500 generico. Que e exatamente o defeito que esta excecao nasceu para
+    corrigir.
+
+    Mora aqui, ao lado de `TenantJaExisteError`, porque quem a levanta e o
+    repositorio — o mesmo lugar e o mesmo motivo: traduzir uma falha de
+    infraestrutura para vocabulario que a aplicacao entende.
+
+    **Distinta de `CifraIndisponivelError` de proposito**, e a distincao decide o
+    status HTTP: chave AUSENTE ou invalida e configuracao do servidor — `500`,
+    porque nenhuma acao do operador conserta. Chave TROCADA ou dado adulterado e
+    esta — `404`, porque apagar o registro e reconectar conserta.
+    """
+
+    def __init__(self, tenant_id: object) -> None:
+        super().__init__(f"Token da conexao de WhatsApp do Tenant {tenant_id} nao decifra")
+        self.tenant_id = tenant_id
 
 
 class TenantJaExisteError(DomainError):

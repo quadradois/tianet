@@ -30,14 +30,19 @@ Verificado em 2026-08-31, não presumido.
 Idêntica à seção 6 do plano. O `contract-check` exige igualdade, não continência.
 
 - `GET /platform/whatsapp/conexao` — estado da conexão. Permissão
-  `whatsapp.conexao.ler`. `404` quando nenhuma instância existe.
+  `whatsapp.conexao.ler`. `404` quando o registro existe e o token não decifra.
 - `POST /platform/whatsapp/conexao` — cria a instância se necessário e inicia o
-  pareamento. Permissão `whatsapp.conexao.gerir`. Idempotente por
-  `Idempotency-Key`.
-- `DELETE /platform/whatsapp/conexao` — encerra o pareamento. Permissão
-  `whatsapp.conexao.gerir`.
+  pareamento. Permissão `whatsapp.conexao.gerir`. **Sem corpo e sem
+  `Idempotency-Key`** — o porquê está na §3.1 do plano.
+- `DELETE /platform/whatsapp/conexao` — encerra o pareamento (`logout`). A
+  instância permanece. Permissão `whatsapp.conexao.gerir`.
+- `DELETE /platform/whatsapp/conexao/instancia` — apaga a instância no provedor
+  e o registro local. Permissão `whatsapp.conexao.gerir`. **Acrescentada no
+  IMP-368** a pedido do fundador: sem ela nada no sistema remove instância
+  abandonada, e o Evolution acumula sessão morta.
 
-Inventário: **107 → 110 operações**, **135 → 138 schemas**.
+Inventário: **107 → 111 operações**, **135 → 137 schemas**. O plano previa
+110/138 com três operações; a quarta reaproveita o DTO do `desconectar`.
 
 ---
 
@@ -87,10 +92,24 @@ Inventário: **107 → 110 operações**, **135 → 138 schemas**.
 
 ### IMP-368 — Endpoints e contrato
 
-- **Objetivo:** expor as três operações da seção 2.
-- **Escopo:** rotas, schemas, snapshot OpenAPI, contadores de superfície.
-- **Critério de pronto:** `api:check` verde; inventário em 110/138; RBAC coberto
-  com 401, 403 e 404.
+- **Objetivo:** expor as **quatro** operações da seção 2.
+- **Escopo:** rotas, schemas, snapshot OpenAPI, contadores de superfície; o
+  caso de uso `ExcluirConexaoWhatsApp` com `excluir_instancia` na porta e no
+  adapter; e o nome da instância passando a ser derivado do Tenant.
+- **Critério de pronto:** `api:check` verde; inventário em 111/137; RBAC
+  coberto com 401, 403 e 404.
+- **Decidido com o fundador em 2026-09-02** (protocolo socrático do handoff
+  §5.1), e três respostas mudaram o desenho:
+  1. **a instância é reconhecida por `instancia_id` guardado no banco**, não
+     pelo nome. O nome continua existindo só como âncora de recuperação do
+     `create` cuja resposta se perdeu, e por isso passou a ser **gerado**
+     (`tianet_{tenant_id}`) em vez de recebido — um campo digitável
+     transformaria erro de digitação em segunda instância não pareada;
+  2. **excluir é operação distinta de desconectar**, com rota própria;
+  3. a premissa escrita no IMP-367 — "a instância do TiaNet foi criada à mão
+     antes desta tela existir" — **é falsa**. Ela nasceu dos testes de
+     2026-08-31. A janela do `create` perdido, essa sim, continua real, e é o
+     que mantém a adoção por nome viva.
 
 ### IMP-369 — Tela de conexão
 
@@ -110,6 +129,53 @@ Inventário: **107 → 110 operações**, **135 → 138 schemas**.
   arriscaria deixar o worker sem canal, e worker sem canal é operação sem aviso.
 - **Critério de pronto:** worker sobe com o token vindo do banco; com a variável
   presente, ela prevalece e o comportamento atual não muda.
+
+---
+
+### Candidato para depois do deploy — soltar o vinculo local
+
+**Nao entra no PLAN-034.** Anotado em 2026-09-02, quando a custodia da chave de
+cifra foi decidida: nao existe operacao que remova o registro local
+**preservando** a instancia no provedor. A unica que apaga a linha
+(`DELETE /platform/whatsapp/conexao/instancia`) apaga a instancia junto, e com
+ela o pareamento.
+
+Isso torna a recuperacao de uma chave de cifra perdida um `DELETE` no banco
+feito a mao — quando poderia ser uma chamada. Custo baixo hoje (single-tenant,
+um operador, e o caso ainda nao aconteceu), e por isso fica como candidato e nao
+como item: construir agora seria antecipar uma operacao para um cenario que
+ninguem viveu.
+
+### Caveat registrado — a janela entre o efeito externo e o commit
+
+**Aberto pelo review do Codex no IMP-368 (2026-09-02), fechado como caveat e nao
+como defeito.** O revisor apontou tres pontos — `desconectar`, `excluir` e
+`criar` — e os tres sao o mesmo pedido: gravar um registro duravel de "operacao
+pendente" **antes** de cada efeito externo, para que um crash entre a chamada e
+o commit deixe rastro conciliavel.
+
+Isso e um outbox/saga, e a **ADR-001 o adia por decisao**: "Repository Pattern +
+Unit of Work: transacao unica (AD-001), *evolucao futura para Saga*". A janela
+descrita nao e propria deste item — e a mesma de todo efeito externo do sistema,
+incluindo o codigo do IMP-367 que ja passou por dezenove rodadas de review.
+
+O que foi verificado antes de fechar:
+
+- **a alegacao de violacao do contrato nao se sustenta hoje.** O
+  `CRM_EVOLUTION_CONTRACT.md` §5.4 exige guardar a intencao antes do `logout`
+  para nao reconectar por engano — mas a regra e **condicional** a acionar a
+  reconexao do Evento 4, e `grep` em `src/` nao encontra nenhum consumidor de
+  `LoggedOut` nem qualquer reconexao. A exigencia passa a valer no dia em que
+  alguem construir o reator; ate la nao ha o que violar;
+- **a exclusao ja converge sozinha:** o adapter trata `record not found` do
+  provedor como sucesso, entao repetir o `DELETE` fecha a divergencia;
+- **a criacao ja tem mitigacao registrada** (caveat 3.9 do handoff de
+  2026-09-02): a adocao pelo nome derivado reencontra a instancia orfa na
+  proxima tentativa.
+
+**Quando isto deixa de ser caveat:** quando existir mais de um operador
+concorrente, ou quando algum componente passar a reagir a `LoggedOut`. Ai a
+conciliacao deixa de ser "repetir a chamada" e passa a exigir estado.
 
 ---
 

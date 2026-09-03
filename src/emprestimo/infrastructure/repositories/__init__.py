@@ -19,6 +19,7 @@ from emprestimo.domain.common.errors import (
     DevedorJaExisteError,
     PerfilJaExisteError,
     TenantJaExisteError,
+    TokenConexaoIlegivelError,
     ViolacaoInvarianteError,
 )
 from emprestimo.domain.credit.carteira import Carteira
@@ -84,7 +85,7 @@ from emprestimo.domain.platform.ports import (
 from emprestimo.domain.platform.sessao import Sessao
 from emprestimo.domain.platform.tenant import Tenant, TenantState
 from emprestimo.domain.platform.usuario import Usuario, UsuarioState
-from emprestimo.infrastructure.cifra import CifraToken
+from emprestimo.infrastructure.cifra import CifraToken, SegredoCorrompidoError
 from emprestimo.infrastructure.db.orm import (
     CarteiraORM,
     ConexaoWhatsAppORM,
@@ -1567,10 +1568,30 @@ class SqlAlchemyConexaoWhatsAppRepository(ConexaoWhatsAppRepository):
         row = self._session.scalar(
             select(ConexaoWhatsAppORM).where(ConexaoWhatsAppORM.tenant_id == tenant_id)
         )
-        return None if row is None else self._cifra().decifrar(row.token_cifrado)
+        if row is None:
+            return None
+        try:
+            return self._cifra().decifrar(row.token_cifrado)
+        except SegredoCorrompidoError as exc:
+            # `None` aqui seria mentira: a linha EXISTE. Devolve-lo faria o caso
+            # de uso dizer "conexao nao encontrada" pelo motivo errado, e a
+            # trilha perderia que houve chave trocada ou dado adulterado — que e
+            # justamente o evento que alguem precisa ver.
+            raise TokenConexaoIlegivelError(str(tenant_id)) from exc
 
     def exigir_disponibilidade(self) -> None:
         self._cifra()
+
+    def delete(self, tenant_id: uuid.UUID) -> None:
+        """Apaga a conexao do Tenant. Ausente e sucesso (IMP-368).
+
+        `DELETE` direto em vez de carregar-e-remover porque nao ha nada a
+        inspecionar: o caso de uso ja leu a conexao sob lock antes de chamar o
+        provedor. E ausencia aqui e o mesmo desfecho pedido, nao um erro.
+        """
+        self._session.execute(
+            delete(ConexaoWhatsAppORM).where(ConexaoWhatsAppORM.tenant_id == tenant_id)
+        )
 
     def bloquear_tenant(self, tenant_id: uuid.UUID) -> None:
         # Advisory lock de transacao: solta sozinho no commit ou no rollback, e

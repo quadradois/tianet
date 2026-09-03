@@ -139,6 +139,15 @@ class ConexaoWhatsAppRepository(ABC):
         """
 
     @abstractmethod
+    def delete(self, tenant_id: uuid.UUID) -> None:
+        """Apaga a conexao do Tenant, token cifrado junto (IMP-368).
+
+        Par local do `excluir_instancia`: manter a linha depois de a instancia
+        ter sido apagada no provedor deixaria uma conexao que aponta para nada
+        e um token que nao autentica mais em lugar nenhum.
+        """
+
+    @abstractmethod
     def bloquear_tenant(self, tenant_id: uuid.UUID) -> None:
         """Serializa a criacao de conexao para este Tenant na transacao atual.
 
@@ -181,13 +190,30 @@ class ProvedorWhatsApp(ABC):
     def instancia_existente(self, nome: str) -> tuple[str, str] | None:
         """Procura instancia ja criada no provedor e devolve `(id, token)`.
 
-        Existe porque "nao ha registro local" nao significa "nao ha instancia".
-        A do TiaNet foi criada a mao antes desta tela existir, e um `create`
-        cego produziria uma SEGUNDA — nao pareada — enquanto o WhatsApp do
-        operador continua ligado na primeira.
+        Existe porque "nao ha registro local" nao significa "nao ha instancia":
+        fecha a janela do `create` cuja resposta se perdeu, em que o provedor
+        criou e nos nao guardamos o `instancia_id`. Nessa janela o **nome e a
+        unica pista**, e por isso ele e gerado pela plataforma a partir do
+        Tenant (IMP-368) — um nome digitado tornaria a recuperacao dependente
+        de alguem redigitar exatamente igual.
 
-        Tambem fecha a janela do `create` cuja resposta se perdeu: a proxima
-        tentativa encontra a instancia em vez de criar outra.
+        Ate o IMP-367 este metodo justificava-se por outra premissa — "a
+        instancia do TiaNet foi criada a mao antes desta tela existir". O
+        fundador esclareceu em 2026-09-02 que ela nasceu dos nossos proprios
+        testes; a premissa caiu, a janela do `create` perdido permaneceu.
+        """
+
+    @abstractmethod
+    def excluir_instancia(self, instancia_id: str) -> None:
+        """Apaga a instancia no provedor (IMP-368).
+
+        Diferente de `desconectar`, que so desvincula o numero: aqui a
+        instancia deixa de existir, e com ela o token. Existe porque o logout
+        sozinho acumula instancias mortas no provedor — cada uma um nome, um
+        token e uma sessao que ninguem usa.
+
+        **Idempotente:** instancia ja ausente e sucesso, nao erro. Quem chama
+        quer o fim, e o fim ja aconteceu.
         """
 
     @abstractmethod

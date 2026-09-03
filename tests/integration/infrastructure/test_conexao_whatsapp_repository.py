@@ -9,6 +9,7 @@ from sqlalchemy import select, text
 from sqlalchemy.orm import Session, sessionmaker
 from tests.factories import CarteiraFactory, TenantFactory
 
+from emprestimo.domain.common.errors import TokenConexaoIlegivelError
 from emprestimo.domain.platform.conexao_whatsapp import ConexaoWhatsApp
 from emprestimo.infrastructure.cifra import CifraToken
 from emprestimo.infrastructure.db.orm import ConexaoWhatsAppORM
@@ -54,6 +55,40 @@ def test_grava_e_recupera_a_conexao(session_factory: sessionmaker[Session]) -> N
         assert recuperada.instancia_nome == "adm_tianet"
         assert recuperada.pareada is False
         assert repo.find_token(tenant_id) == TOKEN
+
+
+def test_token_que_nao_decifra_vira_erro_nomeado_e_nao_500(
+    session_factory: sessionmaker[Session],
+) -> None:
+    """Chave trocada tem desfecho de 404, nao de erro do servidor.
+
+    O PLAN-034 promete `404` para "registro existe e o token nao decifra", e a
+    promessa era inalcancavel: `decifrar()` levanta `SegredoCorrompidoError`, que
+    nao e `None`, entao o caso de uso nunca chegava ao seu
+    `ConexaoWhatsAppNaoEncontradaError` — a excecao subia crua e o handler
+    generico respondia `500`. Isso diz "erro nosso" quando a resposta certa e
+    "nao ha conexao utilizavel aqui", e manda o operador abrir chamado em vez de
+    reconectar.
+
+    Cenario real, nao sintetico: grava com uma chave e le com outra, que e
+    exatamente o que acontece quando alguem regenera a
+    `WHATSAPP_TOKEN_ENCRYPTION_KEY`.
+    """
+    with session_factory() as session:
+        tenant_id = _tenant(session)
+        SqlAlchemyConexaoWhatsAppRepository(
+            session, lambda: CifraToken(CifraToken.gerar_chave())
+        ).save(_conexao(tenant_id), token=TOKEN)
+        session.commit()
+
+        outra_chave = SqlAlchemyConexaoWhatsAppRepository(
+            session, lambda: CifraToken(CifraToken.gerar_chave())
+        )
+
+        # A linha EXISTE — e o que separa este caso de "conexao ausente".
+        assert outra_chave.find_by_tenant_id(tenant_id) is not None
+        with pytest.raises(TokenConexaoIlegivelError):
+            outra_chave.find_token(tenant_id)
 
 
 def test_o_token_nao_fica_em_texto_claro_no_banco(session_factory: sessionmaker[Session]) -> None:
@@ -130,3 +165,45 @@ def test_um_tenant_nao_pode_ter_duas_conexoes(session_factory: sessionmaker[Sess
             session.commit()
         session.rollback()
         session.execute(text("SELECT 1"))
+
+
+def test_delete_apaga_a_conexao_e_o_token_cifrado(
+    session_factory: sessionmaker[Session],
+) -> None:
+    """Par local do `excluir_instancia` (IMP-368).
+
+    Manter a linha depois de a instancia ter sido apagada no provedor deixaria
+    uma conexao apontando para nada e um token que nao autentica mais em lugar
+    nenhum — e o `UNIQUE (tenant_id)` impediria criar a proxima.
+    """
+    with session_factory() as session:
+        tenant_id = _tenant(session)
+        repo = _repo(session)
+        repo.save(_conexao(tenant_id), token=TOKEN)
+        session.commit()
+
+        repo.delete(tenant_id)
+        session.commit()
+
+        assert repo.find_by_tenant_id(tenant_id) is None
+        assert repo.find_token(tenant_id) is None
+        # Direto na tabela, filtrando por este Tenant: outros testes deste
+        # arquivo compartilham o banco, entao um `select` sem `where` mediria a
+        # sujeira deles, nao o efeito deste delete.
+        linha = session.scalar(
+            select(ConexaoWhatsAppORM).where(ConexaoWhatsAppORM.tenant_id == tenant_id)
+        )
+        assert linha is None
+
+
+def test_delete_de_conexao_ausente_nao_e_erro(
+    session_factory: sessionmaker[Session],
+) -> None:
+    """Ausencia e o mesmo desfecho pedido. Levantar aqui faria uma limpeza
+    repetida — ou concorrente — virar incidente."""
+    with session_factory() as session:
+        tenant_id = _tenant(session)
+        session.commit()
+
+        _repo(session).delete(tenant_id)
+        session.commit()

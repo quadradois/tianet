@@ -222,6 +222,21 @@ def _mensagem_do_provedor(resposta: httpx.Response) -> str:
     return ""
 
 
+MARCADOR_AUSENTE = "record not found"
+"""Como o Evolution diz "nao existe" — no CORPO, porque o status mente.
+
+Verificado ao vivo em 2026-09-02: `GET /instance/info/{uuid-inexistente}`
+responde **`500`** com `{"error":"record not found"}`. O contrato ja registrava
+o mesmo em `DELETE /instance/delete/:id` (§bugs conhecidos, item 1).
+
+Casar pelo texto e fragil de proposito. Se o provedor mudar a frase, a exclusao
+de uma instancia ja ausente passa a falhar de forma visivel — e o operador
+tenta de novo. A alternativa, tratar todo `500` como "ja foi", faria a
+plataforma apagar o registro local afirmando uma exclusao que talvez nao tenha
+acontecido: instancia orfa no provedor e nada apontando para ela.
+"""
+
+
 def _json(resposta: httpx.Response, rota: str) -> dict[str, Any]:
     # 2xx exigido, e nao apenas "menor que 400": um 301 ou 307 de proxy nao e
     # sucesso, e trata-lo como tal faria o sistema acreditar numa operacao que
@@ -404,6 +419,38 @@ class EvolutionTenantClient:
             instancia_id=instancia_id, nome=str(dados.get("name", nome)), token=escolhido
         )
 
+    def excluir_instancia(self, instancia_id: str) -> None:
+        """Apaga a instancia. Ja ausente conta como sucesso (IMP-368).
+
+        Autenticada por **Tenant**, como criar — e nao pelo token da instancia,
+        que deixa de existir junto com ela.
+        """
+        alvo = instancia_id.strip()
+        if not alvo:
+            # Sem isto a URL vira `/instance/delete/` — outra rota, ou um 404
+            # que passaria por "ja nao existe" e apagaria o registro local de
+            # uma instancia que continua viva.
+            raise ValueError("instancia_id vazio")
+        resposta = _executar(
+            lambda: self._client.delete(
+                f"/instance/delete/{alvo}",
+                headers={"apikey": self._api_key, "X-Tenant-ID": self._tenant_id},
+            ),
+            "/instance/delete",
+        )
+        if resposta.is_success:
+            return
+        detalhe = _mensagem_do_provedor(resposta)
+        if MARCADOR_AUSENTE in detalhe.lower():
+            # O fim pedido ja aconteceu. Levantar aqui faria a limpeza de uma
+            # instancia sumida ser impossivel para sempre.
+            return
+        sufixo = f": {detalhe}" if detalhe else ""
+        mensagem = f"/instance/delete respondeu {resposta.status_code}{sufixo}"
+        if resposta.status_code in (401, 403):
+            raise RequisicaoRecusadaError(mensagem)
+        raise EvolutionIndisponivelError(mensagem)
+
 
 class EvolutionInstanciaClient:
     """Opera uma instância já criada. Usa o token dela, sozinho."""
@@ -535,6 +582,16 @@ class EvolutionProvedorWhatsApp(ProvedorWhatsApp):
             api_key=api_key,
             client=self._client,
         )
+
+    def excluir_instancia(self, instancia_id: str) -> None:
+        try:
+            self._tenant.excluir_instancia(instancia_id)
+        except (ProvedorNaoAlcancadoError, RequisicaoRecusadaError) as exc:
+            # Mesma traducao do `criar_instancia`: sem ela o caso de uso nao
+            # distingue "nao apagou" de "pode ter apagado", e registraria
+            # divergencia — incidente inventado numa trilha append-only — para
+            # uma recusa comprovada.
+            raise EfeitoNaoAplicadoError(str(exc)) from exc
 
     def _instancia(self, token: str) -> EvolutionInstanciaClient:
         return EvolutionInstanciaClient(

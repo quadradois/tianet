@@ -34,6 +34,12 @@ from emprestimo.application.comercial import (
     SimulacaoComercialService,
 )
 from emprestimo.application.comprovante import ComprovanteService
+from emprestimo.application.conexao_whatsapp import (
+    ConectarWhatsApp,
+    ConsultarConexaoWhatsApp,
+    DesconectarWhatsApp,
+    ExcluirConexaoWhatsApp,
+)
 from emprestimo.application.configuracoes_financeiras import (
     CalendarioFinanceiroService,
     CapturaSnapshotConfiguracaoService,
@@ -97,6 +103,9 @@ from emprestimo.infrastructure.auditoria import (
     SqlAlchemyAuditoriaRegistro,
 )
 from emprestimo.infrastructure.db.session import create_session, get_session_factory
+from emprestimo.infrastructure.notifications.evolution_instancia import (
+    EvolutionProvedorWhatsApp,
+)
 from emprestimo.infrastructure.repositories import (
     SqlAlchemyCarteiraRepository,
     SqlAlchemyDevedorRepository,
@@ -168,6 +177,68 @@ def get_perfis_acesso_service() -> PerfisAcessoService:
     return PerfisAcessoService(
         uow_factory=lambda: SqlAlchemyUnitOfWork(session_factory),
         auditoria=SqlAlchemyAuditoriaRegistro(session_factory),
+    )
+
+
+_provedor_whatsapp: EvolutionProvedorWhatsApp | None = None
+
+
+def get_provedor_whatsapp() -> EvolutionProvedorWhatsApp:
+    """Provedor único do processo (IMP-368).
+
+    Singleton preguiçoso, e não uma instância por requisição: o adapter abre um
+    `httpx.Client` com pool próprio, e a tela de conexão faz polling de estado e
+    de QR de poucos em poucos segundos. Um cliente por requisição acumularia
+    sockets que ninguém fecha — por segundo, não por sessão.
+
+    As credenciais são as de **Tenant** do Evolution. Ausentes, o adapter recusa
+    ser construído com mensagem nomeada, em vez de subir e falhar depois: uma
+    conexão montada com chave vazia daria 401 em tudo, para sempre, sem dizer
+    por quê.
+    """
+    global _provedor_whatsapp
+    if _provedor_whatsapp is None:
+        _provedor_whatsapp = EvolutionProvedorWhatsApp(
+            host=os.environ.get("EVOLUTION_HOST", "https://diamondgreen.com.br"),
+            tenant_id=os.environ.get("EVOLUTION_TENANT_ID", ""),
+            api_key=os.environ.get("EVOLUTION_API_KEY", ""),
+        )
+    return _provedor_whatsapp
+
+
+def get_consultar_conexao_whatsapp() -> ConsultarConexaoWhatsApp:
+    session_factory = get_session_factory()
+    return ConsultarConexaoWhatsApp(
+        lambda: SqlAlchemyUnitOfWork(session_factory),
+        get_provedor_whatsapp(),
+        SqlAlchemyAuditoriaRegistro(session_factory),
+    )
+
+
+def get_conectar_whatsapp() -> ConectarWhatsApp:
+    session_factory = get_session_factory()
+    return ConectarWhatsApp(
+        lambda: SqlAlchemyUnitOfWork(session_factory),
+        get_provedor_whatsapp(),
+        SqlAlchemyAuditoriaRegistro(session_factory),
+    )
+
+
+def get_desconectar_whatsapp() -> DesconectarWhatsApp:
+    session_factory = get_session_factory()
+    return DesconectarWhatsApp(
+        lambda: SqlAlchemyUnitOfWork(session_factory),
+        get_provedor_whatsapp(),
+        SqlAlchemyAuditoriaRegistro(session_factory),
+    )
+
+
+def get_excluir_conexao_whatsapp() -> ExcluirConexaoWhatsApp:
+    session_factory = get_session_factory()
+    return ExcluirConexaoWhatsApp(
+        lambda: SqlAlchemyUnitOfWork(session_factory),
+        get_provedor_whatsapp(),
+        SqlAlchemyAuditoriaRegistro(session_factory),
     )
 
 

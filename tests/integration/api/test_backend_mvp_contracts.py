@@ -38,6 +38,7 @@ from emprestimo.presentation.api.motor_routes import router as motor_router
 from emprestimo.presentation.api.observability_routes import router as observability_router
 from emprestimo.presentation.api.operacao_diaria_routes import router as operacao_diaria_router
 from emprestimo.presentation.api.routes import router as platform_router
+from emprestimo.presentation.api.whatsapp_routes import router as whatsapp_router
 
 __all__ = ["ambiente_mvp"]
 
@@ -82,7 +83,9 @@ def test_imp_269_openapi_cobre_routers_reais_e_contratos_transversais() -> None:
     operations = _operations(schema)
     router_operations = _router_operations()
 
-    assert len(operations) == 107
+    # IMP-368: +4 com /platform/whatsapp/conexao (consultar, conectar,
+    # desconectar e excluir a instancia).
+    assert len(operations) == 111
     assert operations.keys() == router_operations
     assert schema["components"]["schemas"]["ErroResponse"]["required"] == [
         "codigo",
@@ -234,6 +237,7 @@ def _api_routes() -> Iterable[APIRoute]:
         operacao_diaria_router,
         configuracoes_financeiras_router,
         automacao_router,
+        whatsapp_router,
     ):
         yield from (route for route in api_router.routes if isinstance(route, APIRoute))
 

@@ -268,6 +268,29 @@ EXCECOES_IDEMPOTENCIA_ESCRITAS: dict[tuple[str, str], str] = {
         "Logout revoga a sessao apresentada e e naturalmente convergente; nao existe "
         "resultado de negocio reutilizavel por Idempotency-Key."
     ),
+    ("post", "/platform/whatsapp/conexao"): (
+        "ADR-019 (promove PLAN-034 3.1): a chave replayaria o QR da primeira "
+        "chamada, que vive ~20s. "
+        "Devolver um QR morto e pior que gerar outro. O que precisa ser idempotente "
+        "aqui e o nascimento da instancia, e UNIQUE (tenant_id) mais o lock por "
+        "Tenant ja garantem isso no caso de uso."
+    ),
+    ("delete", "/platform/whatsapp/conexao"): (
+        "ADR-019. Nao ha resultado de negocio a replayar: o desfecho e a ausencia de "
+        "pareamento, e repetir o pedido pede o mesmo estado final. O lado da "
+        "TiaNet converge — `desparear()` sobre conexao ja despareada e no-op, "
+        "coberto por teste. PREMISSA NAO CERTIFICADA, e declarada: nao foi "
+        "observado o que o Evolution responde a um logout repetido, e o adapter "
+        "recusa qualquer nao-2xx. Nao ha ambiente de teste do provedor "
+        "(contexto-externo 2.1), entao a verificacao so existe em producao. "
+        "Diferente do DELETE da instancia, onde 'record not found' JA e tratado "
+        "como sucesso por resposta observada."
+    ),
+    ("delete", "/platform/whatsapp/conexao/instancia"): (
+        "ADR-019 (IMP-368): apagar e convergente por definicao, e o adapter trata "
+        "'record not found' do provedor como sucesso. Uma chave guardaria o "
+        "resultado de uma exclusao que ja aconteceu."
+    ),
 }
 
 

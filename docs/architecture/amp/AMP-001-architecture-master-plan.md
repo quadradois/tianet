@@ -372,6 +372,22 @@ tabela para preservar o histórico da reserva.
 | **ADR-016** | Observability / Logging / Tracing | Logs estruturados, métricas, correlation ID. | Imediato. |
 | **ADR-017** | Billing / Subscriptions / Monetização | Cobrança entre tenants, white-label. | Quando modelo de receita exigir. |
 
+### Emitidas fora da reserva
+
+A tabela acima reserva 005–017 por **tema previsto**. Decisões que não
+correspondem a nenhum tema reservado recebem o próximo número livre acima de 017
+e são registradas aqui — sem isto, esta tabela deixa de ser a fonte de verdade
+que o Identifier Registry declara que ela é, e o próximo emissor colide.
+
+**A ADR-018 esteve ausente desta seção até 2026-09-03**, embora emitida em
+2026-08-07. Quem consultasse a tabela para escolher o próximo número escolheria
+`018` outra vez — a colisão que a SPEC-002 §5.2 existe para impedir.
+
+| ID | Tema | Situação |
+|---|---|---|
+| **ADR-018** | Identidade externa do Aggregate Devedor | **EMITIDA em 07/08/2026** — ver [ADR-018](../adrs/ADR-018-identidade-externa-do-devedor.md). Endereçamento HTTP do Devedor contextualizado por Carteira. |
+| **ADR-019** | Isenção de `Idempotency-Key` nas escritas da conexão de WhatsApp | **EMITIDA em 03/09/2026** — ver [ADR-019](../adrs/ADR-019-isencao-de-idempotency-key-nas-escritas-da-conexao-de-whatsapp.md). Promove a decisão do PLAN-034 §3.1 a decisão arquitetural, depois de quatro rodadas de review reabrirem a mesma pergunta. |
+
 ---
 
 # 9. Hotspots Arquiteturais

@@ -22,6 +22,7 @@ EXPECTED_CONTEXTS = {
     "configuracoes": "/credit/configuracoes-financeiras",
     "automacao": "/credit/automacao",
     "notificacoes": "/credit/notificacoes",
+    "whatsapp": "/platform/whatsapp/conexao",
     "health": "/health",
 }
 
@@ -43,11 +44,13 @@ def test_openapi_inventory_covers_backend_mvp_contexts() -> None:
     schema = create_app().openapi()
     operations = _operations(schema)
 
-    assert len(operations) == 107
+    assert len(operations) == 111
     # IMP-351: eram 5 publicas; POST /auth/ativar saiu com o fluxo de ativacao.
     assert sum(1 for _, path in operations if _is_public(path)) == 4
-    # IMP-362: 107 no total = 4 publicas + 103 protegidas.
-    assert sum(1 for _, path in operations if not _is_public(path)) == 103
+    # IMP-368: 111 no total = 4 publicas + 107 protegidas. Eram 107/103 ate o
+    # IMP-362; entraram as quatro de /platform/whatsapp/conexao — consultar,
+    # conectar, desconectar e excluir a instancia.
+    assert sum(1 for _, path in operations if not _is_public(path)) == 107
 
     paths = set(schema["paths"])
     for context, expected_fragment in EXPECTED_CONTEXTS.items():

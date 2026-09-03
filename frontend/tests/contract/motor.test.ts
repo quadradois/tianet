@@ -31,9 +31,9 @@ function header(operation: { parameters?: { in: string; name: string; required?:
 describe("Motor OpenAPI consumido pelo frontend", () => {
   it("preserva snapshot oficial 107/135 e SHA governado", () => {
     const operationCount = Object.values(spec.paths).flatMap((item) => Object.keys(item).filter((method) => ["get", "post", "patch", "put", "delete"].includes(method))).length;
-    expect(operationCount).toBe(107);
-    expect(Object.keys(spec.components.schemas)).toHaveLength(135);
-    expect(createHash("sha256").update(raw).digest("hex")).toBe("23d8d91f5f5890ef5ca010d1fc45a458458e5028042c80e7e15dbf82052af76a");
+    expect(operationCount).toBe(111);
+    expect(Object.keys(spec.components.schemas)).toHaveLength(137);
+    expect(createHash("sha256").update(raw).digest("hex")).toBe("0d0b6e9da14ef88a169a4beee174a74534277eb6893821b78119efc5dda5f4ba");
   });
 
   it("certifica as 9 operacoes oficiais do Motor e Idempotency-Key exata", () => {

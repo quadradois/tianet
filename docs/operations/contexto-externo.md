@@ -1,6 +1,6 @@
 # Contexto Externo
 
-**Versao:** 1.5.0
+**Versao:** 1.9.0
 
 **Status:** Vivo — mantido manualmente
 
@@ -41,6 +41,79 @@ auditada contra o codigo em producao. Leia antes de integrar qualquer coisa.
 | Retry de webhook | 5 tentativas, 30s de intervalo, depois descarta — **nao existe replay** |
 | Tamanho de payload | midia vem em base64; `HistorySync` ja foi observado com 5,6MB |
 | Ambiente de teste | **Nao existe** — respondido em 2026-08-25. Validacoes controladas usam producao com o numero do fundador; ver §6.2 |
+
+### Estado real do tenant `tianet` no provedor (lido em 2026-09-02)
+
+Leitura ao vivo de `/instance/all` e `/instance/info/:id` com a chave de Tenant,
+durante o IMP-368. **Uma unica instancia existe:**
+
+| Campo | Valor |
+|---|---|
+| `name` | `adm_tianet` |
+| `id` | `8a8c901f-16f9-4431-b19d-ed69cccc46c0` |
+| Criada em | 2026-08-31 |
+| `connected` | `false` — `disconnect_reason: "401: logged out from another device"` |
+| `jid` | preenchido (`5562...`) **mesmo desconectada** |
+| `webhook` | vazio |
+
+O que cada linha ensina, e nao estava escrito em lugar nenhum:
+
+- **A instancia e artefato de teste nosso.** O fundador confirmou em 2026-09-02
+  que ela nasceu dos testes de comunicacao, nao de uma configuracao manual
+  anterior ao sistema. O IMP-367 tinha registrado a premissa contraria no
+  proprio codigo, e ela era falsa.
+- **Apagar do celular NAO apaga a instancia.** Desparear pelo aparelho produz o
+  `disconnect_reason` acima e a instancia continua existindo no provedor. So
+  `DELETE /instance/delete/:id` a remove — e ate o IMP-368 nenhum codigo nosso
+  chamava essa rota. E o motivo de a exclusao ter virado operacao propria.
+- **O `jid` sobrevive a desconexao.** Ler o telefone do `jid` sem cruzar com
+  `connected` mostraria "conectado no 6284290661" numa conexao caida.
+- **O `webhook` vazio e proposital**, nao pendencia: a DR-006 apontou o webhook
+  para o agente (§2.2), e mandar a URL da TiaNet roubaria os eventos dele.
+- **`/instance/info` com id inexistente responde `500` com
+  `{"error":"record not found"}`** — o status mente, o corpo nao. E por isso que
+  o adapter trata a ausencia pelo texto do corpo, e nao pelo `500`.
+
+**Consequencia operacional pendente:** a partir do IMP-368 a plataforma nomeia
+as instancias como `tianet_{tenant_id}`, entao ela **nao vai adotar** a
+`adm_tianet`. Essa instancia deve ser apagada (pela operacao nova, ou a mao no
+diamondgreen) antes do primeiro `conectar` valer como definitivo — senao ela
+fica para sempre como sessao morta, que e exatamente o acumulo que o fundador
+pediu para evitar.
+
+### Custodia da `WHATSAPP_TOKEN_ENCRYPTION_KEY` (decidido em 2026-09-02)
+
+**Onde mora:** o mesmo canal de `docs/credenciais/`, fora do git, entregue por
+canal direto — ao lado do `evolution_api_key`. Sem cofre proprio, sem rotina de
+rotacao. **Este documento nao carrega o valor**, so o lugar e o porque.
+
+**Estado hoje:** a chave **nao existe** em lugar nenhum, nem no `.env` de
+desenvolvimento. Ela nasce no IMP-359, com o provisionamento do VPS.
+
+**Por que a protecao e proporcional, e nao maior.** Ela e a primeira chave
+*decodificadora* do sistema — as outras sao substituiveis (`POSTGRES_PASSWORD`
+se redefine, `JWT_SECRET_KEY` perdido so obriga todo mundo a logar de novo, e o
+Evolution reemite a chave de Tenant por `/tenant/apikey/:id`). Isso legitima a
+pergunta pelo backup, e ela foi feita.
+
+Mas o que ela decodifica **tem segunda fonte**: `GET /instance/all`, com a chave
+de Tenant, devolve o mesmo token da instancia em texto claro — verificado ao
+vivo em 2026-09-02. Disso decorre a decisao: **a chave de cifra e estritamente
+menos poderosa que a `EVOLUTION_API_KEY`**, que ja vive naquele canal. Quem tem
+a segunda le o token direto do provedor sem precisar da primeira. Guardar a mais
+fraca com mais cerimonia que a mais forte seria teatro.
+
+O handoff de 2026-09-02 §5.1 registrava que perder a chave tornaria "todo token
+persistido irrecuperavel". **Esta secao corrige isso**: e recuperavel, e sem QR
+novo — a adocao por nome derivado (IMP-368) reencontra a instancia e regrava o
+token.
+
+**Custo real de perder a chave:** apagar a linha de `conexao_whatsapp` e chamar
+`conectar`. Hoje esse apagar e **manual**, porque a unica operacao que remove o
+registro local (`DELETE /platform/whatsapp/conexao/instancia`) apaga a instancia
+no provedor junto — e ai o QR volta a ser necessario sem precisar. Uma operacao
+que solte apenas o vinculo local esta anotada como candidata para depois do
+deploy; ate la, o caminho e um `DELETE` no banco.
 
 ### Recorte para a TiaNet
 
@@ -139,6 +212,53 @@ trilha registraria como entregue um e-mail que nunca saiu. Em vez disso entra o
 retry nao configura credencial, e **nomeado**, porque o operador precisa ver o
 motivo na trilha.
 
+## 2.4 Mercado Pago — recebimento do acerto
+
+**Decidido em 2026-09-03, sem desenho ainda.** Registrado aqui na primeira
+mencao, antes de existir codigo, porque este documento so evita o erro que ele
+descreve se for escrito na hora da decisao — nao depois.
+
+| Campo | Valor |
+|---|---|
+| Situacao | **decidida a existencia; sem DR, sem ADR, sem codigo** |
+| Fluxo do dinheiro | **Devedor paga o Credor** — quitacao do acerto mensal |
+| Nao e | cobranca de assinatura do SaaS; a TiaNet nao cobra o Tenant por aqui |
+| Conta / credencial | *a preencher* — nao verificado |
+| Posicao na fila | **depois do IMP-359 (deploy)**, decidido pelo fundador |
+| Toca | Motor Financeiro e a trilha ADR-002 — nao e integracao periferica |
+
+**Por que vem depois do deploy, e nao e so preferencia:** notificacao de
+pagamento do Mercado Pago precisa de um HTTPS publico e estavel para entregar.
+Sem o IMP-359 feito nao existe esse endereco, entao integrar antes seria
+construir contra um destino que ainda nao tem TLS nem dominio apontado.
+
+### As duas colisoes com decisoes ja tomadas
+
+Nenhuma das duas e impeditiva; as duas exigem decisao explicita antes do
+desenho, e por isso estao escritas aqui e nao descobertas no meio da execucao.
+
+1. **A TiaNet decidiu nao ter webhook publico** (§2.2), e o checklist do IMP-359
+   diz *"rota publica somente para o ingress do agente; API e banco sem
+   exposicao publica"*. Receber notificacao do Mercado Pago exige exatamente uma
+   rota publica. Ou a decisao da §2.2 se abre para um segundo caso, ou o
+   recebimento vira **polling** da API do provedor. **A diferenca em relacao ao
+   Evolution e real e favorece o Mercado Pago:** o webhook do Evolution nao tem
+   autenticacao nenhuma — a URL e o unico segredo —, enquanto o Mercado Pago
+   assina a notificacao (`x-signature`), o que permite provar origem sem confiar
+   no sigilo da URL. O argumento que fechou a §2.2 nao se transporta inteiro.
+2. **A DR-004 acabou com o plano de parcelas.** O emprestimo e livre, com acerto
+   mensal no dia combinado, e o valor devido so existe depois de o Motor
+   calcular o trecho. Nao ha "parcela 3" para emitir com antecedencia: qualquer
+   cobranca gerada e **do acerto apurado**, com validade curta, ou de valor
+   aberto. Isso muda o que o desenho pode prometer.
+
+**Ainda nao perguntado, e precisa ser antes da DR:** se o recebimento e por PIX,
+link de pagamento ou os dois; se o Credor ja tem conta Mercado Pago com as
+credenciais de producao; e o que acontece quando o devedor paga valor diferente
+do apurado — que hoje o dominio ja trata como sobra, mas por lancamento manual.
+
+---
+
 ---
 
 # 3. Infraestrutura
@@ -164,9 +284,17 @@ e o dominio estao disponiveis. Falta trabalho nosso — deploy, TLS, backup, CD 
 endurecimento —, e a sequencia acordada com o fundador poe isso **depois** do
 PLAN-034.
 
-**Um insumo externo permanece:** a escolha do provedor de IA com o cliente. Sem
-ela, `LLM_BASE_URL`, `LLM_API_KEY` e `LLM_MODEL` nao tem valor para provisionar,
-e o IMP-359 nao fecha. Ver DR-005 e §2.2.
+**O insumo de IA deixou de bloquear (respondido pelo fundador em 2026-09-03).**
+O provedor BYOK da DR-005 **foi escolhido com o cliente e a chave existe**. Com
+isso o IMP-359 fecha inteiro como esta escrito, sem precisar ser fatiado.
+
+*Pendente de registro nesta tabela:* o **nome do provedor** e o **modelo**
+(`LLM_BASE_URL` e `LLM_MODEL`). Ficam em branco de proposito ate serem
+confirmados — este documento prefere lacuna a item errado. A `LLM_API_KEY` nao
+entra aqui nem no git: vai pelo canal de `docs/credenciais/`, ao lado do
+`evolution_api_key` e da `WHATSAPP_TOKEN_ENCRYPTION_KEY`.
+
+**Nenhum insumo externo bloqueia mais o IMP-359.** O que falta e trabalho nosso.
 
 Nao existe pipeline de CD no repositorio: `.github/workflows/quality.yml` e o
 unico workflow e cobre apenas gates de qualidade.
@@ -186,17 +314,35 @@ unico workflow e cobre apenas gates de qualidade.
 ## 5.1 Grafo de conhecimento (graphify)
 
 `graphify-out/` e ignorado pelo git e vive apenas no disco de quem o gera.
-Regerado em 2026-08-16 sobre o codigo: **8.267 nos, 24.614 arestas**, cobrindo
-backend, frontend e testes. Diretorios gerados (`playwright-report`,
+
+**Estado em 2026-09-03:** construido em 2026-08-21 e atualizado em 2026-09-03 —
+**10.768 nos, 25.809 arestas, 575 comunidades, 1.118 arquivos**. Cobre backend,
+frontend, testes **e documentos**. Diretorios gerados (`playwright-report`,
 `test-results`, `.next`) sao excluidos — sem isso, cerca de 1.200 nos de bundle
 minificado poluem o grafo.
 
-Consultar antes de afirmar que algo nao existe. O grafo responde por relacao
-entre simbolos do codigo; **nao cobre documentos** (extracao semantica nao foi
-executada) nem nada listado neste arquivo.
+**A consulta ao grafo antes de alteracao arquitetural virou governanca:**
+[SPEC-003](../governance/SPEC-003-pesquisa-no-grafo-antes-de-alteracao-arquitetural.md).
+Ela define quando o gate dispara, exige verificar frescor antes de consultar, e
+declara os limites abaixo como normativos.
 
-O manifesto incremental nao foi salvo — a API mudou nesta versao do graphify —
-entao um `--update` fara reconstrucao completa.
+**O grafo agora cobre documentos.** A extracao semantica foi executada em
+2026-09-03 sobre 50 documentos e 4 imagens (handoffs, ADRs, DRs, PLANs,
+FOUNDATION, o contrato Evolution e este arquivo), com 54 de 54 arquivos
+gravados no cache — nenhum fragmento perdido. Consultas cruzam documento e
+codigo na mesma resposta.
+
+**O que ele continua nao cobrindo: o que esta fora do repositorio.** Servidor,
+provedor, instancia, conta, cliente — a fonte e este arquivo, e o que ele nao
+cobre so o fundador sabe. *"Nao achei no grafo"* significa *"nao existe no
+codigo e nos documentos indexados"*, nunca *"nao existe"*.
+
+**Correcao de tres erros que esta secao carregava ate a v1.8.0**, todos
+verificados contra o disco em 2026-09-03: a data era 2026-08-21 e nao
+2026-08-16; a contagem era 9.466 nos e nao 8.267; e o manifesto incremental
+**existe** (`manifest.json`), de modo que `--update` re-extrai so o que mudou em
+vez de reconstruir tudo. O terceiro erro era o mais caro: ele desencorajava a
+atualizacao incremental, e o grafo passou treze dias parado.
 
 ---
 
@@ -343,6 +489,9 @@ Corrigir isso e item de codigo, nao de documentacao.
 
 | Versao | Data | Descricao |
 |---|---|---|
+| 1.9.0 | 2026-09-03 | A §5.1 estava errada em tres pontos ao mesmo tempo — data, contagem de nos e a afirmacao de que o manifesto nao fora salvo. O terceiro era o mais caro: desencorajava o `--update`, e o grafo ficou treze dias parado, escondendo cifra, persistencia e rotas da conexao de WhatsApp. Corrigidos contra o disco, o grafo atualizado (10.768 nos) e a extracao semantica executada: ele passa a **cobrir documentos**, o que a versao anterior declarava impossivel. A consulta antes de alteracao arquitetural virou governanca na SPEC-003. |
+| 1.8.0 | 2026-09-03 | O provedor de IA foi escolhido e a chave existe: o ultimo insumo externo do IMP-359 caiu, e o deploy passa a depender so de trabalho nosso. Mercado Pago entra como §2.4 na primeira mencao — devedor paga o Credor, depois do deploy —, com as duas colisoes nomeadas antes de virarem descoberta no meio da execucao: a decisao de nao ter webhook publico (§2.2), cujo argumento nao se transporta inteiro porque o Mercado Pago assina a notificacao e o Evolution nao, e o fim do plano de parcelas (DR-004), que impede emitir cobranca antes de o Motor apurar o acerto. |
+| — | — | *Lacuna conhecida: as versoes 1.6.0 e 1.7.0 subiram o cabecalho sem deixar linha aqui. Nao reconstruidas — inventar a descricao seria pior que registrar a falta.* |
 | 1.5.0 | 2026-09-02 | O telefone da conta pareada e obtivel: `jid` em `/instance/info/:id`, autenticado por Tenant — nao por instancia, que e o motivo de ele parecer inexistente. Verificado ao vivo. |
 | 1.4.0 | 2026-09-02 | Os tres defeitos da §6.2 foram corrigidos no mesmo dia em que acabaram de ser descritos: os adapters aplicam a allowlist, o `5xx` do WhatsApp virou desconhecido e o `except` passou a capturar `RequestError`, que engloba `DecodingError`. O que continua aberto e a premissa — ninguem mediu se o Evolution deduplica pelo `id`, e por isso cada resultado desconhecido vira conciliacao humana. |
 | 1.3.1 | 2026-09-02 | A §6.2 registrava so um terco do problema. Alem do timeout indistinto: **resposta 5xx** vira `FALHA_TEMPORARIA` e a tabela da ADR-009 poe `5xx` em `resultado_desconhecido`; e **`DecodingError` escapa** do `except` (e `RequestError`, nao `TransportError`) direto para o retry do Scheduler. Sao tres pontos, nao um. E a receita mudou de forma: em vez de enumerar excecoes "de depois do envio" — enumeracao que faltou uma em cada tentativa —, a regra vira allowlist. So `ConnectTimeout`, `ConnectError` e `PoolTimeout` provam que a requisicao nao chegou a existir na rede; todo o resto e desconhecido por omissao, `5xx` incluido. "Depois de transmitir bytes" nao e verificavel a partir da excecao. Registrado tambem o que de fato pode duplicar hoje: comprovante do lancamento e aviso de sobra, nao cobranca — o lembrete usa o canal de e-mail. |

@@ -28,6 +28,7 @@ from emprestimo.application.errors import (
     CalendarioFinanceiroNaoEncontradoError,
     CarteiraNaoEncontradaError,
     CobrancaCasoNaoEncontradoError,
+    ConexaoWhatsAppNaoEncontradaError,
     ConfiguracaoFinanceiraNaoEncontradaError,
     ContextoOperacionalIncompletoError,
     ContratoCreditoNaoEncontradoError,
@@ -57,6 +58,7 @@ from emprestimo.domain.common.errors import (
     PerfilJaExisteError,
     TemplateNotificacaoJaExisteError,
     TenantJaExisteError,
+    TokenConexaoIlegivelError,
     ViolacaoInvarianteError,
 )
 from emprestimo.domain.credit.contato import ContatoInvalidoError
@@ -79,6 +81,7 @@ from emprestimo.presentation.api.observability_routes import router as observabi
 from emprestimo.presentation.api.openapi import instalar_openapi_observabilidade
 from emprestimo.presentation.api.operacao_diaria_routes import router as operacao_diaria_router
 from emprestimo.presentation.api.routes import router
+from emprestimo.presentation.api.whatsapp_routes import router as whatsapp_router
 
 logger = logging.getLogger(__name__)
 
@@ -102,6 +105,7 @@ def create_app() -> FastAPI:
     app.include_router(operacao_diaria_router)
     app.include_router(configuracoes_financeiras_router)
     app.include_router(automacao_router)
+    app.include_router(whatsapp_router)
     app.add_exception_handler(RequestValidationError, _payload_invalido)
     app.add_exception_handler(AutenticacaoRecusadaError, _autenticacao_recusada)
     app.add_exception_handler(AcessoNegadoError, _acesso_negado)
@@ -126,6 +130,11 @@ def create_app() -> FastAPI:
     app.add_exception_handler(CalendarioFinanceiroNaoEncontradoError, _recurso_nao_encontrado)
     app.add_exception_handler(ConfiguracaoFinanceiraNaoEncontradaError, _recurso_nao_encontrado)
     app.add_exception_handler(RecursoDeOutroTenantError, _recurso_nao_encontrado)
+    app.add_exception_handler(ConexaoWhatsAppNaoEncontradaError, _recurso_nao_encontrado)
+    # Token que nao decifra tem o mesmo desfecho operacional que conexao
+    # ausente: nao ha com o que falar com o provedor. O PLAN-034 promete 404,
+    # e sem esta linha a excecao subia crua para o handler generico de 500.
+    app.add_exception_handler(TokenConexaoIlegivelError, _recurso_nao_encontrado)
     app.add_exception_handler(PerfilConflitoError, _perfil_conflito)
     app.add_exception_handler(ContextoOperacionalIncompletoError, _contexto_incompleto)
     app.add_exception_handler(PerfilJaExisteError, _perfil_conflito)

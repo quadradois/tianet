@@ -8,6 +8,8 @@ pertencem à fase de Aplicação (IMP-014).
 from __future__ import annotations
 
 import os
+from pathlib import Path
+from urllib.parse import quote
 
 from sqlalchemy import create_engine
 from sqlalchemy.engine import Engine
@@ -22,9 +24,136 @@ _engine: Engine | None = None
 _session_factory: sessionmaker[Session] | None = None
 
 
+class EnvNaoSuportadoError(RuntimeError):
+    """O `.env` usa sintaxe que este leitor não interpreta como o Compose.
+
+    Existe para **falhar alto** em vez de divergir em silêncio, e essa escolha é
+    o resumo de todo o defeito que originou este módulo: o Compose cria o
+    container com um valor, este leitor produzia outro, e o sintoma
+    (`password authentication failed`) apontava para credencial errada em vez de
+    para leitura divergente.
+
+    Implementar a gramática completa do Compose — interpolação `${VAR}`, escapes
+    dentro de aspas duplas — seria construir para um caso que ninguém vive: a
+    senha do Postgres local é um segredo gerado, não uma expressão. Mas *supor*
+    que ninguém vive e seguir adiante é o que se paga caro. Então o não
+    suportado é recusado **pelo nome**, e quem topar com isto lê o que fazer.
+    """
+
+
+def _valor_do_env(bruto: str) -> str:
+    """Interpreta um valor do `.env` como o Docker Compose interpreta.
+
+    Precisa casar com o Compose, e não "ser razoável": é o Compose que cria o
+    container com essa senha. Qualquer divergência aqui produz de volta o
+    `password authentication failed` que esta leitura existe para eliminar —
+    com a agravante de o valor PARECER certo em quem lê o arquivo.
+
+    Duas regras, e as duas foram apontadas em review:
+
+    - **Valor entre aspas** termina na aspa de fechamento. O que vier depois é
+      comentário e não faz parte da senha. Ingenuamente, `strip('"')` sobre
+      `"segredo" # nota` devolve `segredo" # nota` — com aspa no meio.
+    - **Valor sem aspas** aceita comentário inline, e ele começa num `#`
+      **precedido de espaço**. A exigência do espaço não é capricho: `#` é
+      caractere válido de senha, e cortar em todo `#` mutilaria
+      `POSTGRES_PASSWORD=ab#cd`.
+    """
+    bruto = bruto.strip()
+    if "${" in bruto:
+        raise EnvNaoSuportadoError(
+            "interpolacao ${...} no .env nao e interpretada aqui, e o Compose a "
+            "interpreta — o valor divergiria em silencio. Escreva o valor literal, "
+            "ou defina DATABASE_URL explicitamente."
+        )
+    if bruto[:1] in {'"', "'"}:
+        aspa = bruto[0]
+        if "\\" in bruto:
+            raise EnvNaoSuportadoError(
+                "escape com barra invertida dentro de aspas nao e interpretado aqui, "
+                "e o Compose o interpreta. Escreva o valor sem escapes, ou defina "
+                "DATABASE_URL explicitamente."
+            )
+        fim = bruto.find(aspa, 1)
+        if fim == -1:
+            raise EnvNaoSuportadoError(
+                f"aspa {aspa!r} aberta e nao fechada no .env — o valor esta truncado "
+                "e nao ha como saber onde deveria terminar."
+            )
+        return bruto[1:fim]
+    for sep in (" #", "	#"):
+        corte = bruto.find(sep)
+        if corte != -1:
+            bruto = bruto[:corte]
+    return bruto.strip()
+
+
+def _env_do_arquivo(arquivo: Path | None = None) -> dict[str, str]:
+    """Lê o `.env` da raiz do repositório. Vazio se não houver.
+
+    Stdlib de propósito: são pares `CHAVE=valor` e não vale uma dependência —
+    ainda menos uma que hoje só existe de forma transitiva e some numa
+    atualização de lock. O que a dependência traria de valor está em
+    `_valor_do_env`, e está coberto por teste sobre arquivo real.
+
+    `arquivo=` existe para o teste exercitar o parser DE VERDADE. A primeira
+    versão destes testes trocava esta função por um lambda, então validava a
+    precedência e nunca a leitura — e foi exatamente na leitura que o defeito
+    estava.
+    """
+    alvo = arquivo if arquivo is not None else Path(__file__).resolve().parents[4] / ".env"
+    if not alvo.is_file():
+        return {}
+    valores: dict[str, str] = {}
+    for linha in alvo.read_text(encoding="utf-8", errors="replace").splitlines():
+        linha = linha.strip()
+        if not linha or linha.startswith("#") or "=" not in linha:
+            continue
+        chave, _, valor = linha.partition("=")
+        valores[chave.strip()] = _valor_do_env(valor)
+    return valores
+
+
 def database_url() -> str:
-    """URL do banco a partir de DATABASE_URL (ou padrão do Docker Compose)."""
-    return os.environ.get("DATABASE_URL", DEFAULT_DATABASE_URL)
+    """URL do banco, na ordem de precedência que cada ambiente espera.
+
+    1. `DATABASE_URL` no ambiente — o Compose a injeta nos containers e o CI a
+       define no workflow. Quem passa explicitamente sempre vence.
+    2. `DATABASE_URL` no `.env` — para quem prefere escrever a URL inteira.
+    3. `POSTGRES_PASSWORD` no `.env` — a URL é **derivada** dela.
+    4. `DEFAULT_DATABASE_URL` — convenção sem configuração nenhuma.
+
+    **Por que o passo 3 existe**, e ele é o conserto de um defeito real: o
+    Compose carrega o `.env` sozinho, então a API subia e o banco funcionava,
+    enquanto `pytest` rodando na máquina não lia esse arquivo em lugar nenhum e
+    caía no passo 4 — com a senha de convenção, que nunca bate com a
+    `POSTGRES_PASSWORD` que de fato criou o container. O sintoma era
+    `password authentication failed`, que parece credencial errada e é, na
+    verdade, arquivo não lido. Custou uma sessão de review incompleta em
+    2026-09-03, e não era a primeira vez.
+
+    **E por que DERIVAR em vez de pedir a URL inteira:** `.env.example` mandava
+    escrever a senha duas vezes, em `POSTGRES_PASSWORD` e de novo dentro de
+    `DATABASE_URL`. Duas cópias divergem — alguém troca uma e esquece a outra, e
+    o erro reaparece com outra cara. Uma fonte só torna a divergência impossível.
+    """
+    do_ambiente = os.environ.get("DATABASE_URL")
+    if do_ambiente:
+        return do_ambiente
+
+    arquivo = _env_do_arquivo()
+    if arquivo.get("DATABASE_URL"):
+        return arquivo["DATABASE_URL"]
+
+    senha = arquivo.get("POSTGRES_PASSWORD")
+    if senha:
+        # `quote` porque senha gerada carrega `/`, `+` e `=` a torto e a direito,
+        # e qualquer um deles quebra o parsing da URL de um jeito ilegivel.
+        return (
+            f"postgresql+psycopg://emprestimo:{quote(senha, safe='')}" "@127.0.0.1:5432/emprestimo"
+        )
+
+    return DEFAULT_DATABASE_URL
 
 
 def get_engine() -> Engine:
