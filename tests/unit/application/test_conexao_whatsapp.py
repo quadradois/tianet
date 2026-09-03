@@ -800,8 +800,11 @@ def test_desconectar_duas_vezes_converge_do_nosso_lado() -> None:
     uow, auditoria = _montar(repo, provedor)
     caso = DesconectarWhatsApp(lambda: uow, provedor, auditoria)
 
-    primeiro = caso.executar(uuid.uuid4())
-    segundo = caso.executar(uuid.uuid4())
+    # MESMO tenant nas duas chamadas. Com ids diferentes o teste LIA como
+    # repeticao e nao era uma — o fake ignora o id, entao passava por acidente.
+    tenant_id = uuid.uuid4()
+    primeiro = caso.executar(tenant_id)
+    segundo = caso.executar(tenant_id)
 
     assert primeiro.pareada is False
     assert segundo.pareada is False

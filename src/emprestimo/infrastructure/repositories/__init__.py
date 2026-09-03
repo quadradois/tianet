@@ -19,6 +19,7 @@ from emprestimo.domain.common.errors import (
     DevedorJaExisteError,
     PerfilJaExisteError,
     TenantJaExisteError,
+    TokenConexaoIlegivelError,
     ViolacaoInvarianteError,
 )
 from emprestimo.domain.credit.carteira import Carteira
@@ -79,7 +80,6 @@ from emprestimo.domain.platform.ports import (
     TenantOrdenacao,
     TenantPaginado,
     TenantRepository,
-    TokenConexaoIlegivelError,
     UsuarioRepository,
 )
 from emprestimo.domain.platform.sessao import Sessao

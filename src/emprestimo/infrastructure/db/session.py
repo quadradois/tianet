@@ -24,24 +24,61 @@ _engine: Engine | None = None
 _session_factory: sessionmaker[Session] | None = None
 
 
-def _env_do_arquivo() -> dict[str, str]:
+def _valor_do_env(bruto: str) -> str:
+    """Interpreta um valor do `.env` como o Docker Compose interpreta.
+
+    Precisa casar com o Compose, e não "ser razoável": é o Compose que cria o
+    container com essa senha. Qualquer divergência aqui produz de volta o
+    `password authentication failed` que esta leitura existe para eliminar —
+    com a agravante de o valor PARECER certo em quem lê o arquivo.
+
+    Duas regras, e as duas foram apontadas em review:
+
+    - **Valor entre aspas** termina na aspa de fechamento. O que vier depois é
+      comentário e não faz parte da senha. Ingenuamente, `strip('"')` sobre
+      `"segredo" # nota` devolve `segredo" # nota` — com aspa no meio.
+    - **Valor sem aspas** aceita comentário inline, e ele começa num `#`
+      **precedido de espaço**. A exigência do espaço não é capricho: `#` é
+      caractere válido de senha, e cortar em todo `#` mutilaria
+      `POSTGRES_PASSWORD=ab#cd`.
+    """
+    bruto = bruto.strip()
+    if bruto[:1] in {'"', "'"}:
+        aspa = bruto[0]
+        fim = bruto.find(aspa, 1)
+        if fim != -1:
+            return bruto[1:fim]
+        return bruto[1:]
+    for sep in (" #", "	#"):
+        corte = bruto.find(sep)
+        if corte != -1:
+            bruto = bruto[:corte]
+    return bruto.strip()
+
+
+def _env_do_arquivo(arquivo: Path | None = None) -> dict[str, str]:
     """Lê o `.env` da raiz do repositório. Vazio se não houver.
 
     Stdlib de propósito: são pares `CHAVE=valor` e não vale uma dependência —
     ainda menos uma que hoje só existe de forma transitiva e some numa
-    atualização de lock.
+    atualização de lock. O que a dependência traria de valor está em
+    `_valor_do_env`, e está coberto por teste sobre arquivo real.
+
+    `arquivo=` existe para o teste exercitar o parser DE VERDADE. A primeira
+    versão destes testes trocava esta função por um lambda, então validava a
+    precedência e nunca a leitura — e foi exatamente na leitura que o defeito
+    estava.
     """
-    raiz = Path(__file__).resolve().parents[4]
-    arquivo = raiz / ".env"
-    if not arquivo.is_file():
+    alvo = arquivo if arquivo is not None else Path(__file__).resolve().parents[4] / ".env"
+    if not alvo.is_file():
         return {}
     valores: dict[str, str] = {}
-    for linha in arquivo.read_text(encoding="utf-8", errors="replace").splitlines():
+    for linha in alvo.read_text(encoding="utf-8", errors="replace").splitlines():
         linha = linha.strip()
         if not linha or linha.startswith("#") or "=" not in linha:
             continue
         chave, _, valor = linha.partition("=")
-        valores[chave.strip()] = valor.strip().strip('"').strip("'")
+        valores[chave.strip()] = _valor_do_env(valor)
     return valores
 
 

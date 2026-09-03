@@ -165,23 +165,6 @@ class QrCodeIndisponivelError(RuntimeError):
     """
 
 
-class TokenConexaoIlegivelError(RuntimeError):
-    """A linha existe, e o token guardado nao abre com a chave atual.
-
-    Nomeado aqui, e nao deixado escapar como erro de infraestrutura, porque o
-    desfecho e o MESMO que o de conexao ausente do ponto de vista de quem opera:
-    nao da para falar com o provedor, e o caminho e apagar o registro e parear de
-    novo. O PLAN-034 promete `404` para este caso; sem esta traducao a excecao da
-    cifra subia crua e virava `500`, que diz "erro nosso" quando a resposta certa
-    e "nao ha conexao utilizavel aqui".
-
-    **Distinta de `CifraIndisponivelError` de proposito**, e a distincao decide o
-    status: chave AUSENTE ou invalida e configuracao do servidor — `500`, porque
-    nenhuma acao do operador conserta. Chave TROCADA ou dado adulterado e este
-    erro — `404`, porque apagar e reconectar conserta.
-    """
-
-
 class EfeitoNaoAplicadoError(RuntimeError):
     """A operacao **comprovadamente** nao aconteceu no provedor.
 

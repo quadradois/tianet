@@ -58,10 +58,10 @@ from emprestimo.domain.common.errors import (
     PerfilJaExisteError,
     TemplateNotificacaoJaExisteError,
     TenantJaExisteError,
+    TokenConexaoIlegivelError,
     ViolacaoInvarianteError,
 )
 from emprestimo.domain.credit.contato import ContatoInvalidoError
-from emprestimo.domain.platform.ports import TokenConexaoIlegivelError
 from emprestimo.presentation.api.auth_routes import router as auth_router
 from emprestimo.presentation.api.automacao_routes import router as automacao_router
 from emprestimo.presentation.api.comercial_routes import router as comercial_router

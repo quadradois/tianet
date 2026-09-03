@@ -9,8 +9,8 @@ from sqlalchemy import select, text
 from sqlalchemy.orm import Session, sessionmaker
 from tests.factories import CarteiraFactory, TenantFactory
 
+from emprestimo.domain.common.errors import TokenConexaoIlegivelError
 from emprestimo.domain.platform.conexao_whatsapp import ConexaoWhatsApp
-from emprestimo.domain.platform.ports import TokenConexaoIlegivelError
 from emprestimo.infrastructure.cifra import CifraToken
 from emprestimo.infrastructure.db.orm import ConexaoWhatsAppORM
 from emprestimo.infrastructure.repositories import (

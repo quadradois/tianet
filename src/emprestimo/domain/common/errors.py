@@ -28,6 +28,32 @@ class ViolacaoInvarianteError(DomainError):
         self.mensagem = mensagem
 
 
+class TokenConexaoIlegivelError(DomainError):
+    """A linha existe, e o token guardado nao abre com a chave atual.
+
+    `DomainError`, e nao `RuntimeError`: a Presentation captura esta excecao num
+    handler HTTP, e todo handler do sistema captura `DomainError`. Um
+    `RuntimeError` solto ali era o unico fora do padrao, e foi apontado em
+    review — a inconsistencia importa porque um `except DomainError` de captura
+    ampla, se algum dia existir, deixaria este caso escapar em silencio para o
+    500 generico. Que e exatamente o defeito que esta excecao nasceu para
+    corrigir.
+
+    Mora aqui, ao lado de `TenantJaExisteError`, porque quem a levanta e o
+    repositorio — o mesmo lugar e o mesmo motivo: traduzir uma falha de
+    infraestrutura para vocabulario que a aplicacao entende.
+
+    **Distinta de `CifraIndisponivelError` de proposito**, e a distincao decide o
+    status HTTP: chave AUSENTE ou invalida e configuracao do servidor — `500`,
+    porque nenhuma acao do operador conserta. Chave TROCADA ou dado adulterado e
+    esta — `404`, porque apagar o registro e reconectar conserta.
+    """
+
+    def __init__(self, tenant_id: object) -> None:
+        super().__init__(f"Token da conexao de WhatsApp do Tenant {tenant_id} nao decifra")
+        self.tenant_id = tenant_id
+
+
 class TenantJaExisteError(DomainError):
     """A organização já está provisionada na plataforma (IMP-008, UC-002).
 

@@ -81,3 +81,63 @@ def test_sem_ambiente_e_sem_arquivo_cai_na_convencao(monkeypatch: pytest.MonkeyP
     _env(monkeypatch, {})
 
     assert mod.database_url() == mod.DEFAULT_DATABASE_URL
+
+
+# ---------------------------------------------------------------------------
+# O parser em si. A primeira versao destes testes trocava `_env_do_arquivo` por
+# um lambda e validava so a precedencia — a leitura, onde o defeito estava,
+# nunca rodava. Estes usam arquivo real.
+# ---------------------------------------------------------------------------
+
+
+def _arquivo(tmp_path, conteudo: str):
+    alvo = tmp_path / ".env"
+    alvo.write_text(conteudo, encoding="utf-8")
+    return alvo
+
+
+def test_comentario_inline_nao_entra_na_senha(tmp_path) -> None:
+    """O Compose corta aqui, e nos precisamos cortar igual.
+
+    Nao cortar devolvia `segredo # nota` como senha. O container fora criado com
+    `segredo`, entao a autenticacao falhava — e o arquivo, lido por um humano,
+    parecia certo. Era o defeito de origem voltando pela porta do conserto.
+    """
+    lido = mod._env_do_arquivo(_arquivo(tmp_path, "POSTGRES_PASSWORD=segredo # nota\n"))
+
+    assert lido["POSTGRES_PASSWORD"] == "segredo"
+
+
+def test_valor_entre_aspas_termina_na_aspa_de_fechamento(tmp_path) -> None:
+    """`strip('"')` ingenuo devolvia `segredo" # nota`, com aspa no meio."""
+    lido = mod._env_do_arquivo(_arquivo(tmp_path, 'POSTGRES_PASSWORD="segredo" # nota\n'))
+
+    assert lido["POSTGRES_PASSWORD"] == "segredo"
+
+
+def test_aspas_simples_tambem(tmp_path) -> None:
+    lido = mod._env_do_arquivo(_arquivo(tmp_path, "POSTGRES_PASSWORD='seg redo'\n"))
+
+    assert lido["POSTGRES_PASSWORD"] == "seg redo"
+
+
+def test_cerquilha_sem_espaco_antes_e_senha_e_nao_comentario(tmp_path) -> None:
+    """`#` e caractere valido de senha.
+
+    Cortar em todo `#` mutilaria a senha em silencio — e senha mutilada falha
+    autenticando, que e o mesmo sintoma enganoso de novo.
+    """
+    lido = mod._env_do_arquivo(_arquivo(tmp_path, "POSTGRES_PASSWORD=ab#cd\n"))
+
+    assert lido["POSTGRES_PASSWORD"] == "ab#cd"
+
+
+def test_linha_de_comentario_e_linha_vazia_sao_ignoradas(tmp_path) -> None:
+    conteudo = "# comentario\n\nPOSTGRES_PASSWORD=x\n#OUTRA=y\n"
+    lido = mod._env_do_arquivo(_arquivo(tmp_path, conteudo))
+
+    assert lido == {"POSTGRES_PASSWORD": "x"}
+
+
+def test_arquivo_ausente_devolve_vazio(tmp_path) -> None:
+    assert mod._env_do_arquivo(tmp_path / "nao-existe") == {}
