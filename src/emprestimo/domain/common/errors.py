@@ -3,6 +3,20 @@
 A camada Domain comunica violações de regras através de exceções próprias,
 nunca de exceções de infraestrutura (ADR-001): a aplicação traduz
 DomainError em respostas HTTP sem conhecer detalhes de persistência.
+
+**Onde mora o código estável, e por que nem toda exceção carrega um.**
+Formalizado em 2026-09-03, depois de um review cobrar `codigo` numa exceção que
+seguia a convenção real do repositório — a convenção é que estava implícita.
+
+- **Violação de invariante carrega o código na exceção** (`ViolacaoInvarianteError`,
+  com `INV-xxx` / `RN-xxx`). Existem muitas, cada uma diz uma coisa diferente, e
+  quem consome precisa distinguir *qual* regra caiu.
+- **Erro de "não encontrado" não carrega**: o código estável é do **contrato
+  HTTP** (`recurso_nao_encontrado`), emitido pelo handler. Todas elas —
+  `CarteiraNaoEncontradaError`, `ConexaoWhatsAppNaoEncontradaError`,
+  `TokenConexaoIlegivelError` — colapsam para a mesma resposta de propósito:
+  distinguir *o que* não foi encontrado, através da fronteira, vazaria
+  existência. Dar código só a uma delas a tornaria a exceção da exceção.
 """
 
 from __future__ import annotations

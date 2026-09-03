@@ -1,18 +1,25 @@
 """Rotas da conexão de WhatsApp do Credor (IMP-368, PLAN-034).
 
-**Sem `Idempotency-Key`** nas tres escritas, e isso é decisão registrada
-(PLAN-034 §3.1), não esquecimento. O motivo **não é o mesmo nas tres**, e
-generalizá-lo foi imprecisão pega em review:
+**Sem `Idempotency-Key`** nas tres escritas, e isso é decisão arquitetural
+registrada — **ADR-019**, que promoveu a decisão original do PLAN-034 §3.1
+depois de quatro rodadas de review reabrirem a mesma pergunta. O motivo **não é
+o mesmo nas tres**, e generalizá-lo foi imprecisão pega em review:
 
 - `POST /conexao` — a chave replayaria o QR da primeira chamada, que vive ~20s.
   Devolver um QR morto é pior que gerar outro. O que precisa ser idempotente
   aqui é o nascimento da instância, e `UNIQUE (tenant_id)` mais o lock por
   Tenant já garantem isso no caso de uso;
-- `DELETE /conexao` e `DELETE /conexao/instancia` — **não devolvem QR nenhum**.
-  Aqui a razão é convergência: desvincular um número já desvinculado, ou apagar
-  uma instância que já não existe, não produz resultado de negócio novo a
-  replayar. O adapter trata `record not found` do provedor como sucesso
-  justamente por isso.
+- `DELETE /conexao/instancia` — convergência **verificada**: apagar o que já não
+  existe não produz resultado novo, e o adapter trata `record not found` do
+  provedor como sucesso a partir de resposta observada;
+- `DELETE /conexao` — convergência **assumida, e essa distinção importa**. O lado
+  da TiaNet converge (`desparear()` sobre conexão já despareada é no-op, coberto
+  por teste), mas **ninguém mediu o que o Evolution responde a um `logout`
+  repetido**, e este adapter recusa qualquer não-2xx. Não há ambiente de teste do
+  provedor (`contexto-externo` §2.1), então a verificação só existe em produção.
+  Agrupar este caso com o de cima — como este comentário fazia — apagava
+  justamente a diferença entre medido e suposto. Ver ADR-019 §"Premissa
+  declarada".
 
 **Nenhuma rota aceita o nome da instância.** Ele é derivado do Tenant
 (`nome_da_instancia`): a adoção casa pelo nome, e um campo digitável

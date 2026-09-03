@@ -141,3 +141,28 @@ def test_linha_de_comentario_e_linha_vazia_sao_ignoradas(tmp_path) -> None:
 
 def test_arquivo_ausente_devolve_vazio(tmp_path) -> None:
     assert mod._env_do_arquivo(tmp_path / "nao-existe") == {}
+
+
+# ---------------------------------------------------------------------------
+# Sintaxe do Compose que este leitor NAO interpreta. A regra e recusar alto:
+# divergir em silencio e o defeito de origem, e ele reaparece com o mesmo
+# sintoma enganoso de senha errada.
+# ---------------------------------------------------------------------------
+
+
+def test_interpolacao_e_recusada_em_vez_de_devolvida_literal(tmp_path) -> None:
+    """O Compose expande `${...}`; nos nao. Devolver literal divergiria."""
+    with pytest.raises(mod.EnvNaoSuportadoError, match=r"interpolacao"):
+        mod._env_do_arquivo(_arquivo(tmp_path, "POSTGRES_PASSWORD=${BASE:-x}\n"))
+
+
+def test_escape_dentro_de_aspas_e_recusado(tmp_path) -> None:
+    """Valor com escape truncava em silencio no meio — pior que falhar."""
+    with pytest.raises(mod.EnvNaoSuportadoError, match=r"escape"):
+        mod._env_do_arquivo(_arquivo(tmp_path, 'POSTGRES_PASSWORD="x\\"y"\n'))
+
+
+def test_aspa_aberta_e_nao_fechada_e_recusada(tmp_path) -> None:
+    """Sem a aspa de fechamento nao ha como saber onde o valor termina."""
+    with pytest.raises(mod.EnvNaoSuportadoError, match=r"nao fechada"):
+        mod._env_do_arquivo(_arquivo(tmp_path, 'POSTGRES_PASSWORD="sem fim\n'))

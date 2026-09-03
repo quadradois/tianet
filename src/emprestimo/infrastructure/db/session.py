@@ -24,6 +24,23 @@ _engine: Engine | None = None
 _session_factory: sessionmaker[Session] | None = None
 
 
+class EnvNaoSuportadoError(RuntimeError):
+    """O `.env` usa sintaxe que este leitor não interpreta como o Compose.
+
+    Existe para **falhar alto** em vez de divergir em silêncio, e essa escolha é
+    o resumo de todo o defeito que originou este módulo: o Compose cria o
+    container com um valor, este leitor produzia outro, e o sintoma
+    (`password authentication failed`) apontava para credencial errada em vez de
+    para leitura divergente.
+
+    Implementar a gramática completa do Compose — interpolação `${VAR}`, escapes
+    dentro de aspas duplas — seria construir para um caso que ninguém vive: a
+    senha do Postgres local é um segredo gerado, não uma expressão. Mas *supor*
+    que ninguém vive e seguir adiante é o que se paga caro. Então o não
+    suportado é recusado **pelo nome**, e quem topar com isto lê o que fazer.
+    """
+
+
 def _valor_do_env(bruto: str) -> str:
     """Interpreta um valor do `.env` como o Docker Compose interpreta.
 
@@ -43,12 +60,27 @@ def _valor_do_env(bruto: str) -> str:
       `POSTGRES_PASSWORD=ab#cd`.
     """
     bruto = bruto.strip()
+    if "${" in bruto:
+        raise EnvNaoSuportadoError(
+            "interpolacao ${...} no .env nao e interpretada aqui, e o Compose a "
+            "interpreta — o valor divergiria em silencio. Escreva o valor literal, "
+            "ou defina DATABASE_URL explicitamente."
+        )
     if bruto[:1] in {'"', "'"}:
         aspa = bruto[0]
+        if "\\" in bruto:
+            raise EnvNaoSuportadoError(
+                "escape com barra invertida dentro de aspas nao e interpretado aqui, "
+                "e o Compose o interpreta. Escreva o valor sem escapes, ou defina "
+                "DATABASE_URL explicitamente."
+            )
         fim = bruto.find(aspa, 1)
-        if fim != -1:
-            return bruto[1:fim]
-        return bruto[1:]
+        if fim == -1:
+            raise EnvNaoSuportadoError(
+                f"aspa {aspa!r} aberta e nao fechada no .env — o valor esta truncado "
+                "e nao ha como saber onde deveria terminar."
+            )
+        return bruto[1:fim]
     for sep in (" #", "	#"):
         corte = bruto.find(sep)
         if corte != -1:
