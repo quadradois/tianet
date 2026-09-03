@@ -59,13 +59,23 @@ fronteiras se um dia houver.
 
 | Caso de uso | Responsabilidade |
 |---|---|
-| `ConsultarConexaoWhatsApp` | Estado atual: existe instância, está pareada, qual número, há QR pendente |
+| `ConsultarConexaoWhatsApp` | Estado atual: existe instância, está pareada, qual número. **Não devolve o QR** — ver abaixo |
 | `ConectarWhatsApp` | Cria a instância se ainda não existe, conecta, devolve o QR |
 | `DesconectarWhatsApp` | `logout` no Evolution; a instância permanece, o pareamento cai |
 
-O QR **não é persistido**. Ele vive segundos, é buscado no Evolution a cada
-consulta enquanto o pareamento estiver pendente, e some quando `LoggedIn` vira
-verdadeiro.
+O QR **não é persistido**, e **não sai pela consulta** — corrigido no review do
+IMP-368. Ele vive segundos e é buscado no Evolution a cada `conectar`.
+
+**Por que não pela consulta**, que seria o caminho óbvio para uma tela que faz
+polling: o QR não é informação, é **capacidade**. Quem o escaneia vincula uma
+conta de WhatsApp ao Tenant. A consulta é servida sob `whatsapp.conexao.ler`, e
+enquanto o QR viajava nela um principal somente-leitura **alterava** a conexão —
+`whatsapp.conexao.gerir` existia e não protegia este caminho.
+
+**Consequência para a tela (IMP-369):** o polling de status continua no `GET`,
+mas obter ou renovar o QR exige chamar o `POST`, protegido por `gerir`. Isso
+significa que **um operador somente-leitura não pareia**, e isso é decisão de
+produto, não efeito colateral.
 
 ### 3.1 — `ConectarWhatsApp` não registra `Idempotency-Key` (decidido no IMP-367)
 
@@ -92,6 +102,14 @@ justificada no guardrail do IMP-333.
 
 Três rodadas de review adversarial cobraram a chave; a decisão está aqui para
 que a quarta encontre a resposta em vez da pergunta.
+
+**A quarta cobrou assim mesmo, em 2026-09-03, e classificou como bloqueante.**
+O raciocínio acima não estava errado — o lugar estava. Exceção justificada
+dentro de um plano de execução não é exceção à regra arquitetural; é
+contradição entre dois documentos, e quem chega sem contexto lê a regra. A
+decisão foi promovida a
+[ADR-019](../../architecture/adrs/ADR-019-isencao-de-idempotency-key-nas-escritas-da-conexao-de-whatsapp.md),
+que é onde ela para de reabrir. Esta seção permanece como registro de origem.
 
 ---
 
@@ -182,9 +200,10 @@ abandonada fica no Evolution para sempre e o provedor enche de conexão morta.
 Todas exigem Principal autenticado.
 
 - `GET /platform/whatsapp/conexao` — estado da conexão. Permissão
-  `whatsapp.conexao.ler`. Devolve estado, número pareado quando houver, e o QR
-  enquanto o pareamento estiver pendente. `404` quando a conexão existe e o
-  token não decifra — registro órfão, que não é o mesmo que "não existe".
+  `whatsapp.conexao.ler`. Devolve estado e número pareado quando houver.
+  **Nunca devolve o QR** (§3): ele é credencial de pareamento e sairia sob a
+  permissão errada. `404` quando a conexão existe e o token não decifra —
+  registro órfão, que não é o mesmo que "não existe".
 - `POST /platform/whatsapp/conexao` — cria a instância se necessário e inicia o
   pareamento. Permissão `whatsapp.conexao.gerir`. **Sem corpo e sem
   `Idempotency-Key`** (§3.1): o nome da instância é derivado do Tenant, e

@@ -269,13 +269,14 @@ EXCECOES_IDEMPOTENCIA_ESCRITAS: dict[tuple[str, str], str] = {
         "resultado de negocio reutilizavel por Idempotency-Key."
     ),
     ("post", "/platform/whatsapp/conexao"): (
-        "PLAN-034 3.1: a chave replayaria o QR da primeira chamada, que vive ~20s. "
+        "ADR-019 (promove PLAN-034 3.1): a chave replayaria o QR da primeira "
+        "chamada, que vive ~20s. "
         "Devolver um QR morto e pior que gerar outro. O que precisa ser idempotente "
         "aqui e o nascimento da instancia, e UNIQUE (tenant_id) mais o lock por "
         "Tenant ja garantem isso no caso de uso."
     ),
     ("delete", "/platform/whatsapp/conexao"): (
-        "Nao ha resultado de negocio a replayar: o desfecho e a ausencia de "
+        "ADR-019. Nao ha resultado de negocio a replayar: o desfecho e a ausencia de "
         "pareamento, e repetir o pedido pede o mesmo estado final. O lado da "
         "TiaNet converge — `desparear()` sobre conexao ja despareada e no-op, "
         "coberto por teste. PREMISSA NAO CERTIFICADA, e declarada: nao foi "
@@ -286,7 +287,7 @@ EXCECOES_IDEMPOTENCIA_ESCRITAS: dict[tuple[str, str], str] = {
         "como sucesso por resposta observada."
     ),
     ("delete", "/platform/whatsapp/conexao/instancia"): (
-        "IMP-368: apagar e convergente por definicao, e o adapter trata "
+        "ADR-019 (IMP-368): apagar e convergente por definicao, e o adapter trata "
         "'record not found' do provedor como sucesso. Uma chave guardaria o "
         "resultado de uma exclusao que ja aconteceu."
     ),
