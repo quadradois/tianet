@@ -652,7 +652,7 @@ describe("transporte autenticado", () => {
 });
 
 describe("contratos tecnicos", () => {
-  it("confirma 4 operacoes publicas e 103 protegidas no snapshot governado", async () => {
+  it("confirma 4 operacoes publicas e 107 protegidas no snapshot governado", async () => {
     const snapshotPath = resolve(process.cwd(), "..", "docs", "governance", "contracts", "openapi", "frontend-mvp-backend-openapi.json");
     const snapshot: unknown = JSON.parse(await readFile(snapshotPath, "utf8"));
     if (typeof snapshot !== "object" || snapshot === null || !("paths" in snapshot)) throw new Error("snapshot invalido");
@@ -663,10 +663,19 @@ describe("contratos tecnicos", () => {
       return Object.values(item).filter((operation) => typeof operation === "object" && operation !== null && "responses" in operation);
     });
     const protectedCount = operations.filter((operation) => "security" in operation && Array.isArray(operation.security) && operation.security.length > 0).length;
-    expect(operations).toHaveLength(107);
+    expect(operations).toHaveLength(111);
+    // IMP-368: as quatro operacoes da conexao de WhatsApp entraram como
+    // protegidas (103 -> 107). Todas exigem `whatsapp.conexao.ler` ou `.gerir`;
+    // nenhuma delas e publica, e o numero de publicas segue em 4.
+    //
+    // Este contador ficou para tras nos commits originais do IMP-368: o
+    // inventario Python foi para 111 e este nao, entao o snapshot e a asercao
+    // discordavam. Nenhuma das tres rodadas de review pegou, porque todas
+    // rodaram testes direcionados — quem pegou foi o gate de pre-push.
+    //
     // IMP-362: GET /credit/devedores/{id}/saldo entrou como protegida (102 -> 103).
     // Antes, o IMP-355 levou de 101 para 102 com POST /iam/usuarios.
-    expect(protectedCount).toBe(103);
+    expect(protectedCount).toBe(107);
     expect(operations.length - protectedCount).toBe(4);
   });
   it("normaliza correlation e idempotency sem confundir os identificadores", () => {
