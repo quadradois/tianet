@@ -1,6 +1,6 @@
 # Ambiente Local em Docker
 
-**Versao:** 1.0.0
+**Versao:** 1.1.0
 
 **Status:** Aprovado
 
@@ -231,6 +231,58 @@ docker rm --force tianet-pytest
 
 ---
 
+## 7.2 `password authentication failed` — leia isto antes de procurar a senha
+
+**Corrigido em 2026-09-03. Esta secao fica como registro do sintoma, porque ele
+enganou duas sessoes e uma rodada de review inteira.**
+
+O erro era este, ao rodar `pytest` na maquina:
+
+```
+FATAL:  password authentication failed for user "emprestimo"
+```
+
+**A senha nunca esteve errada.** O Compose carrega o `.env` sozinho, entao a API
+e o worker subiam normalmente; `pytest` na maquina **nao lia esse arquivo em
+lugar nenhum** e caia na URL de convencao embutida em `session.py`, cuja senha
+nao tem por que bater com a `POSTGRES_PASSWORD` que criou o container. O sintoma
+apontava para credencial; o defeito era arquivo nao lido.
+
+Custo real: o Codex nao conseguiu rodar a suite integrada ao revisar o IMP-368 e
+entregou o parecer com essa lacuna declarada.
+
+**O que mudou.** `database_url()` passou a resolver nesta ordem:
+
+| # | Fonte | Quem usa |
+|---|---|---|
+| 1 | `DATABASE_URL` no ambiente | CI (workflow) e containers (Compose injeta) |
+| 2 | `DATABASE_URL` no `.env` | banco fora do Compose — outro host, porta ou usuario |
+| 3 | **`POSTGRES_PASSWORD` no `.env`, derivando a URL** | maquina do desenvolvedor, e o caso normal |
+| 4 | `DEFAULT_DATABASE_URL` | clone limpo, sem `.env` |
+
+O passo 3 e o conserto: **nao ha nada a configurar**. Quem tem a stack do Compose
+de pe roda `uv run pytest` e funciona.
+
+**E por que derivar em vez de pedir a URL inteira:** o `.env.example` mandava
+escrever a senha **duas vezes**. Duas copias divergem — troca-se uma, esquece-se
+a outra, e o mesmo erro volta com outra cara. A linha `DATABASE_URL` continua
+existindo e vencendo a derivacao, mas agora e **opcional e comentada**.
+
+A precedencia esta fixada por teste em
+`tests/unit/infrastructure/test_database_url.py`, inclusive o escape de senha com
+`/`, `+`, `=` e `@` — sem ele o `@` da senha corta o host ao meio e o erro passa
+a falar de host inexistente, mandando quem investiga para o lado errado de novo.
+
+**Se o erro voltar mesmo assim**, a stack e que esta divergente: o Postgres so
+aplica `POSTGRES_PASSWORD` na PRIMEIRA subida, entao trocar a senha no `.env`
+depois nao alcanca um container ja criado. Realinhe sem destruir dado:
+
+```bash
+docker exec -it tianet-postgres-1 psql -U emprestimo -d emprestimo   -c "ALTER USER emprestimo WITH PASSWORD 'a-senha-do-seu-env';"
+```
+
+---
+
 # 8. O que muda no servidor
 
 Este runbook cobre apenas o ambiente local. Antes de subir para um servidor:
@@ -265,4 +317,5 @@ docker compose down -v         # DESTROI o banco local tambem
 
 | Versao | Data | Descricao |
 |---|---|---|
+| 1.1.0 | 2026-09-03 | Secao 7.2: `password authentication failed` do `pytest` na maquina nunca foi senha errada — era o `.env` que nada lia fora do Compose. `database_url()` passou a resolver por ambiente, arquivo e **derivacao da POSTGRES_PASSWORD**, nesta ordem, de modo que nao ha mais nada a configurar. A linha `DATABASE_URL` do `.env.example` virou opcional porque pedia a senha duas vezes, e duas copias divergem. |
 | 1.0.0 | 2026-08-15 | Stack local completa em Docker: postgres, migrations, api, worker e frontend, com bootstrap e verificacao ponta a ponta. |
