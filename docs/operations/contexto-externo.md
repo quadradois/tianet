@@ -1,6 +1,6 @@
 # Contexto Externo
 
-**Versao:** 1.9.0
+**Versao:** 1.10.0
 
 **Status:** Vivo — mantido manualmente
 
@@ -74,12 +74,20 @@ O que cada linha ensina, e nao estava escrito em lugar nenhum:
   `{"error":"record not found"}`** — o status mente, o corpo nao. E por isso que
   o adapter trata a ausencia pelo texto do corpo, e nao pelo `500`.
 
-**Consequencia operacional pendente:** a partir do IMP-368 a plataforma nomeia
-as instancias como `tianet_{tenant_id}`, entao ela **nao vai adotar** a
-`adm_tianet`. Essa instancia deve ser apagada (pela operacao nova, ou a mao no
-diamondgreen) antes do primeiro `conectar` valer como definitivo — senao ela
-fica para sempre como sessao morta, que e exatamente o acumulo que o fundador
-pediu para evitar.
+**Consequencia operacional, e ela agora tem dono:** a partir do IMP-368 a
+plataforma nomeia as instancias como `tianet_{tenant_id}`, entao a adocao **nao
+vai encontrar** a `adm_tianet`, e ela fica para sempre como sessao morta — o
+acumulo que o fundador pediu para evitar.
+
+**Entrou no checklist do IMP-359** (PLAN-033), com a ordem fixada: **medir o
+`logout` repetido primeiro, apagar depois**. Ate 2026-09-03 isto era acao
+pendente solta, e por isso reaparecia em todo handoff sem nunca ser feita.
+
+**Por que nao antes do deploy.** Apagar e irreversivel e a instancia nao
+atrapalha ate la — ela so vira sessao morta quando o `conectar` novo criar a
+`tianet_{...}` ao lado. Ate esse momento ela ainda **serve**: e a unica instancia
+real disponivel para medir o `logout` repetido, que e a premissa nao certificada
+da ADR-019. Apaga-la antes custaria essa medicao sem ganhar nada.
 
 ### Custodia da `WHATSAPP_TOKEN_ENCRYPTION_KEY` (decidido em 2026-09-02)
 
@@ -489,6 +497,7 @@ Corrigir isso e item de codigo, nao de documentacao.
 
 | Versao | Data | Descricao |
 |---|---|---|
+| 1.10.0 | 2026-09-03 | A remocao da `adm_tianet` deixou de ser acao pendente solta e virou item do checklist do IMP-359, com a ordem fixada: medir o `logout` repetido antes de apagar, porque ela e a unica instancia real disponivel para essa medicao — a premissa nao certificada da ADR-019. Enquanto flutuava sem dono, reaparecia em todo handoff sem ser feita. |
 | 1.9.0 | 2026-09-03 | A §5.1 estava errada em tres pontos ao mesmo tempo — data, contagem de nos e a afirmacao de que o manifesto nao fora salvo. O terceiro era o mais caro: desencorajava o `--update`, e o grafo ficou treze dias parado, escondendo cifra, persistencia e rotas da conexao de WhatsApp. Corrigidos contra o disco, o grafo atualizado (10.768 nos) e a extracao semantica executada: ele passa a **cobrir documentos**, o que a versao anterior declarava impossivel. A consulta antes de alteracao arquitetural virou governanca na SPEC-003. |
 | 1.8.0 | 2026-09-03 | O provedor de IA foi escolhido e a chave existe: o ultimo insumo externo do IMP-359 caiu, e o deploy passa a depender so de trabalho nosso. Mercado Pago entra como §2.4 na primeira mencao — devedor paga o Credor, depois do deploy —, com as duas colisoes nomeadas antes de virarem descoberta no meio da execucao: a decisao de nao ter webhook publico (§2.2), cujo argumento nao se transporta inteiro porque o Mercado Pago assina a notificacao e o Evolution nao, e o fim do plano de parcelas (DR-004), que impede emitir cobranca antes de o Motor apurar o acerto. |
 | — | — | *Lacuna conhecida: as versoes 1.6.0 e 1.7.0 subiram o cabecalho sem deixar linha aqui. Nao reconstruidas — inventar a descricao seria pior que registrar a falta.* |

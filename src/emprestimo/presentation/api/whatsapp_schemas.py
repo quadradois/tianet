@@ -23,10 +23,10 @@ class ConexaoWhatsAppResponse(BaseModel):
     o push name (`"Barbosa"`). Rotular um como o outro foi defeito real, pego em
     review; a tela mostra os dois, cada um com seu rótulo.
 
-    **Não há QR aqui.** Esta resposta é servida sob `whatsapp.conexao.ler`, e o
-    QR é credencial de pareamento — quem o escaneia altera a conexão. Expô-lo a
-    quem só pode ler seria dar escrita por outra porta. O QR vem do `POST`, que
-    exige `whatsapp.conexao.gerir`.
+    **Não há QR aqui.** Esta resposta serve o polling de status da tela, que
+    roda em laço enquanto o pareamento não fecha — e trazer o QR junto obrigava
+    uma ida ao provedor a cada volta do laço. O QR vem do `POST`, que é quando
+    alguém pediu para parear.
     """
 
     existe: bool

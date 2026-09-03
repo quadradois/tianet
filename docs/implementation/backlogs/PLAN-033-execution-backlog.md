@@ -213,9 +213,41 @@ Toda afirmacao desta secao foi conferida no arquivo indicado.
   for possivel, o contexto Operadora fica desabilitado e somente o contexto
   desconhecido, sem leitura de carteira, opera. A decisao do fundador por
   allowlist e mantida, mas nao e chamada de autenticacao criptografica.
+- **Higiene do provedor Evolution (acrescentado em 2026-09-03, IMP-368):** a
+  instancia `adm_tianet` (`8a8c901f-16f9-4431-b19d-ed69cccc46c0`, criada em
+  2026-08-31) precisa ser **apagada**. A partir do IMP-368 a plataforma nomeia as
+  instancias como `tianet_{tenant_id}`, entao a adocao **nao vai encontra-la** e
+  ela fica para sempre como sessao morta — o acumulo que o fundador pediu para
+  evitar.
+
+  **Por que aqui e nao antes.** Apagar e irreversivel, e ate o deploy a instancia
+  nao atrapalha: ela so vira sessao morta no momento em que o `conectar` novo
+  criar a `tianet_{...}` ao lado. Ate la ela ainda **serve** — e a unica instancia
+  real disponivel para a medicao do item seguinte. Apaga-la antes custaria essa
+  chance sem ganhar nada.
+
+  Estado em 2026-09-02: `connected: false`, `disconnect_reason: "401: logged out
+  from another device"`, `webhook` vazio, `jid` preenchido.
+
+- **Medir o `logout` repetido no Evolution (acrescentado em 2026-09-03,
+  IMP-368):** a [ADR-019](../../architecture/adrs/ADR-019-isencao-de-idempotency-key-nas-escritas-da-conexao-de-whatsapp.md)
+  isenta `DELETE /platform/whatsapp/conexao` de `Idempotency-Key` apoiada numa
+  **premissa declarada**: que o provedor tolera um `logout` sobre instancia ja
+  desconectada. **Ninguem mediu**, e o adapter recusa qualquer resposta nao-2xx —
+  se o Evolution tratar como erro, a segunda chamada falha em vez de convergir.
+
+  Nao ha ambiente de teste do provedor (`contexto-externo` §2.1), entao esta e a
+  unica janela: producao, com o numero do fundador, antes de apagar a
+  `adm_tianet`. **A ordem importa** — medir primeiro, apagar depois.
+
+  Se a resposta for erro, o adapter passa a tratar "ja desconectado" como sucesso
+  e a ADR-019 perde a premissa; se for 2xx, a premissa vira fato e a ADR e
+  atualizada. Nos dois casos deixa de ser suposicao.
+
 - **Criterio de pronto:** checklist demonstrado em producao; restore e rollback
   ensaiados; processo ligado a uma unica instancia/Tenant; controle de origem ou
-  bloqueio fail-closed do contexto Operadora provado.
+  bloqueio fail-closed do contexto Operadora provado; **`logout` repetido medido
+  e `adm_tianet` removida, nessa ordem**.
 
 ---
 
