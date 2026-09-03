@@ -131,8 +131,27 @@ Inventário: **107 → 111 operações**, **135 → 137 schemas**. O plano previ
   enquanto existir.
 - **Por que fase própria:** trocar origem do token junto com a criação da tela
   arriscaria deixar o worker sem canal, e worker sem canal é operação sem aviso.
+- **Acrescentado em 2026-09-03 — o worker também grava o estado da conexão.** O
+  `GET` de estado **vai ao provedor toda vez** (`_sincronizar`: o pareamento vem
+  de leitura do provedor, nunca de inferência local). Um selo de status na barra
+  lateral, lendo esse `GET`, faria uma chamada ao diamondgreen **por página
+  aberta** — o mesmo defeito que o IMP-368 acabou de tirar do QR.
+
+  Decisão do fundador em 2026-09-03: o selo do IMP-369 lê o **banco** (último
+  estado conhecido, zero chamada externa), e o worker — que já roda de tempos em
+  tempos e já vai passar por aqui para ler o token — passa a **perguntar ao
+  provedor e gravar**. O selo fica fresco de graça, sem cache novo e sem número
+  mágico de minutos.
+
+- **E o aviso, porque selo sozinho não basta.** Se o WhatsApp cair no celular, um
+  selo cinza no canto passa despercebido por dias — e o sintoma real aparece
+  longe, quando o comprovante não sai. O fundador pediu **híbrido**: selo passivo
+  mais aviso ativo. O aviso nasce aqui, quando o worker detecta a transição de
+  conectado para desconectado — não no IMP-369, que não tem como saber.
+
 - **Critério de pronto:** worker sobe com o token vindo do banco; com a variável
-  presente, ela prevalece e o comportamento atual não muda.
+  presente, ela prevalece e o comportamento atual não muda; **o estado da conexão
+  é gravado a cada varredura, e a queda gera aviso**.
 
 ---
 
