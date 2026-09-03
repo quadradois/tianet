@@ -14,6 +14,8 @@ Os testes abaixo fixam a ordem para que o conserto não se desfaça em silêncio
 
 from __future__ import annotations
 
+from pathlib import Path
+
 import pytest
 
 from emprestimo.infrastructure.db import session as mod
@@ -90,13 +92,13 @@ def test_sem_ambiente_e_sem_arquivo_cai_na_convencao(monkeypatch: pytest.MonkeyP
 # ---------------------------------------------------------------------------
 
 
-def _arquivo(tmp_path, conteudo: str):
+def _arquivo(tmp_path: Path, conteudo: str) -> Path:
     alvo = tmp_path / ".env"
     alvo.write_text(conteudo, encoding="utf-8")
     return alvo
 
 
-def test_comentario_inline_nao_entra_na_senha(tmp_path) -> None:
+def test_comentario_inline_nao_entra_na_senha(tmp_path: Path) -> None:
     """O Compose corta aqui, e nos precisamos cortar igual.
 
     Nao cortar devolvia `segredo # nota` como senha. O container fora criado com
@@ -108,20 +110,20 @@ def test_comentario_inline_nao_entra_na_senha(tmp_path) -> None:
     assert lido["POSTGRES_PASSWORD"] == "segredo"
 
 
-def test_valor_entre_aspas_termina_na_aspa_de_fechamento(tmp_path) -> None:
+def test_valor_entre_aspas_termina_na_aspa_de_fechamento(tmp_path: Path) -> None:
     """`strip('"')` ingenuo devolvia `segredo" # nota`, com aspa no meio."""
     lido = mod._env_do_arquivo(_arquivo(tmp_path, 'POSTGRES_PASSWORD="segredo" # nota\n'))
 
     assert lido["POSTGRES_PASSWORD"] == "segredo"
 
 
-def test_aspas_simples_tambem(tmp_path) -> None:
+def test_aspas_simples_tambem(tmp_path: Path) -> None:
     lido = mod._env_do_arquivo(_arquivo(tmp_path, "POSTGRES_PASSWORD='seg redo'\n"))
 
     assert lido["POSTGRES_PASSWORD"] == "seg redo"
 
 
-def test_cerquilha_sem_espaco_antes_e_senha_e_nao_comentario(tmp_path) -> None:
+def test_cerquilha_sem_espaco_antes_e_senha_e_nao_comentario(tmp_path: Path) -> None:
     """`#` e caractere valido de senha.
 
     Cortar em todo `#` mutilaria a senha em silencio — e senha mutilada falha
@@ -132,14 +134,14 @@ def test_cerquilha_sem_espaco_antes_e_senha_e_nao_comentario(tmp_path) -> None:
     assert lido["POSTGRES_PASSWORD"] == "ab#cd"
 
 
-def test_linha_de_comentario_e_linha_vazia_sao_ignoradas(tmp_path) -> None:
+def test_linha_de_comentario_e_linha_vazia_sao_ignoradas(tmp_path: Path) -> None:
     conteudo = "# comentario\n\nPOSTGRES_PASSWORD=x\n#OUTRA=y\n"
     lido = mod._env_do_arquivo(_arquivo(tmp_path, conteudo))
 
     assert lido == {"POSTGRES_PASSWORD": "x"}
 
 
-def test_arquivo_ausente_devolve_vazio(tmp_path) -> None:
+def test_arquivo_ausente_devolve_vazio(tmp_path: Path) -> None:
     assert mod._env_do_arquivo(tmp_path / "nao-existe") == {}
 
 
@@ -150,19 +152,19 @@ def test_arquivo_ausente_devolve_vazio(tmp_path) -> None:
 # ---------------------------------------------------------------------------
 
 
-def test_interpolacao_e_recusada_em_vez_de_devolvida_literal(tmp_path) -> None:
+def test_interpolacao_e_recusada_em_vez_de_devolvida_literal(tmp_path: Path) -> None:
     """O Compose expande `${...}`; nos nao. Devolver literal divergiria."""
     with pytest.raises(mod.EnvNaoSuportadoError, match=r"interpolacao"):
         mod._env_do_arquivo(_arquivo(tmp_path, "POSTGRES_PASSWORD=${BASE:-x}\n"))
 
 
-def test_escape_dentro_de_aspas_e_recusado(tmp_path) -> None:
+def test_escape_dentro_de_aspas_e_recusado(tmp_path: Path) -> None:
     """Valor com escape truncava em silencio no meio — pior que falhar."""
     with pytest.raises(mod.EnvNaoSuportadoError, match=r"escape"):
         mod._env_do_arquivo(_arquivo(tmp_path, 'POSTGRES_PASSWORD="x\\"y"\n'))
 
 
-def test_aspa_aberta_e_nao_fechada_e_recusada(tmp_path) -> None:
+def test_aspa_aberta_e_nao_fechada_e_recusada(tmp_path: Path) -> None:
     """Sem a aspa de fechamento nao ha como saber onde o valor termina."""
     with pytest.raises(mod.EnvNaoSuportadoError, match=r"nao fechada"):
         mod._env_do_arquivo(_arquivo(tmp_path, 'POSTGRES_PASSWORD="sem fim\n'))
