@@ -58,6 +58,7 @@ class _ProvedorFake(ProvedorWhatsApp):
         existente: tuple[str, str] | None = None,
         falhar_em_criar: Exception | None = None,
         falhar_em_excluir: Exception | None = None,
+        falhar_em_conectar: Exception | None = None,
     ) -> None:
         self._estado = estado or EstadoPareamento(
             conectado=False, pareado=False, nome_exibicao=None, numero=None
@@ -67,6 +68,7 @@ class _ProvedorFake(ProvedorWhatsApp):
         self._existente = existente
         self._falhar_em_criar = falhar_em_criar
         self._falhar_em_excluir = falhar_em_excluir
+        self._falhar_em_conectar = falhar_em_conectar
         self.excluidas: list[str] = []
         self.criadas: list[str] = []
         self.buscas: list[str] = []
@@ -86,6 +88,8 @@ class _ProvedorFake(ProvedorWhatsApp):
         return "instancia-nova", "token-novo"
 
     def conectar(self, token: str) -> None:
+        if self._falhar_em_conectar is not None:
+            raise self._falhar_em_conectar
         self.conectadas.append(token)
 
     def qrcode(self, token: str) -> str:
@@ -305,11 +309,13 @@ def test_consulta_com_conexao_sem_token_e_erro_nomeado() -> None:
         ConsultarConexaoWhatsApp(lambda: uow, provedor, auditoria).executar(uuid.uuid4())
 
 
-def test_consulta_pendente_traz_o_qr_de_agora() -> None:
-    """O QR vive ~20s e o provedor rotaciona sozinho.
+def test_consulta_pendente_nao_pede_qr_ao_provedor() -> None:
+    """O QR e credencial de pareamento, e a consulta e servida sob `ler`.
 
-    Devolver o da chamada anterior seria devolver um QR morto — por isso a
-    consulta busca a cada vez enquanto o pareamento esta pendente.
+    Este teste guarda a CHAMADA, nao so o campo: um retorno futuro de
+    `_qrcode_pendente` reintroduziria a escalada de privilegio mesmo que o DTO
+    continuasse limpo. `qrcodes_pedidos == 0` com pareamento PENDENTE — o unico
+    estado em que havia QR a buscar — e o que falha se alguem desfizer isto.
     """
 
     repo = _RepoFake(_conexao(), token="token-1")
@@ -320,8 +326,10 @@ def test_consulta_pendente_traz_o_qr_de_agora() -> None:
 
     estado = ConsultarConexaoWhatsApp(lambda: uow, provedor, auditoria).executar(uuid.uuid4())
 
-    assert estado.qrcode_base64 == QRCODE
-    assert provedor.qrcodes_pedidos == 1
+    assert provedor.qrcodes_pedidos == 0
+    assert not hasattr(estado, "qrcode_base64")
+    assert estado.existe is True
+    assert estado.pareada is False
 
 
 def test_consulta_pareada_nao_pede_qr() -> None:
@@ -335,12 +343,17 @@ def test_consulta_pareada_nao_pede_qr() -> None:
 
     estado = ConsultarConexaoWhatsApp(lambda: uow, provedor, auditoria).executar(uuid.uuid4())
 
-    assert estado.qrcode_base64 is None
     assert provedor.qrcodes_pedidos == 0
+    assert estado.numero == NUMERO
 
 
-def test_consulta_com_qr_ainda_gerando_devolve_none_em_vez_de_falhar() -> None:
-    """E o estado normal logo apos conectar, e a tela ja faz polling."""
+def test_provedor_de_qr_indisponivel_nao_afeta_a_consulta() -> None:
+    """A consulta nao depende mais do QR, entao nem o ve falhar.
+
+    Antes ela chamava `qrcode()` e tratava `QrCodeIndisponivelError` como estado
+    normal. Agora nao chama: o provedor pode estar recusando o QR que a consulta
+    responde igual. Quem precisa do QR usa `conectar`, que exige `gerir`.
+    """
 
     repo = _RepoFake(_conexao(), token="token-1")
     provedor = _ProvedorFake(
@@ -351,8 +364,8 @@ def test_consulta_com_qr_ainda_gerando_devolve_none_em_vez_de_falhar() -> None:
 
     estado = ConsultarConexaoWhatsApp(lambda: uow, provedor, auditoria).executar(uuid.uuid4())
 
-    assert estado.qrcode_base64 is None
     assert estado.existe is True
+    assert provedor.qrcodes_pedidos == 0
 
 
 def test_nome_da_instancia_e_derivado_do_tenant() -> None:
@@ -399,6 +412,37 @@ def test_conectar_recusa_antes_de_criar_no_provedor_se_a_cifra_faltar() -> None:
         ConectarWhatsApp(lambda: uow, provedor, auditoria).executar(uuid.uuid4())
 
     assert provedor.criadas == [], "nao pode existir instancia orfa no provedor"
+    # A trilha e append-only: o evento que ela grava e uma AFIRMACAO sobre o
+    # mundo, nao um log. Aqui a afirmacao certa e `rollback_aplicado` — nada
+    # sobrou la fora, porque nenhuma chamada mutante chegou a sair. Antes do
+    # IMP-368 esta sequencia terminava em `conectar.falha` sozinho, e quem
+    # investigasse sairia procurando instancia orfa que nunca existiu.
+    assert [(acao, status) for _, acao, status, _ in auditoria.eventos] == [
+        ("conectar.inicio", "iniciado"),
+        ("conectar.falha", "falhou"),
+        ("conectar.rollback", "rollback_aplicado"),
+    ]
+
+
+def test_falha_depois_de_criar_no_provedor_nao_afirma_rollback() -> None:
+    """O outro lado da mesma regra, e o que impede a correcao virar mentira.
+
+    Depois que `criar_instancia` saiu, dizer `rollback_aplicado` afirmaria que
+    nada sobrou — e pode ter sobrado uma instancia orfa. A trilha e append-only:
+    essa afirmacao nao se retira depois. Entao o desfecho aqui e divergencia,
+    nunca rollback.
+    """
+
+    repo = _RepoFake()
+    provedor = _ProvedorFake(falhar_em_conectar=RuntimeError("reset depois do create"))
+    uow, auditoria = _montar(repo, provedor)
+
+    with pytest.raises(RuntimeError):
+        ConectarWhatsApp(lambda: uow, provedor, auditoria).executar(uuid.uuid4())
+
+    acoes = [acao for _, acao, _, _ in auditoria.eventos]
+    assert "conectar.rollback" not in acoes
+    assert "conectar.falha" in acoes
 
 
 def test_conectar_serializa_a_criacao_pelo_tenant() -> None:
@@ -734,6 +778,37 @@ def test_desconectar_mantem_a_instancia_e_so_desvincula_a_conta() -> None:
     assert repo.conexao is not None
     assert repo.conexao.instancia_id == conexao.instancia_id
     assert repo.token == "token-1", "o token nao pode ser apagado no logout"
+
+
+def test_desconectar_duas_vezes_converge_do_nosso_lado() -> None:
+    """A metade da convergencia que DEPENDE de nos, e so ela.
+
+    A justificativa da isencao de `Idempotency-Key` afirmava que o logout e
+    "naturalmente convergente". Metade disso e nossa e esta provada aqui: repetir
+    leva ao mesmo estado final (`pareada=False`), sem evento de erro e sem
+    apagar o token — que continua necessario para reconectar.
+
+    A outra metade **nao e nossa e nao esta certificada**: o adapter recusa
+    qualquer resposta nao-2xx, entao se o Evolution tratar logout repetido como
+    erro, a segunda chamada falha. Nao ha ambiente de teste do provedor
+    (contexto-externo 2.1); este stub assume tolerancia, e a premissa esta
+    declarada na isencao em vez de escondida atras da palavra "naturalmente".
+    """
+
+    repo = _RepoFake(_conexao(NUMERO), token="token-1")
+    provedor = _ProvedorFake()
+    uow, auditoria = _montar(repo, provedor)
+    caso = DesconectarWhatsApp(lambda: uow, provedor, auditoria)
+
+    primeiro = caso.executar(uuid.uuid4())
+    segundo = caso.executar(uuid.uuid4())
+
+    assert primeiro.pareada is False
+    assert segundo.pareada is False
+    assert segundo.existe is True
+    assert provedor.desconectadas == ["token-1", "token-1"]
+    assert repo.token == "token-1", "reconectar depois exige o token preservado"
+    assert [acao for _, acao, status, _ in auditoria.eventos if status == "falhou"] == []
 
 
 def test_desconectar_com_falha_apos_o_logout_registra_divergencia() -> None:

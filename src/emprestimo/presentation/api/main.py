@@ -61,6 +61,7 @@ from emprestimo.domain.common.errors import (
     ViolacaoInvarianteError,
 )
 from emprestimo.domain.credit.contato import ContatoInvalidoError
+from emprestimo.domain.platform.ports import TokenConexaoIlegivelError
 from emprestimo.presentation.api.auth_routes import router as auth_router
 from emprestimo.presentation.api.automacao_routes import router as automacao_router
 from emprestimo.presentation.api.comercial_routes import router as comercial_router
@@ -130,6 +131,10 @@ def create_app() -> FastAPI:
     app.add_exception_handler(ConfiguracaoFinanceiraNaoEncontradaError, _recurso_nao_encontrado)
     app.add_exception_handler(RecursoDeOutroTenantError, _recurso_nao_encontrado)
     app.add_exception_handler(ConexaoWhatsAppNaoEncontradaError, _recurso_nao_encontrado)
+    # Token que nao decifra tem o mesmo desfecho operacional que conexao
+    # ausente: nao ha com o que falar com o provedor. O PLAN-034 promete 404,
+    # e sem esta linha a excecao subia crua para o handler generico de 500.
+    app.add_exception_handler(TokenConexaoIlegivelError, _recurso_nao_encontrado)
     app.add_exception_handler(PerfilConflitoError, _perfil_conflito)
     app.add_exception_handler(ContextoOperacionalIncompletoError, _contexto_incompleto)
     app.add_exception_handler(PerfilJaExisteError, _perfil_conflito)

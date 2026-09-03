@@ -275,8 +275,15 @@ EXCECOES_IDEMPOTENCIA_ESCRITAS: dict[tuple[str, str], str] = {
         "Tenant ja garantem isso no caso de uso."
     ),
     ("delete", "/platform/whatsapp/conexao"): (
-        "Logout de instancia e naturalmente convergente: desvincular um numero ja "
-        "desvinculado nao produz resultado de negocio novo para replayar."
+        "Nao ha resultado de negocio a replayar: o desfecho e a ausencia de "
+        "pareamento, e repetir o pedido pede o mesmo estado final. O lado da "
+        "TiaNet converge — `desparear()` sobre conexao ja despareada e no-op, "
+        "coberto por teste. PREMISSA NAO CERTIFICADA, e declarada: nao foi "
+        "observado o que o Evolution responde a um logout repetido, e o adapter "
+        "recusa qualquer nao-2xx. Nao ha ambiente de teste do provedor "
+        "(contexto-externo 2.1), entao a verificacao so existe em producao. "
+        "Diferente do DELETE da instancia, onde 'record not found' JA e tratado "
+        "como sucesso por resposta observada."
     ),
     ("delete", "/platform/whatsapp/conexao/instancia"): (
         "IMP-368: apagar e convergente por definicao, e o adapter trata "

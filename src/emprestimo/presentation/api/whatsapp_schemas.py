@@ -22,6 +22,11 @@ class ConexaoWhatsAppResponse(BaseModel):
     `numero` e `nome_exibicao` são **coisas diferentes** — o telefone da conta e
     o push name (`"Barbosa"`). Rotular um como o outro foi defeito real, pego em
     review; a tela mostra os dois, cada um com seu rótulo.
+
+    **Não há QR aqui.** Esta resposta é servida sob `whatsapp.conexao.ler`, e o
+    QR é credencial de pareamento — quem o escaneia altera a conexão. Expô-lo a
+    quem só pode ler seria dar escrita por outra porta. O QR vem do `POST`, que
+    exige `whatsapp.conexao.gerir`.
     """
 
     existe: bool
@@ -37,13 +42,6 @@ class ConexaoWhatsAppResponse(BaseModel):
     numero: str | None = Field(
         default=None, description="Telefone da conta pareada, extraído do jid do provedor."
     )
-    qrcode_base64: str | None = Field(
-        default=None,
-        description=(
-            "QR em data URI PNG enquanto o pareamento está pendente. "
-            "Nulo quando já pareou ou quando o provedor ainda está gerando."
-        ),
-    )
 
     @classmethod
     def de(cls, estado: EstadoConexaoWhatsApp) -> ConexaoWhatsAppResponse:
@@ -54,7 +52,6 @@ class ConexaoWhatsAppResponse(BaseModel):
             instancia_nome=estado.instancia_nome,
             nome_exibicao=estado.nome_exibicao,
             numero=estado.numero,
-            qrcode_base64=estado.qrcode_base64,
         )
 
 

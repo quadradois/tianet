@@ -79,12 +79,13 @@ from emprestimo.domain.platform.ports import (
     TenantOrdenacao,
     TenantPaginado,
     TenantRepository,
+    TokenConexaoIlegivelError,
     UsuarioRepository,
 )
 from emprestimo.domain.platform.sessao import Sessao
 from emprestimo.domain.platform.tenant import Tenant, TenantState
 from emprestimo.domain.platform.usuario import Usuario, UsuarioState
-from emprestimo.infrastructure.cifra import CifraToken
+from emprestimo.infrastructure.cifra import CifraToken, SegredoCorrompidoError
 from emprestimo.infrastructure.db.orm import (
     CarteiraORM,
     ConexaoWhatsAppORM,
@@ -1567,7 +1568,16 @@ class SqlAlchemyConexaoWhatsAppRepository(ConexaoWhatsAppRepository):
         row = self._session.scalar(
             select(ConexaoWhatsAppORM).where(ConexaoWhatsAppORM.tenant_id == tenant_id)
         )
-        return None if row is None else self._cifra().decifrar(row.token_cifrado)
+        if row is None:
+            return None
+        try:
+            return self._cifra().decifrar(row.token_cifrado)
+        except SegredoCorrompidoError as exc:
+            # `None` aqui seria mentira: a linha EXISTE. Devolve-lo faria o caso
+            # de uso dizer "conexao nao encontrada" pelo motivo errado, e a
+            # trilha perderia que houve chave trocada ou dado adulterado — que e
+            # justamente o evento que alguem precisa ver.
+            raise TokenConexaoIlegivelError(str(tenant_id)) from exc
 
     def exigir_disponibilidade(self) -> None:
         self._cifra()

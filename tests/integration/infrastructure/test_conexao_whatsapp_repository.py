@@ -10,6 +10,7 @@ from sqlalchemy.orm import Session, sessionmaker
 from tests.factories import CarteiraFactory, TenantFactory
 
 from emprestimo.domain.platform.conexao_whatsapp import ConexaoWhatsApp
+from emprestimo.domain.platform.ports import TokenConexaoIlegivelError
 from emprestimo.infrastructure.cifra import CifraToken
 from emprestimo.infrastructure.db.orm import ConexaoWhatsAppORM
 from emprestimo.infrastructure.repositories import (
@@ -54,6 +55,40 @@ def test_grava_e_recupera_a_conexao(session_factory: sessionmaker[Session]) -> N
         assert recuperada.instancia_nome == "adm_tianet"
         assert recuperada.pareada is False
         assert repo.find_token(tenant_id) == TOKEN
+
+
+def test_token_que_nao_decifra_vira_erro_nomeado_e_nao_500(
+    session_factory: sessionmaker[Session],
+) -> None:
+    """Chave trocada tem desfecho de 404, nao de erro do servidor.
+
+    O PLAN-034 promete `404` para "registro existe e o token nao decifra", e a
+    promessa era inalcancavel: `decifrar()` levanta `SegredoCorrompidoError`, que
+    nao e `None`, entao o caso de uso nunca chegava ao seu
+    `ConexaoWhatsAppNaoEncontradaError` — a excecao subia crua e o handler
+    generico respondia `500`. Isso diz "erro nosso" quando a resposta certa e
+    "nao ha conexao utilizavel aqui", e manda o operador abrir chamado em vez de
+    reconectar.
+
+    Cenario real, nao sintetico: grava com uma chave e le com outra, que e
+    exatamente o que acontece quando alguem regenera a
+    `WHATSAPP_TOKEN_ENCRYPTION_KEY`.
+    """
+    with session_factory() as session:
+        tenant_id = _tenant(session)
+        SqlAlchemyConexaoWhatsAppRepository(
+            session, lambda: CifraToken(CifraToken.gerar_chave())
+        ).save(_conexao(tenant_id), token=TOKEN)
+        session.commit()
+
+        outra_chave = SqlAlchemyConexaoWhatsAppRepository(
+            session, lambda: CifraToken(CifraToken.gerar_chave())
+        )
+
+        # A linha EXISTE — e o que separa este caso de "conexao ausente".
+        assert outra_chave.find_by_tenant_id(tenant_id) is not None
+        with pytest.raises(TokenConexaoIlegivelError):
+            outra_chave.find_token(tenant_id)
 
 
 def test_o_token_nao_fica_em_texto_claro_no_banco(session_factory: sessionmaker[Session]) -> None:

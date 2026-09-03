@@ -64,11 +64,11 @@ class EstadoConexaoWhatsApp:
     (`"Barbosa"`), outra coisa: a tela mostra os dois, e rotulá-los trocados foi
     o que uma rodada de review pegou.
 
-    `qrcode_base64` vem preenchido enquanto o pareamento está pendente, e é
-    buscado a cada consulta — o QR vive ~20s e o provedor rotaciona sozinho, de
-    modo que devolver o da chamada anterior seria devolver um QR morto. `None`
-    significa "não há o que escanear": ou já pareou, ou o provedor ainda está
-    gerando e a próxima consulta traz.
+    **O QR não vive aqui, e a razão é de permissão.** Ele é credencial de
+    pareamento: quem o escaneia vincula uma conta de WhatsApp ao Tenant. Devolvê-lo
+    na consulta — protegida por `whatsapp.conexao.ler` — daria a um usuário
+    somente-leitura o poder de *alterar* a conexão, contornando
+    `whatsapp.conexao.gerir`. O QR sai por `ConectarWhatsApp`, e só por lá.
     """
 
     existe: bool
@@ -77,7 +77,6 @@ class EstadoConexaoWhatsApp:
     instancia_nome: str | None
     nome_exibicao: str | None
     numero: str | None
-    qrcode_base64: str | None
 
 
 @dataclass(frozen=True)
@@ -95,6 +94,26 @@ class QrCodeConexao:
     """
 
     qrcode_base64: str | None
+
+
+@dataclass
+class _FaseEfeito:
+    """Marca se algum efeito **mutante** no provedor ja foi tentado.
+
+    Existe para separar duas afirmacoes que a trilha append-only nao pode
+    confundir: `rollback_aplicado` diz "nada sobrou la fora", e so e verdade
+    quando nenhuma chamada que muda estado saiu. Antes disto o rollback era
+    emitido apenas para `EfeitoNaoAplicadoError` — de modo que uma cifra ausente,
+    que estoura ANTES de qualquer chamada, produzia so `conectar.falha` e deixava
+    quem investiga sem saber se havia instancia orfa. Havia nao: nao houve
+    chamada.
+
+    Leitura NAO marca. `instancia_existente` e um GET: falhar nele nao muda nada
+    no provedor, e tratar como efeito perderia justamente o caso mais comum de
+    rollback legitimo.
+    """
+
+    tentado: bool = False
 
 
 PREFIXO_NOME_INSTANCIA = "tianet_"
@@ -216,7 +235,6 @@ class ConsultarConexaoWhatsApp:
                     instancia_nome=None,
                     nome_exibicao=None,
                     numero=None,
-                    qrcode_base64=None,
                 )
             token = uow.conexao_whatsapp.find_token(tenant_id)
             if token is None:
@@ -259,20 +277,7 @@ class ConsultarConexaoWhatsApp:
             instancia_nome=atualizada.instancia_nome,
             nome_exibicao=estado.nome_exibicao,
             numero=atualizada.numero_pareado,
-            qrcode_base64=None if estado.pareado else self._qrcode_pendente(token),
         )
-
-    def _qrcode_pendente(self, token: str) -> str | None:
-        """QR de agora, ou `None` enquanto o provedor ainda o gera.
-
-        "Ainda gerando" é o estado normal logo após conectar, e a tela já faz
-        polling — transformá-lo em erro faria a consulta falhar exatamente no
-        momento em que ela é mais chamada.
-        """
-        try:
-            return self._provedor.qrcode(token)
-        except QrCodeIndisponivelError:
-            return None
 
 
 class ConectarWhatsApp:
@@ -298,6 +303,7 @@ class ConectarWhatsApp:
         self,
         tenant_id: uuid.UUID,
         autoria: dict[str, object],
+        efeito: _FaseEfeito,
     ) -> tuple[ConexaoWhatsApp, str]:
         """Devolve a conexao do Tenant, criando-a no provedor se preciso.
 
@@ -351,6 +357,8 @@ class ConectarWhatsApp:
                 )
                 return adotada, token
 
+            # A PARTIR DAQUI pode sobrar estado no provedor.
+            efeito.tentado = True
             try:
                 instancia_id, token = self._provedor.criar_instancia(nome)
             except EfeitoNaoAplicadoError:
@@ -406,6 +414,7 @@ class ConectarWhatsApp:
             "iniciado",
             detalhes=_detalhes(autoria),
         )
+        efeito = _FaseEfeito()
         try:
             # A transacao termina ANTES de pedir o QR, e isso nao e detalhe de
             # organizacao. `qrcode()` levanta `QrCodeAindaGerandoError` como
@@ -414,7 +423,8 @@ class ConectarWhatsApp:
             # conexao local enquanto a instancia ja existe no provedor, com um
             # token que so nos tinhamos: instancia orfa, inalcancavel, e uma nova
             # criada a cada tentativa.
-            conexao, token = self._garantir_instancia(tenant_id, autoria)
+            conexao, token = self._garantir_instancia(tenant_id, autoria, efeito)
+            efeito.tentado = True
             self._provedor.conectar(token)
             try:
                 qrcode: str | None = self._provedor.qrcode(token)
@@ -432,11 +442,18 @@ class ConectarWhatsApp:
                 # QR, e a trilha é append-only (IMP-361).
                 detalhes=_detalhes(autoria, erro_tipo=type(exc).__name__),
             )
-            if isinstance(exc, EfeitoNaoAplicadoError):
-                # Nome inválido, cifra ausente, provedor recusando: o UoW
-                # reverteu e nada aconteceu lá fora. A ADR-002 pede o evento de
-                # rollback justamente aqui — sem ele, a trilha mostra falha sem
-                # dizer se sobrou estado, que é a pergunta de quem investiga.
+            if isinstance(exc, EfeitoNaoAplicadoError) or not efeito.tentado:
+                # Duas provas distintas de que nada sobrou lá fora, e as duas
+                # valem: `EfeitoNaoAplicadoError` é o provedor afirmando que não
+                # agiu; `not efeito.tentado` é não termos chegado a pedir.
+                #
+                # A segunda foi acrescentada porque o comentário anterior
+                # prometia o que o código não fazia: dizia "cifra ausente" — mas
+                # `CifraIndisponivelError` não é `EfeitoNaoAplicadoError`, então
+                # a falha mais precoce que existe, anterior a qualquer chamada,
+                # era a única a NÃO registrar rollback. Quem investigasse via
+                # `conectar.falha` sozinho e teria de sair procurando instância
+                # órfã que nunca existiu.
                 self._auditoria.registrar(
                     ENTIDADE_AUDITORIA,
                     None,
@@ -568,8 +585,6 @@ class DesconectarWhatsApp:
             instancia_nome=despareada.instancia_nome,
             nome_exibicao=None,
             numero=None,
-            # Desconectar não gera QR: quem quiser reconectar chama `conectar`.
-            qrcode_base64=None,
         )
 
 
@@ -682,5 +697,4 @@ class ExcluirConexaoWhatsApp:
             instancia_nome=None,
             nome_exibicao=None,
             numero=None,
-            qrcode_base64=None,
         )

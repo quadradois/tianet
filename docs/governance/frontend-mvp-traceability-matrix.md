@@ -19,7 +19,7 @@ A fonte contratual observada e o OpenAPI gerado por `create_app().openapi()` na
 worktree derivada do commit backend `e48cb72`, congelado no snapshot governado
 do PLAN-025. O contrato vigente possui 111 operacoes e 137 schemas; o SHA-256
 do snapshot e
-`c8868afbf0645165da9795f718d91b8fba41bcc2bb8fa111578ec39bed58df0b`,
+`0d0b6e9da14ef88a169a4beee174a74534277eb6893821b78119efc5dda5f4ba`,
 atualizado pelo IMP-368, que acrescentou as quatro operacoes de
 `/platform/whatsapp/conexao`. A contagem anterior registrada aqui (105/131)
 estava desatualizada desde antes do IMP-362 — o hash acompanhava o contrato, os

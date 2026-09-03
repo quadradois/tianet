@@ -218,10 +218,10 @@ de auditoria, não em métrica.
 | Camada | O que cobre |
 |---|---|
 | Unitário — cifra | ida e volta do token; chave ausente recusa; texto cifrado difere do claro |
-| Unitário — cliente Evolution | as cinco rotas com respostas reais capturadas em 2026-08-31, inclusive `webhookUrl` vazia aceita |
-| Unitário — casos de uso | instância inexistente, pendente e pareada; `Connected` sem `LoggedIn` **não** é conectado |
-| Contrato | as três operações no snapshot OpenAPI; contadores conferidos |
-| Integração | RBAC das duas permissões; 401, 403 e 404 |
+| Unitário — cliente Evolution | as rotas de gestão com respostas reais capturadas em 2026-08-31, inclusive `webhookUrl` vazia aceita, `instance/all` para adoção e `instance/delete` |
+| Unitário — casos de uso | instância inexistente, pendente e pareada; `Connected` sem `LoggedIn` **não** é conectado; sequência de auditoria distinguindo rollback, divergência e falha |
+| Contrato | as **quatro** operações no snapshot OpenAPI; contadores conferidos; isenções de `Idempotency-Key` justificadas uma a uma |
+| Integração | RBAC das duas permissões; 401, 403 e 404; **o QR nunca chega a quem só tem `ler`** |
 | Playwright | tela renderiza QR, faz polling e mostra o número ao parear |
 
 **Nenhum teste chama o Evolution real.** As respostas capturadas viram fixture; a
@@ -229,6 +229,13 @@ suíte não pode depender de rede nem criar instância em servidor de verdade.
 
 **Guardrail:** teste que reprova se o token aparecer em texto claro em qualquer
 lugar que não seja o campo cifrado — resposta de API, log ou trilha.
+
+**Segundo guardrail, acrescentado no review do IMP-368:** teste que reprova se a
+consulta voltar a **pedir o QR ao provedor**. O QR é credencial de pareamento, a
+consulta é servida sob `whatsapp.conexao.ler`, e enquanto ele viajava ali um
+usuário somente-leitura alterava a conexão — `gerir` existia e não protegia este
+caminho. O guardrail conta a **chamada**, não o campo: um DTO limpo com a busca
+de volta reintroduziria a escalada sem falhar nenhum teste de contrato.
 
 ---
 
