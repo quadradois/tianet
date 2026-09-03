@@ -64,11 +64,12 @@ class EstadoConexaoWhatsApp:
     (`"Barbosa"`), outra coisa: a tela mostra os dois, e rotulá-los trocados foi
     o que uma rodada de review pegou.
 
-    **O QR não vive aqui, e a razão é de permissão.** Ele é credencial de
-    pareamento: quem o escaneia vincula uma conta de WhatsApp ao Tenant. Devolvê-lo
-    na consulta — protegida por `whatsapp.conexao.ler` — daria a um usuário
-    somente-leitura o poder de *alterar* a conexão, contornando
-    `whatsapp.conexao.gerir`. O QR sai por `ConectarWhatsApp`, e só por lá.
+    **O QR não vive aqui, e a razão é custo.** Buscá-lo era uma ida ao provedor
+    a cada consulta — e a consulta é a rota mais chamada do recurso, porque a tela
+    faz polling de status enquanto o pareamento não fecha. Cada pergunta "já
+    conectou?" disparava um `GET` externo para trazer um QR que ninguém pediu.
+
+    O QR sai por `ConectarWhatsApp`, que é quando alguém de fato quer parear.
     """
 
     existe: bool

@@ -26,26 +26,38 @@ Inventário da API: **107 → 111 operações**.
 
 ---
 
-# 2. A escalada de privilégio, e por que ela quase passou
+# 2. O erro que eu cometi, e que custou seis documentos
 
-O `GET /platform/whatsapp/conexao` exige `whatsapp.conexao.ler` e **devolvia o
-QR**. O QR não é informação, é **capacidade**: quem o escaneia vincula uma conta
-de WhatsApp ao Tenant. Um principal somente-leitura alterava a conexão só de
-abrir a tela, e `whatsapp.conexao.gerir` existia sem proteger este caminho.
+O `GET /platform/whatsapp/conexao` buscava o QR **no provedor** a cada chamada.
+A tela faz polling de status enquanto o pareamento não fecha, então era uma ida
+externa por pergunta "já conectou?", na rota mais chamada do recurso. **Tirar
+isso está certo, e o motivo é esse: custo de chamada.**
 
-**O que quase deixou o conserto incompleto.** O revisor pediu remover o campo do
-DTO. Fosse só isso, `_qrcode_pendente` continuaria chamando o **provedor** a cada
-`GET` — a capacidade seguiria sendo buscada, e o campo poderia voltar sem quebrar
-teste nenhum. O QR saiu do caminho de leitura inteiro.
+**Não foi o motivo que escrevi.** O revisor classificou como *escalada de
+privilégio* — o QR saía sob `whatsapp.conexao.ler` e permitiria a um usuário
+somente-leitura alterar a conexão. Aceitei o rótulo e o escrevi em seis
+documentos, incluindo este handoff e o corpo do PR #57.
 
-**O guardrail conta a chamada, não o campo.** `qrcodes_pedidos == 0` com
-pareamento **pendente** — o único estado em que havia QR a vazar. Um teste sobre
-conexão ausente passaria com o defeito de volta.
+**Esse usuário não existe.** A [ADR-003](../../architecture/adrs/ADR-003-escopo-single-tenant-do-v1.md)
+§60 fixa, desde 2026-09-01, que a TiaNet tem **um operador humano**, com todas as
+permissões. Não há de quem escalar. As permissões `whatsapp.conexao.ler` e
+`.gerir` não protegem ninguém hoje — são preparação, não proteção.
 
-**Consequência de produto, e ela é decisão:** o polling de status continua no
-`GET`, mas obter ou renovar o QR exige o `POST`, protegido por `gerir`. Logo,
-**operador somente-leitura não pareia**. Registrado no PLAN-034 §3 e no backlog
-do IMP-369.
+**A ADR estava ao meu alcance e eu não a li até o fim.** Li "single-tenant, um
+operador", inventei um cenário de perfil restrito que a própria ADR descarta, e
+tratei o rótulo do revisor como verificação em vez de hipótese. O fundador
+apontou em 2026-09-03; a correção passou por PLAN-034, o backlog do IMP-369, a
+SPEC-004, dois docstrings de código e dois testes.
+
+**A lição, e ela vale mais que o conserto:** *um revisor aponta o que vê no
+código; ele não sabe quantas pessoas usam o sistema.* Rótulo de severidade —
+"bloqueante", "escalada de privilégio" — é hipótese a verificar contra o
+domínio, não conclusão a repetir. E quando o desenho pressupõe um ator, a
+pergunta antes de escrever é simples: **esse ator existe?**
+
+**O que sobreviveu:** o código, o guardrail (que conta a **chamada**, não o
+campo) e o cenário do teste — pareamento **pendente**, o único estado em que
+havia QR a buscar.
 
 ---
 
@@ -194,8 +206,8 @@ de push. Ele achou o que três rodadas de review não acharam.
 
 # 9. Próximo ciclo
 
-1. **IMP-369 — a tela.** Herda a decisão de que o QR vem do `POST`: polling de
-   status no `GET`, QR sob `gerir`, e operador somente-leitura não pareia;
+1. **IMP-369 — a tela.** Herda o desenho: polling de status no `GET`, barato; o
+   QR vem do `POST`, pedido uma vez quando o operador quer parear;
 2. **IMP-370** — worker lê o token do repositório;
 3. **IMP-359 — deploy.** Sem insumo externo pendente. Inclui a validação do
    `logout` repetido (§5) e apagar a `adm_tianet`;
@@ -211,4 +223,4 @@ pre-push (§4), e as pendências antigas 3.2, 3.3, 3.4, 3.6.
 
 | Versao | Data | Descricao |
 |---|---|---|
-| 1.0.0 | 2026-09-03 | IMP-368 fechado com uma escalada de privilégio corrigida na raiz — o QR era buscado no provedor a cada consulta, não só exposto no DTO. Três descobertas que nenhuma análise de código encontra: `/CLAUDE.md` é gitignored e por isso a exceção virou ADR-019; o AMP-001 não registrava a ADR-018, e a fonte de verdade da numeração levaria à colisão que a SPEC-002 existe para impedir; e o gate de pre-push achou dois defeitos que três rodadas de review adversarial não acharam. SPEC-003 criado e aplicado no próprio ciclo, com `Achado que mudou o desenho` = SIM. |
+| 1.0.0 | 2026-09-03 | IMP-368 fechado. O QR era buscado no provedor a cada consulta, não só exposto no DTO, e sair dali economiza uma chamada externa por polling. Registrado também o erro de percurso: aceitei do revisor o rótulo "escalada de privilégio" sem verificar que a ADR-003 fixa um operador humano único — o usuário somente-leitura que eu descrevi não existe, e a correção alcançou seis documentos. Três descobertas que nenhuma análise de código encontra: `/CLAUDE.md` é gitignored e por isso a exceção virou ADR-019; o AMP-001 não registrava a ADR-018, e a fonte de verdade da numeração levaria à colisão que a SPEC-002 existe para impedir; e o gate de pre-push achou dois defeitos que três rodadas de review adversarial não acharam. SPEC-003 criado e aplicado no próprio ciclo, com `Achado que mudou o desenho` = SIM. |

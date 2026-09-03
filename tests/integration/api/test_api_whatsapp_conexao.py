@@ -157,28 +157,16 @@ def _headers(token: str) -> dict[str, str]:
     return {"Authorization": f"Bearer {token}"}
 
 
-def _autenticar(
-    session: Session,
-    *permissoes: str,
-    tenant: Tenant | None = None,
-    perfil_nome: str = "OperadorWhatsApp",
-) -> _Autenticado:
-    """Principal novo. `tenant=` reusa um existente em vez de criar outro.
-
-    Reusar importa quando o teste precisa de DOIS principais com permissoes
-    diferentes olhando a MESMA conexao — sem isso cada um cai no seu Tenant e o
-    segundo nao ve nada, o que faria um teste de permissao passar por engano.
-    """
-    if tenant is None:
-        tenant = TenantFactory.build(estado=TenantState.ATIVO)
-        SqlAlchemyTenantRepository(session).save(tenant)
+def _autenticar(session: Session, *permissoes: str) -> _Autenticado:
+    tenant = TenantFactory.build(estado=TenantState.ATIVO)
+    SqlAlchemyTenantRepository(session).save(tenant)
     usuario = UsuarioFactory.build(
         tenant_id=tenant.id,
         estado=UsuarioState.ATIVO,
-        perfil_acesso=perfil_nome,
+        perfil_acesso="OperadorWhatsApp",
     )
     SqlAlchemyUsuarioRepository(session).save(usuario)
-    perfil = PerfilAcesso(tenant_id=tenant.id, nome=perfil_nome)
+    perfil = PerfilAcesso(tenant_id=tenant.id, nome="OperadorWhatsApp")
     for codigo in permissoes:
         perfil.adicionar_permissao(Permissao(codigo=codigo, descricao=codigo))
     repo = SqlAlchemyPerfilAcessoRepository(session)
@@ -286,36 +274,33 @@ def test_consultar_sem_instancia_nao_e_o_mesmo_que_nao_pareada(
     assert corpo["numero"] is None
 
 
-def test_consulta_com_pareamento_pendente_nao_entrega_o_qr_a_quem_so_le(
+def test_consulta_com_pareamento_pendente_nao_vai_ao_provedor_buscar_qr(
     client: TestClient,
     session: Session,
     provedor: _ProvedorStub,
 ) -> None:
-    """Escalada de privilegio pega em review: `ler` nao pode virar `gerir`.
+    """A consulta e o polling da tela, e polling nao pode custar chamada externa.
 
-    O QR nao e informacao, e **capacidade**: quem o escaneia vincula uma conta de
-    WhatsApp ao Tenant. Enquanto ele viajava na consulta, um principal com apenas
-    `whatsapp.conexao.ler` alterava a conexao so de olhar a tela — a permissao
-    `gerir` existia e nao protegia nada neste caminho.
+    Enquanto o QR viajava na resposta, cada pergunta "ja conectou?" disparava um
+    `GET` ao provedor para trazer um QR que ninguem tinha pedido — na rota mais
+    chamada do recurso, e justamente enquanto o pareamento esta pendente, que e
+    quando a tela pergunta com mais frequencia.
 
-    O estado exercitado e o UNICO em que havia QR a vazar: instancia existente e
-    pareamento PENDENTE. Um teste em conexao ausente passaria mesmo com o defeito
+    O estado exercitado e o UNICO em que havia QR a buscar: instancia existente e
+    pareamento PENDENTE. Um teste em conexao ausente passaria mesmo com a busca
     de volta.
     """
-    gerente = _autenticar(session, GERIR)
-    assert client.post(ROTA, headers=_headers(gerente.token)).status_code == 200
+    operador = _autenticar(session, GERIR, LER)
+    assert client.post(ROTA, headers=_headers(operador.token)).status_code == 200
     provedor.qrcodes_pedidos = 0
 
-    # MESMO Tenant, outro perfil: e a permissao que muda, nao o escopo de dados.
-    so_le = _autenticar(session, LER, tenant=gerente.tenant, perfil_nome="SomenteLeitura")
-    resposta = client.get(ROTA, headers=_headers(so_le.token))
+    resposta = client.get(ROTA, headers=_headers(operador.token))
 
     assert resposta.status_code == 200
     corpo = resposta.json()
     assert corpo["existe"] is True
     assert corpo["pareada"] is False
-    # Nao basta o campo estar nulo: ele nao existe no contrato, e o provedor
-    # sequer foi consultado pelo QR.
+    # Nao basta o campo estar ausente do corpo: o provedor sequer foi consultado.
     assert "qrcode_base64" not in corpo
     assert provedor.qrcodes_pedidos == 0
 

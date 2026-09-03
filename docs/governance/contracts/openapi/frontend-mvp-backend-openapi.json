@@ -832,7 +832,7 @@
         "type": "object"
       },
       "ConexaoWhatsAppResponse": {
-        "description": "Estado da conexão, e o que a tela deve oferecer a partir dele.\n\n`existe` e `pareada` são separados de propósito: \"não existe\" pede criar a\ninstância, \"existe e não pareou\" pede escanear o QR. Uma flag só faria a\ntela oferecer a ação errada em metade dos casos.\n\n`numero` e `nome_exibicao` são **coisas diferentes** — o telefone da conta e\no push name (`\"Barbosa\"`). Rotular um como o outro foi defeito real, pego em\nreview; a tela mostra os dois, cada um com seu rótulo.\n\n**Não há QR aqui.** Esta resposta é servida sob `whatsapp.conexao.ler`, e o\nQR é credencial de pareamento — quem o escaneia altera a conexão. Expô-lo a\nquem só pode ler seria dar escrita por outra porta. O QR vem do `POST`, que\nexige `whatsapp.conexao.gerir`.",
+        "description": "Estado da conexão, e o que a tela deve oferecer a partir dele.\n\n`existe` e `pareada` são separados de propósito: \"não existe\" pede criar a\ninstância, \"existe e não pareou\" pede escanear o QR. Uma flag só faria a\ntela oferecer a ação errada em metade dos casos.\n\n`numero` e `nome_exibicao` são **coisas diferentes** — o telefone da conta e\no push name (`\"Barbosa\"`). Rotular um como o outro foi defeito real, pego em\nreview; a tela mostra os dois, cada um com seu rótulo.\n\n**Não há QR aqui.** Esta resposta serve o polling de status da tela, que\nroda em laço enquanto o pareamento não fecha — e trazer o QR junto obrigava\numa ida ao provedor a cada volta do laço. O QR vem do `POST`, que é quando\nalguém pediu para parear.",
         "properties": {
           "conectado": {
             "title": "Conectado",

@@ -116,11 +116,10 @@ Inventário: **107 → 111 operações**, **135 → 137 schemas**. O plano previ
 - **Objetivo:** conectar o WhatsApp sem sair da plataforma.
 - **Escopo:** tela com QR, polling de status, estados de erro e de QR expirado,
   e o número visível quando pareado.
-- **Mudou no IMP-368, e muda o desenho da tela:** o polling de status (`GET`)
-  **não traz mais o QR** — ele é credencial de pareamento e sairia sob
-  `whatsapp.conexao.ler`, dando escrita a quem só pode ler. O QR vem do `POST`,
-  protegido por `whatsapp.conexao.gerir`. Consequência de produto: **operador
-  somente-leitura não pareia**. Ver PLAN-034 §3.
+- **Mudou no IMP-368:** o polling de status (`GET`) **não traz mais o QR** —
+  buscá-lo custava uma ida ao provedor a cada volta do laço. O QR vem do `POST`,
+  chamado quando alguém quer parear. A tela pede o QR uma vez e faz polling
+  barato enquanto espera. Ver PLAN-034 §3.
 - **Critério de pronto:** jornada Playwright cobre não conectado → QR → pareado;
   a11y sem violação crítica ou séria; **o QR não aparece em log, trilha nem
   métrica** — guardrail de teste, não convenção.

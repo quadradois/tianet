@@ -310,12 +310,12 @@ def test_consulta_com_conexao_sem_token_e_erro_nomeado() -> None:
 
 
 def test_consulta_pendente_nao_pede_qr_ao_provedor() -> None:
-    """O QR e credencial de pareamento, e a consulta e servida sob `ler`.
+    """A consulta nao vai ao provedor buscar QR, e isso e o que o teste guarda.
 
-    Este teste guarda a CHAMADA, nao so o campo: um retorno futuro de
-    `_qrcode_pendente` reintroduziria a escalada de privilegio mesmo que o DTO
-    continuasse limpo. `qrcodes_pedidos == 0` com pareamento PENDENTE — o unico
-    estado em que havia QR a buscar — e o que falha se alguem desfizer isto.
+    Guarda a CHAMADA, nao o campo: um retorno futuro de `_qrcode_pendente`
+    traria de volta a ida ao provedor a cada polling mesmo que o DTO continuasse
+    limpo. `qrcodes_pedidos == 0` com pareamento PENDENTE — o unico estado em que
+    havia QR a buscar — e o que falha se alguem desfizer isto.
     """
 
     repo = _RepoFake(_conexao(), token="token-1")

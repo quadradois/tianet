@@ -67,15 +67,20 @@ O QR **não é persistido**, e **não sai pela consulta** — corrigido no revie
 IMP-368. Ele vive segundos e é buscado no Evolution a cada `conectar`.
 
 **Por que não pela consulta**, que seria o caminho óbvio para uma tela que faz
-polling: o QR não é informação, é **capacidade**. Quem o escaneia vincula uma
-conta de WhatsApp ao Tenant. A consulta é servida sob `whatsapp.conexao.ler`, e
-enquanto o QR viajava nela um principal somente-leitura **alterava** a conexão —
-`whatsapp.conexao.gerir` existia e não protegia este caminho.
+polling: cada volta do polling ia ao provedor buscar um QR que ninguém tinha
+pedido. A consulta é a rota mais chamada do recurso, e é chamada com mais
+frequência justamente enquanto o pareamento está pendente — que é quando havia QR
+a buscar. Uma ida externa por pergunta "já conectou?".
 
 **Consequência para a tela (IMP-369):** o polling de status continua no `GET`,
-mas obter ou renovar o QR exige chamar o `POST`, protegido por `gerir`. Isso
-significa que **um operador somente-leitura não pareia**, e isso é decisão de
-produto, não efeito colateral.
+barato; obter ou renovar o QR é uma chamada explícita ao `POST`, feita quando
+alguém de fato quer parear.
+
+> **Correção de 2026-09-03.** A versão anterior desta seção justificava a
+> remoção como escalada de privilégio — um "operador somente-leitura" que
+> alterava a conexão. **Esse operador não existe.** A ADR-003 §60 fixa que a
+> TiaNet tem **um operador humano**, com todas as permissões. A remoção continua
+> certa, e o motivo é o custo da chamada externa, não permissão.
 
 ### 3.1 — `ConectarWhatsApp` não registra `Idempotency-Key` (decidido no IMP-367)
 
@@ -201,9 +206,9 @@ Todas exigem Principal autenticado.
 
 - `GET /platform/whatsapp/conexao` — estado da conexão. Permissão
   `whatsapp.conexao.ler`. Devolve estado e número pareado quando houver.
-  **Nunca devolve o QR** (§3): ele é credencial de pareamento e sairia sob a
-  permissão errada. `404` quando a conexão existe e o token não decifra —
-  registro órfão, que não é o mesmo que "não existe".
+  **Nunca devolve o QR** (§3): buscá-lo custaria uma ida ao provedor a cada
+  polling. `404` quando a conexão existe e o token não decifra — registro órfão,
+  que não é o mesmo que "não existe".
 - `POST /platform/whatsapp/conexao` — cria a instância se necessário e inicia o
   pareamento. Permissão `whatsapp.conexao.gerir`. **Sem corpo e sem
   `Idempotency-Key`** (§3.1): o nome da instância é derivado do Tenant, e
@@ -250,11 +255,9 @@ suíte não pode depender de rede nem criar instância em servidor de verdade.
 lugar que não seja o campo cifrado — resposta de API, log ou trilha.
 
 **Segundo guardrail, acrescentado no review do IMP-368:** teste que reprova se a
-consulta voltar a **pedir o QR ao provedor**. O QR é credencial de pareamento, a
-consulta é servida sob `whatsapp.conexao.ler`, e enquanto ele viajava ali um
-usuário somente-leitura alterava a conexão — `gerir` existia e não protegia este
-caminho. O guardrail conta a **chamada**, não o campo: um DTO limpo com a busca
-de volta reintroduziria a escalada sem falhar nenhum teste de contrato.
+consulta voltar a **pedir o QR ao provedor**. O guardrail conta a **chamada**,
+não o campo: um DTO limpo com a busca de volta reintroduziria a ida externa a
+cada polling sem falhar nenhum teste de contrato.
 
 ---
 

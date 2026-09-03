@@ -83,10 +83,10 @@ estado). Escrever `rollback_aplicado` onde sobrou estado é mentira permanente.
 A Presentation nunca devolve Aggregate (RA-012). Um DTO por recurso —
 `TenantResponse`, `DevedorResponse`.
 
-**E o DTO responde pela permissão que o serve:** um campo que confere capacidade
-não pode viajar numa rota servida por permissão de leitura. Foi assim que o QR de
-pareamento saiu do `GET` da conexão de WhatsApp — ele dava a quem só podia ler o
-poder de alterar.
+**E o DTO não carrega o que custa caro para montar.** Um campo cujo valor exige
+chamada externa não pertence a uma rota de polling: o QR de pareamento saiu do
+`GET` da conexão de WhatsApp porque cada consulta ia buscá-lo no provedor, e a
+consulta é a rota mais chamada do recurso.
 
 ### 6. Exceção de domínio identificável
 
@@ -141,4 +141,4 @@ ignorada na primeira pressa.
 
 | Versão | Data | Descrição |
 |---------|------|-----------|
-| 1.0.0 | 03/09/2026 | Regras extraídas do `/CLAUDE.md` para o diretório que o próprio `.gitignore` designava e que nunca fora criado. Não é reversão daquela decisão: é a execução dela. As regras 3, 5, 6 e 7 incorporam o que o ciclo do IMP-368 ensinou — a exceção da regra 3 exige ADR, o DTO responde pela permissão que o serve, o código estável do "não encontrado" é do contrato HTTP, e guardrail conta efeito e não campo. Corrigida de passagem a lista numerada, que no arquivo de origem tinha uma seção inteira enfiada entre a regra 1 e a 2. |
+| 1.0.0 | 03/09/2026 | Regras extraídas do `/CLAUDE.md` para o diretório que o próprio `.gitignore` designava e que nunca fora criado. Não é reversão daquela decisão: é a execução dela. As regras 3, 5, 6 e 7 incorporam o que o ciclo do IMP-368 ensinou — a exceção da regra 3 exige ADR, o DTO não carrega campo que custa chamada externa, o código estável do "não encontrado" é do contrato HTTP, e guardrail conta efeito e não campo. Corrigida de passagem a lista numerada, que no arquivo de origem tinha uma seção inteira enfiada entre a regra 1 e a 2. |
