@@ -155,6 +155,50 @@ def test_imp_276_contexto_sem_perfil_nao_concede_permissao(
     assert resposta.json()["permissoes"] == []
 
 
+def test_imp_369_contexto_traz_o_estado_conhecido_do_whatsapp(
+    client: TestClient,
+    session: Session,
+) -> None:
+    """O selo da barra lateral vive deste campo, e ele NAO consulta o provedor.
+
+    Dois estados, e so dois — conectado ou nao. `pareada` responde sozinha; um
+    terceiro sinal ("instancia existe, aguardando QR") chegou a existir aqui e
+    saiu, porque ninguem o lia.
+
+    Este contexto e buscado a cada pagina aberta. Sincronizar aqui daria uma
+    chamada externa por navegacao — o mesmo defeito que o IMP-368 tirou do QR, e
+    que voltaria pela porta da tela.
+
+    Sem conexao gravada, o selo diz "nao conectado" sem perguntar a ninguem.
+    """
+    ambiente = _criar_contexto(session)
+
+    resposta = client.get("/iam/contexto-atual", headers=_headers(ambiente.token))
+
+    assert resposta.status_code == 200
+    whatsapp = resposta.json()["whatsapp"]
+    assert whatsapp == {"pareada": False, "numero": None}
+
+
+def test_imp_369_contexto_nunca_carrega_token_nem_qr(
+    client: TestClient,
+    session: Session,
+) -> None:
+    """Este corpo viaja em TODA pagina — e o lugar mais caro para vazar segredo.
+
+    Guardrail por forma, e nao por leitura de olho: qualquer campo novo que
+    alguem acrescente ao bloco `whatsapp` reprova aqui ate ser pensado.
+    """
+    ambiente = _criar_contexto(session)
+
+    corpo = client.get("/iam/contexto-atual", headers=_headers(ambiente.token)).json()
+
+    assert set(corpo["whatsapp"]) == {"pareada", "numero"}
+    bruto = json.dumps(corpo).lower()
+    assert "token" not in bruto
+    assert "qrcode" not in bruto
+
+
 def test_imp_276_contexto_com_perfil_inativo_falha_fechado(
     client: TestClient,
     session: Session,

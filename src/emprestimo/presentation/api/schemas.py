@@ -248,12 +248,34 @@ class ContextoPerfilResponse(BaseModel):
     nome: str
 
 
+class ContextoWhatsAppResponse(BaseModel):
+    """Ultimo estado CONHECIDO da conexao de WhatsApp — nao uma leitura ao vivo.
+
+    Existe para o selo da barra lateral, que precisa aparecer em toda pagina. Por
+    isso e lido do banco e nunca do provedor: sincronizar aqui custaria uma
+    chamada externa por navegacao.
+
+    **Dois estados, e so dois** (decisao do fundador em 2026-09-03): conectado ou
+    nao conectado. Um terceiro sinal — "instancia existe mas nao pareou" — chegou a
+    existir aqui e saiu: ninguem o lia, e distinguir "nunca conectou" de "esta no
+    meio" e sutileza que nao muda o que o operador faz. `pareada` responde
+    sozinha.
+
+    **Nao carrega token nem QR**, e nunca deve carregar: este corpo viaja em toda
+    pagina e e servido a qualquer Principal autenticado.
+    """
+
+    pareada: bool
+    numero: str | None = None
+
+
 class ContextoOperacionalResponse(BaseModel):
     usuario: ContextoUsuarioResponse
     tenant: ContextoTenantResponse
     carteira_padrao: ContextoCarteiraResponse
     perfil: ContextoPerfilResponse | None
     permissoes: list[str]
+    whatsapp: ContextoWhatsAppResponse
 
 
 class PermissaoCatalogoItemResponse(BaseModel):

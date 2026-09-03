@@ -44,6 +44,7 @@ function context(permissions: readonly string[]): OperationalContext {
     permissoes: permissions,
     tenant: { id: TENANT_ID, identificador_institucional: "ACME", nome: "ACME" },
     usuario: { email: "credor@example.test", id: USER_ID, nome: "Credor" },
+    whatsapp: { numero: null, pareada: false },
   };
 }
 

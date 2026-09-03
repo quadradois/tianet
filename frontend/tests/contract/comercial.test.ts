@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import spec from "../../../docs/governance/contracts/openapi/frontend-mvp-backend-openapi.json" with { type: "json" };
 
-const SNAPSHOT_SHA256 = "95c45df44bf638233fe9d38d44398867d09d7f7b0a8a8fdc0e48c5c99597cb82";
+const SNAPSHOT_SHA256 = "662ad947ed4de59e8d4d47d597ea450091d5ff6966a15b67ee1953386418f84f";
 type HttpMethod = "get" | "patch" | "post";
 type OpenApiParameter = Readonly<{ name: string }>;
 type OpenApiOperation = Readonly<{
@@ -38,7 +38,7 @@ describe("contrato OpenAPI Comercial", () => {
     const bytes = await readFile(new URL("../../../docs/governance/contracts/openapi/frontend-mvp-backend-openapi.json", import.meta.url));
     expect(createHash("sha256").update(bytes).digest("hex")).toBe(SNAPSHOT_SHA256);
     expect(Object.values(openapi.paths).flatMap((pathItem) => Object.keys(pathItem))).toHaveLength(111);
-    expect(Object.keys(openapi.components.schemas)).toHaveLength(137);
+    expect(Object.keys(openapi.components.schemas)).toHaveLength(138);
   });
 
   it("publica exatamente as 12 operacoes Comerciais esperadas", () => {
