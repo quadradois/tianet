@@ -131,8 +131,18 @@ async function globalSetup() {
     ]);
     containerStarted = true;
 
+    // `-h 127.0.0.1` FORCA TCP, e nao e detalhe de estilo.
+    //
+    // Sem ele, o `pg_isready` fala pelo socket Unix — e durante o `initdb` a
+    // imagem sobe um servidor TEMPORARIO com `listen_addresses=''`, que atende
+    // no socket e responde "pronto". A espera terminava ai, o seed conectava
+    // pelo TCP publicado e recebia "server closed the connection unexpectedly",
+    // porque o temporario havia acabado de morrer para o servidor real subir.
+    //
+    // Pelo TCP a pergunta e a mesma que o seed faz, e so o servidor real
+    // responde. Reprovou o pre-push do IMP-371 duas vezes seguidas.
     await waitUntil(() => {
-      run("docker", ["exec", containerName, "pg_isready", "-U", "emprestimo", "-d", "emprestimo"]);
+      run("docker", ["exec", containerName, "pg_isready", "-h", "127.0.0.1", "-U", "emprestimo", "-d", "emprestimo"]);
       return true;
     }, "PostgreSQL 16");
 
