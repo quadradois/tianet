@@ -142,9 +142,10 @@ Inventário: **107 → 111 operações**, **135 → 137 schemas**. O plano previ
      repetir o `POST /instance/connect` é seguro: não reinicia o ciclo, não
      duplica handler, só re-aponta o webhook. **A rota nova que o IMP-369 ia
      propor não é necessária.** A tela renova sozinha a cada 20s, **quatro
-     vezes** — cinco códigos com o do clique, que é um ciclo do provedor — e
-     depois devolve o botão ao operador. O limite existe contra a aba esquecida,
-     não contra o provedor.
+     vezes** — cinco *tentativas* com a do clique, que é o tamanho de um ciclo
+     do provedor; tentativas, e não códigos garantidos, porque uma delas pode
+     voltar sem QR. Depois disso o botão volta a ser do operador. O limite
+     existe contra a aba esquecida, não contra o provedor.
 
      O laço segue a **tentativa de pareamento**, não o QR na tela: o provedor
      responde `200` com `qrcode_base64: null` enquanto ainda gera, que é o
@@ -153,8 +154,21 @@ Inventário: **107 → 111 operações**, **135 → 137 schemas**. O plano previ
      logout, o estado da ação passou a dizer **qual** operação o produziu.
   3. **Debounce** — os mapas de client do provedor não têm lock, e disparar
      `connect`/`logout`/`qr` em paralelo para a mesma instância é corrida
-     documentada por eles. A renovação só dispara com a ação ociosa, que é a
-     mesma condição que já desabilita o botão.
+     documentada por eles (§7.1). A renovação só dispara com a ação ociosa, que
+     é a mesma condição que já desabilita o botão, e o polling de estado também
+     para enquanto uma escrita corre.
+
+     **A recomendação deles é literal, e foi seguida ao pé da letra.** Ela nomeia
+     `connect`/`logout`/`qr`; `status` aparece na lista de handlers que tocam os
+     mapas, mas fora da recomendação. Cheguei a desarmar o polling durante todo
+     o laço — mais seguro no papel, e duas jornadas Playwright reprovaram na
+     hora: sem ele, a tela leva até 20s para dizer "Conectado" depois do
+     escaneamento, porque a única leitura de estado passa a ser o
+     `revalidatePath` de cada renovação. O preço era do operador, e a
+     recomendação não pedia isso. **Sobra** a janela de um `refresh` já em voo
+     quando a escrita começa — não há como cancelá-lo do cliente, e ela fecha
+     sozinha se o provedor puser o `sync.Mutex` por instância que ele mesmo
+     cogita.
 - **Critério de pronto:** testes de componente com temporizador falso provam o
   intervalo, o teto, o rearme no clique, o caminho "provedor ainda gerando", o
   debounce (nenhuma segunda chamada com a ação em curso) e o laço que não

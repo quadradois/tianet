@@ -45,9 +45,9 @@ const RENOVACAO_QR_MS = 20_000;
 /**
  * Quantas renovacoes automaticas antes de devolver o volante ao operador.
  *
- * Quatro renovacoes, e nao cinco: a busca do clique ja e o primeiro codigo, e o
- * ciclo do provedor tem cinco. Contar renovacoes como se fossem codigos daria
- * seis — o comentario prometeria um ciclo e o codigo faria um a mais.
+ * Quatro renovacoes, e nao cinco: a busca do clique ja e a primeira tentativa, e
+ * o ciclo do provedor tem cinco codigos. Sao cinco TENTATIVAS, nao cinco codigos
+ * garantidos — uma delas pode voltar sem QR, que e resposta legitima.
  *
  * O limite nao e restricao do provedor (`GET /instance/qr` se autocura depois do
  * 5o) e sim do defeito que ja pegamos uma vez: aba esquecida conversando com o
@@ -142,15 +142,38 @@ export function WhatsAppScreen({ action, connection, initialState, podeGerir }: 
   // era a AUSENCIA da chave `qrcode`.
   const pareando = state.kind === "success" && state.operacao === "conectar" && !conectada;
 
-  // O polling PARA durante a escrita. Os mapas de client do provedor nao tem
-  // lock, e `status`, `connect` e `qr` tocam os mesmos mapas (resposta de
-  // 2026-09-04, secao 4) — sem isto, o `refresh` de 5s cairia em cima da propria
-  // renovacao a cada volta.
-  usePollingDePareamento(qrcode !== null && !conectada && !pendente);
-
-  // `!pendente` e o DEBOUNCE, nao economia: e a mesma condicao que desabilita o
-  // botao, entao clique e temporizador nunca disparam a segunda chamada.
+  // O `!pendente` faz DUAS coisas, e uma delas nao e obvia.
+  //
+  // A primeira: nenhum temporizador fica armado enquanto uma escrita corre, que
+  // e a mesma condicao que desabilita o botao — o debounce que o provedor pediu.
+  //
+  // A segunda so apareceu quando uma mutacao mostrou que o teste do debounce nao
+  // provava nada: a alternancia de `pendente` e o que faz o efeito RODAR DE NOVO
+  // depois de cada acao. Se o provedor devolver o mesmo QR duas vezes seguidas —
+  // legitimo, o codigo vive 20s —, `qrcode` nao muda, e sem essa alternancia
+  // nenhum temporizador novo e armado: o laco morre calado.
   const renovacaoAtiva = pareando && !pendente && renovacoes < RENOVACOES_AUTOMATICAS;
+
+  // O polling para enquanto uma escrita corre, e **nao** durante o laco inteiro.
+  //
+  // A recomendacao do provedor e literal e estreita (resposta de 2026-09-04,
+  // §7.1): *"evitem disparar `connect`/`logout`/`qr` em paralelo para a mesma
+  // instancia"*. `status` aparece na lista de handlers que tocam os mapas sem
+  // lock, mas fora da recomendacao — ele le o ponteiro, os outros tres mexem
+  // nele.
+  //
+  // Desarmar o intervalo durante todo o laco fecharia tambem essa sobra, e eu
+  // cheguei a fazer isso — ao custo de o operador esperar ate 20s para a tela
+  // dizer "Conectado" depois de escanear, porque a unica leitura de estado
+  // passaria a ser o `revalidatePath` de cada renovacao. Duas jornadas
+  // Playwright reprovaram, e estavam certas: o preco e do operador, e a
+  // recomendacao do provedor nao pedia isso.
+  //
+  // ponytail: sobra a janela de um `refresh` JA EM VOO quando a escrita comeca —
+  // nao da para cancela-lo do cliente. Fechar exigiria um lock que atravessasse
+  // a ida ao servidor; se o provedor puser o `sync.Mutex` por instancia que ele
+  // mesmo cogita na §7.1, some sozinha.
+  usePollingDePareamento(qrcode !== null && !conectada && !pendente);
 
   // Efeito no corpo do componente, e nao num hook proprio: um hook receberia a
   // funcao de renovar como prop instavel, e o efeito reiniciaria o temporizador
@@ -158,10 +181,11 @@ export function WhatsAppScreen({ action, connection, initialState, podeGerir }: 
   // `useActionState` e e estavel; `qrcode` na lista faz cada QR novo ganhar o
   // seu proprio prazo.
   //
-  // `startTransition` NAO e adorno: sem ele o React 19 recusa o despacho
-  // programatico de uma action de `useActionState` (erro no console) e
-  // `pendente` nao acompanha a requisicao — o que derrubaria justamente o
-  // debounce que o comentario acima promete.
+  // `startTransition` NAO e adorno: sem ele o despacho AINDA ACONTECE, mas fora
+  // do contexto da action — o React 19 reclama no console e `pendente` para de
+  // acompanhar a requisicao, o que derrubaria justamente o debounce que o
+  // comentario acima promete. O teste reprova por `console.error` para que essa
+  // regressao nao volte silenciosa.
   useEffect(() => {
     if (!renovacaoAtiva) return;
     const id = setTimeout(() => {

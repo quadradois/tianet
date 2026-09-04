@@ -7,6 +7,15 @@ import { INITIAL_WHATSAPP_ACTION_STATE, type WhatsAppActionState, type WhatsAppC
 const refresh = vi.fn();
 vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh }), usePathname: () => "/app/whatsapp" }));
 
+const PAREADA: WhatsAppConnection = {
+  conectado: true,
+  existe: true,
+  instancia_nome: "tianet_tenant-1",
+  nome_exibicao: "Barbosa",
+  numero: "556299999999",
+  pareada: true,
+};
+
 const PENDENTE: WhatsAppConnection = {
   conectado: true,
   existe: true,
@@ -106,41 +115,123 @@ describe("renovacao automatica do QR", () => {
     expect(intents).toHaveLength(2);
   });
 
-  it("nao dispara uma segunda chamada enquanto a primeira esta em curso", async () => {
+  it("com uma RENOVACAO em curso, nenhuma outra chamada parte", async () => {
     // O debounce que o provedor pediu: os mapas de client dele nao tem lock.
+    //
+    // A primeira versao deste teste prendia o CLIQUE — e com o estado ainda
+    // `idle` o laco nem existia, entao ele passava mesmo sem o `!pendente`.
+    // Prender a RENOVACAO e o unico jeito de exercitar a condicao de verdade.
     const intents: string[] = [];
-    let liberar: (estado: WhatsAppActionState) => void = () => {};
-    const acaoPresa = async (_e: WhatsAppActionState, dados: FormData): Promise<WhatsAppActionState> => {
+    let liberar: ((estado: WhatsAppActionState) => void) | null = null;
+    const acaoQuePrendeARenovacao = async (_e: WhatsAppActionState, dados: FormData): Promise<WhatsAppActionState> => {
       intents.push(String(dados.get("intent")));
-      return new Promise<WhatsAppActionState>((resolve) => { liberar = resolve; });
+      // So a SEGUNDA chamada — a renovacao — fica presa. Deixar uma promessa
+      // pendurada no fim do teste contamina o proximo: a acao pendente
+      // atravessa o `cleanup` e o `act` seguinte flusha no vazio.
+      if (intents.length === 2) return new Promise<WhatsAppActionState>((resolve) => { liberar = resolve; });
+      return { kind: "success", message: "QR gerado.", correlationId: "corr-3", operacao: "conectar", qrcode: `data:image/png;base64,QR${intents.length}` };
     };
 
-    render(<WhatsAppScreen action={acaoPresa} connection={PENDENTE} initialState={INITIAL_WHATSAPP_ACTION_STATE} podeGerir />);
+    render(<WhatsAppScreen action={acaoQuePrendeARenovacao} connection={PENDENTE} initialState={INITIAL_WHATSAPP_ACTION_STATE} podeGerir />);
     await clicar("Conectar WhatsApp");
-    expect(intents).toHaveLength(1);
-    expect(screen.getByRole("button", { name: "Gerando QR..." })).toBeDisabled();
 
-    await avancar(60_000);
-    expect(intents).toHaveLength(1);
-
-    await act(async () => { liberar({ kind: "success", message: "QR gerado.", correlationId: "corr-3", operacao: "conectar", qrcode: "data:image/png;base64,QRX" }); });
+    // A renovacao parte aos 20s e fica presa. Dai em diante, por mais que o
+    // tempo passe, nenhuma segunda chamada sai — nem por timer, nem por polling.
     await avancar(20_000);
     expect(intents).toHaveLength(2);
+    await avancar(120_000);
+    expect(intents).toHaveLength(2);
+
+    await act(async () => { liberar?.({ kind: "success", message: "QR gerado.", correlationId: "corr-3", operacao: "conectar", qrcode: "data:image/png;base64,QR2" }); });
+
+    await avancar(20_000);
+    expect(intents).toHaveLength(3);
+  });
+
+  it("continua renovando mesmo quando o provedor repete o MESMO QR", async () => {
+    // Este e o teste que prova o `!pendente` do laco, e ele so existe porque uma
+    // mutacao mostrou que o teste anterior nao provava nada: tirar o `!pendente`
+    // nao mudava resultado nenhum.
+    //
+    // O que o `!pendente` faz de verdade e garantir que o efeito RODE DE NOVO
+    // depois de cada acao. As dependencias sao `[renovacaoAtiva, qrcode,
+    // formAction]`; se o provedor devolver o mesmo codigo — legitimo, o QR vive
+    // 20s e uma renovacao pode cair dentro da vida do anterior —, `qrcode` nao
+    // muda, e sem a alternancia do `pendente` nenhum temporizador novo e armado:
+    // o laco morre calado na primeira repeticao.
+    const intents: string[] = [];
+    const acaoQueRepeteOQr = async (_e: WhatsAppActionState, dados: FormData): Promise<WhatsAppActionState> => {
+      intents.push(String(dados.get("intent")));
+      return { kind: "success", message: "QR gerado.", correlationId: "corr-5", operacao: "conectar", qrcode: "data:image/png;base64,QRIGUAL" };
+    };
+
+    render(<WhatsAppScreen action={acaoQueRepeteOQr} connection={PENDENTE} initialState={INITIAL_WHATSAPP_ACTION_STATE} podeGerir />);
+    await clicar("Conectar WhatsApp");
+    for (let volta = 0; volta < 4; volta += 1) await avancar(20_000);
+    expect(intents).toHaveLength(5);
+  });
+
+  it("o polling roda com o QR na tela, mas nao enquanto uma escrita corre", async () => {
+    // A recomendacao do provedor (§7.1) e serializar `connect`/`logout`/`qr`;
+    // `status` fica de fora. Entao o polling CONTINUA — e o que faz a tela dizer
+    // "Conectado" em ate 5s depois do escaneamento — mas nenhuma volta parte com
+    // uma escrita em curso.
+    const intents: string[] = [];
+    let liberar: ((estado: WhatsAppActionState) => void) | null = null;
+    const acaoQuePrendeARenovacao = async (_e: WhatsAppActionState, dados: FormData): Promise<WhatsAppActionState> => {
+      intents.push(String(dados.get("intent")));
+      if (intents.length === 2) return new Promise<WhatsAppActionState>((resolve) => { liberar = resolve; });
+      return { kind: "success", message: "QR gerado.", correlationId: "corr-6", operacao: "conectar", qrcode: `data:image/png;base64,QR${intents.length}` };
+    };
+
+    render(<WhatsAppScreen action={acaoQuePrendeARenovacao} connection={PENDENTE} initialState={INITIAL_WHATSAPP_ACTION_STATE} podeGerir />);
+    await clicar("Conectar WhatsApp");
+
+    // Com o QR na tela e nada em voo, o polling trabalha.
+    await avancar(15_000);
+    expect(refresh.mock.calls.length).toBeGreaterThan(0);
+
+    // Aos 20s a renovacao parte e fica presa — junto com a volta de polling
+    // desse mesmo instante, que ja estava agendada. Dai em diante, nenhuma nova.
+    await avancar(5_000);
+    expect(intents).toHaveLength(2);
+    const voltasAntes = refresh.mock.calls.length;
+    await avancar(60_000);
+    expect(refresh.mock.calls.length).toBe(voltasAntes);
+
+    await act(async () => { liberar?.({ kind: "success", message: "QR gerado.", correlationId: "corr-6", operacao: "conectar", qrcode: "data:image/png;base64,QR2" }); });
+    await avancar(5_000);
+    expect(refresh.mock.calls.length).toBeGreaterThan(voltasAntes);
   });
 
   it("nao renova depois de desconectar", async () => {
     // O sucesso do desconectar tambem e `kind: "success"`. Sem o `operacao`, o
     // laco renasceria logo depois do logout — o defeito que o IMP-369 fechou.
+    //
+    // O caminho e o de verdade: conectar -> parear (a prop muda, como faria o
+    // `revalidatePath`) -> desconectar -> a instancia continua existindo, nao
+    // pareada. E nesse ultimo estado que o laco nao pode voltar sozinho.
     const intents: string[] = [];
-    const acaoDesconecta = async (_e: WhatsAppActionState, dados: FormData): Promise<WhatsAppActionState> => {
-      intents.push(String(dados.get("intent")));
-      return { kind: "success", message: "WhatsApp desconectado.", correlationId: "corr-4", operacao: "desconectar" };
+    const acaoPorIntent = async (_e: WhatsAppActionState, dados: FormData): Promise<WhatsAppActionState> => {
+      const intent = String(dados.get("intent"));
+      intents.push(intent);
+      return intent === "desconectar"
+        ? { kind: "success", message: "WhatsApp desconectado.", correlationId: "corr-4", operacao: "desconectar" }
+        : { kind: "success", message: "QR gerado.", correlationId: "corr-4", operacao: "conectar", qrcode: "data:image/png;base64,QRD" };
     };
 
-    render(<WhatsAppScreen action={acaoDesconecta} connection={PENDENTE} initialState={INITIAL_WHATSAPP_ACTION_STATE} podeGerir />);
+    const { rerender } = render(<WhatsAppScreen action={acaoPorIntent} connection={PENDENTE} initialState={INITIAL_WHATSAPP_ACTION_STATE} podeGerir />);
     await clicar("Conectar WhatsApp");
+    expect(intents).toEqual(["conectar"]);
+
+    rerender(<WhatsAppScreen action={acaoPorIntent} connection={PAREADA} initialState={INITIAL_WHATSAPP_ACTION_STATE} podeGerir />);
+    await clicar("Desconectar");
+    expect(intents).toEqual(["conectar", "desconectar"]);
+
+    rerender(<WhatsAppScreen action={acaoPorIntent} connection={PENDENTE} initialState={INITIAL_WHATSAPP_ACTION_STATE} podeGerir />);
     await avancar(120_000);
-    expect(intents).toHaveLength(1);
+    expect(intents).toHaveLength(2);
+    expect(screen.queryByRole("img", { name: /QR code/i })).not.toBeInTheDocument();
   });
 
   it("nao renova quando o operador nao pode gerir", async () => {

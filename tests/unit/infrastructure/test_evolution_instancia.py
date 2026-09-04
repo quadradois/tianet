@@ -318,23 +318,27 @@ class TestEvolutionInstanciaClient:
         self._cli(handler).desconectar()
 
     @pytest.mark.parametrize(
-        "corpo",
+        "resposta",
         [
-            {"error": "client disconnected"},
-            # Frase que NINGUEM enumerou, e corpo sem texto nenhum. Um adapter
-            # que casasse pela lista de mensagens conhecidas passaria no caso de
-            # cima e falharia nestes — que e exatamente a fragilidade que o time
-            # do provedor pediu para evitar, porque a frase depende do timing da
-            # autocura interna deles.
-            {"error": "instance is not in a connected state"},
-            {},
+            httpx.Response(400, json={"error": "client disconnected"}),
+            # Frase que NINGUEM enumerou. Um adapter que casasse pela lista de
+            # mensagens conhecidas passaria no caso de cima e falharia neste —
+            # exatamente a fragilidade que o time do provedor pediu para evitar,
+            # porque a frase depende do timing da autocura interna deles.
+            httpx.Response(400, json={"error": "instance is not in a connected state"}),
+            # Corpo HTTP VAZIO de verdade, e nao `{}` — que ainda e um JSON com
+            # dois bytes. Aqui nao ha o que ler: se a decisao dependesse do
+            # corpo, este caso quebraria.
+            httpx.Response(400, content=b""),
         ],
     )
-    def test_desconectar_400_e_sucesso_seja_qual_for_a_frase(self, corpo: dict[str, Any]) -> None:
+    def test_desconectar_400_e_sucesso_seja_qual_for_o_corpo(
+        self, resposta: httpx.Response
+    ) -> None:
         """Casamos pelo STATUS, nao pela frase."""
 
         def handler(_: httpx.Request) -> httpx.Response:
-            return httpx.Response(400, json=corpo)
+            return resposta
 
         self._cli(handler).desconectar()
 
