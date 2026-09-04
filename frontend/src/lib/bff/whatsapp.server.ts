@@ -102,6 +102,7 @@ async function escrita(
   permission: WhatsAppPermission,
   chamar: (client: TypedClient, correlation: string) => Promise<{ data?: unknown; response: Response }>,
   mensagem: string,
+  operacao: "conectar" | "desconectar",
   extrairQr = false,
 ): Promise<WhatsAppActionState> {
   const correlation = correlationId();
@@ -124,15 +125,16 @@ async function escrita(
       const qrcode = result.data.qrcode_base64 ?? null;
       return {
         kind: "success",
-        message: qrcode ? mensagem : "O provedor ainda esta gerando o QR. Toque em Gerar novo QR em alguns segundos.",
+        message: qrcode ? mensagem : "O provedor ainda esta gerando o QR. Ele aparece assim que ficar pronto.",
         correlationId: responseCorrelation,
+        operacao,
         qrcode,
       };
     }
     if (!isWhatsAppConnection(result.data)) {
       return problemState(new ApiProblem({ status: 502, codigo: "resposta_backend_invalida", mensagem: "Servico temporariamente indisponivel.", correlationId: responseCorrelation }));
     }
-    return { kind: "success", message: mensagem, correlationId: responseCorrelation };
+    return { kind: "success", message: mensagem, correlationId: responseCorrelation, operacao };
   } catch (error) {
     return problemState(error instanceof ApiProblem ? error : indisponivel(correlation));
   }
@@ -146,7 +148,7 @@ export async function connectWhatsApp(
 ): Promise<WhatsAppActionState> {
   return escrita(cookies, context, dependencies, WHATSAPP_MANAGE_PERMISSION, (client, correlation) => client.POST(ROTA_CONEXAO, {
     params: { header: { "X-Correlation-ID": correlation } },
-  }), "QR gerado. Escaneie no WhatsApp do aparelho.", true);
+  }), "QR gerado. Escaneie no WhatsApp do aparelho.", "conectar", true);
 }
 
 /** Encerra o pareamento. A instancia permanece no provedor. */
@@ -157,7 +159,7 @@ export async function disconnectWhatsApp(
 ): Promise<WhatsAppActionState> {
   return escrita(cookies, context, dependencies, WHATSAPP_MANAGE_PERMISSION, (client, correlation) => client.DELETE(ROTA_CONEXAO, {
     params: { header: { "X-Correlation-ID": correlation } },
-  }), "WhatsApp desconectado.");
+  }), "WhatsApp desconectado.", "desconectar");
 }
 
 export { INITIAL_WHATSAPP_ACTION_STATE };

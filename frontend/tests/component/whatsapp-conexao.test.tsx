@@ -20,7 +20,7 @@ const PENDENTE: WhatsAppConnection = {
 function acaoQueConta(intents: string[]) {
   return async (_estado: WhatsAppActionState, dados: FormData): Promise<WhatsAppActionState> => {
     intents.push(String(dados.get("intent")));
-    return { kind: "success", message: "QR gerado.", correlationId: "corr-1", qrcode: `data:image/png;base64,QR${intents.length}` };
+    return { kind: "success", message: "QR gerado.", correlationId: "corr-1", operacao: "conectar", qrcode: `data:image/png;base64,QR${intents.length}` };
   };
 }
 
@@ -43,10 +43,23 @@ async function avancar(ms: number) {
 describe("renovacao automatica do QR", () => {
   // So os temporizadores: `queueMicrotask` falso trava as transicoes do React 19,
   // e o teste morre no clique em vez de medir a renovacao.
-  beforeEach(() => { vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout", "setInterval", "clearInterval"] }); refresh.mockReset(); });
-  afterEach(() => { vi.useRealTimers(); });
+  beforeEach(() => {
+    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout", "setInterval", "clearInterval"] });
+    refresh.mockReset();
+    vi.spyOn(console, "error").mockImplementation(() => {});
+  });
 
-  it("renova sozinha a cada 20s e para depois de cinco vezes", async () => {
+  afterEach(() => {
+    vi.useRealTimers();
+    const reclamacoes = vi.mocked(console.error).mock.calls;
+    // O React RECLAMA no console em vez de falhar quando uma action de
+    // `useActionState` e despachada fora de uma transicao — e nesse caso o
+    // `pendente` para de acompanhar a requisicao, que e o que sustenta o
+    // debounce. Sem esta linha, a suite passava com seis desses erros no stderr.
+    expect(reclamacoes).toEqual([]);
+  });
+
+  it("renova sozinha a cada 20s e para depois de quatro vezes", async () => {
     const intents: string[] = [];
     render(<WhatsAppScreen action={acaoQueConta(intents)} connection={PENDENTE} initialState={INITIAL_WHATSAPP_ACTION_STATE} podeGerir />);
 
@@ -62,16 +75,72 @@ describe("renovacao automatica do QR", () => {
     expect(intents).toEqual(["conectar", "conectar"]);
     expect(screen.getByRole("img", { name: /QR code/i })).toHaveAttribute("src", expect.stringContaining("QR2"));
 
-    // O orcamento e de cinco renovacoes; a sexta nao acontece.
-    for (let volta = 0; volta < 5; volta += 1) await avancar(20_000);
-    expect(intents).toHaveLength(6);
-    expect(screen.getByText(/pode ter expirado/)).toBeInTheDocument();
+    // Quatro renovacoes e o teto — cinco codigos com o do clique, um ciclo do
+    // provedor. A quinta renovacao nao acontece por mais que o tempo passe.
+    for (let volta = 0; volta < 4; volta += 1) await avancar(20_000);
+    expect(intents).toHaveLength(5);
+    expect(screen.getByText(/renovacao automatica terminou/i)).toBeInTheDocument();
 
     // E o clique do operador devolve o orcamento inteiro.
     await clicar("Gerar novo QR");
-    expect(intents).toHaveLength(7);
+    expect(intents).toHaveLength(6);
     await avancar(20_000);
-    expect(intents).toHaveLength(8);
+    expect(intents).toHaveLength(7);
+  });
+
+  it("renova mesmo quando o provedor responde sem QR", async () => {
+    // Caminho NORMAL logo apos o `connect`: `200` com `qrcode_base64: null`. O
+    // laco amarrado ao QR na tela nunca comecava aqui, e a tela ficava esperando
+    // um clique que o operador nao tinha motivo para dar.
+    const intents: string[] = [];
+    const acaoSemQr = async (_e: WhatsAppActionState, dados: FormData): Promise<WhatsAppActionState> => {
+      intents.push(String(dados.get("intent")));
+      return { kind: "success", message: "O provedor ainda esta gerando o QR.", correlationId: "corr-2", operacao: "conectar", qrcode: null };
+    };
+
+    render(<WhatsAppScreen action={acaoSemQr} connection={PENDENTE} initialState={INITIAL_WHATSAPP_ACTION_STATE} podeGerir />);
+    await clicar("Conectar WhatsApp");
+    expect(screen.queryByRole("img", { name: /QR code/i })).not.toBeInTheDocument();
+
+    await avancar(20_000);
+    expect(intents).toHaveLength(2);
+  });
+
+  it("nao dispara uma segunda chamada enquanto a primeira esta em curso", async () => {
+    // O debounce que o provedor pediu: os mapas de client dele nao tem lock.
+    const intents: string[] = [];
+    let liberar: (estado: WhatsAppActionState) => void = () => {};
+    const acaoPresa = async (_e: WhatsAppActionState, dados: FormData): Promise<WhatsAppActionState> => {
+      intents.push(String(dados.get("intent")));
+      return new Promise<WhatsAppActionState>((resolve) => { liberar = resolve; });
+    };
+
+    render(<WhatsAppScreen action={acaoPresa} connection={PENDENTE} initialState={INITIAL_WHATSAPP_ACTION_STATE} podeGerir />);
+    await clicar("Conectar WhatsApp");
+    expect(intents).toHaveLength(1);
+    expect(screen.getByRole("button", { name: "Gerando QR..." })).toBeDisabled();
+
+    await avancar(60_000);
+    expect(intents).toHaveLength(1);
+
+    await act(async () => { liberar({ kind: "success", message: "QR gerado.", correlationId: "corr-3", operacao: "conectar", qrcode: "data:image/png;base64,QRX" }); });
+    await avancar(20_000);
+    expect(intents).toHaveLength(2);
+  });
+
+  it("nao renova depois de desconectar", async () => {
+    // O sucesso do desconectar tambem e `kind: "success"`. Sem o `operacao`, o
+    // laco renasceria logo depois do logout — o defeito que o IMP-369 fechou.
+    const intents: string[] = [];
+    const acaoDesconecta = async (_e: WhatsAppActionState, dados: FormData): Promise<WhatsAppActionState> => {
+      intents.push(String(dados.get("intent")));
+      return { kind: "success", message: "WhatsApp desconectado.", correlationId: "corr-4", operacao: "desconectar" };
+    };
+
+    render(<WhatsAppScreen action={acaoDesconecta} connection={PENDENTE} initialState={INITIAL_WHATSAPP_ACTION_STATE} podeGerir />);
+    await clicar("Conectar WhatsApp");
+    await avancar(120_000);
+    expect(intents).toHaveLength(1);
   });
 
   it("nao renova quando o operador nao pode gerir", async () => {

@@ -60,8 +60,10 @@ Para `DELETE /platform/whatsapp/conexao`, o lado da TiaNet converge:
 `desparear()` sobre conexão já despareada é no-op, coberto por teste. **Isso
 continua verdadeiro.**
 
-**O lado do provedor NÃO converge.** `POST /instance/logout` numa instância já
-desconectada **nunca retorna 2xx — sempre `400`**. O fluxo passa por
+**O lado do provedor NÃO converge.** `/instance/logout` numa instância já
+desconectada **nunca retorna 2xx — sempre `400`**. (A resposta deles escreveu
+`POST`; o método que o contrato registra e o adapter usa é **`DELETE`**, e é o
+que vale aqui — a rota é a mesma.) O fluxo passa por
 `ensureClientConnected`, que devolve `"no active session found"` ou
 `"client disconnected"`, e o handler responde `400`. Não é comportamento que eles
 pretendam mudar.
@@ -110,8 +112,8 @@ desconexão repetida.
 
 1. ~~Quando o comportamento do Evolution para `logout` repetido for observado.~~
    **Observado em 2026-09-04: ele recusa, com `400`.** A justificativa do `DELETE`
-   sobrevive — o que falta é o tratamento explícito de "já desconectado" no
-   adapter, registrado acima e ainda não implementado.
+   sobrevive, e o tratamento explícito de "já desconectado" no adapter **foi
+   implementado no mesmo dia** (IMP-371). Nada aqui segue pendente.
 2. Quando alguma dessas rotas passar a produzir resultado de negócio replayável
    — por exemplo, se o `POST` deixar de devolver o QR e passar a devolver um
    identificador estável.

@@ -132,7 +132,7 @@ Inventário: **107 → 111 operações**, **135 → 137 schemas**. O plano previ
   review: apareceram quando perguntamos ao time que mantém o Evolution Go, e a
   resposta veio por leitura do código-fonte deles.
 - **Escopo, em três:**
-  1. **`logout` repetido** — `POST /instance/logout` numa instância já
+  1. **`logout` repetido** — `DELETE /instance/logout` numa instância já
      desconectada **sempre** responde `400`, nunca `2xx`. O adapter recusava
      não-2xx, então a segunda desconexão falhava em produção. Agora qualquer
      `400` dessa rota é sucesso "já desconectado", **casado pelo status e não
@@ -141,17 +141,27 @@ Inventário: **107 → 111 operações**, **135 → 137 schemas**. O plano previ
   2. **Renovação automática do QR** — o QR vive 20s e o provedor confirmou que
      repetir o `POST /instance/connect` é seguro: não reinicia o ciclo, não
      duplica handler, só re-aponta o webhook. **A rota nova que o IMP-369 ia
-     propor não é necessária.** A tela renova sozinha a cada 20s, cinco vezes
-     (~um ciclo do provedor), e depois devolve o botão ao operador — o limite
-     existe contra a aba esquecida, não contra o provedor.
+     propor não é necessária.** A tela renova sozinha a cada 20s, **quatro
+     vezes** — cinco códigos com o do clique, que é um ciclo do provedor — e
+     depois devolve o botão ao operador. O limite existe contra a aba esquecida,
+     não contra o provedor.
+
+     O laço segue a **tentativa de pareamento**, não o QR na tela: o provedor
+     responde `200` com `qrcode_base64: null` enquanto ainda gera, que é o
+     caminho normal logo após o `connect`, e amarrar o laço ao QR fazia a
+     renovação nunca começar justamente aí. Para o laço não renascer depois do
+     logout, o estado da ação passou a dizer **qual** operação o produziu.
   3. **Debounce** — os mapas de client do provedor não têm lock, e disparar
      `connect`/`logout`/`qr` em paralelo para a mesma instância é corrida
      documentada por eles. A renovação só dispara com a ação ociosa, que é a
      mesma condição que já desabilita o botão.
-- **Critério de pronto:** teste de componente com temporizador falso prova o
-  intervalo, o teto de cinco e o rearme no clique; dois testes de unidade fixam
-  o `400` como sucesso e a frase como irrelevante; suíte Playwright do WhatsApp
-  segue verde.
+- **Critério de pronto:** testes de componente com temporizador falso provam o
+  intervalo, o teto, o rearme no clique, o caminho "provedor ainda gerando", o
+  debounce (nenhuma segunda chamada com a ação em curso) e o laço que não
+  renasce depois do logout — e **falham se o React reclamar no console**, porque
+  foi assim que a primeira versão passou verde despachando a ação fora de uma
+  transição; testes de unidade fixam o `400` como sucesso **seja qual for a
+  frase**; suíte Playwright do WhatsApp segue verde.
 - **Fica de fora, e vira item próprio:** auditar o campo `connected`, que
   significa **socket aberto** em `/instance/status` e **autenticado** em
   `/instance/all` e `/instance/get`. É leitura, não escrita, e não estava

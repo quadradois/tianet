@@ -8,9 +8,18 @@ export type WhatsAppPermission = typeof WHATSAPP_READ_PERMISSION | typeof WHATSA
 export type WhatsAppConnection = components["schemas"]["ConexaoWhatsAppResponse"];
 export type WhatsAppQrCode = components["schemas"]["QrCodeConexaoResponse"];
 
+/**
+ * O `operacao` diz QUAL escrita produziu este sucesso, e existe por um defeito.
+ *
+ * A tela precisa distinguir tres sucessos que hoje se pareciam: conectar COM QR,
+ * conectar SEM QR (o provedor responde `200` com `qrcode_base64: null` enquanto
+ * ainda gera — caminho normal, nao falha) e desconectar. Sem o campo, a unica
+ * pista era a AUSENCIA da chave `qrcode`, e distinguir "ausente" de "nulo" e
+ * exatamente o tipo de sutileza que ressuscitaria o QR depois do logout.
+ */
 export type WhatsAppActionState =
   | Readonly<{ kind: "idle" }>
-  | Readonly<{ kind: "success"; message: string; correlationId: string; qrcode?: string | null }>
+  | Readonly<{ kind: "success"; message: string; correlationId: string; operacao: "conectar" | "desconectar"; qrcode?: string | null }>
   | Readonly<{ kind: "problem"; message: string; status: number; correlationId: string }>;
 
 export type WhatsAppReadResult =

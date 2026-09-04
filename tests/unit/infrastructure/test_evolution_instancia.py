@@ -317,11 +317,24 @@ class TestEvolutionInstanciaClient:
 
         self._cli(handler).desconectar()
 
-    def test_desconectar_400_sem_texto_conhecido_tambem_e_sucesso(self) -> None:
-        """Casamos pelo STATUS, nao pela frase: ela depende do timing da autocura."""
+    @pytest.mark.parametrize(
+        "corpo",
+        [
+            {"error": "client disconnected"},
+            # Frase que NINGUEM enumerou, e corpo sem texto nenhum. Um adapter
+            # que casasse pela lista de mensagens conhecidas passaria no caso de
+            # cima e falharia nestes — que e exatamente a fragilidade que o time
+            # do provedor pediu para evitar, porque a frase depende do timing da
+            # autocura interna deles.
+            {"error": "instance is not in a connected state"},
+            {},
+        ],
+    )
+    def test_desconectar_400_e_sucesso_seja_qual_for_a_frase(self, corpo: dict[str, Any]) -> None:
+        """Casamos pelo STATUS, nao pela frase."""
 
         def handler(_: httpx.Request) -> httpx.Response:
-            return httpx.Response(400, json={"error": "client disconnected"})
+            return httpx.Response(400, json=corpo)
 
         self._cli(handler).desconectar()
 
