@@ -1,6 +1,6 @@
 # Análise de viabilidade — SOAP aplicado ao TiaNet
 
-**Status:** Analisado, decidido e **exercitado** — **v1.3.0**; o bloqueio da §11.1 foi resolvido por decisão do proprietário
+**Status:** Analisado, decidido e **exercitado nas duas politicas de mutacao** — **v1.4.0**; o bloqueio da §11.1 foi resolvido por decisão do proprietário
 **Data:** 4 de setembro de 2026
 **Analisa:** `SOAP_COORDENACAO_DE_EQUIPE_DE_IA.md`
 **Responsabilidade:** dizer se o conceito se aplica aqui, onde ele paga, onde ele custa, e o que precisa ser verificado antes de decidir
@@ -564,6 +564,58 @@ que a verificação não pode ser afrouxada para caber mais delegação.
 A correção foi tirar o identificador, não registrar um namespace novo para uma
 tarefa avulsa.
 
+### 11.8 — Segunda delegação: com escrita, e o fluxo fechou (2026-09-04)
+
+A primeira delegação foi somente-leitura e não exercitou o que mais importa: a
+**fronteira de escrita**. Esta exercitou, de ponta a ponta.
+
+**Escopo escolhido para baratear o teste:** em vez das 44 evidências, só a suíte
+de dashboard — 4 PNGs reais regerados em 22s, contra ~12 minutos. Mesmo teste da
+fronteira, um onze avos do custo. O `require-build` reprovou a primeira tentativa
+por build velho, o que é o guardrail funcionando.
+
+#### O que foi delegado
+
+Substituir quatro SHA-256 num relatório de auditoria. O coordenador calculou os
+valores e localizou o arquivo de destino; o executor **só transcreveu** — a
+separação da §4 do contrato, para que um valor errado diga de qual etapa veio.
+
+Modelo: `opencode/muse-spark-1.3-contributor-free`, o barato, no papel de
+executor mecânico.
+
+#### Verificação, feita pelo coordenador
+
+| Verificação | Resultado |
+|---|---|
+| Arquivos modificados na worktree | **1**, exatamente o permitido |
+| `git diff --numstat` | `4 4` — inserções iguais a remoções, forma preservada |
+| Os quatro valores antigos | **0 ocorrências** cada |
+| Os quatro valores novos | **1 ocorrência** cada |
+| `npm run test:certification` na árvore principal | **passou** |
+
+**Aceite na primeira tentativa, sem ressalva.** É a primeira vez que isso
+acontece nesta série.
+
+#### O que isso mostra, e o que não mostra
+
+**Mostra** que o mecanismo inteiro funciona: contrato inline, worktree com
+baseline, fronteira de escrita respeitada sem sandbox, retorno estruturado, e
+verificação por gate oficial. Nenhuma peça de arnês foi necessária.
+
+**Não mostra** que o modelo é bom. Transcrição é a tarefa mais fácil que existe
+neste repositório, escolhida de propósito para separar "o fluxo funciona" de "o
+modelo acerta". Duas amostras não roteiam nada.
+
+**O contrato desta vez pedia enumeração**, não veredito — a lição da §11.7. O
+retorno veio com os quatro pares aplicados, um por um, e cada um era conferível
+em um comando. Foi o que tornou a verificação barata.
+
+#### Fim do exercício
+
+Conforme a §0 do contrato, o exercício terminou com a árvore como começou: os 4
+PNGs e o relatório foram revertidos, e a worktree removida. O que fica é esta
+seção.
+
 ### 11.5 — Ordem revista
 
 1. Comprovar acesso real. O identificador correto já está verificado (§11.4); o
@@ -589,6 +641,7 @@ para começar. Restam a captura e o piloto de transcrição.
 
 | Versão | Data | Descrição |
 |---|---|---|
+| 1.4.0 | 2026-09-04 | §11.8: segunda delegacao, agora COM ESCRITA, e o fluxo fechou de ponta a ponta — fronteira respeitada, `numstat` 4/4, os quatro valores antigos ausentes e os novos presentes uma vez cada, e o verificador oficial passou. Primeiro aceite sem ressalva da serie. O contrato desta vez pediu enumeracao em vez de veredito, que e a licao da §11.7, e foi o que tornou a verificacao barata. Registra tambem que isso prova o MECANISMO e nao a qualidade do modelo: transcricao e a tarefa mais facil que existe aqui, escolhida de proposito para separar as duas coisas. |
 | 1.3.0 | 2026-09-04 | Sai do papel: §11.7 registra a primeira delegacao real. O `PROVIDER_ERROR` era o identificador, nao a credencial — os dois modelos respondem. A tarefa de auditoria rodou em worktree dedicada, respeitou `READ_ONLY` sem sandbox e fechou um caveat aberto. Adjudicada como aprovada COM RESSALVA: a conclusao estava certa, mas ele concluiu por ausencia onde a pergunta pedia inspecao, e nao enumerou as duas chamadas aos endpoints ambiguos. A licao entrou no metodo: pedir enumeracao verificavel item a item, nao veredito. Registra tambem que nenhum arnes e necessario — `opencode run --dir` mais worktree mais os gates que ja existem bastam. |
 | 1.2.0 | 2026-09-04 | O bloqueio da §11.1 caiu por decisao do proprietario: risco aceito, opcao 3, com o escopo registrado — o que trafega e o DESENHO de cifra, autorizacao e tratamento de CPF, nao dado pessoal real, que continua proibido pela politica ja escrita. Fica registrado tambem quando a decisao deve voltar a mesa: repositorio com dado real, ou cliente com clausula de confidencialidade sobre o codigo. |
 | 1.1.0 | 2026-09-04 | Emenda §11, depois das respostas do fundador. Abre um bloqueio que a v1.0.0 nao tinha como ver: o tier gratuito do revisor registra sessao e **nao deve receber conteudo confidencial**, e os gatilhos que justificam convoca-lo — cifra, credencial, permissao, dado pessoal — mandam para ele exatamente os arquivos que a politica exclui. Tier e papel sao incompativeis, e a saida e decisao do proprietario. Corrige tambem a decomposicao do piloto, que eu havia proposto como uma unidade quando sao duas com custos opostos: a captura e pesada e nao barateia com modelo, a transcricao e mecanica e barateia. E acata a ressalva sobre rollback, com o quase-incidente do proprio dia. |

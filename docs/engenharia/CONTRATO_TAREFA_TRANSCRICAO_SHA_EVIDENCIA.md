@@ -8,6 +8,29 @@
 
 ---
 
+## 0. Onde este processo vive
+
+**A delegação é processo LOCAL, de desenvolvimento.** Decisão do fundador em
+2026-09-04.
+
+O que isso significa, em regra operacional:
+
+- **worktree, prompt, retorno do executor e log de execução não são commitados.**
+  São insumo de trabalho, como o `.venv` ou o `node_modules`, e vivem no
+  scratchpad da sessão;
+- **o que entra no repositório é o RESULTADO**, quando ele é trabalho real —
+  o relatório corrigido, o teste escrito, a documentação atualizada — e entra
+  pelo mesmo caminho de sempre: commit, review, gate;
+- **exercício de mecanismo não entra.** Rodar uma delegação para medir se o
+  fluxo funciona é desenvolvimento; termina com a árvore no estado em que
+  começou;
+- **o que fica escrito é o aprendizado**, não o artefato: o que o executor
+  errou, o que o contrato precisava dizer e não dizia, e quanto custou.
+
+Isso mantém o repositório com o produto, e não com o processo de fabricação.
+
+---
+
 ## 1. Por que este contrato existe
 
 É o **primeiro contrato de tarefa real** deste repositório, e foi escolhido por
@@ -157,4 +180,5 @@ linhas alteradas, e motivo padronizado quando houver correção ou bloqueio.
 
 | Versão | Data | Descrição |
 |---|---|---|
+| 1.1.0 | 2026-09-04 | Acrescenta a §0: a delegacao e processo LOCAL de desenvolvimento. Worktree, prompt e retorno nao sao commitados; o que entra no repositorio e o resultado, quando ele e trabalho real, e o que fica escrito e o aprendizado. Exercicio de mecanismo termina com a arvore como comecou. |
 | 1.0.0 | 2026-09-04 | Primeiro contrato de tarefa real do repositório. Separa cálculo de transcrição de propósito — juntos, esconderiam de qual dos dois veio o erro. Exclui a captura das evidências, que é do coordenador porque seu custo é de máquina e não de modelo. |
