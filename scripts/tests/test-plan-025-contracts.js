@@ -1352,8 +1352,13 @@ const contracts = {
     }).sort();
     assert.deepStrictEqual(
       clientFiles,
-      ['components/configuracoes-financeiras/configuracoes-actions.client.tsx', 'components/foundation/destructive-dialog-demo.tsx', 'components/ui/dialog.tsx', 'components/ui/sheet.tsx'],
-      'Client Components devem ficar limitados ao dialogo interativo',
+      // IMP-369: a tela de conexao entra aqui. `useActionState` (estado do botao
+      // e resultado da acao) e `useEffect` (polling do pareamento) nao existem no
+      // servidor. O polling nasceu em arquivo proprio e foi ABSORVIDO por esta
+      // tela quando esta regra o apontou: eram dois Client Components onde um
+      // hook de dez linhas resolve. A regra fez o trabalho dela.
+      ['components/configuracoes-financeiras/configuracoes-actions.client.tsx', 'components/foundation/destructive-dialog-demo.tsx', 'components/ui/dialog.tsx', 'components/ui/sheet.tsx', 'components/whatsapp/whatsapp.client.tsx'],
+      'Client Components devem ficar limitados ao dialogo interativo e as telas com acao',
     );
 
     assertText(source.componentTest, 'userEvent.setup()', 'component test deve exercitar interacao real');

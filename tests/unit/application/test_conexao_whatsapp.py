@@ -780,6 +780,31 @@ def test_desconectar_mantem_a_instancia_e_so_desvincula_a_conta() -> None:
     assert repo.token == "token-1", "o token nao pode ser apagado no logout"
 
 
+def test_o_qr_nunca_entra_na_trilha_de_auditoria() -> None:
+    """Guardrail do criterio de pronto do IMP-369, e ele e por VARREDURA.
+
+    A trilha e append-only: QR gravado ali nao se retira. E o QR e credencial de
+    pareamento — quem o ler vincula uma conta de WhatsApp ao Tenant.
+
+    O teste percorre TODOS os eventos de um `conectar` bem-sucedido, que e o unico
+    fluxo onde o QR existe em memoria, e reprova se o valor aparecer em qualquer
+    campo de detalhe. Nao verifica um evento escolhido a dedo: um evento novo que
+    alguem acrescente entra na varredura sozinho.
+    """
+
+    repo = _RepoFake()
+    provedor = _ProvedorFake()
+    uow, auditoria = _montar(repo, provedor)
+
+    resultado = ConectarWhatsApp(lambda: uow, provedor, auditoria).executar(uuid.uuid4())
+
+    assert resultado.qrcode_base64 == QRCODE, "o QR precisa existir para o teste valer"
+    assert auditoria.eventos, "sem eventos a varredura nao prova nada"
+    for _, acao, _, detalhes in auditoria.eventos:
+        assert QRCODE not in (detalhes or ""), f"o QR vazou no evento {acao}"
+        assert "qrcode" not in (detalhes or "").lower(), f"mencao a qrcode no evento {acao}"
+
+
 def test_desconectar_duas_vezes_converge_do_nosso_lado() -> None:
     """A metade da convergencia que DEPENDE de nos, e so ela.
 

@@ -42,7 +42,8 @@
     "test:visual": "playwright test tests/e2e/foundation.spec.ts --grep \"captura a foundation\"",
     "test:e2e:install": "playwright install chromium",
     "test:infrastructure": "node tests/infrastructure/real-stack-smoke.mjs",
-    "test:harness": "npm run test:unit && npm run test:component && npm run test:contract && npm run test:bff && npm run test:e2e && npm run test:session && npm run test:dashboard && npm run test:devedores && npm run test:comercial && npm run test:contratos && npm run test:motor && npm run test:cobranca && npm run test:agenda && npm run test:relatorios && npm run test:configuracoes && npm run test:iam && npm run test:automacao && npm run test:jornadas && npm run test:certification"
+    "test:harness": "npm run test:unit && npm run test:component && npm run test:contract && npm run test:bff && npm run test:e2e && npm run test:session && npm run test:dashboard && npm run test:devedores && npm run test:comercial && npm run test:contratos && npm run test:motor && npm run test:cobranca && npm run test:agenda && npm run test:relatorios && npm run test:configuracoes && npm run test:iam && npm run test:automacao && npm run test:whatsapp && npm run test:jornadas && npm run test:certification",
+    "test:whatsapp": "playwright test --config playwright.whatsapp.config.ts"
   },
   "dependencies": {
     "@radix-ui/react-dialog": "1.1.23",
