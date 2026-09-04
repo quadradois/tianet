@@ -427,20 +427,59 @@ Nada disso prova que um modelo responde. A taxa de 0/1 não mede qualidade: mede
 que a única chamada morreu no provedor.
 
 **O próximo passo é barato e decisivo:** repetir o smoke com o identificador do
-catálogo (`opencode/muse-spark-1.3-contributor-free`, e não
-`opencode/muse-spark-1.3`). Enquanto o acesso não for comprovado, comparar modelo
-é conversa sobre catálogo, não sobre capacidade.
+catálogo. Isso foi **verificado na máquina em 2026-09-04**, e não é mais palpite:
+
+`opencode models` devolve `opencode/muse-spark-1.3-contributor-free`. O
+identificador usado no smoke, `opencode/muse-spark-1.3`, **não existe** na lista.
+Os dois modelos que interessam ao desenho estão lá:
+`opencode/nemotron-3-ultra-free` para o papel de revisor, e os
+`muse-spark-*-contributor-free` para execução mecânica.
+
+**Mas há uma segunda causa provável, e ela não se resolve corrigindo o
+identificador.** `opencode auth list` mostra três credenciais — GitHub Copilot,
+um provider próprio, e **OpenCode Go** — e **nenhuma para o OpenCode Zen**, que é
+o namespace `opencode/*`. Aparecer em `opencode models` é catálogo; responder
+exige credencial, exatamente como a §1 das respostas do fundador já dizia.
+
+Ou seja: o `PROVIDER_ERROR` tem dois suspeitos, e o segundo é mais provável que o
+primeiro. O teste que separa os dois é uma chamada mínima com o identificador
+correto — se falhar de novo, o problema é autenticação, não nome.
+
+### 11.6 — Não existe integração com o OpenCode neste repositório
+
+Verificado em 2026-09-04. O CLI **está instalado na máquina** (1.18.27, com
+config global própria), mas o repositório não tem nenhuma ligação com ele:
+
+- nenhum script, adaptador, envelope ou telemetria em `scripts/` ou na raiz;
+- a única ocorrência da palavra "opencode" em arquivo versionado é uma **lista
+  consultiva de integrações compatíveis** dentro de `.specify/workflows/`, que é
+  workflow de terceiro e não configura nada;
+- o spec-kit deste repositório foi inicializado com a integração `claude`, e é a
+  única em `.specify/integrations/`.
+
+**O arnês descrito nas respostas do fundador — 36 testes, 304 verificações,
+envelope v1/v2, telemetria sanitizada — vive no outro projeto, não aqui.**
+
+Isso muda a pergunta operacional. Não é "como ligamos o OpenCode ao fluxo", é
+**"portamos o arnês que já funciona, ou construímos um segundo?"**. A resposta
+depende de a que ele está acoplado no outro projeto: layout de repositório,
+linguagem, nome de gate, formato de contrato. Portar um arnês provado é sempre
+mais barato que reescrever — e reescrever produziria um segundo lugar onde a
+mesma regra pode divergir, que é o problema que o SOAP existe para evitar.
 
 ### 11.5 — Ordem revista
 
-1. Comprovar acesso real com o identificador correto — sem isso, nada mais mede
-   coisa alguma. **É o único passo que não depende de mim**;
+1. Comprovar acesso real. O identificador correto já está verificado (§11.4); o
+   suspeito principal passou a ser **credencial do OpenCode Zen ausente**. Uma
+   chamada mínima separa os dois. **É o único passo que não depende de mim**;
 2. ~~Decidir o tier do revisor.~~ **Feito**: risco aceito pelo proprietário
    (§11.1), tier gratuito liberado para todos os papéis;
 3. Coordenador captura as 44 evidências e o baseline;
 4. Piloto de 5 **transcrições** em worktree dedicada, verificação por
    `test:certification`;
-5. Só então falar em taxa de aceite e roteamento.
+5. Decidir entre **portar o arnês do outro projeto** ou construir um aqui
+   (§11.6) — hoje este repositório não tem nenhuma integração com o OpenCode;
+6. Só então falar em taxa de aceite e roteamento.
 
 ---
 
