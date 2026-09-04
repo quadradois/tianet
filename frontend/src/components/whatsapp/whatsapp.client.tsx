@@ -2,22 +2,16 @@
 
 import Image from "next/image";
 import { useRouter } from "next/navigation";
-import { useActionState, useEffect } from "react";
+import { useActionState, useEffect, useState } from "react";
 
-import {
-  screenState,
-  shouldPoll,
-  type WhatsAppActionState,
-  type WhatsAppConnection,
-} from "../../lib/whatsapp/whatsapp-policy";
+import { screenState, type WhatsAppActionState, type WhatsAppConnection } from "../../lib/whatsapp/whatsapp-policy";
 import { Button } from "../ui/button";
 
 type Action = (state: WhatsAppActionState, formData: FormData) => Promise<WhatsAppActionState>;
 
 type WhatsAppScreenProps = Readonly<{
+  action: Action;
   connection: WhatsAppConnection;
-  connectAction: Action;
-  disconnectAction: Action;
   initialState: WhatsAppActionState;
   podeGerir: boolean;
 }>;
@@ -25,20 +19,36 @@ type WhatsAppScreenProps = Readonly<{
 const INTERVALO_POLLING_MS = 5_000;
 
 /**
- * Pergunta ao servidor se ja pareou, enquanto ha o que esperar.
+ * Quanto tempo um QR fica de pe na tela antes de ser considerado morto.
  *
- * **So roda no estado pendente.** Conectada nao muda sozinha para melhor, e
- * ausente so muda quando alguem clica — sem essa guarda, uma aba esquecida
- * bateria no backend para sempre.
+ * O contrato do Evolution (secao 4.2) diz que o QR expira em ~20s e o servidor
+ * gera ate 5 antes de reiniciar o ciclo — ~100s de janela. Dois minutos cobrem
+ * isso com folga.
  *
- * `router.refresh()` e nao um fetch proprio, por dois motivos: ele re-renderiza a
- * rota no servidor, entao o SELO da barra lateral atualiza junto (um fetch local
- * deixaria a tela dizendo "conectado" com o selo vermelho ao lado); e preserva
- * `useState`, entao o QR nao pisca a cada volta do laco.
+ * **Numero vindo de documento, nao de medicao.** A confirmacao esta pedida em
+ * `docs/whatsapp/SOLICITACAO-ESCLARECIMENTO-EVOLUTION-2026-09-04.md` secao 2.2.
+ * Ate ela chegar, o valor erra para o lado seguro: expirar cedo demais custa um
+ * clique; nao expirar nunca era o defeito que este limite corrige.
+ */
+const JANELA_PAREAMENTO_MS = 120_000;
+
+/**
+ * Pergunta ao servidor se ja pareou.
  *
- * O intervalo e maior que a vida do QR (~20s) de proposito: o polling detecta o
- * PAREAMENTO, nao renova o QR. Renovar e clique do operador, que e quem sabe se
- * ja apontou a camera.
+ * **Segue o QR na tela, nao o estado da conexao** — e essa distincao e a correcao
+ * de um defeito real. Amarrado ao estado, o polling ligava sozinho ao abrir a
+ * tela de uma instancia nao pareada, e voltava a ligar depois de "Desconectar"
+ * (que preserva a instancia). Uma aba esquecida consultava o backend para sempre,
+ * que era exatamente o que o comentario anterior alegava evitar.
+ *
+ * `router.refresh()` e nao um fetch proprio: re-renderiza a rota no servidor,
+ * entao o SELO da barra lateral atualiza junto — um fetch local deixaria a tela
+ * dizendo "conectado" com o selo vermelho ao lado. E preserva `useState`, entao o
+ * QR nao pisca a cada volta.
+ *
+ * Os 5s sao do polling de ESTADO, que so pergunta "ja pareou?". Ele nao renova o
+ * QR: a renovacao automatica depende de resposta do provedor (secao 2.1 da
+ * solicitacao) e ate la quem renova e o operador, no botao.
  */
 function usePollingDePareamento(ativo: boolean) {
   const router = useRouter();
@@ -47,6 +57,25 @@ function usePollingDePareamento(ativo: boolean) {
     const id = setInterval(() => router.refresh(), INTERVALO_POLLING_MS);
     return () => clearInterval(id);
   }, [ativo, router]);
+}
+
+/**
+ * Marca UM QR como vencido depois da janela.
+ *
+ * Guarda qual QR venceu, e nao um booleano: assim um QR novo, gerado depois, nao
+ * herda o vencimento do anterior. E o `setState` acontece dentro do `setTimeout`
+ * — nunca sincronamente no efeito, o que dispararia render em cascata.
+ */
+function useQrVigente(qrDaAcao: string | null): string | null {
+  const [vencido, setVencido] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!qrDaAcao) return;
+    const id = setTimeout(() => setVencido(qrDaAcao), JANELA_PAREAMENTO_MS);
+    return () => clearTimeout(id);
+  }, [qrDaAcao]);
+
+  return qrDaAcao && qrDaAcao !== vencido ? qrDaAcao : null;
 }
 
 function Aviso({ state }: Readonly<{ state: WhatsAppActionState }>) {
@@ -65,15 +94,19 @@ function Aviso({ state }: Readonly<{ state: WhatsAppActionState }>) {
   );
 }
 
-export function WhatsAppScreen({ connection, connectAction, disconnectAction, initialState, podeGerir }: WhatsAppScreenProps) {
-  const [connectState, connectFormAction, conectando] = useActionState(connectAction, initialState);
-  const [disconnectState, disconnectFormAction, desconectando] = useActionState(disconnectAction, initialState);
+export function WhatsAppScreen({ action, connection, initialState, podeGerir }: WhatsAppScreenProps) {
+  const [state, formAction, pendente] = useActionState(action, initialState);
   const estado = screenState(connection);
-  usePollingDePareamento(shouldPoll(estado));
+  const conectada = estado === "conectada";
 
-  // O QR vem da ACAO, nunca da consulta — ele e credencial e sai apenas do
-  // `POST`, protegido por `whatsapp.conexao.gerir` (IMP-368).
-  const qrcode = connectState.kind === "success" ? connectState.qrcode : null;
+  // O QR vem da ACAO, nunca da consulta — e credencial e sai apenas do `POST`,
+  // protegido por `whatsapp.conexao.gerir` (IMP-368). Uma acao so para as duas
+  // operacoes garante que desconectar SUBSTITUI este resultado, em vez de deixar
+  // um QR velho sobreviver ao logout.
+  const qrDaAcao = state.kind === "success" ? state.qrcode ?? null : null;
+  const qrcode = useQrVigente(qrDaAcao);
+
+  usePollingDePareamento(qrcode !== null && !conectada);
 
   return (
     <section className="grid gap-5">
@@ -84,7 +117,7 @@ export function WhatsAppScreen({ connection, connectAction, disconnectAction, in
         </p>
       </header>
 
-      {estado === "conectada" ? (
+      {conectada ? (
         <div className="grid gap-4 rounded-xl border border-border bg-card p-5">
           <div className="grid gap-1">
             <p className="flex items-center gap-2 font-semibold">
@@ -96,11 +129,12 @@ export function WhatsAppScreen({ connection, connectAction, disconnectAction, in
             {connection.numero ? <p className="text-sm">Telefone: <span className="font-medium">{connection.numero}</span></p> : null}
             {connection.nome_exibicao ? <p className="text-sm text-muted-foreground">Nome no WhatsApp: {connection.nome_exibicao}</p> : null}
           </div>
-          <Aviso state={disconnectState} />
+          <Aviso state={state} />
           {podeGerir ? (
-            <form action={disconnectFormAction}>
-              <Button disabled={desconectando} type="submit" variant="outline">
-                {desconectando ? "Desconectando..." : "Desconectar"}
+            <form action={formAction}>
+              <input name="intent" type="hidden" value="desconectar" />
+              <Button disabled={pendente} type="submit" variant="outline">
+                {pendente ? "Desconectando..." : "Desconectar"}
               </Button>
             </form>
           ) : null}
@@ -119,7 +153,7 @@ export function WhatsAppScreen({ connection, connectAction, disconnectAction, in
             </p>
           </div>
 
-          <Aviso state={connectState} />
+          <Aviso state={state} />
 
           {qrcode ? (
             <div className="grid justify-items-start gap-2">
@@ -132,9 +166,10 @@ export function WhatsAppScreen({ connection, connectAction, disconnectAction, in
           ) : null}
 
           {podeGerir ? (
-            <form action={connectFormAction}>
-              <Button disabled={conectando} type="submit">
-                {conectando ? "Gerando QR..." : qrcode ? "Gerar novo QR" : "Conectar WhatsApp"}
+            <form action={formAction}>
+              <input name="intent" type="hidden" value="conectar" />
+              <Button disabled={pendente} type="submit">
+                {pendente ? "Gerando QR..." : qrcode ? "Gerar novo QR" : "Conectar WhatsApp"}
               </Button>
             </form>
           ) : (

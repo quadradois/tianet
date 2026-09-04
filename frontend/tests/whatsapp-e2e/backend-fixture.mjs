@@ -32,8 +32,25 @@ const PERMISSOES = {
   ausente: ["whatsapp.conexao.ler", "whatsapp.conexao.gerir"],
   pendente: ["whatsapp.conexao.ler", "whatsapp.conexao.gerir"],
   pareada: ["whatsapp.conexao.ler", "whatsapp.conexao.gerir"],
+  // `fluxo` percorre o ciclo inteiro: conectar -> QR -> pareia sozinho na
+  // proxima consulta -> desconectar. Existe para o teste que guarda o QR velho
+  // nao reaparecendo depois do logout.
+  fluxo: ["whatsapp.conexao.ler", "whatsapp.conexao.gerir"],
   soleitura: ["whatsapp.conexao.ler"],
 };
+
+// Consultas de estado por modo. O teste do polling usa isto para provar que o
+// laco PARA — contar chamada e a unica forma de verificar ausencia de trafego.
+const consultas = new Map();
+
+// Modos que pareiam sozinhos depois de N consultas apos o `connect`, simulando o
+// operador escaneando o QR.
+//
+// N=2 e nao 1 de proposito: a revalidacao que o Next dispara logo depois do
+// `POST` ja consome uma consulta. Parear na primeira faria a tela pular direto
+// para "Conectado" sem NUNCA mostrar o QR — e o teste que guarda o QR velho
+// precisa ver o QR aparecer antes de desconectar.
+const pareiaEm = new Map();
 
 // Estado do pareamento por modo. `ausente` vira `pendente` depois do primeiro
 // POST — e a transicao que a jornada percorre.
@@ -42,6 +59,7 @@ const conexoes = {
   pendente: { existe: true, pareada: false, conectado: true, instancia_nome: "tianet_tenant-e2e", nome_exibicao: null, numero: null },
   pareada: { existe: true, pareada: true, conectado: true, instancia_nome: "tianet_tenant-e2e", nome_exibicao: "Barbosa", numero: "556299999999" },
   soleitura: { existe: false, pareada: false, conectado: false, instancia_nome: null, nome_exibicao: null, numero: null },
+  fluxo: { existe: false, pareada: false, conectado: false, instancia_nome: null, nome_exibicao: null, numero: null },
 };
 
 const estadoAtual = new Map();
@@ -67,6 +85,12 @@ function modoDoToken(request) {
 const server = createServer(async (request, response) => {
   const url = new URL(request.url ?? "/", `http://127.0.0.1:${port}`);
   const correlation = String(request.headers["x-correlation-id"] ?? "corr-fixture-369");
+
+  // Rota so do teste: quantas consultas de estado este modo ja recebeu.
+  if (request.method === "GET" && url.pathname === "/_fixture/consultas") {
+    send(response, 200, { total: consultas.get(url.searchParams.get("modo") ?? "") ?? 0 }, correlation);
+    return;
+  }
 
   if (request.method === "GET" && url.pathname === "/health") {
     send(response, 200, { checks: { database: "healthy" }, service: "api", status: "healthy" }, correlation);
@@ -96,6 +120,16 @@ const server = createServer(async (request, response) => {
   if (url.pathname === "/platform/whatsapp/conexao") {
     const modo = modoDoToken(request);
     if (request.method === "GET") {
+      consultas.set(modo, (consultas.get(modo) ?? 0) + 1);
+      const restantes = pareiaEm.get(modo);
+      if (restantes !== undefined) {
+        if (restantes <= 1) {
+          pareiaEm.delete(modo);
+          estadoAtual.set(modo, { ...conexoes.pareada });
+        } else {
+          pareiaEm.set(modo, restantes - 1);
+        }
+      }
       send(response, 200, estadoAtual.get(modo) ?? conexoes[modo] ?? conexoes.ausente, correlation);
       return;
     }
@@ -106,6 +140,7 @@ const server = createServer(async (request, response) => {
       }
       // Criar e conectar num gesto so: a instancia passa a existir e o QR sai.
       estadoAtual.set(modo, { ...conexoes.pendente });
+      if (modo === "fluxo") pareiaEm.set(modo, 2);
       send(response, 200, { qrcode_base64: QRCODE }, correlation);
       return;
     }

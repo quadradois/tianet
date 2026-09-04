@@ -2,6 +2,9 @@ import { resolve } from "node:path";
 
 import { expect, test, type Page } from "@playwright/test";
 
+// A fixture roda ao lado do frontend; a porta vem do playwright.whatsapp.config.
+const BACKEND_URL = "http://127.0.0.1:3209";
+
 async function login(page: Page, modo: string) {
   await page.goto("/login");
   await page.getByRole("textbox", { name: "E-mail" }).fill(`operador+${modo}@example.test`);
@@ -81,4 +84,43 @@ test("quem so tem `ler` ve o estado e nao recebe acao de conectar", async ({ pag
   await expect(tela(page).getByText("Nao conectado")).toBeVisible();
   await expect(tela(page).getByRole("button", { name: "Conectar WhatsApp" })).toHaveCount(0);
   await expect(tela(page).getByText("Seu acesso permite ver o estado, mas nao conectar.")).toBeVisible();
+});
+
+test("o QR nao ressuscita depois de desconectar", async ({ page }) => {
+  // Guarda a correcao de um defeito real: com dois `useActionState` separados, o
+  // resultado do conectar — que carrega o QR — sobrevivia ao desconectar, e a
+  // tela mostrava de novo um codigo morto. Uma acao so faz o desconectar
+  // SUBSTITUIR o resultado anterior.
+  await login(page, "fluxo");
+  await abrirConexao(page);
+
+  await tela(page).getByRole("button", { name: "Conectar WhatsApp" }).click();
+  await expect(tela(page).getByRole("img", { name: /QR code/i })).toBeVisible();
+
+  // O polling detecta o pareamento simulado pela fixture.
+  await expect(tela(page).getByText("Conectado", { exact: true })).toBeVisible({ timeout: 15_000 });
+
+  await tela(page).getByRole("button", { name: "Desconectar" }).click();
+  await expect(tela(page).getByText("Nao conectado")).toBeVisible();
+  await expect(tela(page).getByRole("img", { name: /QR code/i })).toHaveCount(0);
+});
+
+test("o polling nao liga sozinho ao abrir uma instancia pendente", async ({ page, request }) => {
+  // O defeito: o polling seguia o ESTADO da conexao, entao ligava ao abrir a tela
+  // de uma instancia nao pareada — sem ninguem clicar — e nunca mais parava. Uma
+  // aba esquecida consultava o backend para sempre.
+  //
+  // Contar consultas e a unica forma de verificar AUSENCIA de trafego.
+  const contador = async () => {
+    const resposta = await request.get(`${BACKEND_URL}/_fixture/consultas?modo=pendente`);
+    return (await resposta.json()).total as number;
+  };
+
+  await login(page, "pendente");
+  await abrirConexao(page);
+  await expect(tela(page).getByText("A instancia existe e aguarda a leitura do QR.")).toBeVisible();
+
+  const antes = await contador();
+  await page.waitForTimeout(12_000); // mais que o dobro do intervalo de 5s
+  expect(await contador()).toBe(antes);
 });

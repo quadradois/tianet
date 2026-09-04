@@ -114,10 +114,20 @@ async function escrita(
       if (!isWhatsAppQrCode(result.data)) {
         return problemState(new ApiProblem({ status: 502, codigo: "resposta_backend_invalida", mensagem: "Servico temporariamente indisponivel.", correlationId: responseCorrelation }));
       }
-      // `qrcode_base64` nulo NAO e falha: o provedor responde "aguarde" logo apos
-      // conectar, e a tela faz polling. Virar erro aqui faria o caminho feliz
-      // parecer quebrado exatamente no momento mais comum.
-      return { kind: "success", message: mensagem, correlationId: responseCorrelation, qrcode: result.data.qrcode_base64 ?? null };
+      // `qrcode_base64` nulo NAO e falha: o provedor responde "aguarde um momento
+      // e tente de novo" logo apos conectar (contrato secao 4.2). Virar erro aqui
+      // faria o caminho feliz parecer quebrado no momento mais comum.
+      //
+      // Mas a MENSAGEM tem de contar a verdade. Antes, o texto fixo dizia
+      // "QR gerado. Escaneie" mesmo sem QR — a tela mandava escanear um codigo
+      // que nao estava la.
+      const qrcode = result.data.qrcode_base64 ?? null;
+      return {
+        kind: "success",
+        message: qrcode ? mensagem : "O provedor ainda esta gerando o QR. Toque em Gerar novo QR em alguns segundos.",
+        correlationId: responseCorrelation,
+        qrcode,
+      };
     }
     if (!isWhatsAppConnection(result.data)) {
       return problemState(new ApiProblem({ status: 502, codigo: "resposta_backend_invalida", mensagem: "Servico temporariamente indisponivel.", correlationId: responseCorrelation }));

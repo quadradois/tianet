@@ -36,17 +36,6 @@ export function screenState(connection: WhatsAppConnection): WhatsAppScreenState
   return connection.pareada ? "conectada" : "pendente";
 }
 
-/**
- * O polling so roda enquanto ha o que esperar.
- *
- * Conectada nao muda sozinha para melhor, e ausente so muda quando alguem clica
- * — deixar o laco correndo nesses dois estados bateria no backend para sempre
- * com a aba aberta esquecida.
- */
-export function shouldPoll(state: WhatsAppScreenState): boolean {
-  return state === "pendente";
-}
-
 export function hasExactPermission(granted: readonly string[], permission: WhatsAppPermission): boolean {
   return granted.includes(permission);
 }

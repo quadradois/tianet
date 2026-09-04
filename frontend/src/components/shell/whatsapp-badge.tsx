@@ -43,8 +43,12 @@ export function WhatsAppBadge({ whatsapp }: WhatsAppBadgeProps) {
         {/* O estado vai no TEXTO, e nao so na cor: leitor de tela e daltonico
             precisam da mesma informacao que a bolinha da. */}
         <span className="block font-semibold">{conectado ? "WhatsApp conectado" : "WhatsApp nao conectado"}</span>
+        {/* O texto secundario segue o PAREAMENTO, e nao a presenca do numero: o
+            contrato permite `pareada: true` com `numero: null`, e amarrar ao
+            numero fazia o selo dizer "conectado" e "Toque para conectar" ao mesmo
+            tempo. */}
         <span className="block truncate text-xs text-muted-foreground">
-          {conectado && whatsapp.numero ? whatsapp.numero : "Toque para conectar"}
+          {conectado ? whatsapp.numero ?? "Numero indisponivel" : "Toque para conectar"}
         </span>
       </span>
     </Link>

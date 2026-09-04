@@ -13,7 +13,7 @@ import {
   hasExactPermission,
 } from "@/lib/whatsapp/whatsapp-policy";
 
-import { connectWhatsAppAction, disconnectWhatsAppAction } from "./actions";
+import { whatsappAction } from "./actions";
 
 export const metadata: Metadata = {
   title: "Conexao do WhatsApp | TiaNet",
@@ -43,9 +43,8 @@ export default async function WhatsAppRoute() {
 
   return (
     <WhatsAppScreen
-      connectAction={connectWhatsAppAction}
+      action={whatsappAction}
       connection={result.connection}
-      disconnectAction={disconnectWhatsAppAction}
       initialState={INITIAL_WHATSAPP_ACTION_STATE}
       podeGerir={hasExactPermission(context.permissoes, WHATSAPP_MANAGE_PERMISSION)}
     />
