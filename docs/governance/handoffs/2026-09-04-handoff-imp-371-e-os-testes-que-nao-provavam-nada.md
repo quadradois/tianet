@@ -1,6 +1,6 @@
 # 2026-09-04 — Handoff: IMP-371 fechado, e os testes que não provavam nada
 
-**Versao:** 1.0.0
+**Versao:** 1.1.0
 
 **Status:** PLAN-034 com **7 dos 8 itens**. Falta o IMP-370, depois o deploy.
 
