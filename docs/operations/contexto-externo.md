@@ -1,6 +1,6 @@
 # Contexto Externo
 
-**Versao:** 1.10.0
+**Versao:** 1.11.0
 
 **Status:** Vivo — mantido manualmente
 
@@ -482,10 +482,25 @@ de proposito: manda **toda** falha de transporte para desconhecido, inclusive as
 tres que a ADR permitiria reenviar. Bloquear retry demais e seguro, e e-mail esta
 fora do escopo do MVP — quem reativar o canal deve esperar zero retry
 automatico ali, nao a allowlist do WhatsApp. Os testes cobrem os tres caminhos anteriores ao
-envio e os sete que nao provam nada. O que **continua aberto** e a pergunta de
-fundo: nao foi medido se o Evolution deduplica pelo `id`. Enquanto nao for, cada
-`resultado_desconhecido` vira conciliacao humana — o custo real de nao ter
-medido.
+envio e os sete que nao provam nada. **MEDIDO em 2026-09-04, e a resposta fecha esta
+pergunta: o Evolution NAO deduplica pelo `id`.** O time que o mantem verificou no
+codigo-fonte (`docs/whatsapp/2026-09-04-resposta-esclarecimento-evolution.md`
+§4.1): o `id` que enviamos e so o stanza ID repassado ao whatsmeow, sem checagem
+previa, sem unicidade e sem cache de idempotencia. Duas chamadas com o mesmo `id`
+**entregam duas mensagens**.
+
+Existe dedupe no codigo deles, mas do lado de ENTRADA — no handler de recibos,
+para nao disparar webhook duplicado. Nada a ver com o envio.
+
+**Consequencia: a postura atual esta certa e permanece.** Tratar
+`resultado_desconhecido` como "nao reenviar, concilia manualmente" nao e excesso
+de cautela — e a unica opcao correta, e agora medida em vez de suposta. Vale para
+o comprovante do lancamento e para o aviso de sobra.
+
+Eliminar a conciliacao manual exigiria idempotencia **do nosso lado** (checar se
+ja existe registro local de sucesso para aquele `id` antes de reenviar), ou pedir
+a eles que acrescentem dedupe no `/send/text` — mudanca de comportamento do
+servidor, que nao foi pedida.
 
 O proprio adapter ja classifica **2xx malformado** como desconhecido, que e a
 linha vizinha da mesma tabela — os tres pontos acima sao omissao, nao desenho.
@@ -497,6 +512,7 @@ Corrigir isso e item de codigo, nao de documentacao.
 
 | Versao | Data | Descricao |
 |---|---|---|
+| 1.11.0 | 2026-09-04 | O caveat da deduplicacao, aberto desde 2026-09-02, foi **medido e fechado**: o Evolution NAO deduplica por `id`, e reenviar entrega duas vezes. Verificado por eles no codigo-fonte, nao por teste em producao. A postura atual — nao reenviar em resultado incerto, conciliar a mao — deixa de ser cautela e passa a ser a unica opcao correta. |
 | 1.10.0 | 2026-09-03 | A remocao da `adm_tianet` deixou de ser acao pendente solta e virou item do checklist do IMP-359, com a ordem fixada: medir o `logout` repetido antes de apagar, porque ela e a unica instancia real disponivel para essa medicao — a premissa nao certificada da ADR-019. Enquanto flutuava sem dono, reaparecia em todo handoff sem ser feita. |
 | 1.9.0 | 2026-09-03 | A §5.1 estava errada em tres pontos ao mesmo tempo — data, contagem de nos e a afirmacao de que o manifesto nao fora salvo. O terceiro era o mais caro: desencorajava o `--update`, e o grafo ficou treze dias parado, escondendo cifra, persistencia e rotas da conexao de WhatsApp. Corrigidos contra o disco, o grafo atualizado (10.768 nos) e a extracao semantica executada: ele passa a **cobrir documentos**, o que a versao anterior declarava impossivel. A consulta antes de alteracao arquitetural virou governanca na SPEC-003. |
 | 1.8.0 | 2026-09-03 | O provedor de IA foi escolhido e a chave existe: o ultimo insumo externo do IMP-359 caiu, e o deploy passa a depender so de trabalho nosso. Mercado Pago entra como §2.4 na primeira mencao — devedor paga o Credor, depois do deploy —, com as duas colisoes nomeadas antes de virarem descoberta no meio da execucao: a decisao de nao ter webhook publico (§2.2), cujo argumento nao se transporta inteiro porque o Mercado Pago assina a notificacao e o Evolution nao, e o fim do plano de parcelas (DR-004), que impede emitir cobranca antes de o Motor apurar o acerto. |
