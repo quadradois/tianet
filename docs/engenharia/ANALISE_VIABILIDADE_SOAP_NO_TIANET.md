@@ -1,6 +1,6 @@
 # Análise de viabilidade — SOAP aplicado ao TiaNet
 
-**Status:** Análise para decisão do fundador — **v1.1.0, com a emenda da §11**
+**Status:** Analisado e decidido — **v1.2.0**; o bloqueio da §11.1 foi resolvido por decisão do proprietário
 **Data:** 4 de setembro de 2026
 **Analisa:** `SOAP_COORDENACAO_DE_EQUIPE_DE_IA.md`
 **Responsabilidade:** dizer se o conceito se aplica aqui, onde ele paga, onde ele custa, e o que precisa ser verificado antes de decidir
@@ -343,6 +343,31 @@ o papel**, e ela tem três saídas honestas:
 **Recomendação:** opção 1 para o revisor, opção 2 para os executores de tarefa
 mecânica — que não precisam ver esses arquivos para trocar SHA em relatório.
 
+#### DECISÃO — 2026-09-04, fundador: `ACCEPTED_RISK`, opção 3
+
+O proprietário escolheu a **opção 3** e o bloqueio está **resolvido**. O registro,
+para que a decisão signifique a mesma coisa daqui a seis meses:
+
+**O que foi aceito.** Que o código do produto — incluindo o desenho de cifra, de
+autorização e de tratamento de CPF — possa ser registrado pelo provedor e usado
+para melhoria ou treinamento do modelo. Palavras do fundador: *"estou ciente e
+aceito tranquilamente"*.
+
+**O que continua proibido, e não por cautela do executor e sim por política já
+escrita:** segredo, token, credencial, **dado pessoal real**, conversa ou mídia
+de cliente, e conteúdo de produção. Os testes deste repositório usam dados
+sintéticos, e é isso que sustenta a frase *"não vamos trabalhar no
+desenvolvimento com dados PII"*.
+
+**A distinção que o registro precisa preservar:** dado pessoal real não trafega;
+o **desenho** de como esse dado é tratado, sim. São coisas diferentes, e é a
+segunda que a decisão aceita.
+
+**Quando reabrir:** se o repositório passar a conter dado real (fixture com CPF
+de cliente, dump, log de produção), ou se o produto ganhar cliente com cláusula
+contratual de confidencialidade sobre o código. Aí a decisão volta à mesa — não
+por mudança de política do provedor, mas por mudança do que temos a perder.
+
 O SOAP §16 já exige isso ao dizer que segredo não entra em contrato. A emenda
 apenas registra que **"conteúdo confidencial" aqui é mais amplo que segredo**:
 inclui o desenho de autorização e o tratamento de dado pessoal.
@@ -409,9 +434,9 @@ catálogo (`opencode/muse-spark-1.3-contributor-free`, e não
 ### 11.5 — Ordem revista
 
 1. Comprovar acesso real com o identificador correto — sem isso, nada mais mede
-   coisa alguma;
-2. Decidir o tier do revisor (§11.1). É decisão do proprietário e trava o papel
-   de maior valor do fluxo;
+   coisa alguma. **É o único passo que não depende de mim**;
+2. ~~Decidir o tier do revisor.~~ **Feito**: risco aceito pelo proprietário
+   (§11.1), tier gratuito liberado para todos os papéis;
 3. Coordenador captura as 44 evidências e o baseline;
 4. Piloto de 5 **transcrições** em worktree dedicada, verificação por
    `test:certification`;
@@ -423,5 +448,6 @@ catálogo (`opencode/muse-spark-1.3-contributor-free`, e não
 
 | Versão | Data | Descrição |
 |---|---|---|
+| 1.2.0 | 2026-09-04 | O bloqueio da §11.1 caiu por decisao do proprietario: risco aceito, opcao 3, com o escopo registrado — o que trafega e o DESENHO de cifra, autorizacao e tratamento de CPF, nao dado pessoal real, que continua proibido pela politica ja escrita. Fica registrado tambem quando a decisao deve voltar a mesa: repositorio com dado real, ou cliente com clausula de confidencialidade sobre o codigo. |
 | 1.1.0 | 2026-09-04 | Emenda §11, depois das respostas do fundador. Abre um bloqueio que a v1.0.0 nao tinha como ver: o tier gratuito do revisor registra sessao e **nao deve receber conteudo confidencial**, e os gatilhos que justificam convoca-lo — cifra, credencial, permissao, dado pessoal — mandam para ele exatamente os arquivos que a politica exclui. Tier e papel sao incompativeis, e a saida e decisao do proprietario. Corrige tambem a decomposicao do piloto, que eu havia proposto como uma unidade quando sao duas com custos opostos: a captura e pesada e nao barateia com modelo, a transcricao e mecanica e barateia. E acata a ressalva sobre rollback, com o quase-incidente do proprio dia. |
 | 1.0.0 | 2026-09-04 | Primeira análise. A medição mudou a conclusão: com documentação em 36% da churn, 74 `fix` contra 43 `feat` e três rodadas de review custando ~258 mil tokens contra uma rodada de implementação, o gargalo é verificação e não escrita — condição que o próprio SOAP §22 nomeia como gatilho de redesenho. Daí os dois ajustes centrais: rotear por custo de verificação e fazer o revisor especialista substituir rodada em vez de somar. |
