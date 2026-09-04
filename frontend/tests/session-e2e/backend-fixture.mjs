@@ -29,6 +29,7 @@ const context = {
   permissoes: ["devedor.ler"],
   tenant: { id: "tenant-e2e", identificador_institucional: "ACME", nome: "Instituicao ACME" },
   usuario: { email: "operador@example.test", id: "user-e2e", nome: "Operador E2E" },
+    whatsapp: { numero: "556299999999", pareada: true },
 };
 
 let loopContextCalls = 0;

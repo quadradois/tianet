@@ -46,6 +46,8 @@ class ContextoOperacionalResultado:
     perfil_id: uuid.UUID | None
     perfil_nome: str | None
     permissoes: tuple[str, ...]
+    whatsapp_pareada: bool
+    whatsapp_numero: str | None
 
 
 class RecursoDeOutroTenantError(LookupError):
@@ -137,6 +139,17 @@ class AutorizacaoService:
                 if len(carteiras) != 1:
                     raise ContextoOperacionalIncompletoError()
                 carteira = carteiras[0]
+                # Ultimo estado CONHECIDO da conexao de WhatsApp, direto do banco.
+                #
+                # De proposito nao pergunta ao provedor: este contexto e buscado a
+                # cada pagina aberta, e sincronizar aqui daria uma chamada externa
+                # por navegacao — o mesmo defeito que o IMP-368 tirou do QR.
+                #
+                # Quem sincroniza e `ConsultarConexaoWhatsApp` (a tela de conexao,
+                # quando aberta) e, a partir do IMP-370, o worker. O selo da barra
+                # lateral diz "da ultima vez que verificamos", e e honesto quanto a
+                # isso.
+                conexao = uow.conexao_whatsapp.find_by_tenant_id(principal.tenant_id)
                 uow.commit()
         except AutenticacaoRecusadaError as exc:
             self._registrar_recusa_autenticacao(exc)
@@ -158,6 +171,8 @@ class AutorizacaoService:
                 if isinstance(perfil, PerfilAcesso) and perfil.estado is PerfilState.ATIVO
                 else ()
             ),
+            whatsapp_pareada=conexao is not None and conexao.pareada,
+            whatsapp_numero=conexao.numero_pareado if conexao is not None else None,
         )
 
     def exigir_permissao(self, principal: Principal, operacao: str) -> None:

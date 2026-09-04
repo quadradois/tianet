@@ -34,7 +34,7 @@ describe("certified OpenAPI snapshot", () => {
     }, 0);
 
     expect(operationCount).toBe(111);
-    expect(Object.keys(schemas)).toHaveLength(137);
+    expect(Object.keys(schemas)).toHaveLength(138);
     expect(asRecord(paths["/health"])).toHaveProperty("get");
     expect(asRecord(paths["/iam/contexto-atual"])).toHaveProperty("get");
     expect(asRecord(paths["/iam/permissoes"])).toHaveProperty("get");

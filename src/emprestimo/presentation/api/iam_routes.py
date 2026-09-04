@@ -40,6 +40,7 @@ from emprestimo.presentation.api.schemas import (
     ContextoPerfilResponse,
     ContextoTenantResponse,
     ContextoUsuarioResponse,
+    ContextoWhatsAppResponse,
     CredencialResponse,
     PerfilCreateRequest,
     PerfilResponse,
@@ -123,6 +124,10 @@ def consultar_contexto_atual(
         ),
         perfil=perfil,
         permissoes=list(resultado.permissoes),
+        whatsapp=ContextoWhatsAppResponse(
+            pareada=resultado.whatsapp_pareada,
+            numero=resultado.whatsapp_numero,
+        ),
     )
 
 

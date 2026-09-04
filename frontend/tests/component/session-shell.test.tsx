@@ -18,6 +18,7 @@ const context: OperationalContext = {
   permissoes: [],
   tenant: { id: "tenant-1", identificador_institucional: "ACME", nome: "Instituicao ACME" },
   usuario: { email: "operador@example.test", id: "usuario-1", nome: "Operador" },
+  whatsapp: { numero: null, pareada: false },
 };
 
 describe("login e shell", () => {

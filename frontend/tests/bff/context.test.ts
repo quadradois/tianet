@@ -44,6 +44,7 @@ const operationalContext = {
   permissoes: [],
   tenant: { id: "tenant-1", identificador_institucional: "ACME", nome: "Instituicao ACME" },
   usuario: { email: "user@example.test", id: "user-1", nome: "Operador" },
+  whatsapp: { numero: null, pareada: false },
 };
 
 class MemoryCookies implements CookieStore {

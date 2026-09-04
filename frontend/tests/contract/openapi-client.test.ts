@@ -7,7 +7,7 @@ import type { components, paths } from "../../src/lib/api/openapi.generated";
 
 const HTTP_METHODS = new Set(["get", "post", "put", "patch", "delete"]);
 const ERROR_STATUSES = new Set(["400", "401", "403", "404", "409", "422", "500", "503"]);
-const SNAPSHOT_SHA256 = "95c45df44bf638233fe9d38d44398867d09d7f7b0a8a8fdc0e48c5c99597cb82";
+const SNAPSHOT_SHA256 = "662ad947ed4de59e8d4d47d597ea450091d5ff6966a15b67ee1953386418f84f";
 const snapshotUrl = new URL(
   "../../../docs/governance/contracts/openapi/frontend-mvp-backend-openapi.json",
   import.meta.url,
@@ -84,7 +84,7 @@ describe("generated OpenAPI client contract", () => {
     }
 
     expect(operationCount).toBe(111);
-    expect(Object.keys(schemas)).toHaveLength(137);
+    expect(Object.keys(schemas)).toHaveLength(138);
     // IMP-355: voltou a 63 com POST /iam/usuarios, que tambem exige a chave.
     // Eram 63 antes do IMP-351 retirar POST /platform/tenants.
     expect(idempotencyParameters).toHaveLength(63);

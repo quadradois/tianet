@@ -6,6 +6,7 @@ import { SHELL_NAVIGATION, visibleNavigationItems } from "../../lib/shell/naviga
 
 import { ContextSummary } from "./context-summary";
 import { Navigation } from "./navigation";
+import { WhatsAppBadge } from "./whatsapp-badge";
 
 type AppShellProps = Readonly<{ children: ReactNode; context: OperationalContext }>;
 
@@ -26,6 +27,9 @@ export function AppShell({ children, context }: AppShellProps) {
         <aside className="grid content-start gap-5 rounded-xl border border-border bg-background p-4 shadow-sm">
           <ContextSummary context={context} />
           <Navigation items={navigation} />
+          {/* Depois do menu, e fora dele: o canal e estado da operacao, nao um
+              destino a mais disputando a primeira olhada. */}
+          <WhatsAppBadge whatsapp={context.whatsapp} />
         </aside>
         <main className="min-w-0" id="conteudo-principal" tabIndex={-1}>{children}</main>
       </div>

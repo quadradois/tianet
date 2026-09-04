@@ -288,7 +288,7 @@ Em 2026-09-02 o IMP-368 publicou as quatro operacoes da conexao de WhatsApp
 `DELETE /platform/whatsapp/conexao/instancia`). A quarta apaga a instancia no
 provedor, e entrou porque o `logout` sozinho acumula sessao morta no Evolution.
 Mudanca **aditiva**: **111 operacoes, 137 schemas**, SHA-256
-`95c45df44bf638233fe9d38d44398867d09d7f7b0a8a8fdc0e48c5c99597cb82`.
+`662ad947ed4de59e8d4d47d597ea450091d5ff6966a15b67ee1953386418f84f`.
 Este e o hash **vigente**. As tres escritas novas nao publicam
 `Idempotency-Key` e estao registradas como excecao justificada no guardrail do
 IMP-333 — o replay devolveria um QR expirado, e o `POST` nao tem corpo a

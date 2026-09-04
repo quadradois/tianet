@@ -1300,6 +1300,9 @@
           },
           "usuario": {
             "$ref": "#/components/schemas/ContextoUsuarioResponse"
+          },
+          "whatsapp": {
+            "$ref": "#/components/schemas/ContextoWhatsAppResponse"
           }
         },
         "required": [
@@ -1307,7 +1310,8 @@
           "tenant",
           "carteira_padrao",
           "perfil",
-          "permissoes"
+          "permissoes",
+          "whatsapp"
         ],
         "title": "ContextoOperacionalResponse",
         "type": "object"
@@ -1377,6 +1381,31 @@
           "email"
         ],
         "title": "ContextoUsuarioResponse",
+        "type": "object"
+      },
+      "ContextoWhatsAppResponse": {
+        "description": "Ultimo estado CONHECIDO da conexao de WhatsApp — nao uma leitura ao vivo.\n\nExiste para o selo da barra lateral, que precisa aparecer em toda pagina. Por\nisso e lido do banco e nunca do provedor: sincronizar aqui custaria uma\nchamada externa por navegacao.\n\n**Dois estados, e so dois** (decisao do fundador em 2026-09-03): conectado ou\nnao conectado. Um terceiro sinal — \"instancia existe mas nao pareou\" — chegou a\nexistir aqui e saiu: ninguem o lia, e distinguir \"nunca conectou\" de \"esta no\nmeio\" e sutileza que nao muda o que o operador faz. `pareada` responde\nsozinha.\n\n**Nao carrega token nem QR**, e nunca deve carregar: este corpo viaja em toda\npagina e e servido a qualquer Principal autenticado.",
+        "properties": {
+          "numero": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Numero"
+          },
+          "pareada": {
+            "title": "Pareada",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "pareada"
+        ],
+        "title": "ContextoWhatsAppResponse",
         "type": "object"
       },
       "ContratoCreditoCreateRequest": {

@@ -52,9 +52,15 @@ function isContextTenant(value: unknown): value is OperationalContext["tenant"] 
     && value.identificador_institucional.length > 0;
 }
 
+function isContextWhatsApp(value: unknown): value is OperationalContext["whatsapp"] {
+  return isRecord(value)
+    && typeof value.pareada === "boolean"
+    && (value.numero === null || value.numero === undefined || typeof value.numero === "string");
+}
+
 export function isOperationalContext(value: unknown): value is OperationalContext {
   if (!isRecord(value) || !isContextUser(value.usuario) || !isContextTenant(value.tenant)
-    || !hasRequiredIdentity(value.carteira_padrao)) return false;
+    || !hasRequiredIdentity(value.carteira_padrao) || !isContextWhatsApp(value.whatsapp)) return false;
   if (value.perfil !== null && !hasRequiredIdentity(value.perfil)) return false;
   if (!Array.isArray(value.permissoes) || !value.permissoes.every((permission) => typeof permission === "string")) return false;
   return value.perfil !== null || value.permissoes.length === 0;
