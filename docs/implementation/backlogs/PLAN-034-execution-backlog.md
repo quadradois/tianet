@@ -176,6 +176,26 @@ Inventário: **107 → 111 operações**, **135 → 137 schemas**. O plano previ
   foi assim que a primeira versão passou verde despachando a ação fora de uma
   transição; testes de unidade fixam o `400` como sucesso **seja qual for a
   frase**; suíte Playwright do WhatsApp segue verde.
+- **Fica de fora, decidido pelo fundador em 2026-09-04 — serialização por
+  instância.** O debounce entregue é da **aba**, não da instância: `pendente` é
+  estado local, e duas abas abertas na tela de conexão têm temporizadores
+  independentes, podendo disparar `connect` no mesmo segundo. É exatamente o que
+  o provedor pede para evitar (§7.1). **Aceito como caveat**, com o risco
+  nomeado: se a corrida acontecer, o efeito é panic ou leitura corrompida no
+  provedor — o canal de WhatsApp da operação cai junto.
+
+  O que sustenta a decisão: a pré-condição é estreita (o operador precisaria de
+  duas abas na tela de pareamento ao mesmo tempo, atividade rara e curta, com um
+  operador só), e o provedor **já disse que avalia** pôr um `sync.Mutex` por
+  instância do lado dele, o que fecharia a janela na origem.
+
+  O fechamento do nosso lado, quando for a hora, é `pg_try_advisory_lock` por
+  tenant em volta das chamadas externas de conectar/qr, devolvendo conflito à
+  segunda tentativa em vez de deixá-la correr junto. Isso **muda o contrato**
+  (novo status no `POST`) e o snapshot OpenAPI governado — é por isso que não
+  entrou de carona neste item. O comentário em `whatsapp.client.tsx` diz o que
+  a serialização de hoje alcança, e o que não alcança.
+
 - **Fica de fora, e vira item próprio:** auditar o campo `connected`, que
   significa **socket aberto** em `/instance/status` e **autenticado** em
   `/instance/all` e `/instance/get`. É leitura, não escrita, e não estava
