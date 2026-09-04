@@ -21,15 +21,18 @@ const INTERVALO_POLLING_MS = 5_000;
 /**
  * Quanto tempo um QR fica de pe na tela antes de ser considerado morto.
  *
- * Enquanto a renovacao automatica corre, este prazo nunca vence: cada QR e
- * substituido em 20s. Ele governa o RABO — o ultimo QR, depois que o orcamento
- * de renovacoes acabou. E o que faz a aba esquecida parar de consultar o
- * backend, porque o polling de estado segue o QR na tela.
+ * **A vida real de um codigo e 20s** (confirmado com o provedor em 2026-09-04),
+ * e os 10s a mais sao folga de latencia da renovacao, nao vida extra do codigo.
  *
- * Confirmado com o provedor em 2026-09-04: 20s por codigo, 5 codigos por ciclo.
- * Dois minutos cobrem um ciclo inteiro com folga.
+ * Ja foram dois minutos, e isso era um defeito: como o prazo e rearmado a cada
+ * QR novo, o ULTIMO codigo do ciclo ficava de pe por mais 120s — cerca de 100s
+ * mostrando um QR morto, com o polling perguntando ao backend o tempo todo.
+ *
+ * Enquanto a renovacao corre o prazo raramente vence, porque a substituicao vem
+ * antes; se uma renovacao demorar mais que a folga, o QR some e volta com o
+ * codigo novo. Sumir e o comportamento certo: aos 20s ele ja nao serve.
  */
-const JANELA_PAREAMENTO_MS = 120_000;
+const JANELA_PAREAMENTO_MS = 30_000;
 
 /**
  * Vida de UM QR no provedor, e por isso o intervalo da renovacao automatica.
@@ -169,10 +172,17 @@ export function WhatsAppScreen({ action, connection, initialState, podeGerir }: 
   // Playwright reprovaram, e estavam certas: o preco e do operador, e a
   // recomendacao do provedor nao pedia isso.
   //
-  // ponytail: sobra a janela de um `refresh` JA EM VOO quando a escrita comeca —
-  // nao da para cancela-lo do cliente. Fechar exigiria um lock que atravessasse
-  // a ida ao servidor; se o provedor puser o `sync.Mutex` por instancia que ele
-  // mesmo cogita na §7.1, some sozinha.
+  // ponytail: **esta serializacao e da ABA, nao da instancia** — e a diferenca
+  // importa, porque a recomendacao do provedor e por instancia. `pendente` e
+  // estado local: duas abas abertas na mesma tela tem contadores e
+  // temporizadores independentes, e podem disparar `connect` no mesmo segundo.
+  // Sobra tambem a janela menor de um `refresh` JA EM VOO quando a escrita
+  // comeca, que nao da para cancelar do cliente.
+  //
+  // Fechar de verdade exige um lock por instancia no SERVIDOR — o unico lugar
+  // onde todas as abas passam. O lock que existe hoje em `ConectarWhatsApp`
+  // protege so o nascimento da instancia, e e liberado de proposito antes das
+  // chamadas externas.
   usePollingDePareamento(qrcode !== null && !conectada && !pendente);
 
   // Efeito no corpo do componente, e nao num hook proprio: um hook receberia a
@@ -251,6 +261,17 @@ export function WhatsAppScreen({ action, connection, initialState, podeGerir }: 
 
           <Aviso state={state} />
 
+          {/* O laco terminou e nao ha QR: o `Aviso` acima ainda diz "ele aparece
+              assim que ficar pronto", e ninguem mais vai busca-lo. Sem esta
+              linha a tela promete uma continuidade que nao existe — o proprio
+              defeito de comentario que este ciclo ja corrigiu tres vezes, agora
+              em texto de interface. */}
+          {pareando && !qrcode && !renovacaoAtiva && !pendente ? (
+            <p className="text-sm" role="status">
+              A renovacao automatica terminou sem o codigo chegar. Toque em Gerar novo QR.
+            </p>
+          ) : null}
+
           {qrcode ? (
             <div className="grid justify-items-start gap-2">
               <Image alt="QR code para parear o WhatsApp" className="rounded-md border border-border bg-white p-2" height={264} src={qrcode} unoptimized width={264} />
@@ -267,7 +288,7 @@ export function WhatsAppScreen({ action, connection, initialState, podeGerir }: 
             <form action={acaoDoOperador}>
               <input name="intent" type="hidden" value="conectar" />
               <Button disabled={pendente} type="submit">
-                {pendente ? "Gerando QR..." : qrcode ? "Gerar novo QR" : "Conectar WhatsApp"}
+                {pendente ? "Gerando QR..." : pareando ? "Gerar novo QR" : "Conectar WhatsApp"}
               </Button>
             </form>
           ) : (

@@ -7,6 +7,9 @@ import { INITIAL_WHATSAPP_ACTION_STATE, type WhatsAppActionState, type WhatsAppC
 const refresh = vi.fn();
 vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh }), usePathname: () => "/app/whatsapp" }));
 
+/** Espelha a `JANELA_PAREAMENTO_MS` da tela: 20s de vida do codigo + folga. */
+const JANELA_DO_QR_MS = 30_000;
+
 const PAREADA: WhatsAppConnection = {
   conectado: true,
   existe: true,
@@ -113,6 +116,17 @@ describe("renovacao automatica do QR", () => {
 
     await avancar(20_000);
     expect(intents).toHaveLength(2);
+
+    // Sem QR na tela, o polling NAO liga — nem durante o laco, nem depois. Foi
+    // esse o defeito que o IMP-369 fechou, e a guarda dele e `qrcode !== null`.
+    // Trocar por `pareando` daria polling infinito, e sem esta linha a suite
+    // nao veria.
+    for (let volta = 0; volta < 4; volta += 1) await avancar(20_000);
+    expect(intents).toHaveLength(5);
+    expect(refresh).not.toHaveBeenCalled();
+
+    // E a tela para de prometer um codigo que ninguem mais vai buscar.
+    expect(screen.getByText(/terminou sem o codigo chegar/i)).toBeInTheDocument();
   });
 
   it("com uma RENOVACAO em curso, nenhuma outra chamada parte", async () => {
@@ -146,6 +160,26 @@ describe("renovacao automatica do QR", () => {
 
     await avancar(20_000);
     expect(intents).toHaveLength(3);
+  });
+
+  it("esgotado o orcamento, o ultimo QR morre e o polling para", async () => {
+    // O prazo do QR e o que encerra a conversa com o backend. Ele ja foi de dois
+    // minutos, e o ultimo codigo do ciclo ficava ~100s de pe, morto, com o
+    // polling rodando. Nenhum teste via isso porque nenhum esperava tanto.
+    const intents: string[] = [];
+    render(<WhatsAppScreen action={acaoQueConta(intents)} connection={PENDENTE} initialState={INITIAL_WHATSAPP_ACTION_STATE} podeGerir />);
+
+    await clicar("Conectar WhatsApp");
+    for (let volta = 0; volta < 4; volta += 1) await avancar(20_000);
+    expect(intents).toHaveLength(5);
+    expect(screen.getByRole("img", { name: /QR code/i })).toBeInTheDocument();
+
+    // Passada a janela do ultimo codigo: some da tela e o polling para junto.
+    await avancar(JANELA_DO_QR_MS);
+    expect(screen.queryByRole("img", { name: /QR code/i })).not.toBeInTheDocument();
+    const voltas = refresh.mock.calls.length;
+    await avancar(60_000);
+    expect(refresh.mock.calls.length).toBe(voltas);
   });
 
   it("continua renovando mesmo quando o provedor repete o MESMO QR", async () => {
@@ -232,6 +266,21 @@ describe("renovacao automatica do QR", () => {
     await avancar(120_000);
     expect(intents).toHaveLength(2);
     expect(screen.queryByRole("img", { name: /QR code/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole("img", { name: /QR code/i })).not.toBeInTheDocument();
+  });
+
+  it("nao renova enquanto a conexao esta pareada", async () => {
+    // `pareando` exige `!conectada`. Sem isso, uma aba que acabou de parear
+    // voltaria a disparar `connect` sozinha a cada 20s — contra a instancia que
+    // ja esta pareada, que e o pior lugar para uma corrida.
+    const intents: string[] = [];
+    const { rerender } = render(<WhatsAppScreen action={acaoQueConta(intents)} connection={PENDENTE} initialState={INITIAL_WHATSAPP_ACTION_STATE} podeGerir />);
+    await clicar("Conectar WhatsApp");
+    expect(intents).toHaveLength(1);
+
+    rerender(<WhatsAppScreen action={acaoQueConta(intents)} connection={PAREADA} initialState={INITIAL_WHATSAPP_ACTION_STATE} podeGerir />);
+    await avancar(120_000);
+    expect(intents).toHaveLength(1);
   });
 
   it("nao renova quando o operador nao pode gerir", async () => {
