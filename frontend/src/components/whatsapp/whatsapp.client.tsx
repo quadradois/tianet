@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import { useRouter } from "next/navigation";
-import { useActionState, useEffect, useState } from "react";
+import { startTransition, useActionState, useEffect, useState } from "react";
 
 import { screenState, type WhatsAppActionState, type WhatsAppConnection } from "../../lib/whatsapp/whatsapp-policy";
 import { Button } from "../ui/button";
@@ -21,16 +21,43 @@ const INTERVALO_POLLING_MS = 5_000;
 /**
  * Quanto tempo um QR fica de pe na tela antes de ser considerado morto.
  *
- * O contrato do Evolution (secao 4.2) diz que o QR expira em ~20s e o servidor
- * gera ate 5 antes de reiniciar o ciclo — ~100s de janela. Dois minutos cobrem
- * isso com folga.
+ * **A vida real de um codigo e 20s** (confirmado com o provedor em 2026-09-04),
+ * e os 10s a mais sao folga de latencia da renovacao, nao vida extra do codigo.
  *
- * **Numero vindo de documento, nao de medicao.** A confirmacao esta pedida em
- * `docs/whatsapp/SOLICITACAO-ESCLARECIMENTO-EVOLUTION-2026-09-04.md` secao 2.2.
- * Ate ela chegar, o valor erra para o lado seguro: expirar cedo demais custa um
- * clique; nao expirar nunca era o defeito que este limite corrige.
+ * Ja foram dois minutos, e isso era um defeito: como o prazo e rearmado a cada
+ * QR novo, o ULTIMO codigo do ciclo ficava de pe por mais 120s — cerca de 100s
+ * mostrando um QR morto, com o polling perguntando ao backend o tempo todo.
+ *
+ * Enquanto a renovacao corre o prazo raramente vence, porque a substituicao vem
+ * antes; se uma renovacao demorar mais que a folga, o QR some e volta com o
+ * codigo novo. Sumir e o comportamento certo: aos 20s ele ja nao serve.
  */
-const JANELA_PAREAMENTO_MS = 120_000;
+const JANELA_PAREAMENTO_MS = 30_000;
+
+/**
+ * Vida de UM QR no provedor, e por isso o intervalo da renovacao automatica.
+ *
+ * **20s, fixo na lib, sem rate limit** — medido no codigo-fonte deles
+ * (`docs/whatsapp/2026-09-04-resposta-esclarecimento-evolution.md` secao 2).
+ * Renovar e repetir o `POST /instance/connect`, que eles confirmaram ser seguro:
+ * nao reinicia o ciclo, nao duplica handler, so re-aponta o webhook. Era por
+ * medo dessa chamada que a tela exigia um clique a cada 20s.
+ */
+const RENOVACAO_QR_MS = 20_000;
+
+/**
+ * Quantas renovacoes automaticas antes de devolver o volante ao operador.
+ *
+ * Quatro renovacoes, e nao cinco: a busca do clique ja e a primeira tentativa, e
+ * o ciclo do provedor tem cinco codigos. Sao cinco TENTATIVAS, nao cinco codigos
+ * garantidos — uma delas pode voltar sem QR, que e resposta legitima.
+ *
+ * O limite nao e restricao do provedor (`GET /instance/qr` se autocura depois do
+ * 5o) e sim do defeito que ja pegamos uma vez: aba esquecida conversando com o
+ * backend para sempre. Esgotado o orcamento, o QR na tela morre pela
+ * `JANELA_PAREAMENTO_MS` e o botao reassume.
+ */
+const RENOVACOES_AUTOMATICAS = 4;
 
 /**
  * Pergunta ao servidor se ja pareou.
@@ -46,9 +73,9 @@ const JANELA_PAREAMENTO_MS = 120_000;
  * dizendo "conectado" com o selo vermelho ao lado. E preserva `useState`, entao o
  * QR nao pisca a cada volta.
  *
- * Os 5s sao do polling de ESTADO, que so pergunta "ja pareou?". Ele nao renova o
- * QR: a renovacao automatica depende de resposta do provedor (secao 2.1 da
- * solicitacao) e ate la quem renova e o operador, no botao.
+ * Os 5s sao do polling de ESTADO, que so pergunta "ja pareou?". Quem renova o QR
+ * e o temporizador de `RENOVACAO_QR_MS`, na tela — sao dois relogios com
+ * perguntas diferentes.
  */
 function usePollingDePareamento(ativo: boolean) {
   const router = useRouter();
@@ -105,8 +132,87 @@ export function WhatsAppScreen({ action, connection, initialState, podeGerir }: 
   // um QR velho sobreviver ao logout.
   const qrDaAcao = state.kind === "success" ? state.qrcode ?? null : null;
   const qrcode = useQrVigente(qrDaAcao);
+  const [renovacoes, setRenovacoes] = useState(0);
 
-  usePollingDePareamento(qrcode !== null && !conectada);
+  // **Uma tentativa de pareamento em curso**, e nao "ha QR na tela". A diferenca
+  // e um defeito real: quando o provedor responde `200` com `qrcode_base64:
+  // null` — que e o caminho NORMAL logo apos o `connect`, nao falha — nao ha QR
+  // nenhum, e amarrar o laco ao QR fazia a renovacao nunca comecar. A tela
+  // ficava pedindo um clique que o operador nao tinha motivo para dar.
+  //
+  // `operacao === "conectar"` e o que impede o laco de renascer depois do
+  // logout: desconectar tambem devolve sucesso, e sem esse campo o unico sinal
+  // era a AUSENCIA da chave `qrcode`.
+  const pareando = state.kind === "success" && state.operacao === "conectar" && !conectada;
+
+  // O `!pendente` faz DUAS coisas, e uma delas nao e obvia.
+  //
+  // A primeira: nenhum temporizador fica armado enquanto uma escrita corre, que
+  // e a mesma condicao que desabilita o botao — o debounce que o provedor pediu.
+  //
+  // A segunda so apareceu quando uma mutacao mostrou que o teste do debounce nao
+  // provava nada: a alternancia de `pendente` e o que faz o efeito RODAR DE NOVO
+  // depois de cada acao. Se o provedor devolver o mesmo QR duas vezes seguidas —
+  // legitimo, o codigo vive 20s —, `qrcode` nao muda, e sem essa alternancia
+  // nenhum temporizador novo e armado: o laco morre calado.
+  const renovacaoAtiva = pareando && !pendente && renovacoes < RENOVACOES_AUTOMATICAS;
+
+  // O polling para enquanto uma escrita corre, e **nao** durante o laco inteiro.
+  //
+  // A recomendacao do provedor e literal e estreita (resposta de 2026-09-04,
+  // §7.1): *"evitem disparar `connect`/`logout`/`qr` em paralelo para a mesma
+  // instancia"*. `status` aparece na lista de handlers que tocam os mapas sem
+  // lock, mas fora da recomendacao — ele le o ponteiro, os outros tres mexem
+  // nele.
+  //
+  // Desarmar o intervalo durante todo o laco fecharia tambem essa sobra, e eu
+  // cheguei a fazer isso — ao custo de o operador esperar ate 20s para a tela
+  // dizer "Conectado" depois de escanear, porque a unica leitura de estado
+  // passaria a ser o `revalidatePath` de cada renovacao. Duas jornadas
+  // Playwright reprovaram, e estavam certas: o preco e do operador, e a
+  // recomendacao do provedor nao pedia isso.
+  //
+  // ponytail: **esta serializacao e da ABA, nao da instancia** — e a diferenca
+  // importa, porque a recomendacao do provedor e por instancia. `pendente` e
+  // estado local: duas abas abertas na mesma tela tem contadores e
+  // temporizadores independentes, e podem disparar `connect` no mesmo segundo.
+  // Sobra tambem a janela menor de um `refresh` JA EM VOO quando a escrita
+  // comeca, que nao da para cancelar do cliente.
+  //
+  // Fechar de verdade exige um lock por instancia no SERVIDOR — o unico lugar
+  // onde todas as abas passam. O lock que existe hoje em `ConectarWhatsApp`
+  // protege so o nascimento da instancia, e e liberado de proposito antes das
+  // chamadas externas.
+  usePollingDePareamento(qrcode !== null && !conectada && !pendente);
+
+  // Efeito no corpo do componente, e nao num hook proprio: um hook receberia a
+  // funcao de renovar como prop instavel, e o efeito reiniciaria o temporizador
+  // a cada render — que nunca chegaria aos 20s. `formAction` vem do
+  // `useActionState` e e estavel; `qrcode` na lista faz cada QR novo ganhar o
+  // seu proprio prazo.
+  //
+  // `startTransition` NAO e adorno: sem ele o despacho AINDA ACONTECE, mas fora
+  // do contexto da action — o React 19 reclama no console e `pendente` para de
+  // acompanhar a requisicao, o que derrubaria justamente o debounce que o
+  // comentario acima promete. O teste reprova por `console.error` para que essa
+  // regressao nao volte silenciosa.
+  useEffect(() => {
+    if (!renovacaoAtiva) return;
+    const id = setTimeout(() => {
+      setRenovacoes((feitas) => feitas + 1);
+      const dados = new FormData();
+      dados.set("intent", "conectar");
+      startTransition(() => formAction(dados));
+    }, RENOVACAO_QR_MS);
+    return () => clearTimeout(id);
+  }, [renovacaoAtiva, qrcode, formAction]);
+
+  // O clique devolve o orcamento inteiro: e o operador dizendo que ainda esta na
+  // frente da tela, que e exatamente o que o limite tenta descobrir.
+  const acaoDoOperador = (dados: FormData) => {
+    setRenovacoes(0);
+    formAction(dados);
+  };
 
   return (
     <section className="grid gap-5">
@@ -131,7 +237,7 @@ export function WhatsAppScreen({ action, connection, initialState, podeGerir }: 
           </div>
           <Aviso state={state} />
           {podeGerir ? (
-            <form action={formAction}>
+            <form action={acaoDoOperador}>
               <input name="intent" type="hidden" value="desconectar" />
               <Button disabled={pendente} type="submit" variant="outline">
                 {pendente ? "Desconectando..." : "Desconectar"}
@@ -155,21 +261,34 @@ export function WhatsAppScreen({ action, connection, initialState, podeGerir }: 
 
           <Aviso state={state} />
 
+          {/* O laco terminou e nao ha QR: o `Aviso` acima ainda diz "ele aparece
+              assim que ficar pronto", e ninguem mais vai busca-lo. Sem esta
+              linha a tela promete uma continuidade que nao existe — o proprio
+              defeito de comentario que este ciclo ja corrigiu tres vezes, agora
+              em texto de interface. */}
+          {pareando && !qrcode && !renovacaoAtiva && !pendente ? (
+            <p className="text-sm" role="status">
+              A renovacao automatica terminou sem o codigo chegar. Toque em Gerar novo QR.
+            </p>
+          ) : null}
+
           {qrcode ? (
             <div className="grid justify-items-start gap-2">
               <Image alt="QR code para parear o WhatsApp" className="rounded-md border border-border bg-white p-2" height={264} src={qrcode} unoptimized width={264} />
               <p className="text-xs text-muted-foreground">
                 Abra o WhatsApp no aparelho, va em Aparelhos conectados e aponte a camera.
-                O codigo expira em segundos — se passar do tempo, gere outro.
+                {renovacaoAtiva || pendente
+                  ? " O codigo se renova sozinho enquanto esta tela estiver aberta."
+                  : " A renovacao automatica terminou — toque em Gerar novo QR."}
               </p>
             </div>
           ) : null}
 
           {podeGerir ? (
-            <form action={formAction}>
+            <form action={acaoDoOperador}>
               <input name="intent" type="hidden" value="conectar" />
               <Button disabled={pendente} type="submit">
-                {pendente ? "Gerando QR..." : qrcode ? "Gerar novo QR" : "Conectar WhatsApp"}
+                {pendente ? "Gerando QR..." : pareando ? "Gerar novo QR" : "Conectar WhatsApp"}
               </Button>
             </form>
           ) : (

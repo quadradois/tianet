@@ -124,6 +124,83 @@ Inventário: **107 → 111 operações**, **135 → 137 schemas**. O plano previ
   a11y sem violação crítica ou séria; **o QR não aparece em log, trilha nem
   métrica** — guardrail de teste, não convenção.
 
+### IMP-371 — O que a resposta do Evolution mandou consertar
+
+- **Objetivo:** fechar os dois defeitos e a corrida que a resposta do provedor
+  revelou em 2026-09-04 (`docs/whatsapp/2026-09-04-resposta-esclarecimento-evolution.md`).
+- **Nasceu depois do IMP-369 e por causa dele.** Nenhum dos três apareceu em
+  review: apareceram quando perguntamos ao time que mantém o Evolution Go, e a
+  resposta veio por leitura do código-fonte deles.
+- **Escopo, em três:**
+  1. **`logout` repetido** — `DELETE /instance/logout` numa instância já
+     desconectada **sempre** responde `400`, nunca `2xx`. O adapter recusava
+     não-2xx, então a segunda desconexão falhava em produção. Agora qualquer
+     `400` dessa rota é sucesso "já desconectado", **casado pelo status e não
+     pela frase** (a mensagem depende do timing da autocura interna deles).
+     ADR-019 v1.2.0 carrega o detalhe.
+  2. **Renovação automática do QR** — o QR vive 20s e o provedor confirmou que
+     repetir o `POST /instance/connect` é seguro: não reinicia o ciclo, não
+     duplica handler, só re-aponta o webhook. **A rota nova que o IMP-369 ia
+     propor não é necessária.** A tela renova sozinha a cada 20s, **quatro
+     vezes** — cinco *tentativas* com a do clique, que é o tamanho de um ciclo
+     do provedor; tentativas, e não códigos garantidos, porque uma delas pode
+     voltar sem QR. Depois disso o botão volta a ser do operador. O limite
+     existe contra a aba esquecida, não contra o provedor.
+
+     O laço segue a **tentativa de pareamento**, não o QR na tela: o provedor
+     responde `200` com `qrcode_base64: null` enquanto ainda gera, que é o
+     caminho normal logo após o `connect`, e amarrar o laço ao QR fazia a
+     renovação nunca começar justamente aí. Para o laço não renascer depois do
+     logout, o estado da ação passou a dizer **qual** operação o produziu.
+  3. **Debounce** — os mapas de client do provedor não têm lock, e disparar
+     `connect`/`logout`/`qr` em paralelo para a mesma instância é corrida
+     documentada por eles (§7.1). A renovação só dispara com a ação ociosa, que
+     é a mesma condição que já desabilita o botão, e o polling de estado também
+     para enquanto uma escrita corre.
+
+     **A recomendação deles é literal, e foi seguida ao pé da letra.** Ela nomeia
+     `connect`/`logout`/`qr`; `status` aparece na lista de handlers que tocam os
+     mapas, mas fora da recomendação. Cheguei a desarmar o polling durante todo
+     o laço — mais seguro no papel, e duas jornadas Playwright reprovaram na
+     hora: sem ele, a tela leva até 20s para dizer "Conectado" depois do
+     escaneamento, porque a única leitura de estado passa a ser o
+     `revalidatePath` de cada renovação. O preço era do operador, e a
+     recomendação não pedia isso. **Sobra** a janela de um `refresh` já em voo
+     quando a escrita começa — não há como cancelá-lo do cliente, e ela fecha
+     sozinha se o provedor puser o `sync.Mutex` por instância que ele mesmo
+     cogita.
+- **Critério de pronto:** testes de componente com temporizador falso provam o
+  intervalo, o teto, o rearme no clique, o caminho "provedor ainda gerando", o
+  debounce (nenhuma segunda chamada com a ação em curso) e o laço que não
+  renasce depois do logout — e **falham se o React reclamar no console**, porque
+  foi assim que a primeira versão passou verde despachando a ação fora de uma
+  transição; testes de unidade fixam o `400` como sucesso **seja qual for a
+  frase**; suíte Playwright do WhatsApp segue verde.
+- **Fica de fora, decidido pelo fundador em 2026-09-04 — serialização por
+  instância.** O debounce entregue é da **aba**, não da instância: `pendente` é
+  estado local, e duas abas abertas na tela de conexão têm temporizadores
+  independentes, podendo disparar `connect` no mesmo segundo. É exatamente o que
+  o provedor pede para evitar (§7.1). **Aceito como caveat**, com o risco
+  nomeado: se a corrida acontecer, o efeito é panic ou leitura corrompida no
+  provedor — o canal de WhatsApp da operação cai junto.
+
+  O que sustenta a decisão: a pré-condição é estreita (o operador precisaria de
+  duas abas na tela de pareamento ao mesmo tempo, atividade rara e curta, com um
+  operador só), e o provedor **já disse que avalia** pôr um `sync.Mutex` por
+  instância do lado dele, o que fecharia a janela na origem.
+
+  O fechamento do nosso lado, quando for a hora, é `pg_try_advisory_lock` por
+  tenant em volta das chamadas externas de conectar/qr, devolvendo conflito à
+  segunda tentativa em vez de deixá-la correr junto. Isso **muda o contrato**
+  (novo status no `POST`) e o snapshot OpenAPI governado — é por isso que não
+  entrou de carona neste item. O comentário em `whatsapp.client.tsx` diz o que
+  a serialização de hoje alcança, e o que não alcança.
+
+- **Fica de fora, e vira item próprio:** auditar o campo `connected`, que
+  significa **socket aberto** em `/instance/status` e **autenticado** em
+  `/instance/all` e `/instance/get`. É leitura, não escrita, e não estava
+  quebrando nada — mas ninguém verificou se o adapter mistura os dois.
+
 ### IMP-370 — Worker lê o token do repositório
 
 - **Objetivo:** encerrar a dependência de `EVOLUTION_INSTANCE_TOKEN` no ambiente.
@@ -213,6 +290,7 @@ conciliacao deixa de ser "repetir a chamada" e passa a exigir estado.
 | 5 | IMP-368 | IMP-367 |
 | 6 | IMP-369 | IMP-368 |
 | 7 | IMP-370 | IMP-365 |
+| 8 | IMP-371 | IMP-369 |
 
 O IMP-366 não depende de nada e pode andar em paralelo com 364/365.
 
@@ -235,4 +313,5 @@ O IMP-366 não depende de nada e pode andar em paralelo com 364/365.
 
 | Versão | Data | Descrição |
 |---|---|---|
+| 1.1.0 | 2026-09-04 | Acrescenta o IMP-371, que nao existia quando o plano foi escrito: ele e a lista de consertos que a resposta do time do Evolution Go produziu — `logout` repetido, renovacao automatica do QR e debounce. Vale registrar como o item nasceu: perguntar ao provedor rendeu tres achados que quatro rodadas de review no IMP-369 nao produziram. |
 | 1.0.0 | 2026-08-31 | Sete itens materializando o PLAN-034, com o estado do sistema verificado contra o servidor real em vez de presumido. |

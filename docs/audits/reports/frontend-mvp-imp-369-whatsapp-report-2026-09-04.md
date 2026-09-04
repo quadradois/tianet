@@ -54,7 +54,7 @@ Quatro achados, todos de logica nossa:
 | `frontend-mvp-imp-369-whatsapp-ausente-mobile.png` | 390x844 | `1aee852cd195bfd956875d904380176cdcb16bfa4456242b7c44812947f6ac23` |
 | `frontend-mvp-imp-369-whatsapp-pareada-desktop.png` | 1440x900 | `8839a06cc46d6189800aacb8e87c2139f9a462ca69da899ed057a53b77998a5b` |
 | `frontend-mvp-imp-369-whatsapp-pareada-mobile.png` | 390x844 | `32938a24c4d15f6c4eb75f15bf081b80ca23454ee68e6cd0f03b4004c9192912` |
-| `frontend-mvp-imp-369-whatsapp-qr-desktop.png` | 1440x900 | `c3428a8225ed71b4e6dc56c20627be634a9ca4fb799450632aa144386739fe76` |
+| `frontend-mvp-imp-369-whatsapp-qr-desktop.png` | 1440x900 | `7e7021c7cb721b3d05adb6657ed38e8ade5eca7a659fcd17ad80e873c61419a0` |
 | `frontend-mvp-imp-369-whatsapp-qr-mobile.png` | 390x844 | `73713e24ffc5375fab1614e5851acf99f1f67a651b3b8fc9513802b5b17ad717` |
 
 ---
@@ -74,4 +74,5 @@ Quatro achados, todos de logica nossa:
 
 | Versao | Data | Descricao |
 |---------|------|-----------|
+| 1.1.0 | 04/09/2026 | Novo SHA da evidencia `qr-desktop`: o IMP-371 trocou o texto sob o codigo — de "expira em segundos, gere outro" para o par que conta a verdade nos dois estados do laco de renovacao. As outras cinco evidencias seguem identicas, e a `qr-mobile` nao mudou porque o texto fica fora do recorte de 390x844. **Quem pegou a divergencia foi o gate**, nao o review: `test:certification` exige que o SHA vigente de cada PNG apareca num relatorio, e ele reprovou. |
 | 1.0.0 | 04/09/2026 | Relatorio focal do IMP-369, com as seis evidencias visuais fixadas por SHA. Registra os quatro achados do review e o que cada correcao mudou — dois deles tinham a mesma raiz: tratar o resultado da acao como se fosse o estado do servidor. |
