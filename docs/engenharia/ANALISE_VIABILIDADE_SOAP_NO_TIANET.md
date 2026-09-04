@@ -1,6 +1,6 @@
 # Análise de viabilidade — SOAP aplicado ao TiaNet
 
-**Status:** Análise para decisão do fundador
+**Status:** Análise para decisão do fundador — **v1.1.0, com a emenda da §11**
 **Data:** 4 de setembro de 2026
 **Analisa:** `SOAP_COORDENACAO_DE_EQUIPE_DE_IA.md`
 **Responsabilidade:** dizer se o conceito se aplica aqui, onde ele paga, onde ele custa, e o que precisa ser verificado antes de decidir
@@ -143,7 +143,8 @@ incapaz da segunda, mas porque na segunda a verificação come a economia.
 | Classe | Frequência | Verificação | Roteamento proposto |
 |---|---|---|---|
 | Atualizar doc de governança, handoff, backlog | Alta (36% da churn) | `docs:validate`, segundos | **Executor barato**, com o coordenador revisando sentido |
-| Regenerar evidências e fixar SHA nos relatórios | Média (44 PNGs pendentes hoje) | `test:certification` | **Executor barato** — mecânico e verificável |
+| Fixar SHA de evidência nos relatórios (**transcrição**) | Média (44 pendentes hoje) | `test:certification` | **Executor barato** — mecânico e verificável |
+| Regerar as evidências (**captura**) | Média | Só pela própria suíte, ~12 min | **Coordenador** — o custo é de máquina, não de modelo (§11.2) |
 | Auditoria somente-leitura (ex.: campo `connected`) | Média | Inspeção do coordenador | **Executor barato**, retorno estruturado |
 | Teste de unidade a partir de critério escrito | Alta (31% da churn) | `pytest`, segundos | **Executor barato**, com mutação obrigatória (§8) |
 | Implementação de IMP com fronteira declarada | Alta | Gate completo | **Coordenador ou executor forte** |
@@ -155,8 +156,10 @@ delegação. Ele carrega uma decisão de desenho não resolvida (o canal recebe 
 token no construtor, e o worker monta um canal só na subida) e mexe em estado
 que a tela lê. É trabalho de coordenador, não de executor barato.
 
-**Bom primeiro candidato:** as 44 evidências desatualizadas pelo selo do IMP-369.
-Mecânico, volumoso, verificação instantânea, e reverter é `git checkout`.
+**Bom primeiro candidato:** as 44 evidências desatualizadas pelo selo do IMP-369
+— **mas só a metade certa delas**, e não com o rollback que escrevi aqui. A §11.2
+divide a tarefa em captura e transcrição, e a §11.3 corrige o "reverter é `git
+checkout`".
 
 ---
 
@@ -299,8 +302,126 @@ cortar a verificação do coordenador, é ali que o sistema quebra.
 
 ---
 
-## 11. Histórico de Versões
+## 11. Emenda — o que as respostas do fundador mudaram (2026-09-04)
+
+As cinco perguntas da §9 foram respondidas. Três respostas confirmam o desenho,
+uma o corrige, e uma **abre um bloqueio que não existia na v1.0.0**.
+
+### 11.1 — BLOQUEIO: o tier gratuito do revisor é incompatível com o papel dele
+
+A §6 propôs convocar o revisor especialista por gatilho de risco, e listou os
+gatilhos: UoW e lock, repositórios e migração, temporizador e estado
+compartilhado, **autenticação, permissão e cifra**.
+
+A política de dados informada diz que o Nemotron gratuito **registra sessões para
+segurança e melhoria, e não deve receber conteúdo pessoal ou confidencial**. Os
+modelos Muse Contributor permitem uso de prompt e resposta para treinamento
+futuro.
+
+**Os dois enunciados não podem valer ao mesmo tempo.** Os gatilhos que justificam
+convocar o revisor são exatamente os que mandam para ele os arquivos que a
+política exclui:
+
+- `src/emprestimo/infrastructure/cifra.py` — a cifra do token da instância;
+- `src/emprestimo/application/credenciais.py`;
+- `src/emprestimo/domain/credit/devedor.py` e vizinhos — CPF como Value Object,
+  com o caveat 3.4 ainda aberto sobre CPFs em `audit_log`;
+- `src/emprestimo/application/autorizacao.py` e o desenho de permissões.
+
+Não é objeção ao modelo nem ao conceito. É uma **incompatibilidade entre o tier e
+o papel**, e ela tem três saídas honestas:
+
+1. **Tier pago com retenção zero** para o papel de revisor. O revisor é o papel
+   com melhor relação valor/custo do fluxo — ele lê muito e escreve nada —, e é o
+   pior lugar para economizar com dado de terceiro;
+2. **Revisor gratuito com escopo amputado**: só recebe diff que não toque cifra,
+   credencial, permissão nem dado pessoal. Isso remove justamente os gatilhos de
+   maior risco, e o que sobra é concorrência em código de apresentação;
+3. **Aceitar o risco explicitamente**, por decisão registrada do proprietário,
+   sabendo que o código do produto pode ser usado para treinamento.
+
+**Recomendação:** opção 1 para o revisor, opção 2 para os executores de tarefa
+mecânica — que não precisam ver esses arquivos para trocar SHA em relatório.
+
+O SOAP §16 já exige isso ao dizer que segredo não entra em contrato. A emenda
+apenas registra que **"conteúdo confidencial" aqui é mais amplo que segredo**:
+inclui o desenho de autorização e o tratamento de dado pessoal.
+
+### 11.2 — O piloto das 44 evidências estava mal decomposto (por mim)
+
+Eu propus a tarefa inteira como uma unidade. Aplicando o critério da §4 ao pé da
+letra, ela é **duas** tarefas com custos opostos:
+
+| Etapa | Natureza | Custo | Quem faz |
+|---|---|---|---|
+| **Captura** — rodar as suítes Playwright que regeram os PNGs | Pesada e frágil ao ambiente: ~12 min, e hoje morreu por memória três vezes | Alto, e não cai com modelo barato | **Coordenador**, uma vez |
+| **Transcrição** — calcular o SHA de cada PNG e fixá-lo no relatório certo | Mecânica, regra única, verificação instantânea | Baixo | **Executor barato** |
+
+Delegar a captura não economiza nada: o custo dela é de máquina e de relógio, não
+de modelo. Delegar a transcrição economiza exatamente o tipo de trabalho que o
+conceito busca.
+
+**Consequência para o piloto:** o lote de 5 vira lote de 5 **transcrições**, com
+os PNGs já regerados e o baseline capturado. O executor recebe a lista de
+arquivos, os SHAs calculados, o relatório de destino de cada um, e a proibição de
+tocar em qualquer outra linha. Verificação: `npm run test:certification`.
+
+Isso também torna o critério de sucesso mais honesto — ele mede transcrição fiel,
+que é o que se quer medir, e não a capacidade de sobreviver a uma suíte Playwright
+que derrubou a minha própria sessão três vezes.
+
+### 11.3 — A ressalva sobre rollback está certa, e eu tenho o quase-incidente
+
+Eu escrevi "rollback é `git checkout`". A ressalva de que isso só é seguro em
+worktree dedicada com baseline limpo comprovado está correta, e hoje mesmo houve
+o caso: **rodei `git checkout -- docs/audits/evidence/` três vezes** para limpar
+PNGs que um gate interrompido tinha regerado na árvore compartilhada.
+
+Funcionou porque as alterações eram todas do gate. Se houvesse trabalho humano
+não commitado ali, eu o teria apagado sem aviso — e o SOAP §21 lista "limpar o
+working tree para esconder conflito" como antipadrão, com razão.
+
+**Adotado:** tarefa delegada roda em worktree dedicada, com baseline capturado
+antes, e a reversão atinge só o que é atribuível ao executor.
+
+### 11.4 — O que as outras respostas confirmam
+
+**Revisor `READ_ONLY` que pode rodar diagnóstico** é o desenho certo, e resolve a
+dúvida da §6: ele executa o que não muta e relata; a verificação material continua
+sendo do coordenador. É o arranjo que fez o review do IMP-371 valer.
+
+**Executor com comando permitido por contrato**, com a ressalva honesta de que a
+proteção é contratual e não é sandbox — ela não vê escrita em `node_modules`,
+cache ou `.venv`. Combinado com a §11.3, reforça worktree ou container para
+qualquer tarefa que instale dependência ou rode E2E.
+
+**O arnês está provado e o provedor não.** 36 testes e 304 verificações cobrem
+contrato, classificação, restrição de caminho, preservação de baseline,
+diferenciação entre falha de provedor e reprovação, e telemetria sanitizada.
+Nada disso prova que um modelo responde. A taxa de 0/1 não mede qualidade: mede
+que a única chamada morreu no provedor.
+
+**O próximo passo é barato e decisivo:** repetir o smoke com o identificador do
+catálogo (`opencode/muse-spark-1.3-contributor-free`, e não
+`opencode/muse-spark-1.3`). Enquanto o acesso não for comprovado, comparar modelo
+é conversa sobre catálogo, não sobre capacidade.
+
+### 11.5 — Ordem revista
+
+1. Comprovar acesso real com o identificador correto — sem isso, nada mais mede
+   coisa alguma;
+2. Decidir o tier do revisor (§11.1). É decisão do proprietário e trava o papel
+   de maior valor do fluxo;
+3. Coordenador captura as 44 evidências e o baseline;
+4. Piloto de 5 **transcrições** em worktree dedicada, verificação por
+   `test:certification`;
+5. Só então falar em taxa de aceite e roteamento.
+
+---
+
+## 12. Histórico de Versões
 
 | Versão | Data | Descrição |
 |---|---|---|
+| 1.1.0 | 2026-09-04 | Emenda §11, depois das respostas do fundador. Abre um bloqueio que a v1.0.0 nao tinha como ver: o tier gratuito do revisor registra sessao e **nao deve receber conteudo confidencial**, e os gatilhos que justificam convoca-lo — cifra, credencial, permissao, dado pessoal — mandam para ele exatamente os arquivos que a politica exclui. Tier e papel sao incompativeis, e a saida e decisao do proprietario. Corrige tambem a decomposicao do piloto, que eu havia proposto como uma unidade quando sao duas com custos opostos: a captura e pesada e nao barateia com modelo, a transcricao e mecanica e barateia. E acata a ressalva sobre rollback, com o quase-incidente do proprio dia. |
 | 1.0.0 | 2026-09-04 | Primeira análise. A medição mudou a conclusão: com documentação em 36% da churn, 74 `fix` contra 43 `feat` e três rodadas de review custando ~258 mil tokens contra uma rodada de implementação, o gargalo é verificação e não escrita — condição que o próprio SOAP §22 nomeia como gatilho de redesenho. Daí os dois ajustes centrais: rotear por custo de verificação e fazer o revisor especialista substituir rodada em vez de somar. |
