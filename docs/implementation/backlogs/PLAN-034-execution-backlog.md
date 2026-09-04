@@ -196,7 +196,15 @@ Inventário: **107 → 111 operações**, **135 → 137 schemas**. O plano previ
   entrou de carona neste item. O comentário em `whatsapp.client.tsx` diz o que
   a serialização de hoje alcança, e o que não alcança.
 
-- **Fica de fora, e vira item próprio:** auditar o campo `connected`, que
+- ~~**Fica de fora, e vira item próprio:** auditar o campo `connected`.~~
+  **Auditado e fechado em 2026-09-04**, e o resultado é melhor que o esperado:
+  chamamos os dois endpoints ambíguos — `buscar_instancia` usa `/instance/all`,
+  `jid_da_instancia` usa `/instance/info/:id` — mas deles lemos apenas `name`,
+  `id`, `token` e `jid`. O campo `connected` minúsculo **nunca é lido**. Todo
+  estado de conexão vem de `/instance/status`, que entrega `Connected` (socket) e
+  `LoggedIn` (autenticado) como campos separados, e a separação é preservada até
+  a tela. O texto original do caveat segue abaixo, para quem precisar do contexto:
+  auditar o campo `connected`, que
   significa **socket aberto** em `/instance/status` e **autenticado** em
   `/instance/all` e `/instance/get`. É leitura, não escrita, e não estava
   quebrando nada — mas ninguém verificou se o adapter mistura os dois.

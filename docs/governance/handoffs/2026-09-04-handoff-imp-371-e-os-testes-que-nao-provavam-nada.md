@@ -138,7 +138,7 @@ O IMP-369 ia propor uma rota para renovar o QR, e desistiu por medo de repetir o
 | # | Caveat | Estado |
 |---|---|---|
 | — | **Serialização é da ABA, não da instância** | **NOVO e aceito pelo fundador.** Duas abas podem disparar `connect` no mesmo segundo. Conserto futuro: `pg_try_advisory_lock` por tenant, que **muda o contrato** |
-| — | Auditar `connected` por endpoint | Aberto. Socket aberto em `/instance/status`, autenticado em `/instance/all` e `/instance/get` |
+| — | Auditar `connected` por endpoint | **FECHADO em 2026-09-04.** Nao ha mistura, e o motivo e mais forte que "nao chamamos esses endpoints": nos **chamamos os dois** — `buscar_instancia` usa `/instance/all` e `jid_da_instancia` usa `/instance/info/:id` — e deles lemos apenas `name`, `id`, `token` e `jid`. O campo ambiguo nunca e lido. O estado vem so de `/instance/status`, que traz `Connected` e `LoggedIn` separados |
 | — | Evidências visuais desatualizadas pelo selo | **NOVO.** O selo do IMP-369 mudou as 35 páginas, e só as 6 evidências do WhatsApp foram refeitas. As outras 44 mostram a barra lateral sem o selo |
 | — | `gate:full` tem armadilha de ordem | **NOVO.** Ele termina em `test:harness`, que termina em `test:certification` — depois das capturas. O `hooks/pre-push` **não** usa `test:harness`, e explica por quê. A autoridade de pre-push é o hook |
 | 3.5 | `/CLAUDE.md` gitignored | Mitigado pela SPEC-004; falta decidir se versiona |

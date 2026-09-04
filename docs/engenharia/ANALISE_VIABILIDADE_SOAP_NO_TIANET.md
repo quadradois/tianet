@@ -1,6 +1,6 @@
 # Análise de viabilidade — SOAP aplicado ao TiaNet
 
-**Status:** Analisado e decidido — **v1.2.0**; o bloqueio da §11.1 foi resolvido por decisão do proprietário
+**Status:** Analisado, decidido e **exercitado** — **v1.3.0**; o bloqueio da §11.1 foi resolvido por decisão do proprietário
 **Data:** 4 de setembro de 2026
 **Analisa:** `SOAP_COORDENACAO_DE_EQUIPE_DE_IA.md`
 **Responsabilidade:** dizer se o conceito se aplica aqui, onde ele paga, onde ele custa, e o que precisa ser verificado antes de decidir
@@ -467,6 +467,103 @@ linguagem, nome de gate, formato de contrato. Portar um arnês provado é sempre
 mais barato que reescrever — e reescrever produziria um segundo lugar onde a
 mesma regra pode divergir, que é o problema que o SOAP existe para evitar.
 
+### 11.7 — Primeira delegação real, medida (2026-09-04)
+
+O arnês do outro projeto foi descartado por decisão do fundador, e o cerimonial
+do SOAP com ele. O que sobrou é o que basta: **uma invocação de linha de comando
+dentro de uma worktree, verificada pelos gates que já existem.**
+
+#### O mecanismo, inteiro
+
+```
+opencode run --pure --dir <worktree> -m <provider/modelo> "<contrato inline>"
+```
+
+Não falta framework. O CLI já traz `--dir` (aponta a worktree), `-m` (escolhe o
+modelo), `--format json` (retorno estruturado) e `--pure` (sem plugins). A
+fronteira é a worktree; a verificação é `git status` mais o gate da vez.
+
+**Armadilha encontrada:** `-f` é flag de array e **engole a mensagem posicional**
+— a primeira tentativa morreu com `File not found:` seguido do texto do prompt.
+Contrato vai **inline**, não anexado.
+
+#### Acesso: comprovado, 2/2
+
+O `PROVIDER_ERROR` do smoke anterior era **o identificador**, e não a
+credencial. Com o nome do catálogo, os dois modelos do desenho responderam:
+
+| Modelo | Papel pretendido | Resultado |
+|---|---|---|
+| `opencode/muse-spark-1.3-contributor-free` | executor mecânico | respondeu |
+| `opencode/nemotron-3-ultra-free` | revisor especialista | respondeu |
+
+#### Tarefa real — auditoria do campo `connected`
+
+Escolhida por ser somente-leitura (risco zero de mutação), por fechar um caveat
+aberto, e por ter verificação barata: eu leio o mesmo código.
+
+**Contrato:** política `READ_ONLY`, seis caminhos de leitura declarados, formato
+de retorno fixado, condição de parada explícita ("se precisar sair da fronteira,
+pare e diga qual caminho faltou").
+
+**Resultado mecânico:** worktree **limpa** ao fim — a política `READ_ONLY` foi
+cumprida sem precisar de sandbox. Retorno em português, no formato pedido, com
+arquivo e linha em cada item.
+
+**Adjudicação: `APPROVED_WITH_CONCERNS`.** A conclusão está **certa** — verifiquei
+de forma independente. Mas o caminho até ela estava incompleto, e a diferença
+importa:
+
+- ele concluiu *"nenhum ponto lê o `connected` minúsculo de `/instance/all` ou
+  `/instance/get`"*, o que sugere que não tocamos esses endpoints;
+- **nós tocamos os dois**: `buscar_instancia` chama `/instance/all`, e
+  `jid_da_instancia` chama `/instance/info/:id`. Nenhum dos dois apareceu na
+  lista de seis lugares que ele enumerou;
+- a resposta certa é mais forte que a dele: chamamos os endpoints ambíguos e
+  lemos deles apenas `name`, `id`, `token` e `jid`. O campo ambíguo nunca é lido.
+
+Ele **concluiu por ausência**, onde a pergunta pedia **inspeção**. Deu certo
+porque a ausência era real; teria falhado calado se houvesse uma leitura escondida
+num terceiro arquivo.
+
+#### O que isso ensina para o próximo contrato
+
+**Peça enumeração, não veredito.** O contrato dizia "descubra se o nosso código
+mistura os dois significados", e um veredito é fácil de acertar por sorte. Se
+tivesse dito *"liste todas as chamadas a `/instance/all` e `/instance/info` e,
+para cada uma, os campos lidos"*, a resposta seria verificável item a item — e a
+lacuna teria aparecido sozinha.
+
+É a mesma lição da §2 do handoff do IMP-371, agora do outro lado: **um resultado
+verde que não prova nada é pior que resultado nenhum**, valendo tanto para teste
+quanto para parecer de agente.
+
+#### Números, honestamente
+
+- acesso: **2/2**;
+- tarefa real: **1/1 aceita na primeira tentativa**, com ressalva de completude;
+- custo em token: **não informado** pelo CLI no formato padrão. `--format json`
+  precisa ser testado antes de qualquer conta de economia;
+- amostra: **um**. Não roteia nada ainda, e dizer o contrário seria inventar
+  regra a partir de uma observação.
+
+#### Um terceiro achado, sobre nós mesmos
+
+O primeiro commit desta seção **foi reprovado pelo nosso próprio validador**: eu
+havia batizado a tarefa com um identificador de namespace novo, e o
+`docs:validate` o recusou porque o namespace não está no Registry (SPEC-002).
+Esta frase também não pode citá-lo: o validador reprova a **menção**, e não
+apenas o uso — o que está certo, porque é assim que um namespace nasce por
+descuido.
+
+Vale registrar porque é o argumento central da §4 acontecendo ao vivo: **a
+governança deste repositório é forte o bastante para pegar erro de quem coordena,
+não só de quem executa.** É isso que torna delegação segura aqui — e é por isso
+que a verificação não pode ser afrouxada para caber mais delegação.
+
+A correção foi tirar o identificador, não registrar um namespace novo para uma
+tarefa avulsa.
+
 ### 11.5 — Ordem revista
 
 1. Comprovar acesso real. O identificador correto já está verificado (§11.4); o
@@ -481,12 +578,18 @@ mesma regra pode divergir, que é o problema que o SOAP existe para evitar.
    (§11.6) — hoje este repositório não tem nenhuma integração com o OpenCode;
 6. Só então falar em taxa de aceite e roteamento.
 
+**Atualização de 2026-09-04:** os passos 1 e 5 foram resolvidos no mesmo dia. O
+acesso está comprovado (§11.7) e a decisão sobre portar o arnês caiu — o fundador
+descartou o do outro projeto, e a §11.7 mostra que **nenhum arnês é necessário**
+para começar. Restam a captura e o piloto de transcrição.
+
 ---
 
 ## 12. Histórico de Versões
 
 | Versão | Data | Descrição |
 |---|---|---|
+| 1.3.0 | 2026-09-04 | Sai do papel: §11.7 registra a primeira delegacao real. O `PROVIDER_ERROR` era o identificador, nao a credencial — os dois modelos respondem. A tarefa de auditoria rodou em worktree dedicada, respeitou `READ_ONLY` sem sandbox e fechou um caveat aberto. Adjudicada como aprovada COM RESSALVA: a conclusao estava certa, mas ele concluiu por ausencia onde a pergunta pedia inspecao, e nao enumerou as duas chamadas aos endpoints ambiguos. A licao entrou no metodo: pedir enumeracao verificavel item a item, nao veredito. Registra tambem que nenhum arnes e necessario — `opencode run --dir` mais worktree mais os gates que ja existem bastam. |
 | 1.2.0 | 2026-09-04 | O bloqueio da §11.1 caiu por decisao do proprietario: risco aceito, opcao 3, com o escopo registrado — o que trafega e o DESENHO de cifra, autorizacao e tratamento de CPF, nao dado pessoal real, que continua proibido pela politica ja escrita. Fica registrado tambem quando a decisao deve voltar a mesa: repositorio com dado real, ou cliente com clausula de confidencialidade sobre o codigo. |
 | 1.1.0 | 2026-09-04 | Emenda §11, depois das respostas do fundador. Abre um bloqueio que a v1.0.0 nao tinha como ver: o tier gratuito do revisor registra sessao e **nao deve receber conteudo confidencial**, e os gatilhos que justificam convoca-lo — cifra, credencial, permissao, dado pessoal — mandam para ele exatamente os arquivos que a politica exclui. Tier e papel sao incompativeis, e a saida e decisao do proprietario. Corrige tambem a decomposicao do piloto, que eu havia proposto como uma unidade quando sao duas com custos opostos: a captura e pesada e nao barateia com modelo, a transcricao e mecanica e barateia. E acata a ressalva sobre rollback, com o quase-incidente do proprio dia. |
 | 1.0.0 | 2026-09-04 | Primeira análise. A medição mudou a conclusão: com documentação em 36% da churn, 74 `fix` contra 43 `feat` e três rodadas de review custando ~258 mil tokens contra uma rodada de implementação, o gargalo é verificação e não escrita — condição que o próprio SOAP §22 nomeia como gatilho de redesenho. Daí os dois ajustes centrais: rotear por custo de verificação e fazer o revisor especialista substituir rodada em vez de somar. |
