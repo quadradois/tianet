@@ -54,7 +54,10 @@ function certifyVisualEvidence() {
   const reports = walk(reportRoot, (absolute) => absolute.endsWith(".md")).map(readText).join("\n");
   const pngs = walk(evidenceRoot, (absolute) => /frontend-mvp-imp-.*\.png$/.test(absolute.replace(/\\/g, "/")));
 
-  assert.equal(pngs.length, 50, "IMP-302 espera 50 PNGs de evidencia frontend");
+  // 50 do IMP-302 + 6 do IMP-369 (conexao do WhatsApp: ausente, QR e pareada,
+  // cada um em desktop e mobile). O numero e fixo de proposito: evidencia que
+  // some sem ninguem notar e evidencia que nao prova nada.
+  assert.equal(pngs.length, 56, "IMP-302 + IMP-369 esperam 56 PNGs de evidencia frontend");
   for (const absolute of pngs) {
     const relativePath = relative(repositoryRoot, absolute).replace(/\\/g, "/");
     const { width, height, bytes } = readPngDimensions(absolute);
@@ -144,4 +147,4 @@ certifyClientBoundaries();
 certifyWebInterfaceGuidelines();
 certifyNoFinancialEngineParallel();
 
-console.log("IMP-302 certification: 50 PNGs, bundle publico, Client Components, Web Interface Guidelines e anti-calculo verificados.");
+console.log("IMP-302 + IMP-369 certification: 56 PNGs, bundle publico, Client Components, Web Interface Guidelines e anti-calculo verificados.");
