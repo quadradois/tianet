@@ -124,6 +124,39 @@ Inventário: **107 → 111 operações**, **135 → 137 schemas**. O plano previ
   a11y sem violação crítica ou séria; **o QR não aparece em log, trilha nem
   métrica** — guardrail de teste, não convenção.
 
+### IMP-371 — O que a resposta do Evolution mandou consertar
+
+- **Objetivo:** fechar os dois defeitos e a corrida que a resposta do provedor
+  revelou em 2026-09-04 (`docs/whatsapp/2026-09-04-resposta-esclarecimento-evolution.md`).
+- **Nasceu depois do IMP-369 e por causa dele.** Nenhum dos três apareceu em
+  review: apareceram quando perguntamos ao time que mantém o Evolution Go, e a
+  resposta veio por leitura do código-fonte deles.
+- **Escopo, em três:**
+  1. **`logout` repetido** — `POST /instance/logout` numa instância já
+     desconectada **sempre** responde `400`, nunca `2xx`. O adapter recusava
+     não-2xx, então a segunda desconexão falhava em produção. Agora qualquer
+     `400` dessa rota é sucesso "já desconectado", **casado pelo status e não
+     pela frase** (a mensagem depende do timing da autocura interna deles).
+     ADR-019 v1.2.0 carrega o detalhe.
+  2. **Renovação automática do QR** — o QR vive 20s e o provedor confirmou que
+     repetir o `POST /instance/connect` é seguro: não reinicia o ciclo, não
+     duplica handler, só re-aponta o webhook. **A rota nova que o IMP-369 ia
+     propor não é necessária.** A tela renova sozinha a cada 20s, cinco vezes
+     (~um ciclo do provedor), e depois devolve o botão ao operador — o limite
+     existe contra a aba esquecida, não contra o provedor.
+  3. **Debounce** — os mapas de client do provedor não têm lock, e disparar
+     `connect`/`logout`/`qr` em paralelo para a mesma instância é corrida
+     documentada por eles. A renovação só dispara com a ação ociosa, que é a
+     mesma condição que já desabilita o botão.
+- **Critério de pronto:** teste de componente com temporizador falso prova o
+  intervalo, o teto de cinco e o rearme no clique; dois testes de unidade fixam
+  o `400` como sucesso e a frase como irrelevante; suíte Playwright do WhatsApp
+  segue verde.
+- **Fica de fora, e vira item próprio:** auditar o campo `connected`, que
+  significa **socket aberto** em `/instance/status` e **autenticado** em
+  `/instance/all` e `/instance/get`. É leitura, não escrita, e não estava
+  quebrando nada — mas ninguém verificou se o adapter mistura os dois.
+
 ### IMP-370 — Worker lê o token do repositório
 
 - **Objetivo:** encerrar a dependência de `EVOLUTION_INSTANCE_TOKEN` no ambiente.
@@ -213,6 +246,7 @@ conciliacao deixa de ser "repetir a chamada" e passa a exigir estado.
 | 5 | IMP-368 | IMP-367 |
 | 6 | IMP-369 | IMP-368 |
 | 7 | IMP-370 | IMP-365 |
+| 8 | IMP-371 | IMP-369 |
 
 O IMP-366 não depende de nada e pode andar em paralelo com 364/365.
 
@@ -235,4 +269,5 @@ O IMP-366 não depende de nada e pode andar em paralelo com 364/365.
 
 | Versão | Data | Descrição |
 |---|---|---|
+| 1.1.0 | 2026-09-04 | Acrescenta o IMP-371, que nao existia quando o plano foi escrito: ele e a lista de consertos que a resposta do time do Evolution Go produziu — `logout` repetido, renovacao automatica do QR e debounce. Vale registrar como o item nasceu: perguntar ao provedor rendeu tres achados que quatro rodadas de review no IMP-369 nao produziram. |
 | 1.0.0 | 2026-08-31 | Sete itens materializando o PLAN-034, com o estado do sistema verificado contra o servidor real em vez de presumido. |

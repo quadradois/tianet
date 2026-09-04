@@ -66,15 +66,17 @@ desconectada **nunca retorna 2xx — sempre `400`**. O fluxo passa por
 `"client disconnected"`, e o handler responde `400`. Não é comportamento que eles
 pretendam mudar.
 
-Como o adapter recusa qualquer resposta não-2xx, **a segunda chamada falha hoje**.
-Isso não é risco teórico: é defeito em produção esperando a primeira desconexão
+O adapter recusava qualquer resposta não-2xx, então **a segunda chamada falhava**.
+Não era risco teórico: era defeito em produção esperando a primeira desconexão
 repetida.
 
-**O que precisa mudar no código, e ainda não mudou:** o adapter deve tratar
-**qualquer `400` de `/instance/logout`** como sucesso equivalente a "já
-desconectado" — do mesmo jeito que já trata `record not found` na exclusão. A
-recomendação de **não filtrar pelo texto da mensagem** é deles: a mensagem exata
-depende do timing da autocura interna, então discriminar por texto seria frágil.
+**Consertado em 2026-09-04 (IMP-371):** `EvolutionInstanciaClient.desconectar`
+trata **qualquer `400` de `/instance/logout`** como sucesso equivalente a "já
+desconectado" — do mesmo jeito que já tratava `record not found` na exclusão. O
+`400` não é filtrado por texto, e essa recusa é recomendação deles: a mensagem
+exata depende do timing da autocura interna, então discriminar por texto seria
+frágil. Aqui casar pelo status é seguro porque a rota não recebe payload — não há
+outro motivo para ela responder `400`.
 
 **A decisão da ADR não muda.** A isenção de `Idempotency-Key` continua válida, e
 por um motivo que ficou mais forte, não mais fraco: a chave replayaria o
@@ -82,9 +84,9 @@ resultado do nosso lado sem dizer nada sobre o estado no provedor — e agora
 sabemos que o estado no provedor responde `400`. O que muda é o **adapter**, não
 o contrato.
 
-**Enquanto o conserto não sai**, a convergência do `DELETE` depende de o operador
-não repetir a desconexão. Único operador, um clique — o risco é baixo, mas é real
-e agora é conhecido.
+**Com o conserto, a convergência do `DELETE` volta a valer de ponta a ponta**: o
+lado da TiaNet já era no-op, e agora o lado do provedor também não reclama de uma
+desconexão repetida.
 
 ## Consequências
 
@@ -93,7 +95,8 @@ e agora é conhecido.
 - A exceção deixa de contradizer a regra: passa a ser parte dela, por referência.
 - Quem revisar encontra a resposta no lugar onde decisões arquiteturais moram,
   em vez de dentro de um backlog de execução.
-- A premissa não certificada fica visível para quem for validar em produção.
+- A premissa não certificada ficou visível para quem foi validar — e foi
+  justamente por estar escrita que ela pôde ser refutada.
 
 **Negativas, e assumidas**
 
@@ -141,5 +144,6 @@ não resolve contradição entre dois documentos normativos.
 
 | Versão | Data | Descrição |
 |---------|------|-----------|
+| 1.2.0 | 04/09/2026 | O conserto saiu (IMP-371): `desconectar` trata qualquer `400` de `/instance/logout` como "ja desconectado", com dois testes que fixam o status como criterio e a frase como irrelevante. A secao da premissa deixa de descrever um defeito ativo e passa a descrever um defeito fechado. |
 | 1.1.0 | 04/09/2026 | A premissa da convergência do `logout` foi medida — e e falsa. O time do Evolution Go respondeu por leitura de codigo: `POST /instance/logout` numa instancia ja desconectada **sempre** retorna `400`, e nosso adapter recusa nao-2xx, entao a segunda chamada falha hoje em producao. A decisao da ADR nao muda e ate se fortalece; o que muda e o adapter, que deve tratar qualquer `400` dessa rota como "ja desconectado" — sem filtrar por texto, porque a mensagem depende de timing interno deles. |
 | 1.0.0 | 03/09/2026 | Decisão registrada. A isenção existia desde o IMP-367 e foi cobrada por quatro rodadas de review porque morava num plano de execução, não numa ADR — a §3.1 do PLAN-034 chegou a prever a terceira cobrança e ainda assim não impediu a quarta. Promove o raciocínio existente sem alterá-lo, separa os três motivos (que não são o mesmo) e declara como premissa, não como fato, a convergência do `logout` no provedor — que segue sem ambiente onde ser medida. |

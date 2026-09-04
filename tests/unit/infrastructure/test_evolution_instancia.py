@@ -305,6 +305,26 @@ class TestEvolutionInstanciaClient:
         self._cli(handler).desconectar()
         assert vistos["metodo"] == "DELETE"
 
+    def test_desconectar_ja_desconectada_e_sucesso(self) -> None:
+        """`400` e o "ja estava desconectada" do provedor, nao um erro.
+
+        Verificado no codigo-fonte deles em 2026-09-04. Sem isto, a segunda
+        desconexao falha para sempre.
+        """
+
+        def handler(_: httpx.Request) -> httpx.Response:
+            return httpx.Response(400, json={"error": "no active session found"})
+
+        self._cli(handler).desconectar()
+
+    def test_desconectar_400_sem_texto_conhecido_tambem_e_sucesso(self) -> None:
+        """Casamos pelo STATUS, nao pela frase: ela depende do timing da autocura."""
+
+        def handler(_: httpx.Request) -> httpx.Response:
+            return httpx.Response(400, json={"error": "client disconnected"})
+
+        self._cli(handler).desconectar()
+
     def test_corpo_nao_json_vira_erro_nomeado(self) -> None:
         def handler(_: httpx.Request) -> httpx.Response:
             return httpx.Response(200, text="<html>gateway</html>")

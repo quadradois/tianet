@@ -21,16 +21,36 @@ const INTERVALO_POLLING_MS = 5_000;
 /**
  * Quanto tempo um QR fica de pe na tela antes de ser considerado morto.
  *
- * O contrato do Evolution (secao 4.2) diz que o QR expira em ~20s e o servidor
- * gera ate 5 antes de reiniciar o ciclo — ~100s de janela. Dois minutos cobrem
- * isso com folga.
+ * Enquanto a renovacao automatica corre, este prazo nunca vence: cada QR e
+ * substituido em 20s. Ele governa o RABO — o ultimo QR, depois que o orcamento
+ * de renovacoes acabou. E o que faz a aba esquecida parar de consultar o
+ * backend, porque o polling de estado segue o QR na tela.
  *
- * **Numero vindo de documento, nao de medicao.** A confirmacao esta pedida em
- * `docs/whatsapp/SOLICITACAO-ESCLARECIMENTO-EVOLUTION-2026-09-04.md` secao 2.2.
- * Ate ela chegar, o valor erra para o lado seguro: expirar cedo demais custa um
- * clique; nao expirar nunca era o defeito que este limite corrige.
+ * Confirmado com o provedor em 2026-09-04: 20s por codigo, 5 codigos por ciclo.
+ * Dois minutos cobrem um ciclo inteiro com folga.
  */
 const JANELA_PAREAMENTO_MS = 120_000;
+
+/**
+ * Vida de UM QR no provedor, e por isso o intervalo da renovacao automatica.
+ *
+ * **20s, fixo na lib, sem rate limit** — medido no codigo-fonte deles
+ * (`docs/whatsapp/2026-09-04-resposta-esclarecimento-evolution.md` secao 2).
+ * Renovar e repetir o `POST /instance/connect`, que eles confirmaram ser seguro:
+ * nao reinicia o ciclo, nao duplica handler, so re-aponta o webhook. Era por
+ * medo dessa chamada que a tela exigia um clique a cada 20s.
+ */
+const RENOVACAO_QR_MS = 20_000;
+
+/**
+ * Quantas renovacoes automaticas antes de devolver o volante ao operador.
+ *
+ * Cinco e um ciclo inteiro do provedor (~100s). O limite nao e restricao dele —
+ * `GET /instance/qr` se autocura depois do 5o — e sim do defeito que ja pegamos
+ * uma vez: aba esquecida conversando com o backend para sempre. Esgotado o
+ * orcamento, o QR na tela morre pela `JANELA_PAREAMENTO_MS` e o botao reassume.
+ */
+const RENOVACOES_AUTOMATICAS = 5;
 
 /**
  * Pergunta ao servidor se ja pareou.
@@ -46,9 +66,9 @@ const JANELA_PAREAMENTO_MS = 120_000;
  * dizendo "conectado" com o selo vermelho ao lado. E preserva `useState`, entao o
  * QR nao pisca a cada volta.
  *
- * Os 5s sao do polling de ESTADO, que so pergunta "ja pareou?". Ele nao renova o
- * QR: a renovacao automatica depende de resposta do provedor (secao 2.1 da
- * solicitacao) e ate la quem renova e o operador, no botao.
+ * Os 5s sao do polling de ESTADO, que so pergunta "ja pareou?". Quem renova o QR
+ * e o temporizador de `RENOVACAO_QR_MS`, na tela — sao dois relogios com
+ * perguntas diferentes.
  */
 function usePollingDePareamento(ativo: boolean) {
   const router = useRouter();
@@ -105,8 +125,39 @@ export function WhatsAppScreen({ action, connection, initialState, podeGerir }: 
   // um QR velho sobreviver ao logout.
   const qrDaAcao = state.kind === "success" ? state.qrcode ?? null : null;
   const qrcode = useQrVigente(qrDaAcao);
+  const [renovacoes, setRenovacoes] = useState(0);
 
   usePollingDePareamento(qrcode !== null && !conectada);
+
+  // `!pendente` e o DEBOUNCE, nao economia: os mapas de client do provedor nao
+  // tem lock, e disparar `connect`/`logout`/`qr` em paralelo para a mesma
+  // instancia e race documentada por eles (resposta de 2026-09-04, secao 4). O
+  // botao ja fica desabilitado por `pendente`; aqui a renovacao respeita a mesma
+  // regra, entao clique e temporizador nunca se atropelam.
+  const renovacaoAtiva = qrcode !== null && !conectada && !pendente && renovacoes < RENOVACOES_AUTOMATICAS;
+
+  // Efeito no corpo do componente, e nao num hook proprio: um hook receberia a
+  // funcao de renovar como prop instavel, e o efeito reiniciaria o temporizador
+  // a cada render — que nunca chegaria aos 20s. `formAction` vem do
+  // `useActionState` e e estavel; `qrcode` na lista faz cada QR novo ganhar o
+  // seu proprio prazo.
+  useEffect(() => {
+    if (!renovacaoAtiva) return;
+    const id = setTimeout(() => {
+      setRenovacoes((feitas) => feitas + 1);
+      const dados = new FormData();
+      dados.set("intent", "conectar");
+      formAction(dados);
+    }, RENOVACAO_QR_MS);
+    return () => clearTimeout(id);
+  }, [renovacaoAtiva, qrcode, formAction]);
+
+  // O clique devolve o orcamento inteiro: e o operador dizendo que ainda esta na
+  // frente da tela, que e exatamente o que o limite tenta descobrir.
+  const acaoDoOperador = (dados: FormData) => {
+    setRenovacoes(0);
+    formAction(dados);
+  };
 
   return (
     <section className="grid gap-5">
@@ -131,7 +182,7 @@ export function WhatsAppScreen({ action, connection, initialState, podeGerir }: 
           </div>
           <Aviso state={state} />
           {podeGerir ? (
-            <form action={formAction}>
+            <form action={acaoDoOperador}>
               <input name="intent" type="hidden" value="desconectar" />
               <Button disabled={pendente} type="submit" variant="outline">
                 {pendente ? "Desconectando..." : "Desconectar"}
@@ -160,13 +211,15 @@ export function WhatsAppScreen({ action, connection, initialState, podeGerir }: 
               <Image alt="QR code para parear o WhatsApp" className="rounded-md border border-border bg-white p-2" height={264} src={qrcode} unoptimized width={264} />
               <p className="text-xs text-muted-foreground">
                 Abra o WhatsApp no aparelho, va em Aparelhos conectados e aponte a camera.
-                O codigo expira em segundos — se passar do tempo, gere outro.
+                {renovacaoAtiva || pendente
+                  ? " O codigo se renova sozinho enquanto esta tela estiver aberta."
+                  : " O codigo pode ter expirado — toque em Gerar novo QR."}
               </p>
             </div>
           ) : null}
 
           {podeGerir ? (
-            <form action={formAction}>
+            <form action={acaoDoOperador}>
               <input name="intent" type="hidden" value="conectar" />
               <Button disabled={pendente} type="submit">
                 {pendente ? "Gerando QR..." : qrcode ? "Gerar novo QR" : "Conectar WhatsApp"}

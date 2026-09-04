@@ -539,6 +539,19 @@ class EvolutionInstanciaClient:
         # 2xx exigido: um redirect aceito como sucesso marcaria a conexao como
         # desfeita enquanto a instancia continua pareada no provedor.
         if not resposta.is_success:
+            # `400` e como o provedor diz "ja estava desconectada" (verificado por
+            # LEITURA DO CODIGO-FONTE deles em 2026-09-04, resposta ao nosso
+            # esclarecimento): o fluxo passa por `ensureClientConnected`, que
+            # responde `400` com "no active session found" ou "client
+            # disconnected". Nunca `2xx`. Sem este ramo, a SEGUNDA desconexao
+            # falha — e falhava, defeito ativo em producao.
+            #
+            # Nao filtramos pelo texto, ao contrario de `MARCADOR_AUSENTE` na
+            # exclusao: recomendacao deles, a mensagem exata depende do timing da
+            # autocura interna. E aqui casar pelo status e seguro porque `400` da
+            # rota so tem esse significado — nao ha payload para ser invalido.
+            if resposta.status_code == 400:
+                return
             detalhe = _mensagem_do_provedor(resposta)
             sufixo = f": {detalhe}" if detalhe else ""
             mensagem = f"/instance/logout respondeu {resposta.status_code}{sufixo}"
