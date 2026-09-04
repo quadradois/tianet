@@ -699,3 +699,105 @@ class ExcluirConexaoWhatsApp:
             nome_exibicao=None,
             numero=None,
         )
+
+
+@dataclass(frozen=True)
+class QuedaDeConexao:
+    """Transicao de pareado para nao pareado, observada pela varredura."""
+
+    tenant_id: uuid.UUID
+    instancia_id: str
+    numero_anterior: str | None
+
+
+class SincronizarConexoesWhatsApp:
+    """Varre as conexoes conhecidas, grava o pareamento e devolve as quedas.
+
+    **Por que existe (IMP-370).** O selo da barra lateral le o BANCO, nao o
+    provedor — uma leitura ao vivo por pagina aberta seria uma chamada externa
+    por navegacao. Mas o banco so era atualizado quando alguem abria a tela de
+    conexao, entao o selo podia ficar verde por dias depois de o WhatsApp cair no
+    celular.
+
+    Esta varredura fecha o buraco: o worker pergunta ao provedor de tempos em
+    tempos e grava. O selo fica fresco sem custo por pagina.
+
+    **O que e gravado, e o que nao e.** So o pareamento — `pareada` e o numero.
+    O campo `conectado` (socket aberto) NAO e persistido: ele esta desatualizado
+    no instante seguinte, e guarda-lo criaria um dado que mente com cara de fato.
+    A distincao vem do proprio provedor, que usa o mesmo nome com dois
+    significados conforme o endpoint.
+
+    **Falha de um Tenant nao derruba a varredura.** O erro e registrado na
+    trilha e o laco segue: um provedor fora do ar para um Tenant nao pode impedir
+    que os outros sejam atualizados. Com um Tenant so (ADR-003) isso e teoria,
+    mas o laco ja nasce com a forma certa.
+    """
+
+    def __init__(
+        self,
+        uow_factory: Callable[[], UnitOfWork],
+        provedor: ProvedorWhatsApp,
+        auditoria: AuditoriaRegistro,
+    ) -> None:
+        self._uow_factory = uow_factory
+        self._provedor = provedor
+        self._auditoria = auditoria
+
+    def executar(self) -> list[QuedaDeConexao]:
+        with self._uow_factory() as uow:
+            tenant_ids = [tenant.id for tenant in uow.tenant.find_all()]
+
+        quedas: list[QuedaDeConexao] = []
+        for tenant_id in tenant_ids:
+            queda = self._sincronizar_tenant(tenant_id)
+            if queda is not None:
+                quedas.append(queda)
+        return quedas
+
+    def _sincronizar_tenant(self, tenant_id: uuid.UUID) -> QuedaDeConexao | None:
+        try:
+            with self._uow_factory() as uow:
+                # Mesmo lock do caminho da tela: sem ele, a varredura e um
+                # `connect` do operador podem gravar por cima um do outro.
+                uow.conexao_whatsapp.bloquear_tenant(tenant_id)
+                conexao = uow.conexao_whatsapp.find_by_tenant_id(tenant_id)
+                if conexao is None:
+                    return None
+                token = uow.conexao_whatsapp.find_token(tenant_id)
+                if token is None:
+                    # Registro orfao: existe e nao fala com o provedor. A tela
+                    # nomeia isso como erro; aqui a varredura apenas pula, porque
+                    # derrubar o ciclo do worker por um registro torto seria pior.
+                    return None
+                estava_pareada = conexao.pareada
+                numero_anterior = conexao.numero_pareado
+                atualizada, estado, mudou = _sincronizar(uow, conexao, token, self._provedor)
+                uow.commit()
+        except Exception as exc:  # noqa: BLE001 — traduzido em trilha, nao propagado
+            self._auditoria.registrar(
+                ENTIDADE_AUDITORIA,
+                None,
+                "varredura.falha",
+                "falha",
+                # Sem autoria: a varredura e do worker, nao de um usuario.
+                detalhes=_detalhes({}, tenant_id=str(tenant_id), erro=type(exc).__name__),
+            )
+            return None
+
+        if mudou:
+            self._auditoria.registrar(
+                ENTIDADE_AUDITORIA,
+                atualizada.id,
+                "varredura.pareamento" if atualizada.pareada else "varredura.desparelhamento",
+                "sucesso",
+                detalhes=_detalhes({}, instancia_id=atualizada.instancia_id),
+            )
+
+        if estava_pareada and not estado.pareado:
+            return QuedaDeConexao(
+                tenant_id=tenant_id,
+                instancia_id=atualizada.instancia_id,
+                numero_anterior=numero_anterior,
+            )
+        return None
