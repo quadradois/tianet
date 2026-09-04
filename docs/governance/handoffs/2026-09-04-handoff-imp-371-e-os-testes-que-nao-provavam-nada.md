@@ -203,10 +203,40 @@ Itens pequenos que podem entrar em qualquer janela: auditar o campo `connected`,
 refazer as 44 evidências que o selo desatualizou, e decidir se `gate:full`
 deveria parar de terminar em `test:harness`.
 
+## 8.1 — Âncoras do IMP-370, levantadas em 2026-09-04
+
+Levantadas ao fechar o IMP-371, para a sessão que executar não gastar a primeira
+hora procurando. **Nenhuma decisão foi tomada aqui** — só a leitura do terreno.
+
+**Onde o ambiente ganha hoje:** `src/emprestimo/worker/scheduler_worker.py:336`
+lê `EVOLUTION_INSTANCE_TOKEN` e, na falta dele, exige ambiente que não seja
+produção. É esse ponto que a precedência do PLAN-034 §4.5 preserva.
+
+**A leitura pelo repositório já existe:** `find_token(tenant_id)` está no
+contrato (`src/emprestimo/domain/platform/ports.py:128`) e é usado pelo
+`_garantir_instancia`. Não precisa nascer nada novo para ler.
+
+**A dobra que vai aparecer, e é de desenho:** o
+`EvolutionWhatsAppNotificationChannel` recebe o `instance_token` **no
+construtor** (`infrastructure/notifications/whatsapp.py:16`), e o worker monta
+**um canal só, na subida**. O token do repositório é dado por Tenant, e só
+existe dentro de uma UoW — então lê-lo de lá exige resolver o token **por envio**
+(ou construir o canal preguiçosamente), e não mais uma vez no bootstrap. Essa é
+a decisão de desenho do item, e ela não estava escrita em lugar nenhum.
+
+**Para gravar o estado:** `_sincronizar`
+(`src/emprestimo/application/conexao_whatsapp.py:173`) é o que o `GET` de estado
+usa hoje, e ele **vai ao provedor toda vez** — o pareamento vem de leitura, nunca
+de inferência local. É exatamente aqui que o caveat do campo `connected` morde:
+`/instance/status` diz socket aberto, `/instance/all` e `/instance/get` dizem
+autenticado. Reaproveitar `_sincronizar` herda a semântica certa; escrever uma
+leitura nova é onde alguém erra.
+
 ---
 
 # 9. Historico de Versoes
 
 | Versao | Data | Descricao |
 |---|---|---|
+| 1.1.0 | 2026-09-04 | Acrescenta a §8.1 com as ancoras do IMP-370, levantadas a pedido do fundador antes de abrir a sessao nova. A que valeu a checagem: o canal do WhatsApp recebe o token NO CONSTRUTOR e o worker monta um canal so na subida — ler o token do repositorio, que e dado por Tenant dentro de uma UoW, exige resolve-lo por envio. E decisao de desenho do item, e nao estava escrita em lugar nenhum. |
 | 1.0.0 | 2026-09-04 | IMP-371 entregue e mergeado em `cc54ced`, com CI verde no commit de merge. Tres rodadas adversariais do Codex, todas REFUTADO, treze achados acatados. O dia foi decidido por uma mutacao: removi uma guarda de proposito e o teste que deveria protege-la continuou verde — o que revelou que o `!pendente` faz uma coisa que eu nao sabia. Duas jornadas Playwright derrubaram uma decisao de engenharia que parecia mais segura e custava 20s ao operador. E o gate achou tres defeitos que nenhuma rodada de review achou. |
