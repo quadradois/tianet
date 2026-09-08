@@ -19,6 +19,31 @@ async function assertNoToken(page: Page, context: BrowserContext) {
   expect((await context.cookies()).every((cookie) => cookie.httpOnly)).toBe(true);
 }
 
+async function prepareEvidenceScreenshot(page: Page) {
+  await expect(page.locator(`[role="status"][aria-label^="loading"], [role="status"][aria-label^="Carregando"]`)).toHaveCount(0);
+  await page.evaluate(async () => {
+    if (document.activeElement instanceof HTMLElement) document.activeElement.blur();
+    const FIXED_UUID = "00000000-0000-4000-8000-00000000evid";
+    const uuidRegex = new RegExp("[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}", "gi");
+    const corrRegex = /Correlation ID:\s*corr-[A-Za-z0-9._:-]+/g;
+    const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
+    const nodes: Text[] = [];
+    let current = walker.nextNode();
+    while (current) {
+      nodes.push(current as Text);
+      current = walker.nextNode();
+    }
+    for (const textNode of nodes) {
+      const original = textNode.data;
+      const normalized = original.replace(uuidRegex, FIXED_UUID).replace(corrRegex, "Correlation ID: corr-evidence-290");
+      if (normalized !== original) textNode.data = normalized;
+    }
+    await document.fonts.ready;
+    window.scrollTo(0, 0);
+    await new Promise<void>((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve())));
+  });
+}
+
 test.beforeEach(async ({ page }) => {
   page.on("console", (message) => { if (message.type() === "error") throw new Error(`console error: ${message.text()}`); });
   page.on("pageerror", (error) => { throw error; });
@@ -39,7 +64,8 @@ test("login compoe o Dashboard completo sem expor token ou backend ao browser", 
   expect(await page.getByRole("link").evaluateAll((links) => links.map((link) => link.getAttribute("href")))).not.toEqual(expect.arrayContaining(["/devedores", "/comercial", "/contratos"]));
   expect(await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)).toBeLessThanOrEqual(0);
   const suffix = testInfo.project.name.startsWith("mobile") ? "mobile" : "desktop";
-  await page.screenshot({ animations: "disabled", caret: "initial", fullPage: false, path: resolve(`../docs/audits/evidence/frontend-mvp-imp-290-dashboard-${suffix}.png`) });
+  await prepareEvidenceScreenshot(page);
+  await page.screenshot({ animations: "disabled", caret: "hide", fullPage: false, path: resolve(`../docs/audits/evidence/frontend-mvp-imp-290-dashboard-${suffix}.png`) });
 });
 
 test("RBAC parcial e perfil nulo nao disparam navegacao ou dados indevidos", async ({ page }) => {
@@ -76,7 +102,8 @@ test("isola falhas por secao, preserva 404 neutro e captura estados dark", async
   const collection = page.getByRole("region", { name: "Fila de cobranca" });
   if (await collection.count()) await expect(collection).toBeVisible();
   const suffix = testInfo.project.name.startsWith("mobile") ? "mobile" : "desktop";
-  await page.screenshot({ animations: "disabled", caret: "initial", fullPage: false, path: resolve(`../docs/audits/evidence/frontend-mvp-imp-290-dashboard-states-${suffix}.png`) });
+  await prepareEvidenceScreenshot(page);
+  await page.screenshot({ animations: "disabled", caret: "hide", fullPage: false, path: resolve(`../docs/audits/evidence/frontend-mvp-imp-290-dashboard-states-${suffix}.png`) });
   await page.getByRole("button", { name: "Sair" }).click();
   await login(page, "NAO-ENCONTRADO");
   await expect(page.getByText("Dados nao encontrados ou indisponiveis.")).toBeVisible();

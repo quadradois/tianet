@@ -52,10 +52,53 @@ function isContextTenant(value: unknown): value is OperationalContext["tenant"] 
     && value.identificador_institucional.length > 0;
 }
 
+const RFC_3339_DATE_TIME_PATTERN = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})(\.\d{1,9})?(Z|[+-]\d{2}:\d{2})$/;
+
+function isLeapYear(year: number): boolean {
+  return year % 4 === 0 && (year % 100 !== 0 || year % 400 === 0);
+}
+
+function daysInMonth(year: number, month: number): number {
+  if (month === 2) return isLeapYear(year) ? 29 : 28;
+  if (month === 4 || month === 6 || month === 9 || month === 11) return 30;
+  return 31;
+}
+
+// RFC 3339 estrito e calendariamente valido: exige segundos e offset com
+// dois-pontos; `Date.parse` sozinho aceita 2026-02-30 (transborda para marco),
+// por isso conferimos dia/mes/ano e faixas de hora e offset antes de aceitar.
+function isValidIsoDateTime(value: string): boolean {
+  const match = RFC_3339_DATE_TIME_PATTERN.exec(value);
+  if (!match) return false;
+  const year = Number(match[1]);
+  const month = Number(match[2]);
+  const day = Number(match[3]);
+  const hour = Number(match[4]);
+  const minute = Number(match[5]);
+  const second = Number(match[6]);
+  const timeZone = match[8] ?? "";
+  if (month < 1 || month > 12) return false;
+  if (day < 1 || day > daysInMonth(year, month)) return false;
+  if (hour > 23 || minute > 59 || second > 59) return false;
+  if (timeZone !== "Z") {
+    const offsetHour = Number(timeZone.slice(1, 3));
+    const offsetMinute = Number(timeZone.slice(4, 6));
+    if (offsetHour > 23 || offsetMinute > 59) return false;
+  }
+  return !Number.isNaN(Date.parse(value));
+}
+
 function isContextWhatsApp(value: unknown): value is OperationalContext["whatsapp"] {
-  return isRecord(value)
-    && typeof value.pareada === "boolean"
-    && (value.numero === null || value.numero === undefined || typeof value.numero === "string");
+  if (!isRecord(value)) return false;
+  if (typeof value.pareada !== "boolean") return false;
+  if (!(value.numero === null || value.numero === undefined || typeof value.numero === "string")) return false;
+  // Alerta de queda (IMP-370): os dois campos sao obrigatorios e consistentes
+  // entre si — ativo exige timestamp ISO date-time valido, inativo exige null.
+  if (typeof value.alerta_queda_ativa !== "boolean") return false;
+  if (value.alerta_queda_ativa) {
+    return typeof value.queda_detectada_em === "string" && isValidIsoDateTime(value.queda_detectada_em);
+  }
+  return value.queda_detectada_em === null;
 }
 
 export function isOperationalContext(value: unknown): value is OperationalContext {

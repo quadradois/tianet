@@ -26,15 +26,39 @@ async function assertNoToken(page: Page, context: BrowserContext) {
 }
 
 async function prepareEvidenceScreenshot(page: Page) {
-  await page.evaluate(() => {
+  await expect(page.locator(`[role="status"][aria-label^="loading"], [role="status"][aria-label^="Carregando"]`)).toHaveCount(0);
+  await page.evaluate(async () => {
     if (document.activeElement instanceof HTMLElement) document.activeElement.blur();
     const previous = document.querySelector("[data-evidence-stabilizer='motor']");
     previous?.remove();
     const style = document.createElement("style");
     style.dataset.evidenceStabilizer = "motor";
-    style.textContent = "[aria-live='polite'] { visibility: hidden !important; }";
+    style.textContent = "html, body, * { scroll-behavior: auto !important; } [aria-live='polite'] { visibility: hidden !important; } input[data-evidence-uuid='true'] { font-family: ui-monospace, SFMono-Regular, Menlo, monospace !important; font-size: 10px !important; font-style: normal !important; font-weight: 400 !important; letter-spacing: 0px !important; line-height: 1.4 !important; box-sizing: border-box !important; width: 100% !important; max-width: 100% !important; overflow: visible !important; text-overflow: clip !important; }";
     document.head.appendChild(style);
-    window.scrollTo(0, 0);
+    const zeroScroll = () => {
+      window.scrollTo(0, 0);
+      document.documentElement.scrollLeft = 0;
+      document.documentElement.scrollTop = 0;
+      if (document.body) {
+        document.body.scrollLeft = 0;
+        document.body.scrollTop = 0;
+      }
+      for (const el of Array.from(document.querySelectorAll("main, div, section, article, aside, input, textarea, select, [role='region'], [role='dialog']"))) {
+        const element = el as HTMLElement;
+        if (element.scrollLeft !== 0) element.scrollLeft = 0;
+        if (element.scrollTop !== 0) element.scrollTop = 0;
+        if (element instanceof HTMLInputElement || element instanceof HTMLTextAreaElement) {
+          try {
+            if (element.selectionStart !== null && element.selectionEnd !== null) {
+              if (element.selectionStart !== 0 || element.selectionEnd !== 0) element.setSelectionRange(0, 0);
+            }
+          } catch {
+            // Tipos de input sem suporte a selecao (number, checkbox, etc.): ignora.
+          }
+        }
+      }
+    };
+    zeroScroll();
     // Congela o Correlation ID: e um UUID novo a cada requisicao. Mesmo dentro
     // da regiao escondida por `visibility: hidden` ele desestabiliza a captura,
     // porque a regiao continua ocupando layout e glifos diferentes quebram a
@@ -43,14 +67,31 @@ async function prepareEvidenceScreenshot(page: Page) {
     // Substitui o UUID **dentro** do texto, e nao apenas o no que seja so o
     // UUID: neste modulo o identificador vem concatenado na mesma string da
     // mensagem, e a versao anterior desta regra nao o alcancava.
-    const UUID = /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/gi;
+    const FIXED_UUID = "00000000-0000-4000-8000-00000000evid";
+    const uuidRegex = new RegExp("[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}", "gi");
+    const corrRegex = /Correlation ID:\s*corr-[A-Za-z0-9._:-]+/g;
     const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
-    for (let node = walker.nextNode(); node; node = walker.nextNode()) {
-      const value = node.nodeValue ?? "";
-      if (value.includes("Correlation ID") || UUID.test(value)) {
-        node.nodeValue = value.replace(UUID, "00000000-0000-4000-8000-00000000evid");
+    const nodes: Text[] = [];
+    let current = walker.nextNode();
+    while (current) {
+      nodes.push(current as Text);
+      current = walker.nextNode();
+    }
+    for (const textNode of nodes) {
+      const original = textNode.data;
+      const normalized = original.replace(uuidRegex, FIXED_UUID).replace(corrRegex, "Correlation ID: corr-evidence-294");
+      if (normalized !== original) textNode.data = normalized;
+    }
+    for (const input of Array.from(document.querySelectorAll("input"))) {
+      const element = input as HTMLInputElement;
+      if (/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(element.value)) {
+        element.dataset.evidenceUuid = "true";
       }
     }
+    await document.fonts.ready;
+    await new Promise<void>((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve())));
+    zeroScroll();
+    if (window.scrollX !== 0 || window.scrollY !== 0) throw new Error(`evidence scroll not zeroed: ${window.scrollX},${window.scrollY}`);
   });
 }
 
@@ -93,7 +134,7 @@ test("lista Emprestimos e cria Emprestimo a partir de Contrato liberado sem Cart
   expect(requests.every((url) => !url.startsWith("http://127.0.0.1:3206"))).toBe(true);
   const suffix = testInfo.project.name.startsWith("mobile") ? "motor-list-mobile" : "motor-list-desktop";
   await prepareEvidenceScreenshot(page);
-  await page.screenshot({ animations: "disabled", caret: "initial", fullPage: false, path: resolve(`../docs/audits/evidence/frontend-mvp-imp-294-${suffix}.png`) });
+  await page.screenshot({ animations: "disabled", caret: "hide", fullPage: false, path: resolve(`../docs/audits/evidence/frontend-mvp-imp-294-${suffix}.png`) });
 });
 
 test("consulta detalhe, parcelas, saldo, memoria, pagamento e quitacao sem recalculo local", async ({ page, context }, testInfo) => {
@@ -126,7 +167,7 @@ test("consulta detalhe, parcelas, saldo, memoria, pagamento e quitacao sem recal
   await assertNoToken(page, context);
   const suffix = testInfo.project.name.startsWith("mobile") ? "pagamento-flow-mobile" : "emprestimo-detail-desktop";
   await prepareEvidenceScreenshot(page);
-  await page.screenshot({ animations: "disabled", caret: "initial", fullPage: false, path: resolve(`../docs/audits/evidence/frontend-mvp-imp-294-${suffix}.png`) });
+  await page.screenshot({ animations: "disabled", caret: "hide", fullPage: false, path: resolve(`../docs/audits/evidence/frontend-mvp-imp-294-${suffix}.png`) });
 });
 
 test("RBAC, empty, 404, 409, 5xx e estados permanecem seguros", async ({ page }) => {

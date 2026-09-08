@@ -81,6 +81,33 @@ test("5xx mostra estado seguro e correlation sem detalhe interno", async ({ page
   await expect(page.getByText(/stack secreta/)).toHaveCount(0);
 });
 
+test("queda ativa exibe banner global persistente com link e sem dispensa", async ({ page }) => {
+  await login(page, "QUEDA");
+  await expect(page).toHaveURL(/\/app\?data_referencia=\d{4}-\d{2}-\d{2}$/);
+  const banner = page.getByRole("alert").filter({ hasText: "Conexão do WhatsApp caiu" });
+  await expect(banner).toBeVisible();
+  await expect(banner).toContainText("Conexão do WhatsApp caiu");
+  await expect(banner).toContainText("Queda detectada em");
+  const link = page.getByRole("link", { name: "Abrir conexão do WhatsApp" });
+  await expect(link).toHaveAttribute("href", "/app/whatsapp");
+  await expect(banner.locator("button")).toHaveCount(0);
+  // O selo conserva sua funcao atual mesmo com o banner visivel.
+  await expect(page.getByText("WhatsApp nao conectado")).toBeVisible();
+  // Navegacao por teclado: foco e ativacao sem mouse levam a conexao.
+  await link.focus();
+  await expect(link).toBeFocused();
+  await page.keyboard.press("Enter");
+  await expect(page).toHaveURL(/\/app\/whatsapp$/);
+  // O banner persiste na pagina autenticada seguinte ate a reconexao.
+  await expect(page.getByText("Conexão do WhatsApp caiu")).toBeVisible();
+});
+
+test("sem queda nao ha banner global", async ({ page }) => {
+  await login(page);
+  await expect(page).toHaveURL(/\/app\?data_referencia=\d{4}-\d{2}-\d{2}$/);
+  await expect(page.getByRole("alert").filter({ hasText: "Conexão do WhatsApp caiu" })).toHaveCount(0);
+});
+
 test("404 permanece neutro", async ({ page }) => {
   await page.goto("/recurso-inexistente-289");
   await expect(page.getByRole("heading", { name: "Conteudo indisponivel" })).toBeVisible();

@@ -7,6 +7,7 @@ import { SHELL_NAVIGATION, visibleNavigationItems } from "../../lib/shell/naviga
 import { ContextSummary } from "./context-summary";
 import { Navigation } from "./navigation";
 import { WhatsAppBadge } from "./whatsapp-badge";
+import { WhatsAppDisconnectionAlert } from "./whatsapp-disconnection-alert";
 
 type AppShellProps = Readonly<{ children: ReactNode; context: OperationalContext }>;
 
@@ -23,6 +24,9 @@ export function AppShell({ children, context }: AppShellProps) {
           <LogoutButton />
         </div>
       </header>
+      {/* Banner global de queda (IMP-370): em TODA pagina autenticada enquanto
+          o contexto indicar alerta ativo; some sozinho na reconexao. */}
+      <WhatsAppDisconnectionAlert whatsapp={context.whatsapp} />
       <div className="mx-auto grid w-full max-w-(--size-content) gap-5 px-5 py-6 sm:px-8 lg:grid-cols-[15rem_minmax(0,1fr)] lg:px-10 lg:py-8">
         <aside className="grid content-start gap-5 rounded-xl border border-border bg-background p-4 shadow-sm">
           <ContextSummary context={context} />

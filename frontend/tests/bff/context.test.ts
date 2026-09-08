@@ -44,7 +44,7 @@ const operationalContext = {
   permissoes: [],
   tenant: { id: "tenant-1", identificador_institucional: "ACME", nome: "Instituicao ACME" },
   usuario: { email: "user@example.test", id: "user-1", nome: "Operador" },
-  whatsapp: { numero: null, pareada: false },
+  whatsapp: { alerta_queda_ativa: false, numero: null, pareada: false, queda_detectada_em: null },
 };
 
 class MemoryCookies implements CookieStore {
@@ -214,6 +214,64 @@ describe("contexto operacional server-side", () => {
     const response = await handleContextBootstrap(bootstrapRequest("http://hostil.invalid"), cookies, dependencies(backend, selectedConfig));
     expect(response.status).toBe(403);
     expect(backend).not.toHaveBeenCalled();
+  });
+
+  it("aceita alerta de queda ativo somente com timestamp ISO date-time valido", async () => {
+    const selectedConfig = config();
+    const cookies = await cookiesWithSession(selectedConfig);
+    for (const queda_detectada_em of [
+      "2026-09-08T12:00:00.000Z",
+      "2026-09-08T09:00:00-03:00",
+      "2026-09-08T09:00:00.123456789-03:00",
+      "2024-02-29T12:00:00Z",
+    ]) {
+      const ativo = {
+        ...operationalContext,
+        whatsapp: { alerta_queda_ativa: true, numero: null, pareada: false, queda_detectada_em },
+      };
+      const backend: FetchLike = async () => Response.json(ativo);
+      await expect(loadOperationalContext(cookies, dependencies(backend, selectedConfig), CORRELATION)).resolves.toEqual(ativo);
+    }
+  });
+
+  it("rejeita alerta de queda inconsistente, mal tipado ou com data invalida", async () => {
+    const selectedConfig = config();
+    const cookies = await cookiesWithSession(selectedConfig);
+    const inconsistentes: unknown[] = [
+      // Ativo exige timestamp: null nao e queda datada.
+      { alerta_queda_ativa: true, numero: null, pareada: false, queda_detectada_em: null },
+      // Inativo exige null: timestamp com alerta apagado e contradicao.
+      { alerta_queda_ativa: false, numero: null, pareada: false, queda_detectada_em: "2026-09-08T12:00:00.000Z" },
+      // Tipos errados.
+      { alerta_queda_ativa: "true", numero: null, pareada: false, queda_detectada_em: null },
+      { alerta_queda_ativa: false, numero: null, pareada: false, queda_detectada_em: 123 },
+      // Data invalida ou fora do ISO date-time.
+      { alerta_queda_ativa: true, numero: null, pareada: false, queda_detectada_em: "08/09/2026" },
+      { alerta_queda_ativa: true, numero: null, pareada: false, queda_detectada_em: "2026-09-08" },
+      { alerta_queda_ativa: true, numero: null, pareada: false, queda_detectada_em: "2026-13-40T99:99:99Z" },
+      { alerta_queda_ativa: true, numero: null, pareada: false, queda_detectada_em: "nao-uma-data" },
+      // Calendariamente impossivel: Date.parse transborda fev/30 para marco.
+      { alerta_queda_ativa: true, numero: null, pareada: false, queda_detectada_em: "2026-02-30T12:00:00Z" },
+      // 2026 nao e bissexto: 29 de fevereiro nao existe.
+      { alerta_queda_ativa: true, numero: null, pareada: false, queda_detectada_em: "2026-02-29T12:00:00Z" },
+      // Abril tem 30 dias.
+      { alerta_queda_ativa: true, numero: null, pareada: false, queda_detectada_em: "2026-04-31T12:00:00Z" },
+      // Segundos obrigatorios no RFC 3339 estrito.
+      { alerta_queda_ativa: true, numero: null, pareada: false, queda_detectada_em: "2026-09-08T12:00Z" },
+      // Offset exige dois-pontos.
+      { alerta_queda_ativa: true, numero: null, pareada: false, queda_detectada_em: "2026-09-08T12:00:00+0300" },
+      // Faixas de hora e offset.
+      { alerta_queda_ativa: true, numero: null, pareada: false, queda_detectada_em: "2026-09-08T24:00:00Z" },
+      { alerta_queda_ativa: true, numero: null, pareada: false, queda_detectada_em: "2026-09-08T12:00:00+24:00" },
+      // Campos obrigatorios ausentes nao podem passar como inativos.
+      { numero: null, pareada: false, queda_detectada_em: null },
+      { alerta_queda_ativa: false, numero: null, pareada: false },
+    ];
+    for (const whatsapp of inconsistentes) {
+      const backend: FetchLike = async () => Response.json({ ...operationalContext, whatsapp });
+      await expect(loadOperationalContext(cookies, dependencies(backend, selectedConfig), CORRELATION))
+        .rejects.toMatchObject({ status: 502, codigo: "resposta_backend_invalida" });
+    }
   });
 
   it("sem cookie produz 401 seguro", async () => {

@@ -19,6 +19,53 @@ async function gotoCobranca(page: Page) {
   await expect(page.getByRole("heading", { name: "Fila de cobranca" })).toBeVisible();
 }
 
+async function prepareEvidenceScreenshot(page: Page) {
+  await expect(page.locator(`[role="status"][aria-label^="loading"], [role="status"][aria-label^="Carregando"]`)).toHaveCount(0);
+  await page.evaluate(async () => {
+    if (document.activeElement instanceof HTMLElement) document.activeElement.blur();
+    const previous = document.querySelector("[data-evidence-stabilizer='cobranca']");
+    previous?.remove();
+    const style = document.createElement("style");
+    style.dataset.evidenceStabilizer = "cobranca";
+    style.textContent = "html, body, * { scroll-behavior: auto !important; } [aria-live='polite'] { visibility: hidden !important; }";
+    document.head.appendChild(style);
+    const zeroScroll = () => {
+      window.scrollTo(0, 0);
+      document.documentElement.scrollLeft = 0;
+      document.documentElement.scrollTop = 0;
+      if (document.body) {
+        document.body.scrollLeft = 0;
+        document.body.scrollTop = 0;
+      }
+      for (const el of Array.from(document.querySelectorAll("main, div, section, article, aside, [role='region'], [role='dialog']"))) {
+        const element = el as HTMLElement;
+        if (element.scrollLeft !== 0) element.scrollLeft = 0;
+        if (element.scrollTop !== 0) element.scrollTop = 0;
+      }
+    };
+    zeroScroll();
+    const FIXED_UUID = "00000000-0000-4000-8000-00000000evid";
+    const uuidRegex = new RegExp("[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}", "gi");
+    const corrRegex = /Correlation ID:\s*corr-[A-Za-z0-9._:-]+/g;
+    const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
+    const nodes: Text[] = [];
+    let current = walker.nextNode();
+    while (current) {
+      nodes.push(current as Text);
+      current = walker.nextNode();
+    }
+    for (const textNode of nodes) {
+      const original = textNode.data;
+      const normalized = original.replace(uuidRegex, FIXED_UUID).replace(corrRegex, "Correlation ID: corr-evidence-295");
+      if (normalized !== original) textNode.data = normalized;
+    }
+    await document.fonts.ready;
+    await new Promise<void>((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve())));
+    zeroScroll();
+    if (window.scrollX !== 0 || window.scrollY !== 0) throw new Error(`evidence scroll not zeroed: ${window.scrollX},${window.scrollY}`);
+  });
+}
+
 test("renderiza fila de cobranca e captura desktop/mobile", async ({ page }, testInfo) => {
   await login(page, "ACME");
   await gotoCobranca(page);
@@ -26,7 +73,8 @@ test("renderiza fila de cobranca e captura desktop/mobile", async ({ page }, tes
   await expect(page.getByText("R$ 1.010,00").first()).toBeVisible();
   await expect(page.getByText(/Registre o contato feito/i).first()).toBeVisible();
   const suffix = testInfo.project.name.includes("mobile") ? "cobranca-list-mobile" : "cobranca-list-desktop";
-  await page.screenshot({ animations: "disabled", caret: "initial", fullPage: false, path: resolve(`../docs/audits/evidence/frontend-mvp-imp-295-${suffix}.png`) });
+  await prepareEvidenceScreenshot(page);
+  await page.screenshot({ animations: "disabled", caret: "hide", fullPage: false, path: resolve(`../docs/audits/evidence/frontend-mvp-imp-295-${suffix}.png`) });
 });
 
 test("executa acao, promessa e apropriacao idempotentes", async ({ page }, testInfo) => {
@@ -44,7 +92,8 @@ test("executa acao, promessa e apropriacao idempotentes", async ({ page }, testI
   await page.getByRole("button", { name: "Conciliar pagamento" }).first().click();
   await expect(page.getByText("Pagamento oficial apropriado a promessa.")).toBeVisible();
   const suffix = testInfo.project.name.includes("mobile") ? "cobranca-promessa-mobile" : "cobranca-action-desktop";
-  await page.screenshot({ animations: "disabled", caret: "initial", fullPage: false, path: resolve(`../docs/audits/evidence/frontend-mvp-imp-295-${suffix}.png`) });
+  await prepareEvidenceScreenshot(page);
+  await page.screenshot({ animations: "disabled", caret: "hide", fullPage: false, path: resolve(`../docs/audits/evidence/frontend-mvp-imp-295-${suffix}.png`) });
 });
 
 test("observa denied, empty, 404 e 5xx sem vazar detalhe backend", async ({ page }) => {

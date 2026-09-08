@@ -33,7 +33,7 @@ describe("Motor OpenAPI consumido pelo frontend", () => {
     const operationCount = Object.values(spec.paths).flatMap((item) => Object.keys(item).filter((method) => ["get", "post", "patch", "put", "delete"].includes(method))).length;
     expect(operationCount).toBe(111);
     expect(Object.keys(spec.components.schemas)).toHaveLength(138);
-    expect(createHash("sha256").update(raw).digest("hex")).toBe("662ad947ed4de59e8d4d47d597ea450091d5ff6966a15b67ee1953386418f84f");
+    expect(createHash("sha256").update(raw).digest("hex")).toBe("85187bd7ef7fb4f29540fc3afd21addbcdd48980656f0617ddce47ce8f23cbcf");
   });
 
   it("certifica as 9 operacoes oficiais do Motor e Idempotency-Key exata", () => {

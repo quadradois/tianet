@@ -26,15 +26,49 @@ async function assertNoToken(page: Page, context: BrowserContext) {
 }
 
 async function prepareEvidenceScreenshot(page: Page) {
-  await page.evaluate(() => {
+  await expect(page.locator(`[role="status"][aria-label^="loading"], [role="status"][aria-label^="Carregando"]`)).toHaveCount(0);
+  await page.evaluate(async () => {
     if (document.activeElement instanceof HTMLElement) document.activeElement.blur();
     const previous = document.querySelector("[data-evidence-stabilizer='contratos']");
     previous?.remove();
     const style = document.createElement("style");
     style.dataset.evidenceStabilizer = "contratos";
-    style.textContent = "[aria-live='polite'] { visibility: hidden !important; }";
+    style.textContent = "html, body, * { scroll-behavior: auto !important; } [aria-live='polite'] { visibility: hidden !important; }";
     document.head.appendChild(style);
-    window.scrollTo(0, 0);
+    const zeroScroll = () => {
+      window.scrollTo(0, 0);
+      document.documentElement.scrollLeft = 0;
+      document.documentElement.scrollTop = 0;
+      if (document.body) {
+        document.body.scrollLeft = 0;
+        document.body.scrollTop = 0;
+      }
+      for (const el of Array.from(document.querySelectorAll("main, div, section, article, aside, [role='region'], [role='dialog']"))) {
+        const element = el as HTMLElement;
+        if (element.scrollLeft !== 0) element.scrollLeft = 0;
+        if (element.scrollTop !== 0) element.scrollTop = 0;
+      }
+    };
+    zeroScroll();
+    const FIXED_UUID = "00000000-0000-4000-8000-00000000evid";
+    const uuidRegex = new RegExp("[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}", "gi");
+    const corrRegex = /Correlation ID:\s*corr-[A-Za-z0-9._:-]+/g;
+    const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
+    const nodes: Text[] = [];
+    let current = walker.nextNode();
+    while (current) {
+      nodes.push(current as Text);
+      current = walker.nextNode();
+    }
+    for (const textNode of nodes) {
+      const original = textNode.data;
+      const normalized = original.replace(uuidRegex, FIXED_UUID).replace(corrRegex, "Correlation ID: corr-evidence-293");
+      if (normalized !== original) textNode.data = normalized;
+    }
+    await document.fonts.ready;
+    await new Promise<void>((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve())));
+    zeroScroll();
+    if (window.scrollX !== 0 || window.scrollY !== 0) throw new Error(`evidence scroll not zeroed: ${window.scrollX},${window.scrollY}`);
   });
 }
 
@@ -62,7 +96,7 @@ test("lista contratos e formaliza Proposta aprovada sem enviar Carteira do brows
   expect(requests.every((url) => !url.startsWith("http://127.0.0.1:3205"))).toBe(true);
   const suffix = testInfo.project.name.startsWith("mobile") ? "contratos-list-mobile" : "contratos-list-desktop";
   await prepareEvidenceScreenshot(page);
-  await page.screenshot({ animations: "disabled", caret: "initial", fullPage: false, path: resolve(`../docs/audits/evidence/frontend-mvp-imp-293-${suffix}.png`) });
+  await page.screenshot({ animations: "disabled", caret: "hide", fullPage: false, path: resolve(`../docs/audits/evidence/frontend-mvp-imp-293-${suffix}.png`) });
 });
 
 test("consulta detalhe, historico, assina e libera saida logica sem criar Motor", async ({ page, context }, testInfo) => {
@@ -88,7 +122,7 @@ test("consulta detalhe, historico, assina e libera saida logica sem criar Motor"
   await assertNoToken(page, context);
   const suffix = testInfo.project.name.startsWith("mobile") ? "contrato-flow-mobile" : "contrato-detail-desktop";
   await prepareEvidenceScreenshot(page);
-  await page.screenshot({ animations: "disabled", caret: "initial", fullPage: false, path: resolve(`../docs/audits/evidence/frontend-mvp-imp-293-${suffix}.png`) });
+  await page.screenshot({ animations: "disabled", caret: "hide", fullPage: false, path: resolve(`../docs/audits/evidence/frontend-mvp-imp-293-${suffix}.png`) });
 });
 
 test("RBAC leitura, empty, 404, 409 e 5xx permanecem seguros", async ({ page }) => {

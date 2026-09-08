@@ -18,7 +18,12 @@ const context: OperationalContext = {
   permissoes: [],
   tenant: { id: "tenant-1", identificador_institucional: "ACME", nome: "Instituicao ACME" },
   usuario: { email: "operador@example.test", id: "usuario-1", nome: "Operador" },
-  whatsapp: { numero: null, pareada: false },
+  whatsapp: { alerta_queda_ativa: false, numero: null, pareada: false, queda_detectada_em: null },
+};
+
+const contextQuedaAtiva: OperationalContext = {
+  ...context,
+  whatsapp: { alerta_queda_ativa: true, numero: null, pareada: false, queda_detectada_em: "2026-09-08T12:00:00.000Z" },
 };
 
 describe("login e shell", () => {
@@ -83,5 +88,46 @@ describe("login e shell", () => {
     await userEvent.click(screen.getByRole("button", { name: "Sair" }));
     await waitFor(() => expect(replace).toHaveBeenCalledWith("/login"));
     expect(refresh).toHaveBeenCalledOnce();
+  });
+
+  it("nao renderiza banner quando o alerta esta inativo e mantem o selo", () => {
+    render(<AppShell context={context}><h1>Dashboard</h1></AppShell>);
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+    expect(screen.getByText("WhatsApp nao conectado")).toBeInTheDocument();
+  });
+
+  it("exibe banner global de queda com link e sem dispensa quando o alerta esta ativo", () => {
+    render(<AppShell context={contextQuedaAtiva}><h1>Dashboard</h1></AppShell>);
+    const banner = screen.getByRole("alert");
+    expect(banner).toHaveTextContent("Conexão do WhatsApp caiu");
+    expect(banner).toHaveTextContent("Queda detectada em");
+    expect(banner.querySelector("time")?.getAttribute("dateTime")).toBe("2026-09-08T12:00:00.000Z");
+    const link = screen.getByRole("link", { name: "Abrir conexão do WhatsApp" });
+    expect(link).toHaveAttribute("href", "/app/whatsapp");
+    expect(banner.querySelector("button")).toBeNull();
+    // O selo conserva sua funcao atual mesmo com o banner visivel.
+    expect(screen.getByText("WhatsApp nao conectado")).toBeInTheDocument();
+    // Alcancavel por teclado: link nativo entra na ordem de foco sem mouse.
+    link.focus();
+    expect(link).toHaveFocus();
+  });
+
+  it("formata o momento da queda no fuso America/Sao_Paulo", () => {
+    render(<AppShell context={contextQuedaAtiva}><h1>Dashboard</h1></AppShell>);
+    const esperado = new Intl.DateTimeFormat("pt-BR", {
+      dateStyle: "medium",
+      timeStyle: "short",
+      timeZone: "America/Sao_Paulo",
+    }).format(new Date("2026-09-08T12:00:00.000Z"));
+    // 12:00Z equivale a 09:00 em Sao Paulo (UTC-3, sem horario de verao).
+    expect(esperado).toMatch(/09:00/);
+    expect(screen.getByRole("alert").querySelector("time")?.textContent).toBe(esperado);
+  });
+
+  it("remove o banner quando o contexto seguinte traz a reconexao", () => {
+    const { rerender } = render(<AppShell context={contextQuedaAtiva}><h1>Dashboard</h1></AppShell>);
+    expect(screen.getByRole("alert")).toBeInTheDocument();
+    rerender(<AppShell context={context}><h1>Dashboard</h1></AppShell>);
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
   });
 });

@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import spec from "../../../docs/governance/contracts/openapi/frontend-mvp-backend-openapi.json" with { type: "json" };
 
-const SNAPSHOT_SHA256 = "662ad947ed4de59e8d4d47d597ea450091d5ff6966a15b67ee1953386418f84f";
+const SNAPSHOT_SHA256 = "85187bd7ef7fb4f29540fc3afd21addbcdd48980656f0617ddce47ce8f23cbcf";
 type HttpMethod = "get" | "patch" | "post";
 type OpenApiParameter = Readonly<{ name: string }>;
 type OpenApiOperation = Readonly<{
