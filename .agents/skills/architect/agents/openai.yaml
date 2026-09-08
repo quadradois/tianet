@@ -1,0 +1,4 @@
+interface:
+  display_name: "Architect TiaNet"
+  short_description: "Compare opções e defina arquitetura"
+  default_prompt: "Use $architect para comparar alternativas e propor uma arquitetura verificável para esta mudança."

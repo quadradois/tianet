@@ -1,5 +1,9 @@
 # Contribuindo
 
+## Fluxo de agentes
+
+Comece por [AGENTS.md](AGENTS.md) e pelo [Engineering Harness](docs/governance/agents/HARNESS.md). Os cinco workflows complementam a SPEC-004 e o ALP-001, mantendo os gates do plano em execução. Para validar somente o processo: `npm run harness:check` e `npm run harness:test`.
+
 ## Gates de qualidade locais (antes de abrir o PR)
 
 O CI valida tudo, mas é melhor pegar erros antes de subir. Há dois gates

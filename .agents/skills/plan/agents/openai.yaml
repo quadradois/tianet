@@ -1,0 +1,4 @@
+interface:
+  display_name: "Plan TiaNet"
+  short_description: "Crie slices, testes e porta de aprovação"
+  default_prompt: "Use $plan para transformar este design em um plano executável e parar na porta de aprovação."

@@ -1,0 +1,4 @@
+interface:
+  display_name: "Execute TiaNet"
+  short_description: "Implemente o plano por slices verificáveis"
+  default_prompt: "Use $execute para implementar o próximo slice aprovado e provar o resultado."

@@ -1,0 +1,4 @@
+interface:
+  display_name: "Discover TiaNet"
+  short_description: "Entenda problema, contexto e domínio"
+  default_prompt: "Use $discover para investigar este pedido no repositório antes de propor uma solução."

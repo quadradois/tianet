@@ -4,6 +4,10 @@
 
 Este diretório contém a documentação oficial da TiaNet. Use este arquivo como ponto de entrada para navegar por todas as camadas documentais.
 
+Para trabalho assistido por agentes, consulte o [Engineering Harness](governance/agents/HARNESS.md) e o [mapa de retomada](governance/agents/HANDOFF.md). As regras normativas do código permanecem na [SPEC-004](governance/agents/SPEC-004-regras-normativas-do-codigo.md).
+
+A conclusão, a implantação na VPS e a integração Mercado Pago são acompanhadas no [checklist de entrega](governance/agents/CHECKLIST-ENTREGA-TIANET.md).
+
 ---
 
 ## Estrutura
