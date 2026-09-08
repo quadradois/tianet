@@ -58,6 +58,9 @@ class ConexaoWhatsApp:
     numero_pareado: str | None
     criado_em: datetime
     atualizado_em: datetime
+    # IMP-370 Slice 1: estado ativo de queda. `None` significa sem alerta ativo;
+    # o instante marca a primeira observacao pareada -> nao pareada.
+    queda_detectada_em: datetime | None = None
 
     def __post_init__(self) -> None:
         if not self.instancia_id.strip():
@@ -100,16 +103,42 @@ class ConexaoWhatsApp:
             numero_pareado=None,
             criado_em=instante,
             atualizado_em=instante,
+            queda_detectada_em=None,
         )
 
     def parear(self, numero: str, *, agora: datetime | None = None) -> ConexaoWhatsApp:
-        """Registra o número que o provedor reportou como vinculado."""
+        """Registra o número que o provedor reportou como vinculado.
+
+        Pareamento confirmado limpa `queda_detectada_em` (IMP-370 Slice 2): o
+        alerta só existe enquanto não há vínculo confirmado.
+        """
         limpo = numero.strip()
         if not limpo:
             raise ViolacaoInvarianteError(
                 "PLAN-034", "numero pareado vazio: o provedor nao confirmou vinculo"
             )
-        return replace(self, numero_pareado=limpo, atualizado_em=agora or datetime.now(UTC))
+        return replace(
+            self,
+            numero_pareado=limpo,
+            atualizado_em=agora or datetime.now(UTC),
+            queda_detectada_em=None,
+        )
+
+    def registrar_queda(self, *, agora: datetime | None = None) -> ConexaoWhatsApp:
+        """Marca a borda pareada -> nao pareada observada no provedor (IMP-370).
+
+        Idempotente: preserva o primeiro instante quando o alerta já existe.
+        Desvincula o número junto, porque a queda é justamente a perda do
+        vínculo confirmado.
+        """
+        instante = agora or datetime.now(UTC)
+        primeiro = self.queda_detectada_em or instante
+        return replace(
+            self,
+            numero_pareado=None,
+            atualizado_em=instante,
+            queda_detectada_em=primeiro,
+        )
 
     def desparear(self, *, agora: datetime | None = None) -> ConexaoWhatsApp:
         """A instância permanece; só o número é desvinculado.
@@ -117,5 +146,10 @@ class ConexaoWhatsApp:
         Apagar a instância no logout obrigaria a recriá-la — e com ela um token
         novo — a cada desconexão. Reconectar deve custar um QR, não um ciclo
         inteiro de provisionamento.
+
+        Preserva `queda_detectada_em` como está (IMP-370 Slice 2): quem decide
+        se a perda do vínculo é queda é a sincronização que leu o provedor,
+        nunca este método isolado. É por isso que a desconexão manual nunca
+        cria alerta sozinha.
         """
         return replace(self, numero_pareado=None, atualizado_em=agora or datetime.now(UTC))

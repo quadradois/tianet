@@ -185,21 +185,35 @@ def _sincronizar(
     Devolve também o estado bruto do provedor: `conectado` e `pareado` são o
     agora, não fatos a guardar. Persistir qualquer um deles criaria um campo
     desatualizado desde o instante seguinte.
+
+    IMP-370 Slice 2: a borda pareada -> nao pareada observada nesta leitura
+    grava `queda_detectada_em` via `save` aqui dentro — ainda sob o advisory
+    lock do tenant e antes do `commit` de quem chamou. Permanência
+    desconectada preserva o primeiro instante sem nova escrita; pareamento
+    confirmado limpa o alerta (mesmo com o número igual); falha do provedor
+    propaga sem tocar no alerta, para quem chamou decidir.
     """
     estado = provedor.estado(token, conexao.instancia_id)
     if estado.pareado and estado.numero:
         atualizada = conexao.parear(estado.numero)
-    elif not estado.pareado:
-        atualizada = conexao.desparear()
-    else:
-        # Pareado sem número: acontece com conta de privacidade total, onde o
-        # WhatsApp entrega `@lid` e nenhum telefone. Preservar o que já se sabia
-        # é melhor que apagar por uma resposta incompleta.
+        if (
+            atualizada.numero_pareado != conexao.numero_pareado
+            or atualizada.queda_detectada_em != conexao.queda_detectada_em
+        ):
+            uow.conexao_whatsapp.save(atualizada)
+            return atualizada, estado, True
         return conexao, estado, False
-
-    if atualizada.numero_pareado != conexao.numero_pareado:
-        uow.conexao_whatsapp.save(atualizada)
-        return atualizada, estado, True
+    if not estado.pareado:
+        if conexao.pareada:
+            atualizada = conexao.registrar_queda()
+            uow.conexao_whatsapp.save(atualizada)
+            return atualizada, estado, True
+        # Permanência desconectada: nem cria alerta nem altera o primeiro
+        # instante. Só a borda vinda de estado pareado registra queda.
+        return conexao, estado, False
+    # Pareado sem número: acontece com conta de privacidade total, onde o
+    # WhatsApp entrega `@lid` e nenhum telefone. Preservar o que já se sabia
+    # é melhor que apagar por uma resposta incompleta.
     return conexao, estado, False
 
 

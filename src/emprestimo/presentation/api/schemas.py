@@ -263,10 +263,16 @@ class ContextoWhatsAppResponse(BaseModel):
 
     **Nao carrega token nem QR**, e nunca deve carregar: este corpo viaja em toda
     pagina e e servido a qualquer Principal autenticado.
+
+    **Alerta de queda (IMP-370):** `alerta_queda_ativa` e verdadeiro somente
+    quando `queda_detectada_em` nao e nulo — ambos derivados do estado
+    persistido da conexao, sem leitura do provedor.
     """
 
     pareada: bool
     numero: str | None = None
+    alerta_queda_ativa: bool
+    queda_detectada_em: datetime | None
 
 
 class ContextoOperacionalResponse(BaseModel):

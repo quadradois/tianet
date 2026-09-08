@@ -1384,8 +1384,12 @@
         "type": "object"
       },
       "ContextoWhatsAppResponse": {
-        "description": "Ultimo estado CONHECIDO da conexao de WhatsApp — nao uma leitura ao vivo.\n\nExiste para o selo da barra lateral, que precisa aparecer em toda pagina. Por\nisso e lido do banco e nunca do provedor: sincronizar aqui custaria uma\nchamada externa por navegacao.\n\n**Dois estados, e so dois** (decisao do fundador em 2026-09-03): conectado ou\nnao conectado. Um terceiro sinal — \"instancia existe mas nao pareou\" — chegou a\nexistir aqui e saiu: ninguem o lia, e distinguir \"nunca conectou\" de \"esta no\nmeio\" e sutileza que nao muda o que o operador faz. `pareada` responde\nsozinha.\n\n**Nao carrega token nem QR**, e nunca deve carregar: este corpo viaja em toda\npagina e e servido a qualquer Principal autenticado.",
+        "description": "Ultimo estado CONHECIDO da conexao de WhatsApp — nao uma leitura ao vivo.\n\nExiste para o selo da barra lateral, que precisa aparecer em toda pagina. Por\nisso e lido do banco e nunca do provedor: sincronizar aqui custaria uma\nchamada externa por navegacao.\n\n**Dois estados, e so dois** (decisao do fundador em 2026-09-03): conectado ou\nnao conectado. Um terceiro sinal — \"instancia existe mas nao pareou\" — chegou a\nexistir aqui e saiu: ninguem o lia, e distinguir \"nunca conectou\" de \"esta no\nmeio\" e sutileza que nao muda o que o operador faz. `pareada` responde\nsozinha.\n\n**Nao carrega token nem QR**, e nunca deve carregar: este corpo viaja em toda\npagina e e servido a qualquer Principal autenticado.\n\n**Alerta de queda (IMP-370):** `alerta_queda_ativa` e verdadeiro somente\nquando `queda_detectada_em` nao e nulo — ambos derivados do estado\npersistido da conexao, sem leitura do provedor.",
         "properties": {
+          "alerta_queda_ativa": {
+            "title": "Alerta Queda Ativa",
+            "type": "boolean"
+          },
           "numero": {
             "anyOf": [
               {
@@ -1400,10 +1404,24 @@
           "pareada": {
             "title": "Pareada",
             "type": "boolean"
+          },
+          "queda_detectada_em": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Queda Detectada Em"
           }
         },
         "required": [
-          "pareada"
+          "pareada",
+          "alerta_queda_ativa",
+          "queda_detectada_em"
         ],
         "title": "ContextoWhatsAppResponse",
         "type": "object"

@@ -16,6 +16,7 @@ from __future__ import annotations
 import inspect
 import json
 import uuid
+from datetime import UTC, datetime
 
 import pytest
 
@@ -1064,3 +1065,204 @@ def test_excluir_registra_autoria_em_todo_evento() -> None:
     assert len(auditoria.eventos) == 2
     for _, _, _, detalhes in auditoria.eventos:
         assert json.loads(detalhes or "{}")["usuario_id"] == str(usuario_id)
+
+
+class _ProvedorFalha(_ProvedorFake):
+    """Provedor que levanta em `estado` para provar que falha não inventa queda."""
+
+    def estado(self, token: str, instancia_id: str) -> EstadoPareamento:
+        raise RuntimeError("provedor fora do ar")
+
+
+def _base_pareada(tenant_id: uuid.UUID) -> ConexaoWhatsApp:
+    return ConexaoWhatsApp.criar(
+        tenant_id=tenant_id, instancia_id="instancia-1", instancia_nome="tianet"
+    ).parear(NUMERO)
+
+
+def test_consulta_queda_unica_grava_numero_e_instante() -> None:
+    """Borda pareada -> não pareada persiste número None e instante na mesma UoW."""
+
+    tenant_id = uuid.uuid4()
+    repo = _RepoFake(_base_pareada(tenant_id), token="token-1")
+    provedor = _ProvedorFake(
+        EstadoPareamento(conectado=False, pareado=False, nome_exibicao=None, numero=None)
+    )
+    uow, auditoria = _montar(repo, provedor)
+
+    ConsultarConexaoWhatsApp(lambda: uow, provedor, auditoria).executar(tenant_id)
+
+    assert repo.conexao is not None
+    assert repo.conexao.numero_pareado is None
+    assert repo.conexao.queda_detectada_em is not None
+    assert repo.conexao.queda_detectada_em.tzinfo is not None
+    assert uow.commits == 1
+    assert len(repo.gravacoes) == 1
+    salva, _ = repo.gravacoes[0]
+    assert salva.numero_pareado is None
+    assert salva.queda_detectada_em is not None
+
+
+def test_consulta_observa_ordem_lock_leitura_save_commit() -> None:
+    """A persistência ocorre sob o lock e antes do commit, nunca depois."""
+
+    tenant_id = uuid.uuid4()
+    repo = _RepoFake(_base_pareada(tenant_id), token="token-1")
+    provedor = _ProvedorFake(
+        EstadoPareamento(conectado=False, pareado=False, nome_exibicao=None, numero=None)
+    )
+    uow, auditoria = _montar(repo, provedor)
+    eventos: list[str] = []
+    bloquear_orig = repo.bloquear_tenant
+    estado_orig = provedor.estado
+    save_orig = repo.save
+    commit_orig = uow.commit
+
+    def bloquear(tenant: uuid.UUID) -> None:
+        eventos.append("lock")
+        bloquear_orig(tenant)
+
+    def estado(token: str, instancia_id: str) -> EstadoPareamento:
+        eventos.append("leitura")
+        return estado_orig(token, instancia_id)
+
+    def save(conexao: ConexaoWhatsApp, *, token: str | None = None) -> None:
+        eventos.append("save")
+        save_orig(conexao, token=token)
+
+    def commit() -> None:
+        eventos.append("commit")
+        commit_orig()
+
+    repo.bloquear_tenant = bloquear  # type: ignore[assignment]
+    provedor.estado = estado  # type: ignore[method-assign]
+    repo.save = save  # type: ignore[method-assign]
+    uow.commit = commit  # type: ignore[method-assign]
+
+    ConsultarConexaoWhatsApp(lambda: uow, provedor, auditoria).executar(tenant_id)
+
+    assert eventos == ["lock", "leitura", "save", "commit"]
+
+
+def test_consulta_permanencia_preserva_o_primeiro_instante() -> None:
+    """Ciclos desconectados não duplicam o alerta nem movem o instante."""
+
+    tenant_id = uuid.uuid4()
+    repo = _RepoFake(_base_pareada(tenant_id), token="token-1")
+    provedor = _ProvedorFake(
+        EstadoPareamento(conectado=False, pareado=False, nome_exibicao=None, numero=None)
+    )
+    uow, auditoria = _montar(repo, provedor)
+    caso = ConsultarConexaoWhatsApp(lambda: uow, provedor, auditoria)
+
+    caso.executar(tenant_id)
+    assert repo.conexao is not None
+    primeiro = repo.conexao.queda_detectada_em
+    assert primeiro is not None
+
+    caso.executar(tenant_id)
+
+    assert repo.conexao is not None
+    assert repo.conexao.queda_detectada_em == primeiro
+    assert len(repo.gravacoes) == 1
+
+
+def test_consulta_recuperacao_limpa_o_alerta() -> None:
+    """Novo pareamento confirmado limpa o instante e persiste a limpeza."""
+
+    tenant_id = uuid.uuid4()
+    instante = datetime(2026, 9, 8, 12, 0, tzinfo=UTC)
+    queda = _base_pareada(tenant_id).registrar_queda(agora=instante)
+    assert queda.queda_detectada_em == instante
+    repo = _RepoFake(queda, token="token-1")
+    provedor = _ProvedorFake(
+        EstadoPareamento(conectado=True, pareado=True, nome_exibicao=NOME, numero=NUMERO)
+    )
+    uow, auditoria = _montar(repo, provedor)
+
+    ConsultarConexaoWhatsApp(lambda: uow, provedor, auditoria).executar(tenant_id)
+
+    assert repo.conexao is not None
+    assert repo.conexao.numero_pareado == NUMERO
+    assert repo.conexao.queda_detectada_em is None
+    assert len(repo.gravacoes) == 1
+
+
+def test_consulta_limpa_alerta_mesmo_com_numero_igual() -> None:
+    """A limpeza é persistida mesmo quando o número não muda."""
+
+    tenant_id = uuid.uuid4()
+    instante = datetime(2026, 9, 8, 12, 0, tzinfo=UTC)
+    base = ConexaoWhatsApp(
+        id=uuid.uuid4(),
+        tenant_id=tenant_id,
+        instancia_id="instancia-1",
+        instancia_nome="tianet",
+        numero_pareado=NUMERO,
+        criado_em=instante,
+        atualizado_em=instante,
+        queda_detectada_em=instante,
+    )
+    repo = _RepoFake(base, token="token-1")
+    provedor = _ProvedorFake(
+        EstadoPareamento(conectado=True, pareado=True, nome_exibicao=NOME, numero=NUMERO)
+    )
+    uow, auditoria = _montar(repo, provedor)
+
+    ConsultarConexaoWhatsApp(lambda: uow, provedor, auditoria).executar(tenant_id)
+
+    assert repo.conexao is not None
+    assert repo.conexao.numero_pareado == NUMERO
+    assert repo.conexao.queda_detectada_em is None
+    assert len(repo.gravacoes) == 1
+
+
+def test_desconectar_manual_nao_cria_alerta_de_queda() -> None:
+    """Intenção explícita da operadora não é queda e não marca instante."""
+
+    tenant_id = uuid.uuid4()
+    repo = _RepoFake(_base_pareada(tenant_id), token="token-1")
+    provedor = _ProvedorFake()
+    uow, auditoria = _montar(repo, provedor)
+
+    DesconectarWhatsApp(lambda: uow, provedor, auditoria).executar(tenant_id)
+
+    assert repo.conexao is not None
+    assert repo.conexao.numero_pareado is None
+    assert repo.conexao.queda_detectada_em is None
+
+
+def test_consulta_falha_do_provedor_nao_cria_alerta() -> None:
+    """Erro do provedor propaga sem gravar nem commitar queda."""
+
+    tenant_id = uuid.uuid4()
+    base = _base_pareada(tenant_id)
+    repo = _RepoFake(base, token="token-1")
+    provedor = _ProvedorFalha()
+    uow, auditoria = _montar(repo, provedor)
+
+    with pytest.raises(RuntimeError, match="fora do ar"):
+        ConsultarConexaoWhatsApp(lambda: uow, provedor, auditoria).executar(tenant_id)
+
+    assert repo.gravacoes == []
+    assert uow.commits == 0
+    assert repo.conexao is not None
+    assert repo.conexao.queda_detectada_em is None
+
+
+def test_consulta_falha_do_provedor_nao_limpa_alerta() -> None:
+    """Falha também não pode apagar o primeiro instante já registrado."""
+
+    tenant_id = uuid.uuid4()
+    instante = datetime(2026, 9, 8, 12, 0, tzinfo=UTC)
+    queda = _base_pareada(tenant_id).registrar_queda(agora=instante)
+    repo = _RepoFake(queda, token="token-1")
+    provedor = _ProvedorFalha()
+    uow, auditoria = _montar(repo, provedor)
+
+    with pytest.raises(RuntimeError, match="fora do ar"):
+        ConsultarConexaoWhatsApp(lambda: uow, provedor, auditoria).executar(tenant_id)
+
+    assert repo.gravacoes == []
+    assert repo.conexao is not None
+    assert repo.conexao.queda_detectada_em == instante

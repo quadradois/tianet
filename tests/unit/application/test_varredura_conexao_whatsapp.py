@@ -253,3 +253,171 @@ def test_varredura_bloqueia_o_tenant_antes_de_ler() -> None:
     varredura.executar()
 
     assert len(repo.bloqueios) == 1
+
+
+def _estado_queda() -> EstadoPareamento:
+    return EstadoPareamento(conectado=False, pareado=False, nome_exibicao=None, numero=None)
+
+
+def test_varredura_queda_persiste_instante_antes_do_commit() -> None:
+    """Borda observada pelo worker grava número None e instante na mesma UoW."""
+
+    repo = _RepoConexaoFake(_conexao("556299999999"))
+    varredura, uow, _ = _montar(repo, _ProvedorFake(_estado_queda()))
+
+    quedas = varredura.executar()
+
+    assert len(quedas) == 1
+    assert repo.conexao is not None
+    assert repo.conexao.numero_pareado is None
+    assert repo.conexao.queda_detectada_em is not None
+    assert repo.conexao.queda_detectada_em.tzinfo is not None
+    assert len(repo.salvas) == 1
+    assert repo.salvas[0].queda_detectada_em is not None
+    assert uow.commits == 1
+
+
+def test_varredura_observa_ordem_lock_leitura_save_commit() -> None:
+    """A queda é salva sob o lock e antes do commit, nunca depois."""
+
+    repo = _RepoConexaoFake(_conexao("556299999999"))
+    provedor = _ProvedorFake(_estado_queda())
+    varredura, uow, _ = _montar(repo, provedor)
+    eventos: list[str] = []
+    bloquear_orig = repo.bloquear_tenant
+    estado_orig = provedor.estado
+    save_orig = repo.save
+    commit_orig = uow.commit
+
+    def bloquear(tenant_id: uuid.UUID) -> None:
+        eventos.append("lock")
+        bloquear_orig(tenant_id)
+
+    def estado(token: str, instancia_id: str) -> EstadoPareamento:
+        eventos.append("leitura")
+        return estado_orig(token, instancia_id)
+
+    def save(conexao: ConexaoWhatsApp, *, token: str | None = None) -> None:
+        eventos.append("save")
+        save_orig(conexao, token=token)
+
+    def commit() -> None:
+        eventos.append("commit")
+        commit_orig()
+
+    repo.bloquear_tenant = bloquear  # type: ignore[method-assign]
+    provedor.estado = estado  # type: ignore[method-assign]
+    repo.save = save  # type: ignore[method-assign]
+    uow.commit = commit  # type: ignore[method-assign]
+
+    varredura.executar()
+
+    assert eventos == ["lock", "leitura", "save", "commit"]
+
+
+def test_varredura_permanencia_preserva_primeiro_instante_sem_reemitir() -> None:
+    """Segundo ciclo desconectado não move o instante nem devolve nova queda."""
+
+    repo = _RepoConexaoFake(_conexao("556299999999"))
+    provedor = _ProvedorFake(_estado_queda())
+    varredura, _, _ = _montar(repo, provedor)
+
+    assert len(varredura.executar()) == 1
+    assert repo.conexao is not None
+    primeiro = repo.conexao.queda_detectada_em
+    assert primeiro is not None
+
+    assert varredura.executar() == []
+    assert repo.conexao is not None
+    assert repo.conexao.queda_detectada_em == primeiro
+    assert len(repo.salvas) == 1
+
+
+def test_varredura_recuperacao_limpa_o_alerta() -> None:
+    """Pareamento confirmado no ciclo limpa o instante automaticamente."""
+
+    base = _conexao("556299999999").registrar_queda()
+    assert base.queda_detectada_em is not None
+    repo = _RepoConexaoFake(base)
+    varredura, _, _ = _montar(repo, _ProvedorFake())
+
+    assert varredura.executar() == []
+    assert repo.conexao is not None
+    assert repo.conexao.pareada is True
+    assert repo.conexao.queda_detectada_em is None
+    assert len(repo.salvas) == 1
+
+
+def test_varredura_falha_nao_cria_nem_limpa_alerta() -> None:
+    """Provedor fora do ar não inventa queda nem apaga a existente."""
+
+    repo_sem = _RepoConexaoFake(_conexao("556299999999"))
+    varredura_sem, _, _ = _montar(repo_sem, _ProvedorFake(erro=RuntimeError("fora")))
+    assert varredura_sem.executar() == []
+    assert repo_sem.salvas == []
+    assert repo_sem.conexao is not None
+    assert repo_sem.conexao.queda_detectada_em is None
+
+    base = _conexao("556299999999").registrar_queda()
+    instante = base.queda_detectada_em
+    repo_com = _RepoConexaoFake(base)
+    varredura_com, _, _ = _montar(repo_com, _ProvedorFake(erro=RuntimeError("fora")))
+    assert varredura_com.executar() == []
+    assert repo_com.salvas == []
+    assert repo_com.conexao is not None
+    assert repo_com.conexao.queda_detectada_em == instante
+
+
+def test_varredura_isola_queda_por_tenant() -> None:
+    """Queda de um tenant não marca nem desmarca o outro."""
+
+    tenants = [_tenant(), _tenant()]
+    ids = [t.id for t in tenants]
+    numero_ok = "556288888888"
+    conexoes: dict[uuid.UUID, ConexaoWhatsApp] = {
+        ids[0]: ConexaoWhatsApp.criar(
+            tenant_id=ids[0], instancia_id="inst-queda", instancia_nome="tianet"
+        ).parear("556299999999"),
+        ids[1]: ConexaoWhatsApp.criar(
+            tenant_id=ids[1], instancia_id="inst-ok", instancia_nome="tianet"
+        ).parear(numero_ok),
+    }
+    tokens: dict[uuid.UUID, str] = {ids[0]: "tok-queda", ids[1]: "tok-ok"}
+    repo = _RepoConexaoFake(conexoes[ids[0]])
+    provedor = _ProvedorFake()
+
+    def find(tenant_id: uuid.UUID) -> ConexaoWhatsApp | None:
+        return conexoes.get(tenant_id)
+
+    def find_token(tenant_id: uuid.UUID) -> str | None:
+        return tokens.get(tenant_id)
+
+    def save(conexao: ConexaoWhatsApp, *, token: str | None = None) -> None:
+        conexoes[conexao.tenant_id] = conexao
+        repo.salvas.append(conexao)
+        repo.conexao = conexao
+
+    def estado(token: str, instancia_id: str) -> EstadoPareamento:
+        provedor.consultas += 1
+        if instancia_id == "inst-queda":
+            return _estado_queda()
+        return EstadoPareamento(
+            conectado=True, pareado=True, nome_exibicao="Barbosa", numero=numero_ok
+        )
+
+    repo.find_by_tenant_id = find  # type: ignore[method-assign]
+    repo.find_token = find_token  # type: ignore[method-assign]
+    repo.save = save  # type: ignore[method-assign]
+    provedor.estado = estado  # type: ignore[method-assign]
+    uow = _UoWFake(repo, _RepoTenantFake(tenants))
+    auditoria = _AuditoriaFake()
+    varredura = SincronizarConexoesWhatsApp(lambda: uow, provedor, auditoria)
+
+    quedas = varredura.executar()
+
+    assert len(quedas) == 1
+    assert quedas[0].tenant_id == ids[0]
+    assert conexoes[ids[0]].queda_detectada_em is not None
+    assert conexoes[ids[0]].numero_pareado is None
+    assert conexoes[ids[1]].queda_detectada_em is None
+    assert conexoes[ids[1]].numero_pareado == numero_ok

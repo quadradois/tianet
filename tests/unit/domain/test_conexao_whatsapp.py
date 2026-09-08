@@ -89,3 +89,86 @@ def test_numero_vazio_no_construtor_e_recusado() -> None:
             criado_em=datetime.now(UTC),
             atualizado_em=datetime.now(UTC),
         )
+
+
+class TestQuedaSlice2:
+    """Transição de queda no domínio (IMP-370, Slice 2)."""
+
+    def test_registrar_queda_desvincula_e_marca_o_instante(self) -> None:
+        instante = datetime(2026, 9, 8, 12, 0, tzinfo=UTC)
+        pareada = _conexao().parear("556284290661")
+
+        queda = pareada.registrar_queda(agora=instante)
+
+        assert queda.pareada is False
+        assert queda.numero_pareado is None
+        assert queda.queda_detectada_em == instante
+
+    def test_registrar_queda_preserva_o_primeiro_instante(self) -> None:
+        """Permanência desconectada não altera o primeiro instante."""
+        primeiro = datetime(2026, 9, 8, 12, 0, tzinfo=UTC)
+        depois = datetime(2026, 9, 8, 12, 5, tzinfo=UTC)
+        queda = _conexao().parear("556284290661").registrar_queda(agora=primeiro)
+
+        repetida = queda.registrar_queda(agora=depois)
+
+        assert repetida.queda_detectada_em == primeiro
+
+    def test_parear_limpa_o_alerta(self) -> None:
+        instante = datetime(2026, 9, 8, 12, 0, tzinfo=UTC)
+        queda = _conexao().parear("556284290661").registrar_queda(agora=instante)
+
+        recuperada = queda.parear("556284290661")
+
+        assert recuperada.pareada is True
+        assert recuperada.queda_detectada_em is None
+
+    def test_desparear_preserva_o_alerta_como_esta(self) -> None:
+        """Só a sincronização que leu o provedor decide sobre queda.
+
+        O método isolado nunca inventa nem limpa: a desconexão manual não
+        cria alerta sozinha.
+        """
+        pareada = _conexao().parear("556284290661")
+        assert pareada.desparear().queda_detectada_em is None
+
+        instante = datetime(2026, 9, 8, 12, 0, tzinfo=UTC)
+        queda = pareada.registrar_queda(agora=instante)
+        assert queda.desparear().queda_detectada_em == instante
+
+
+class TestQuedaDetectadaEm:
+    """Estado ativo de queda (IMP-370, Slice 1). `None` e sem alerta ativo."""
+
+    def test_criar_nasce_sem_alerta(self) -> None:
+        assert _conexao().queda_detectada_em is None
+
+    def test_construtor_sem_o_campo_tambem_nasce_sem_alerta(self) -> None:
+        """Linhas antigas lidas como `NULL` viram `None`, nao um alerta."""
+        conexao = ConexaoWhatsApp(
+            id=uuid.uuid4(),
+            tenant_id=TENANT,
+            instancia_id="abc",
+            instancia_nome="adm",
+            numero_pareado=None,
+            criado_em=datetime.now(UTC),
+            atualizado_em=datetime.now(UTC),
+        )
+        assert conexao.queda_detectada_em is None
+
+    def test_o_instante_e_preservado_com_timezone(self) -> None:
+        instante = datetime(2026, 9, 8, 12, 0, tzinfo=UTC)
+        agora = datetime(2026, 9, 8, 12, 5, tzinfo=UTC)
+        base = ConexaoWhatsApp(
+            id=uuid.uuid4(),
+            tenant_id=TENANT,
+            instancia_id="abc",
+            instancia_nome="adm",
+            numero_pareado=None,
+            criado_em=agora,
+            atualizado_em=agora,
+            queda_detectada_em=instante,
+        )
+        assert base.queda_detectada_em == instante
+        assert base.queda_detectada_em is not None
+        assert base.queda_detectada_em.tzinfo is not None

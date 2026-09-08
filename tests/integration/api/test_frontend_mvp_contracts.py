@@ -6,6 +6,7 @@ import json
 import uuid
 from collections.abc import Iterator
 from dataclasses import dataclass
+from datetime import UTC, datetime
 from pathlib import Path
 
 import pytest
@@ -16,11 +17,14 @@ from tests.factories import CarteiraFactory, TenantFactory, UsuarioFactory
 
 from emprestimo.application.autenticacao import HmacAccessTokenService
 from emprestimo.application.iam_catalogo import CATALOGO_PERMISSOES, CATALOGO_POR_CODIGO
+from emprestimo.domain.platform.conexao_whatsapp import ConexaoWhatsApp
 from emprestimo.domain.platform.perfil import PerfilAcesso, PerfilState
 from emprestimo.domain.platform.tenant import TenantState
 from emprestimo.domain.platform.usuario import Usuario, UsuarioState
+from emprestimo.infrastructure.cifra import CifraToken
 from emprestimo.infrastructure.repositories import (
     SqlAlchemyCarteiraRepository,
+    SqlAlchemyConexaoWhatsAppRepository,
     SqlAlchemyPerfilAcessoRepository,
     SqlAlchemyTenantRepository,
     SqlAlchemyUsuarioRepository,
@@ -96,6 +100,30 @@ def _criar_contexto(
 
 def _headers(token: str) -> dict[str, str]:
     return {"Authorization": f"Bearer {token}"}
+
+
+def _salvar_conexao(
+    session: Session,
+    tenant_id: uuid.UUID,
+    *,
+    numero: str | None = None,
+    queda_em: datetime | None = None,
+) -> ConexaoWhatsApp:
+    conexao = ConexaoWhatsApp.criar(
+        tenant_id=tenant_id,
+        instancia_id=str(uuid.uuid4()),
+        instancia_nome="adm_tianet",
+    )
+    if numero is not None:
+        conexao = conexao.parear(numero)
+    if queda_em is not None:
+        conexao = conexao.registrar_queda(agora=queda_em)
+    repo = SqlAlchemyConexaoWhatsAppRepository(
+        session, lambda: CifraToken(CifraToken.gerar_chave())
+    )
+    repo.save(conexao, token="5f29f723-7f3c-4ffa-9cbc-1df51d5eb9e5")
+    session.commit()
+    return conexao
 
 
 def test_imp_276_openapi_publica_contexto_corrente_sem_ids_arbitrarios() -> None:
@@ -177,7 +205,12 @@ def test_imp_369_contexto_traz_o_estado_conhecido_do_whatsapp(
 
     assert resposta.status_code == 200
     whatsapp = resposta.json()["whatsapp"]
-    assert whatsapp == {"pareada": False, "numero": None}
+    assert whatsapp == {
+        "pareada": False,
+        "numero": None,
+        "alerta_queda_ativa": False,
+        "queda_detectada_em": None,
+    }
 
 
 def test_imp_369_contexto_nunca_carrega_token_nem_qr(
@@ -193,10 +226,81 @@ def test_imp_369_contexto_nunca_carrega_token_nem_qr(
 
     corpo = client.get("/iam/contexto-atual", headers=_headers(ambiente.token)).json()
 
-    assert set(corpo["whatsapp"]) == {"pareada", "numero"}
+    assert set(corpo["whatsapp"]) == {
+        "pareada",
+        "numero",
+        "alerta_queda_ativa",
+        "queda_detectada_em",
+    }
     bruto = json.dumps(corpo).lower()
     assert "token" not in bruto
     assert "qrcode" not in bruto
+
+
+def test_imp_370_contexto_sem_queda_pareada_nao_tem_alerta(
+    client: TestClient,
+    session: Session,
+) -> None:
+    ambiente = _criar_contexto(session)
+    _salvar_conexao(session, ambiente.tenant_id, numero="5511999990001")
+
+    resposta = client.get("/iam/contexto-atual", headers=_headers(ambiente.token))
+
+    assert resposta.status_code == 200
+    whatsapp = resposta.json()["whatsapp"]
+    assert whatsapp["pareada"] is True
+    assert whatsapp["numero"] == "5511999990001"
+    assert whatsapp["alerta_queda_ativa"] is False
+    assert whatsapp["queda_detectada_em"] is None
+
+
+def test_imp_370_contexto_com_queda_ativa_expoe_alerta_e_timestamp(
+    client: TestClient,
+    session: Session,
+) -> None:
+    ambiente = _criar_contexto(session)
+    queda_em = datetime(2026, 9, 8, 10, 30, tzinfo=UTC)
+    _salvar_conexao(session, ambiente.tenant_id, queda_em=queda_em)
+
+    resposta = client.get("/iam/contexto-atual", headers=_headers(ambiente.token))
+
+    assert resposta.status_code == 200
+    whatsapp = resposta.json()["whatsapp"]
+    assert whatsapp["pareada"] is False
+    assert whatsapp["numero"] is None
+    assert whatsapp["alerta_queda_ativa"] is True
+    assert whatsapp["queda_detectada_em"] is not None
+    detectada = datetime.fromisoformat(whatsapp["queda_detectada_em"])
+    assert detectada.tzinfo is not None
+    assert detectada == queda_em
+    bruto = json.dumps(resposta.json()).lower()
+    assert "token" not in bruto
+    assert "qrcode" not in bruto
+
+
+def test_imp_370_contexto_isola_queda_por_tenant(
+    client: TestClient,
+    session: Session,
+) -> None:
+    ambiente_queda = _criar_contexto(session)
+    ambiente_outro = _criar_contexto(session)
+    _salvar_conexao(
+        session,
+        ambiente_queda.tenant_id,
+        queda_em=datetime(2026, 9, 8, 10, 30, tzinfo=UTC),
+    )
+
+    resposta_queda = client.get("/iam/contexto-atual", headers=_headers(ambiente_queda.token))
+    resposta_outro = client.get("/iam/contexto-atual", headers=_headers(ambiente_outro.token))
+
+    assert resposta_queda.json()["whatsapp"]["alerta_queda_ativa"] is True
+    assert resposta_queda.json()["whatsapp"]["queda_detectada_em"] is not None
+    assert resposta_outro.json()["whatsapp"] == {
+        "pareada": False,
+        "numero": None,
+        "alerta_queda_ativa": False,
+        "queda_detectada_em": None,
+    }
 
 
 def test_imp_276_contexto_com_perfil_inativo_falha_fechado(
