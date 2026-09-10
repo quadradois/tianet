@@ -17,11 +17,11 @@ Context, EPIC, Feature ou User Story.
 
 A fonte contratual observada e o OpenAPI gerado por `create_app().openapi()` na
 worktree derivada do commit backend `e48cb72`, congelado no snapshot governado
-do PLAN-025. O contrato vigente possui 111 operacoes e 137 schemas; o SHA-256
+do PLAN-025. O contrato vigente possui 115 operacoes e 146 schemas; o SHA-256
 do snapshot e
-`662ad947ed4de59e8d4d47d597ea450091d5ff6966a15b67ee1953386418f84f`,
-atualizado pelo IMP-368, que acrescentou as quatro operacoes de
-`/platform/whatsapp/conexao`. A contagem anterior registrada aqui (105/131)
+`ee83d2d2e13337e56669abc9f272b65a99bf8ab1aa52b2dbf3fe9c50a33a904b`,
+atualizado pela extensão UX da Slice D OpenAI/Codex, que acrescentou o resumo
+anulável de limites à resposta de conexão. A contagem anterior registrada aqui (105/131)
 estava desatualizada desde antes do IMP-362 — o hash acompanhava o contrato, os
 numeros nao. Anterior ao IMP-368 era o IMP-336, que retirou o campo obrigatorio
 `parcelas_liquidadas`

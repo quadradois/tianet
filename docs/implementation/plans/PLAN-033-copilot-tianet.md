@@ -2,7 +2,7 @@
 
 **ID:** PLAN-033
 
-**Versao:** 1.0.0
+**Versao:** 1.2.0
 
 **Status:** Em execucao — GATE-E1a cumprido; GATE-E1b parcial (IMP-352
 cumprido em 2026-08-31, resta IMP-359, sequenciado depois do PLAN-034)
@@ -33,6 +33,9 @@ veredito e as premissas verificadas estao no backlog, §1 e §2.
 | Decisao | Onde |
 |---|---|
 | BYOK: o cliente traz a chave do provedor de IA; API compativel com OpenAI | DR-005 |
+| Piloto proposto via OpenRouter, modelo gratuito nominal com tools nativas; NVIDIA direta apenas na comparacao sintetica sob os termos atuais | DR-005, adendo de 2026-09-09 |
+| OmniRoute pode ser avaliado como gateway privado opcional, sem `auto`, combo ou fallback e bloqueado enquanto sintetizar tool-calls textuais | Plano agentic v1.4.0 e discovery OmniRoute de 2026-09-09 |
+| Preparacao administrativa local testa login ChatGPT pelo Codex App Server oficial; OpenRouter, NVIDIA e OmniRoute ficam em espera durante a prova, sem serem removidos como alternativas | ADR-020 e plano OpenAI/Codex de 2026-09-09 |
 | PII liberada no prompt, com ADR-016 intacta para logs | DR-005 §1 |
 | Sem teto de custo em moeda; rate limiting e medicao permanecem | DR-005 §3 |
 | Retencao de 90 dias para conversa, inbox e tool-call | DR-005 §4 |
@@ -74,6 +77,20 @@ publico; quando alterarem, entram aqui antes da implementacao.
   conferencia da origem — nao para o consumidor recalcular. Devedor sem
   emprestimo responde zero explicito, nao 404.
 
+Preparacao administrativa local anterior ao IMP-356, sem inferencia, webhook ou
+dados de clientes:
+
+- `GET /platform/openai/conexao` — snapshot local da conexao;
+- `GET /platform/openai/diagnostico` — atualizacao explicita e limitada de
+  plano, modelos e janelas de uso;
+- `POST /platform/openai/conexao/login` — inicia device code, isento de
+  `Idempotency-Key` pela ADR-020;
+- `DELETE /platform/openai/conexao` — logout local com `Idempotency-Key`.
+
+As duas leituras exigem `openai.conexao.ler`; as escritas exigem
+`openai.conexao.gerir`. Essas rotas nao contam como execucao do IMP-356 e nao
+alteram suas dependencias.
+
 Alteracao de permissao sem endpoint novo, no mesmo ciclo:
 `POST /credit/propostas-comerciais/{proposta_id}/enviar-para-analise` passou a
 exigir `comercial.proposta.submeter` em vez de `comercial.proposta.decidir`
@@ -97,7 +114,7 @@ Execution Gates conforme o
 | Gate | Conteudo | Estado |
 |---|---|---|
 | GATE-E1a | governanca (IMP-358) | **cumprido** em 2026-08-27 |
-| GATE-E1b | canal validado e producao pronta (IMP-352, IMP-359) | **parcial** — IMP-352 cumprido em 2026-08-31, com o canal validado contra o servidor real. Resta o IMP-359, e o insumo de **servidor** deixou de ser bloqueio: a VPS e o dominio existem. Continua pendente a **escolha do provedor de IA** com o cliente, sem a qual `LLM_BASE_URL`, `LLM_API_KEY` e `LLM_MODEL` nao tem valor. O deploy foi sequenciado **depois** do PLAN-034 por decisao do fundador |
+| GATE-E1b | canal validado e producao pronta (IMP-352, IMP-359) | **parcial** — IMP-352 cumprido em 2026-08-31, com o canal validado contra o servidor real. Resta o IMP-359, e o insumo de **servidor** deixou de ser bloqueio: a VPS e o dominio existem. OpenRouter foi escolhido como rota proposta do piloto, sujeito à certificacao do modelo gratuito nominal, ZDR e politica de dados; `LLM_API_KEY` continua segredo operacional e nenhum valor entra no Git. O deploy foi sequenciado **depois** do PLAN-034 por decisao do fundador |
 | GATE-E2 | Fase A e Fase B | em execucao |
 | GATE-E3 | Fase C | nao iniciado |
 | GATE-E4 | Fase D | nao iniciado |
@@ -110,4 +127,6 @@ O detalhe de cada gate, com condicao para seguir, esta no backlog §11.
 
 | Versao | Data | Descricao |
 |---|---|---|
+| 1.2.0 | 2026-09-09 | Registra a preparacao administrativa local do Codex App Server e seus quatro endpoints; mantem IMP-359 e os gates do IMP-356. |
+| 1.1.0 | 2026-09-09 | Reconcilia a aprovacao do catalogo B1 e da direcao de provedor: OpenRouter no piloto proposto, NVIDIA em comparacao sintetica e OmniRoute como gateway opcional condicionado. Gates operacionais permanecem abertos. |
 | 1.0.0 | 2026-08-27 | Plano materializado a partir do backlog v1.5.0, com a secao API declarando `POST /iam/usuarios` do IMP-355. |

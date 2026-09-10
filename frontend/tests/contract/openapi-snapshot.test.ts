@@ -33,8 +33,12 @@ describe("certified OpenAPI snapshot", () => {
       return total + methods.length;
     }, 0);
 
-    expect(operationCount).toBe(111);
-    expect(Object.keys(schemas)).toHaveLength(138);
+    expect(operationCount).toBe(115);
+    expect(Object.keys(schemas)).toHaveLength(146);
+    expect(asRecord(paths["/platform/openai/conexao"])).toHaveProperty("get");
+    expect(asRecord(paths["/platform/openai/conexao"])).toHaveProperty("delete");
+    expect(asRecord(paths["/platform/openai/conexao/login"])).toHaveProperty("post");
+    expect(asRecord(paths["/platform/openai/diagnostico"])).toHaveProperty("get");
     expect(asRecord(paths["/health"])).toHaveProperty("get");
     expect(asRecord(paths["/iam/contexto-atual"])).toHaveProperty("get");
     expect(asRecord(paths["/iam/permissoes"])).toHaveProperty("get");

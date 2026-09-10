@@ -59,6 +59,18 @@ RESPOSTA_ERRO_INTERNO: ResponseSpec = {
         "description": "Erro tecnico inesperado com resposta segura e correlacionavel.",
     }
 }
+RESPOSTA_UPSTREAM_INVALIDO: ResponseSpec = {
+    502: {
+        "model": ErroResponse,
+        "description": "Servico interno respondeu com falha ou contrato invalido.",
+    }
+}
+RESPOSTA_SERVICO_INDISPONIVEL: ResponseSpec = {
+    503: {
+        "model": ErroResponse,
+        "description": "Servico interno ou processo dependente indisponivel.",
+    }
+}
 
 CORRELATION_ID_PARAMETER: dict[str, Any] = {
     "name": "X-Correlation-ID",

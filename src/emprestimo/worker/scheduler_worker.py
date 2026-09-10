@@ -17,6 +17,10 @@ from sqlalchemy import create_engine, delete, func, select
 from sqlalchemy.orm import Session, sessionmaker
 
 from emprestimo.application.comprovante import TIPO_JOB_COMPROVANTE, EntregaComprovanteService
+from emprestimo.application.conexao_whatsapp import (
+    QuedaDeConexao,
+    SincronizarConexoesWhatsApp,
+)
 from emprestimo.application.notifications import (
     TIPO_JOB_AVISO_SOBRA,
     EntregaAvisoSobraPagamentoService,
@@ -35,7 +39,11 @@ from emprestimo.infrastructure.auditoria import SqlAlchemyAuditoriaRegistro
 from emprestimo.infrastructure.db.orm import JobAgendadoORM, SchedulerWorkerHeartbeatORM
 from emprestimo.infrastructure.db.session import database_url
 from emprestimo.infrastructure.notifications import (
+    CanalWhatsAppComTokenResolvido,
     EvolutionWhatsAppNotificationChannel,
+)
+from emprestimo.infrastructure.notifications.evolution_instancia import (
+    EvolutionProvedorWhatsApp,
 )
 from emprestimo.infrastructure.unit_of_work import SqlAlchemyUnitOfWork
 
@@ -307,6 +315,40 @@ class SemeadorDiarioCobranca:
         self._ultima_data = data_referencia
 
 
+class _VarreduraPeriodica:
+    """Chama a varredura no maximo uma vez por intervalo.
+
+    **O intervalo e um numero magico, e isso e uma correcao de premissa.** O
+    PLAN-034 dizia que o selo ficaria fresco "sem numero magico de minutos",
+    porque o worker "ja roda de tempos em tempos". O laco dele faz poll de **1
+    segundo** (`SCHEDULER_POLL_INTERVAL_SECONDS`, padrao 1): pendurar a varredura
+    ali seria uma chamada ao provedor por segundo.
+
+    Cinco minutos e a escolha, e o criterio e o do operador, nao o do sistema: o
+    selo e indicador passivo, e ninguem age em cima de cinco minutos de atraso.
+    Sao 288 chamadas por dia contra 86.400.
+    """
+
+    def __init__(
+        self,
+        varredura: SincronizarConexoesWhatsApp,
+        *,
+        intervalo_segundos: float,
+        agora: Callable[[], float] | None = None,
+    ) -> None:
+        self._varredura = varredura
+        self._intervalo = intervalo_segundos
+        self._agora = agora or time.monotonic
+        self._ultima: float | None = None
+
+    def talvez_varrer(self) -> list[QuedaDeConexao]:
+        instante = self._agora()
+        if self._ultima is not None and instante - self._ultima < self._intervalo:
+            return []
+        self._ultima = instante
+        return self._varredura.executar()
+
+
 def main() -> None:
     settings = WorkerSettings.from_env()
     engine = create_engine(
@@ -333,14 +375,40 @@ def main() -> None:
     def uow_factory() -> SqlAlchemyUnitOfWork:
         return SqlAlchemyUnitOfWork(session_factory)
 
+    evolution_host = os.environ.get("EVOLUTION_HOST", "https://diamondgreen.com.br")
     evolution_token = os.environ.get("EVOLUTION_INSTANCE_TOKEN")
-    if evolution_token:
-        whatsapp_channel: NotificationChannel = EvolutionWhatsAppNotificationChannel(
-            host=os.environ.get("EVOLUTION_HOST", "https://diamondgreen.com.br"),
-            instance_token=evolution_token,
+
+    def token_do_repositorio() -> str | None:
+        """O token guardado pela tela de conexao, cifrado em repouso.
+
+        Le a cada chamada de proposito: reconectar pela tela pode criar instancia
+        nova, e com ela um token novo. Guardar aqui devolveria o problema que o
+        canal resolvido existe para fechar.
+        """
+        with uow_factory() as uow:
+            for tenant in uow.tenant.find_all():
+                token = uow.conexao_whatsapp.find_token(tenant.id)
+                if token:
+                    return token
+        return None
+
+    if evolution_token or app_env == "production":
+        # **O ambiente tem precedencia, e continua tendo** (PLAN-034 §4.5): com a
+        # variavel presente, o comportamento nao muda. Sem ela, em producao, o
+        # token vem do banco — que e o fim da dependencia que o IMP-370 ataca.
+        #
+        # Producao sem variavel deixou de ser recusa na subida. O canal resolvido
+        # devolve `FALHA_TEMPORARIA` enquanto nao houver conexao, e a mensagem e
+        # retentada quando o operador parear. Recusar a subir bloquearia o worker
+        # inteiro — cobranca, agenda, comprovante — por um canal que a tela de
+        # conexao consegue ligar sozinha.
+        whatsapp_channel: NotificationChannel = CanalWhatsAppComTokenResolvido(
+            resolver_token=lambda: evolution_token or token_do_repositorio(),
+            fabrica=lambda token: EvolutionWhatsAppNotificationChannel(
+                host=evolution_host,
+                instance_token=token,
+            ),
         )
-    elif app_env == "production":
-        raise RuntimeError("EVOLUTION_INSTANCE_TOKEN e obrigatorio em producao")
     else:
         whatsapp_channel = FakeNotificationChannel()
     comprovantes = EntregaComprovanteService(
@@ -358,6 +426,34 @@ def main() -> None:
         auditoria,
     )
     semeador_cobranca = SemeadorDiarioCobranca(AgendadorVarreduraCobranca(uow_factory, auditoria))
+
+    # As credenciais de **Tenant** do Evolution seguem no ambiente
+    # (`contexto-externo.md` §6.1) — o que saiu de la foi o token da INSTANCIA.
+    # Sem elas o adapter recusa ser construido, e recusar aqui derrubaria o
+    # worker inteiro por causa do selo: em desenvolvimento a varredura
+    # simplesmente nao roda.
+    evolution_tenant_id = os.environ.get("EVOLUTION_TENANT_ID", "")
+    evolution_api_key = os.environ.get("EVOLUTION_API_KEY", "")
+    sincronizador: _VarreduraPeriodica | None = None
+    if evolution_tenant_id and evolution_api_key:
+        sincronizador = _VarreduraPeriodica(
+            SincronizarConexoesWhatsApp(
+                uow_factory,
+                EvolutionProvedorWhatsApp(
+                    host=evolution_host,
+                    tenant_id=evolution_tenant_id,
+                    api_key=evolution_api_key,
+                ),
+                auditoria,
+            ),
+            intervalo_segundos=float(os.environ.get("WHATSAPP_SYNC_INTERVAL_SECONDS", "300")),
+        )
+
+    def antes_do_ciclo() -> None:
+        semeador_cobranca.semear()
+        if sincronizador is not None:
+            sincronizador.talvez_varrer()
+
     worker_id = f"scheduler-{uuid.uuid4()}"
     heartbeat = HeartbeatStore(worker_id, session_factory)
     worker = SchedulerWorker(
@@ -369,7 +465,7 @@ def main() -> None:
             TIPO_JOB_VARREDURA_COBRANCA: varredura.processar_job,
         },
         settings=settings,
-        before_cycle=semeador_cobranca.semear,
+        before_cycle=antes_do_ciclo,
         heartbeat=lambda ativos, falha: heartbeat.registrar(
             ativos,
             concorrencia=settings.concurrency,

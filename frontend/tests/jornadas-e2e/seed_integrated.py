@@ -7,7 +7,7 @@ import json
 import os
 import uuid
 from dataclasses import asdict, dataclass
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 from pathlib import Path
 from typing import Any
@@ -361,13 +361,18 @@ def seed_cobranca_agenda(
         json_body={"motivo": "seed"},
     )
     post_ok(client, f"/credit/notificacoes/templates/{template['id']}/ativar", headers=headers)
+    # Datas relativas ao relogio real: o dominio recusa compromisso no passado
+    # e o lease do scheduler expira em wall-clock (mesmo motivo do e2e imp-261).
+    base_tempo = datetime.now(UTC).replace(second=0, microsecond=0)
+    horario_lembrete = base_tempo + timedelta(hours=1)
+    previsto_compromisso = base_tempo + timedelta(hours=2)
     commitment = post_ok(
         client,
         f"/credit/carteiras/{principal.carteira_id}/devedores/{devedor_id}/agenda/compromissos",
         headers={**headers, "Idempotency-Key": "imp301-compromisso"},
         json_body={
             "titulo": "Retorno integrado",
-            "previsto_para": "2026-09-10T12:00:00Z",
+            "previsto_para": previsto_compromisso.isoformat(),
             "emprestimo_id": loan_id,
         },
     )
@@ -375,7 +380,7 @@ def seed_cobranca_agenda(
         client,
         f"/credit/agenda/compromissos/{commitment['agenda_item_id']}/lembretes",
         headers={**headers, "Idempotency-Key": "imp301-lembrete"},
-        json_body={"horario": "2026-09-10T11:00:00Z", "mensagem": "Ligar para cliente"},
+        json_body={"horario": horario_lembrete.isoformat(), "mensagem": "Ligar para cliente"},
     )
     post_ok(
         client,
@@ -392,7 +397,7 @@ def seed_cobranca_agenda(
     auditoria = SqlAlchemyAuditoriaRegistro(session_factory)
     scheduler = SchedulerService(lambda: SqlAlchemyUnitOfWork(session_factory), auditoria)
     claims = scheduler.reivindicar(
-        slots_livres=1, batch_size=1, agora=datetime(2026, 9, 10, 11, 1, tzinfo=UTC)
+        slots_livres=1, batch_size=1, agora=horario_lembrete + timedelta(minutes=1)
     )
     if claims:
         NotificationService(

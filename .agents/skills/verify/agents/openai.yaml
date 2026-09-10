@@ -1,0 +1,4 @@
+interface:
+  display_name: "Verify TiaNet"
+  short_description: "Prove resultados e prepare continuidade"
+  default_prompt: "Use $verify para revisar esta entrega, ligar requisitos a evidências e preparar o handoff."

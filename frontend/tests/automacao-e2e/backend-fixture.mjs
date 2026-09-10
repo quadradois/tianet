@@ -38,7 +38,7 @@ function context(mode) {
     permissoes: granted,
     tenant: { id: IDS.tenant, identificador_institucional: "ACME", nome: "Instituicao ACME" },
     usuario: { email: "operador@example.test", id: IDS.user, nome: "Operador Automacao" },
-    whatsapp: { numero: "556299999999", pareada: true },
+    whatsapp: { alerta_queda_ativa: false, numero: "556299999999", pareada: true, queda_detectada_em: null },
   };
 }
 

@@ -8,8 +8,9 @@ from __future__ import annotations
 
 import os
 import uuid
-from collections.abc import Callable, Generator
+from collections.abc import AsyncGenerator, Callable, Generator
 from importlib import import_module
+from pathlib import Path
 from typing import Any
 
 from fastapi import Depends, HTTPException, Security
@@ -75,6 +76,10 @@ from emprestimo.application.notifications import (
     NotificationService,
     TemplateNotificacaoService,
 )
+from emprestimo.application.openai_conexao import (
+    OpenAIConnectionProvider,
+    OpenAIConnectionService,
+)
 from emprestimo.application.operacao_diaria import (
     ApropriarPagamentoPromessa,
     ConsultarAgendaOperacional,
@@ -105,6 +110,10 @@ from emprestimo.infrastructure.auditoria import (
 from emprestimo.infrastructure.db.session import create_session, get_session_factory
 from emprestimo.infrastructure.notifications.evolution_instancia import (
     EvolutionProvedorWhatsApp,
+)
+from emprestimo.infrastructure.openai_agent import (
+    DisabledOpenAIAgentClient,
+    OpenAIAgentClient,
 )
 from emprestimo.infrastructure.repositories import (
     SqlAlchemyCarteiraRepository,
@@ -240,6 +249,30 @@ def get_excluir_conexao_whatsapp() -> ExcluirConexaoWhatsApp:
         get_provedor_whatsapp(),
         SqlAlchemyAuditoriaRegistro(session_factory),
     )
+
+
+def get_openai_connection_provider() -> OpenAIConnectionProvider:
+    enabled = os.environ.get("TIANET_AGENT_ENABLED", "false").lower() == "true"
+    if enabled:
+        return OpenAIAgentClient(
+            socket_path=Path(os.environ.get("TIANET_AGENT_SOCKET", "/run/tianet-agent/agent.sock")),
+            internal_secret=os.environ.get("TIANET_AGENT_INTERNAL_SECRET", ""),
+        )
+    return DisabledOpenAIAgentClient()
+
+
+async def get_openai_connection_service() -> AsyncGenerator[OpenAIConnectionService, None]:
+    session_factory = get_session_factory()
+    provider = get_openai_connection_provider()
+    try:
+        yield OpenAIConnectionService(
+            provider,
+            uow_factory=lambda: SqlAlchemyUnitOfWork(session_factory),
+            auditoria=SqlAlchemyAuditoriaRegistro(session_factory),
+        )
+    finally:
+        if isinstance(provider, OpenAIAgentClient):
+            await provider.close()
 
 
 def get_principal_atual(

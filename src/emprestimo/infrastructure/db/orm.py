@@ -1183,6 +1183,10 @@ class ConexaoWhatsAppORM(Base):
     instancia_nome: Mapped[str] = mapped_column(String(100), nullable=False)
     token_cifrado: Mapped[bytes] = mapped_column(LargeBinary, nullable=False)
     numero_pareado: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    # IMP-370 Slice 1: estado ativo de queda; NULL = sem alerta ativo.
+    queda_detectada_em: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
     criado_em: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )

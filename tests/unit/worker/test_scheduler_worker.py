@@ -132,3 +132,42 @@ def test_supervisor_registra_future_com_excecao_como_unhealthy() -> None:
 
     assert worker._supervisor_unhealthy
     assert future not in worker._futures
+
+
+def test_varredura_periodica_respeita_o_intervalo() -> None:
+    """O laco do worker faz poll de 1 SEGUNDO.
+
+    O PLAN-034 dizia que o selo ficaria fresco "sem numero magico de minutos",
+    porque o worker "ja roda de tempos em tempos" — premissa que nao sobrevive ao
+    codigo. Sem este limite, a varredura viraria uma chamada ao provedor por
+    segundo, contra 288 por dia com os cinco minutos escolhidos.
+    """
+    from emprestimo.worker.scheduler_worker import _VarreduraPeriodica
+
+    class _VarreduraFake:
+        def __init__(self) -> None:
+            self.execucoes = 0
+
+        def executar(self) -> list[object]:
+            self.execucoes += 1
+            return []
+
+    relogio = [0.0]
+    varredura = _VarreduraFake()
+    periodica = _VarreduraPeriodica(
+        cast(Any, varredura),
+        intervalo_segundos=300.0,
+        agora=lambda: relogio[0],
+    )
+
+    periodica.talvez_varrer()
+    assert varredura.execucoes == 1
+
+    # Antes do prazo, nada acontece — nem na borda.
+    relogio[0] = 299.9
+    periodica.talvez_varrer()
+    assert varredura.execucoes == 1
+
+    relogio[0] = 300.0
+    periodica.talvez_varrer()
+    assert varredura.execucoes == 2

@@ -2,9 +2,9 @@
 
 **ID:** PLAN-033-EXEC
 
-**Versao:** 1.7.0
+**Versao:** 1.9.2
 
-**Status:** Redesenhado - bloqueado pela pre-execucao
+**Status:** Em execucao controlada - governanca/catalogo aprovados; GATE-E1b e GATE-E3 abertos
 
 **Origem:** decisao do fundador em 2026-08-26 de dar forma ao segundo operador
 previsto no `docs/foundation/FOUNDATION-001-product-vision.md`, sobre a base
@@ -103,6 +103,19 @@ Toda afirmacao desta secao foi conferida no arquivo indicado.
 
 # 4. Fase 0 - Pre-execucao obrigatoria
 
+## Preparacao administrativa OpenAI/Codex anterior ao IMP-356
+
+Por decisao do proprietario em 2026-09-09, a ADR-020 e o plano
+`docs/governance/agents/openai-codex-auth-plano-execucao-2026-09-09.md`
+autorizam construir e testar localmente a autenticacao ChatGPT pelo Codex App
+Server antes do IMP-356. E preparacao administrativa: sem webhook, inferencia,
+tools, PII, dados de clientes ou deploy. Nao executa nenhuma Entrega 356-A..F,
+nao remove IMP-359 das dependencias e nao fecha GATE-E1b/E3.
+
+OpenRouter, NVIDIA e OmniRoute ficam em espera durante essa prova. Os quatro
+endpoints e as permissoes estao no PLAN-033 §4. O resultado real de login,
+plano, modelos e limites orientara nova decisao; nenhum fallback e automatico.
+
 > **Gate dividido em 2026-08-27, por decisao do fundador.** A v1.1.0 tratava a
 > Fase 0 como bloco unico, o que so fazia sentido enquanto se assumia que ela
 > sairia rapido. Com Evolution e servidor bloqueados por tempo indeterminado,
@@ -155,9 +168,12 @@ Toda afirmacao desta secao foi conferida no arquivo indicado.
      integral, por decisao consciente do fundador contra a recomendacao da
      Arquitetura. A ADR-016 continua valendo para **logs**, o isolamento entre
      contextos permanece absoluto, e a suite adversarial nao afrouxa;
-  4. ~~fixar provedor/modelo BYOK e teto mensal~~ **FEITO**: DR-005 §2 e §3.
-     Provedor adiado com criterios eliminatorios fixados; **sem teto em moeda**,
-     com rate limiting e medicao de consumo preservados;
+  4. ~~fixar direcao de provedor BYOK e teto mensal~~ **FEITO E RECONCILIADO**:
+     DR-005 §2, §3 e adendo de 2026-09-09. OpenRouter e a rota proposta do
+     piloto, com modelo gratuito nominal e tools nativas ainda sujeitos a
+     certificacao; NVIDIA direta fica na comparacao sintetica e OmniRoute e
+     gateway opcional condicionado. **Sem teto em moeda**, com rate limiting e
+     medicao de consumo preservados;
   5. materializar e congelar Foundation/Product/Domain/Architecture necessarios
      para `PreCadastro`, agente e canal antes do primeiro IMP de codigo;
   6. reconciliar `docs/operations/contexto-externo.md` secao 2.1, que hoje manda
@@ -188,8 +204,10 @@ Toda afirmacao desta secao foi conferida no arquivo indicado.
   backup automatico e restore do PostgreSQL; CD com rollback; healthcheck;
   restart; rotacao de segredos; logs, metricas, alertas e runbooks do provedor de IA e
   Evolution.
-- **Segredos:** provisionar `LLM_BASE_URL`, `LLM_API_KEY`, `LLM_MODEL` (valores
-  pendentes da escolha de provedor, DR-005 §2), credencial do
+- **Segredos:** provisionar `LLM_BASE_URL`, `LLM_API_KEY`, `LLM_MODEL` (rota A,
+  API OpenAI, DR-005 §7 de 2026-09-10 — supera a direcao OpenRouter anterior;
+  valores efetivos dependem da certificacao e ficam fora do
+  Git), credencial do
   usuario copilot, refresh token, `COPILOT_OPERATOR_ALLOWLIST`, `EVOLUTION_HOST`
   e `EVOLUTION_INSTANCE_TOKEN`. A allowlist inicial contem somente o numero da
   Tia. Nenhum segredo entra em log, banco generico, imagem ou Git.
@@ -240,9 +258,13 @@ Toda afirmacao desta secao foi conferida no arquivo indicado.
   unica janela: producao, com o numero do fundador, antes de apagar a
   `adm_tianet`. **A ordem importa** — medir primeiro, apagar depois.
 
-  Se a resposta for erro, o adapter passa a tratar "ja desconectado" como sucesso
-  e a ADR-019 perde a premissa; se for 2xx, a premissa vira fato e a ADR e
-  atualizada. Nos dois casos deixa de ser suposicao.
+   Se a resposta for erro, o adapter passa a tratar "ja desconectado" como sucesso
+   e a ADR-019 perde a premissa; se for 2xx, a premissa vira fato e a ADR e
+   atualizada. Nos dois casos deixa de ser suposicao.
+
+- **Decisao do proprietario em 2026-09-10:** contexto Operadora em
+  **fail-closed** ate prova de origem compativel com o Evolution; sem prova,
+  somente o PreCadastro opera.
 
 - **Criterio de pronto:** checklist demonstrado em producao; restore e rollback
   ensaiados; processo ligado a uma unica instancia/Tenant; controle de origem ou
@@ -349,9 +371,12 @@ Endpoint publicado pelo IMP-355:
   cada Tenant e o atribui ao Usuario. Nao existe perfil no catalogo:
   `src/emprestimo/application/iam_catalogo.py` cataloga permissoes e
   `src/emprestimo/domain/platform/perfil.py` modela Perfil por Tenant.
-- **Permissoes v1:** somente GETs necessarios, `pre_cadastro.criar` e nenhum
-  comando financeiro. `pre_cadastro.decidir`, `comercial.proposta.decidir`, IAM,
-  configuracao, contrato, pagamento, estorno e renegociacao ficam ausentes.
+- **Permissoes do primeiro recorte:** exatamente `devedor.ler`,
+  `motor.saldo.ler` e `relatorios.operacionais.ler`, conforme a secao 4 da
+  arquitetura aprovada; nenhum comando financeiro. `pre_cadastro.criar` entra
+  somente na etapa posterior do IMP-357. `pre_cadastro.decidir`,
+  `comercial.proposta.decidir`, IAM, configuracao, contrato, pagamento, estorno
+  e renegociacao ficam ausentes.
 - **JWT:** o seed nao gera token eterno. A credencial usa login normal; o ciclo
   operacional e implementado no IMP-356.
 - **Criterio de pronto:** replay converge para um Usuario, Perfil e atribuicao;
@@ -389,6 +414,10 @@ Endpoint publicado pelo IMP-355:
 
 ### IMP-361 - Registrar autoria das escritas disparadas pelo copilot
 
+- **Status:** **CONCLUIDO em reconciliacao de 2026-09-10.** `_autoria` com
+  `usuario_id` verificado em `src/emprestimo/application/cadastro_devedor.py`,
+  incluindo exigencia de `usuario_id` no consentimento; fecha a divergencia
+  com o handoff de 2026-08-31 sem reexecutar trabalho.
 - **Objetivo:** toda escrita do agente identifica o Usuario copilot em ADR-002.
 - **Escopo:** retrofit de `DevedorCadastroService` em
   `src/emprestimo/application/cadastro_devedor.py` e novos fluxos de pre-cadastro
@@ -443,8 +472,9 @@ Endpoint publicado pelo IMP-355:
 
 ### IMP-356 - Servico de conversa com contextos e ferramentas restritas
 
-- **Objetivo:** responder a Operadora no WhatsApp com dados dos GETs da TiaNet e
-  conduzir remetente desconhecido apenas pelo pre-cadastro isolado.
+- **Objetivo:** responder a Operadora no WhatsApp com dados dos GETs da TiaNet.
+  Antes do IMP-357, remetente desconhecido recebe somente resposta fixa no
+  contexto isolado, sem coleta cadastral nem leitura de carteira.
 - **Topologia:** processo novo no mesmo repositorio e compose. Evolution chama o
   ingress publico do agente; o agente chama a TiaNet com Usuario copilot. A API
   TiaNet continua sem webhook publico, conforme
@@ -454,11 +484,14 @@ Endpoint publicado pelo IMP-355:
   (chat completions + function calling) contra `LLM_BASE_URL` configuravel —
   isso cobre OpenRouter, NVIDIA NIM e os demais provedores compativeis com um
   unico cliente `httpx`, sem SDK. `LLM_API_KEY` por secret/env; `LLM_MODEL`,
-  `LLM_TIMEOUT_SECONDS` e `LLM_MAX_RETRIES` configurados. **Provedor ainda nao
-  escolhido** (DR-005 §2): sera decidido com o cliente, e a elegibilidade exige
-  function calling confiavel **e** politica de dados aceitavel para PII de
-  terceiros — retencao declarada, sem uso para treino, sub-processadores
-  conhecidos. Sem provedor escolhido, a Fase C nao sobe; as Fases A e B nao
+  `LLM_TIMEOUT_SECONDS` e `LLM_MAX_RETRIES` configurados. **Direcao aprovada em
+  2026-09-09:** OpenRouter para o piloto proposto, com modelo gratuito nominal e
+  tools nativas. A habilitacao continua condicionada à certificacao e à politica
+  de dados aceitavel para PII de terceiros — retencao declarada, sem uso para
+  treino, sub-processadores conhecidos, `data_collection=deny` e `zdr=true`.
+  NVIDIA direta permanece sintetica sob os termos atuais; OmniRoute somente pode
+  intermediar depois da prova de transparencia, sem fallback ou tool-call
+  sintetizado. Sem rota certificada, a Fase C nao sobe; as Fases A e B nao
   dependem de LLM;
   `httpx` ja existente; login/refresh do copilot; IMP-352, IMP-355, IMP-359,
   IMP-361 e IMP-362.
@@ -515,9 +548,11 @@ Endpoint publicado pelo IMP-355:
   troca e decisao registrada, jamais automatica (regra inviolavel 10). Segredo
   nunca aparece em erro ou log. Function calling e requisito do provedor
   escolhido; provedor sem tool-use confiavel nao e elegivel.
-- Operadora recebe allowlist nominal de GETs, incluindo saldo do IMP-362.
-  Pre-cadastro recebe zero ferramentas de leitura de carteira e somente
-  `pre_cadastro.criar` apos confirmacao explicita dos dados pelo remetente.
+- Operadora recebe as seis ferramentas e as três permissões da secao 4 da
+  arquitetura aprovada, incluindo saldo do IMP-362; schemas e apresentadores
+  permanecem definidos naquela fonte. Antes do IMP-357, Pre-cadastro recebe
+  zero ferramentas e somente resposta fixa. `pre_cadastro.criar` e coleta
+  cadastral pertencem à etapa posterior, após confirmação explícita dos dados.
 - Argumentos sao montados do contexto autenticado; o modelo nao escolhe Tenant,
   Carteira, Usuario, permissao ou URL. A saida e filtrada pelo schema permitido.
 - Prompt, saida e tool result sao nao confiaveis. Instrucao do remetente nao
@@ -695,6 +730,11 @@ O plano so fecha quando:
 
 | Versao | Data | Descricao |
 |---|---|---|
+| 1.9.2 | 2026-09-10 | Reconcilia segredos do IMP-359 para a rota A (supera direcao OpenRouter); code review do Slice 1a incorporado. |
+| 1.9.1 | 2026-09-10 | Rota A registrada: API OpenAI com chave validada e `gpt-4o-mini` candidato; IMP-361 carimbado concluido; Operadora em fail-closed ate prova de origem. |
+| 1.9.0 | 2026-09-09 | Autoriza preparação administrativa local da autenticação OpenAI/Codex antes do IMP-356, preservando IMP-359 e GATE-E1b/E3. |
+| 1.8.1 | 2026-09-09 | Delimita o primeiro recorte ao catalogo B1 de seis tools e tres permissoes; pre-cadastro e sua permissao ficam para o IMP-357, com resposta fixa a desconhecidos ate la. |
+| 1.8.0 | 2026-09-09 | Registra aprovacao do catalogo B1 e do plano agentic v1.4.0: OpenRouter proposto para o piloto, NVIDIA em comparacao sintetica e OmniRoute opcional condicionado; GATE-E1b/GATE-E3 permanecem abertos. |
 | 1.7.0 | 2026-08-27 | IMP-362 executado: `GET /credit/devedores/{devedor_id}/saldo` soma no Motor. Um guardrail de contrato de erro forcou decidir 404 em vez de zero para Devedor inexistente — sem ele, o endpoint mentiria sobre quem nem esta cadastrado. Contrato de 106/133 para 107/135. |
 | 1.6.0 | 2026-08-27 | IMP-355 executado: `POST /iam/usuarios` fecha a lacuna de nao existir caminho para criar Usuario. Contrato de 105/131 para 106/133; seis contadores de superficie atualizados; plano do PLAN-033 materializado porque o guardrail de contrato exige endpoint declarado em plano, nao em backlog. |
 | 1.5.0 | 2026-08-27 | GATE-E1 dividido em E1a (governanca, cumprido) e E1b (canal e producao, bloqueado): a Fase B nao dependia de Evolution nem de servidor, so da governanca. IMP-360 executado — separacao tecnica entre submeter e decidir proposta, defeito anterior ao Copilot que atingia operadores humanos. |

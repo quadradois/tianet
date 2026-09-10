@@ -1384,8 +1384,12 @@
         "type": "object"
       },
       "ContextoWhatsAppResponse": {
-        "description": "Ultimo estado CONHECIDO da conexao de WhatsApp — nao uma leitura ao vivo.\n\nExiste para o selo da barra lateral, que precisa aparecer em toda pagina. Por\nisso e lido do banco e nunca do provedor: sincronizar aqui custaria uma\nchamada externa por navegacao.\n\n**Dois estados, e so dois** (decisao do fundador em 2026-09-03): conectado ou\nnao conectado. Um terceiro sinal — \"instancia existe mas nao pareou\" — chegou a\nexistir aqui e saiu: ninguem o lia, e distinguir \"nunca conectou\" de \"esta no\nmeio\" e sutileza que nao muda o que o operador faz. `pareada` responde\nsozinha.\n\n**Nao carrega token nem QR**, e nunca deve carregar: este corpo viaja em toda\npagina e e servido a qualquer Principal autenticado.",
+        "description": "Ultimo estado CONHECIDO da conexao de WhatsApp — nao uma leitura ao vivo.\n\nExiste para o selo da barra lateral, que precisa aparecer em toda pagina. Por\nisso e lido do banco e nunca do provedor: sincronizar aqui custaria uma\nchamada externa por navegacao.\n\n**Dois estados, e so dois** (decisao do fundador em 2026-09-03): conectado ou\nnao conectado. Um terceiro sinal — \"instancia existe mas nao pareou\" — chegou a\nexistir aqui e saiu: ninguem o lia, e distinguir \"nunca conectou\" de \"esta no\nmeio\" e sutileza que nao muda o que o operador faz. `pareada` responde\nsozinha.\n\n**Nao carrega token nem QR**, e nunca deve carregar: este corpo viaja em toda\npagina e e servido a qualquer Principal autenticado.\n\n**Alerta de queda (IMP-370):** `alerta_queda_ativa` e verdadeiro somente\nquando `queda_detectada_em` nao e nulo — ambos derivados do estado\npersistido da conexao, sem leitura do provedor.",
         "properties": {
+          "alerta_queda_ativa": {
+            "title": "Alerta Queda Ativa",
+            "type": "boolean"
+          },
           "numero": {
             "anyOf": [
               {
@@ -1400,10 +1404,24 @@
           "pareada": {
             "title": "Pareada",
             "type": "boolean"
+          },
+          "queda_detectada_em": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Queda Detectada Em"
           }
         },
         "required": [
-          "pareada"
+          "pareada",
+          "alerta_queda_ativa",
+          "queda_detectada_em"
         ],
         "title": "ContextoWhatsAppResponse",
         "type": "object"
@@ -3058,6 +3076,375 @@
           "codigo_resultado"
         ],
         "title": "NotificacaoResponse",
+        "type": "object"
+      },
+      "OpenAIConnectionResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "accountConnected": {
+            "title": "Accountconnected",
+            "type": "boolean"
+          },
+          "enabled": {
+            "title": "Enabled",
+            "type": "boolean"
+          },
+          "planType": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Plantype"
+          },
+          "processAvailable": {
+            "title": "Processavailable",
+            "type": "boolean"
+          },
+          "state": {
+            "enum": [
+              "DESABILITADO",
+              "INDISPONIVEL",
+              "DESCONECTADO",
+              "AGUARDANDO_USUARIO",
+              "CONECTADO",
+              "LIMITE_ATINGIDO",
+              "ERRO",
+              "ERRO_RESULTADO_DESCONHECIDO"
+            ],
+            "title": "State",
+            "type": "string"
+          },
+          "usageSummary": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/OpenAIUsageSummaryResponse"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "enabled",
+          "processAvailable",
+          "accountConnected",
+          "planType",
+          "state",
+          "usageSummary"
+        ],
+        "title": "OpenAIConnectionResponse",
+        "type": "object"
+      },
+      "OpenAIDeviceChallengeResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "expiresAt": {
+            "format": "date-time",
+            "title": "Expiresat",
+            "type": "string"
+          },
+          "userCode": {
+            "title": "Usercode",
+            "type": "string"
+          },
+          "verificationUrl": {
+            "title": "Verificationurl",
+            "type": "string"
+          }
+        },
+        "required": [
+          "verificationUrl",
+          "userCode",
+          "expiresAt"
+        ],
+        "title": "OpenAIDeviceChallengeResponse",
+        "type": "object"
+      },
+      "OpenAIDiagnosticResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "accountConnected": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Accountconnected"
+          },
+          "accountStatus": {
+            "enum": [
+              "ok",
+              "error"
+            ],
+            "title": "Accountstatus",
+            "type": "string"
+          },
+          "models": {
+            "items": {
+              "$ref": "#/components/schemas/OpenAIModelResponse"
+            },
+            "title": "Models",
+            "type": "array"
+          },
+          "modelsStatus": {
+            "enum": [
+              "ok",
+              "error"
+            ],
+            "title": "Modelsstatus",
+            "type": "string"
+          },
+          "observedAt": {
+            "format": "date-time",
+            "title": "Observedat",
+            "type": "string"
+          },
+          "planType": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Plantype"
+          },
+          "rateLimits": {
+            "items": {
+              "$ref": "#/components/schemas/OpenAIRateLimitResponse"
+            },
+            "title": "Ratelimits",
+            "type": "array"
+          },
+          "rateLimitsStatus": {
+            "enum": [
+              "ok",
+              "error"
+            ],
+            "title": "Ratelimitsstatus",
+            "type": "string"
+          },
+          "state": {
+            "enum": [
+              "DESABILITADO",
+              "INDISPONIVEL",
+              "DESCONECTADO",
+              "AGUARDANDO_USUARIO",
+              "CONECTADO",
+              "LIMITE_ATINGIDO",
+              "ERRO",
+              "ERRO_RESULTADO_DESCONHECIDO"
+            ],
+            "title": "State",
+            "type": "string"
+          }
+        },
+        "required": [
+          "state",
+          "observedAt",
+          "accountStatus",
+          "accountConnected",
+          "planType",
+          "modelsStatus",
+          "models",
+          "rateLimitsStatus",
+          "rateLimits"
+        ],
+        "title": "OpenAIDiagnosticResponse",
+        "type": "object"
+      },
+      "OpenAILogoutResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "localLogout": {
+            "title": "Locallogout",
+            "type": "boolean"
+          },
+          "remoteRevocationVerified": {
+            "title": "Remoterevocationverified",
+            "type": "boolean"
+          },
+          "state": {
+            "enum": [
+              "DESABILITADO",
+              "INDISPONIVEL",
+              "DESCONECTADO",
+              "AGUARDANDO_USUARIO",
+              "CONECTADO",
+              "LIMITE_ATINGIDO",
+              "ERRO",
+              "ERRO_RESULTADO_DESCONHECIDO"
+            ],
+            "title": "State",
+            "type": "string"
+          }
+        },
+        "required": [
+          "state",
+          "localLogout",
+          "remoteRevocationVerified"
+        ],
+        "title": "OpenAILogoutResponse",
+        "type": "object"
+      },
+      "OpenAIModelResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "default": {
+            "title": "Default",
+            "type": "boolean"
+          },
+          "displayName": {
+            "title": "Displayname",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "displayName",
+          "default"
+        ],
+        "title": "OpenAIModelResponse",
+        "type": "object"
+      },
+      "OpenAIRateLimitResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "limitId": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Limitid"
+          },
+          "planType": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Plantype"
+          },
+          "primary": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/OpenAIRateWindowResponse"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "secondary": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/OpenAIRateWindowResponse"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "limitId",
+          "planType",
+          "primary",
+          "secondary"
+        ],
+        "title": "OpenAIRateLimitResponse",
+        "type": "object"
+      },
+      "OpenAIRateWindowResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "resetsAt": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Resetsat"
+          },
+          "usedPercent": {
+            "maximum": 100.0,
+            "minimum": 0.0,
+            "title": "Usedpercent",
+            "type": "integer"
+          },
+          "windowDurationMinutes": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Windowdurationminutes"
+          }
+        },
+        "required": [
+          "usedPercent",
+          "windowDurationMinutes",
+          "resetsAt"
+        ],
+        "title": "OpenAIRateWindowResponse",
+        "type": "object"
+      },
+      "OpenAIUsageSummaryResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "observedAt": {
+            "format": "date-time",
+            "title": "Observedat",
+            "type": "string"
+          },
+          "rateLimits": {
+            "items": {
+              "$ref": "#/components/schemas/OpenAIRateLimitResponse"
+            },
+            "title": "Ratelimits",
+            "type": "array"
+          },
+          "rateLimitsStatus": {
+            "enum": [
+              "ok",
+              "error"
+            ],
+            "title": "Ratelimitsstatus",
+            "type": "string"
+          }
+        },
+        "required": [
+          "observedAt",
+          "rateLimitsStatus",
+          "rateLimits"
+        ],
+        "title": "OpenAIUsageSummaryResponse",
         "type": "object"
       },
       "PagamentoCreateRequest": {
@@ -22648,6 +23035,581 @@
         "summary": "Permissoes Efetivas",
         "tags": [
           "iam"
+        ]
+      }
+    },
+    "/platform/openai/conexao": {
+      "delete": {
+        "description": "Remove a sessão local; não promete revogação remota da conta.",
+        "operationId": "logout_platform_openai_conexao_delete",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": true,
+            "schema": {
+              "maxLength": 255,
+              "minLength": 1,
+              "title": "Idempotency-Key",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Identificador tecnico de correlacao aceito ou gerado pela API.",
+            "in": "header",
+            "name": "X-Correlation-ID",
+            "required": false,
+            "schema": {
+              "maxLength": 128,
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OpenAILogoutResponse"
+                }
+              }
+            },
+            "description": "Successful Response",
+            "headers": {
+              "X-Correlation-ID": {
+                "description": "Identificador tecnico de correlacao da requisicao.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErroResponse"
+                }
+              }
+            },
+            "description": "Payload, parametros ou headers invalidos para a operacao.",
+            "headers": {
+              "X-Correlation-ID": {
+                "description": "Identificador tecnico de correlacao da requisicao.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErroResponse"
+                }
+              }
+            },
+            "description": "Autenticacao recusada por token ausente, invalido ou expirado.",
+            "headers": {
+              "X-Correlation-ID": {
+                "description": "Identificador tecnico de correlacao da requisicao.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErroResponse"
+                }
+              }
+            },
+            "description": "Principal autenticado nao possui permissao para a operacao.",
+            "headers": {
+              "X-Correlation-ID": {
+                "description": "Identificador tecnico de correlacao da requisicao.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErroResponse"
+                }
+              }
+            },
+            "description": "Erro tecnico inesperado com resposta segura e correlacionavel.",
+            "headers": {
+              "X-Correlation-ID": {
+                "description": "Identificador tecnico de correlacao da requisicao.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "502": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErroResponse"
+                }
+              }
+            },
+            "description": "Servico interno respondeu com falha ou contrato invalido.",
+            "headers": {
+              "X-Correlation-ID": {
+                "description": "Identificador tecnico de correlacao da requisicao.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErroResponse"
+                }
+              }
+            },
+            "description": "Servico interno ou processo dependente indisponivel.",
+            "headers": {
+              "X-Correlation-ID": {
+                "description": "Identificador tecnico de correlacao da requisicao.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "summary": "Logout",
+        "tags": [
+          "OpenAI"
+        ]
+      },
+      "get": {
+        "description": "Snapshot local; não consulta o App Server nem a rede OpenAI.",
+        "operationId": "connection_platform_openai_conexao_get",
+        "parameters": [
+          {
+            "description": "Identificador tecnico de correlacao aceito ou gerado pela API.",
+            "in": "header",
+            "name": "X-Correlation-ID",
+            "required": false,
+            "schema": {
+              "maxLength": 128,
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OpenAIConnectionResponse"
+                }
+              }
+            },
+            "description": "Successful Response",
+            "headers": {
+              "X-Correlation-ID": {
+                "description": "Identificador tecnico de correlacao da requisicao.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErroResponse"
+                }
+              }
+            },
+            "description": "Autenticacao recusada por token ausente, invalido ou expirado.",
+            "headers": {
+              "X-Correlation-ID": {
+                "description": "Identificador tecnico de correlacao da requisicao.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErroResponse"
+                }
+              }
+            },
+            "description": "Principal autenticado nao possui permissao para a operacao.",
+            "headers": {
+              "X-Correlation-ID": {
+                "description": "Identificador tecnico de correlacao da requisicao.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErroResponse"
+                }
+              }
+            },
+            "description": "Erro tecnico inesperado com resposta segura e correlacionavel.",
+            "headers": {
+              "X-Correlation-ID": {
+                "description": "Identificador tecnico de correlacao da requisicao.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "502": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErroResponse"
+                }
+              }
+            },
+            "description": "Servico interno respondeu com falha ou contrato invalido.",
+            "headers": {
+              "X-Correlation-ID": {
+                "description": "Identificador tecnico de correlacao da requisicao.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErroResponse"
+                }
+              }
+            },
+            "description": "Servico interno ou processo dependente indisponivel.",
+            "headers": {
+              "X-Correlation-ID": {
+                "description": "Identificador tecnico de correlacao da requisicao.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "summary": "Connection",
+        "tags": [
+          "OpenAI"
+        ]
+      }
+    },
+    "/platform/openai/conexao/login": {
+      "post": {
+        "description": "Inicia device code; a isenção de Idempotency-Key é fechada na ADR-020.",
+        "operationId": "begin_login_platform_openai_conexao_login_post",
+        "parameters": [
+          {
+            "description": "Identificador tecnico de correlacao aceito ou gerado pela API.",
+            "in": "header",
+            "name": "X-Correlation-ID",
+            "required": false,
+            "schema": {
+              "maxLength": 128,
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OpenAIDeviceChallengeResponse"
+                }
+              }
+            },
+            "description": "Successful Response",
+            "headers": {
+              "X-Correlation-ID": {
+                "description": "Identificador tecnico de correlacao da requisicao.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErroResponse"
+                }
+              }
+            },
+            "description": "Autenticacao recusada por token ausente, invalido ou expirado.",
+            "headers": {
+              "X-Correlation-ID": {
+                "description": "Identificador tecnico de correlacao da requisicao.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErroResponse"
+                }
+              }
+            },
+            "description": "Principal autenticado nao possui permissao para a operacao.",
+            "headers": {
+              "X-Correlation-ID": {
+                "description": "Identificador tecnico de correlacao da requisicao.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErroResponse"
+                }
+              }
+            },
+            "description": "Erro tecnico inesperado com resposta segura e correlacionavel.",
+            "headers": {
+              "X-Correlation-ID": {
+                "description": "Identificador tecnico de correlacao da requisicao.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "502": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErroResponse"
+                }
+              }
+            },
+            "description": "Servico interno respondeu com falha ou contrato invalido.",
+            "headers": {
+              "X-Correlation-ID": {
+                "description": "Identificador tecnico de correlacao da requisicao.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErroResponse"
+                }
+              }
+            },
+            "description": "Servico interno ou processo dependente indisponivel.",
+            "headers": {
+              "X-Correlation-ID": {
+                "description": "Identificador tecnico de correlacao da requisicao.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "summary": "Begin Login",
+        "tags": [
+          "OpenAI"
+        ]
+      }
+    },
+    "/platform/openai/diagnostico": {
+      "get": {
+        "description": "Atualiza conta, catálogo e limites; o agent compartilha chamadas concorrentes.",
+        "operationId": "diagnostic_platform_openai_diagnostico_get",
+        "parameters": [
+          {
+            "description": "Identificador tecnico de correlacao aceito ou gerado pela API.",
+            "in": "header",
+            "name": "X-Correlation-ID",
+            "required": false,
+            "schema": {
+              "maxLength": 128,
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OpenAIDiagnosticResponse"
+                }
+              }
+            },
+            "description": "Successful Response",
+            "headers": {
+              "X-Correlation-ID": {
+                "description": "Identificador tecnico de correlacao da requisicao.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErroResponse"
+                }
+              }
+            },
+            "description": "Autenticacao recusada por token ausente, invalido ou expirado.",
+            "headers": {
+              "X-Correlation-ID": {
+                "description": "Identificador tecnico de correlacao da requisicao.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErroResponse"
+                }
+              }
+            },
+            "description": "Principal autenticado nao possui permissao para a operacao.",
+            "headers": {
+              "X-Correlation-ID": {
+                "description": "Identificador tecnico de correlacao da requisicao.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErroResponse"
+                }
+              }
+            },
+            "description": "Erro tecnico inesperado com resposta segura e correlacionavel.",
+            "headers": {
+              "X-Correlation-ID": {
+                "description": "Identificador tecnico de correlacao da requisicao.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "502": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErroResponse"
+                }
+              }
+            },
+            "description": "Servico interno respondeu com falha ou contrato invalido.",
+            "headers": {
+              "X-Correlation-ID": {
+                "description": "Identificador tecnico de correlacao da requisicao.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErroResponse"
+                }
+              }
+            },
+            "description": "Servico interno ou processo dependente indisponivel.",
+            "headers": {
+              "X-Correlation-ID": {
+                "description": "Identificador tecnico de correlacao da requisicao.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "summary": "Diagnostic",
+        "tags": [
+          "OpenAI"
         ]
       }
     },

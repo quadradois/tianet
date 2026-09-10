@@ -1,6 +1,6 @@
 # PLAN-034 — Backlog de execução: conexão do WhatsApp na plataforma
 
-**Versão:** 1.0.0
+**Versão:** 1.2.0
 
 **Plano:** [PLAN-034](../plans/PLAN-034-conexao-do-whatsapp-na-plataforma.md)
 
@@ -209,7 +209,10 @@ Inventário: **107 → 111 operações**, **135 → 137 schemas**. O plano previ
   `/instance/all` e `/instance/get`. É leitura, não escrita, e não estava
   quebrando nada — mas ninguém verificou se o adapter mistura os dois.
 
-### IMP-370 — Worker lê o token do repositório
+### IMP-370 — Worker lê o token e registra estado e queda
+
+- **Status:** concluído e verificado no working tree em 2026-09-08; o GATE-E
+  permanece aberto até a integração e a publicação da versão.
 
 - **Objetivo:** encerrar a dependência de `EVOLUTION_INSTANCE_TOKEN` no ambiente.
 - **Escopo:** leitura pelo repositório, com o ambiente mantendo precedência
@@ -231,12 +234,24 @@ Inventário: **107 → 111 operações**, **135 → 137 schemas**. O plano previ
 - **E o aviso, porque selo sozinho não basta.** Se o WhatsApp cair no celular, um
   selo cinza no canto passa despercebido por dias — e o sintoma real aparece
   longe, quando o comprovante não sai. O fundador pediu **híbrido**: selo passivo
-  mais aviso ativo. O aviso nasce aqui, quando o worker detecta a transição de
-  conectado para desconectado — não no IMP-369, que não tem como saber.
+  mais aviso ativo. A implementação grava `queda_detectada_em` na primeira
+  transição confirmada de pareado para não pareado, preserva esse instante nas
+  varreduras seguintes e o limpa após reconexão confirmada. A desconexão manual
+  não cria o alerta e uma falha de consulta ao provedor não altera o estado
+  persistido.
 
-- **Critério de pronto:** worker sobe com o token vindo do banco; com a variável
-  presente, ela prevalece e o comportamento atual não muda; **o estado da conexão
-  é gravado a cada varredura, e a queda gera aviso**.
+- **Experiência entregue:** a API e o BFF expõem `alerta_queda_ativa` e
+  `queda_detectada_em`. O shell mostra um banner global persistente, com data e
+  hora em `America/Sao_Paulo` e acesso à tela de WhatsApp. O banner não pode ser
+  dispensado e desaparece após a reconexão confirmada. Não há segundo canal de
+  aviso nesta etapa.
+
+- **Critério de pronto verificado:** worker sobe com o token vindo do banco; com
+  a variável presente, ela prevalece e o comportamento atual não muda; o estado
+  da conexão é atualizado pela consulta sincronizada e a queda confirmada gera
+  um único alerta persistente. A matriz de domínio, integração, migration, API,
+  frontend, navegador e acessibilidade está em
+  [VERIFICACAO-IMP-370-AVISO-QUEDA.md](../../governance/agents/VERIFICACAO-IMP-370-AVISO-QUEDA.md).
 
 ---
 
@@ -321,5 +336,6 @@ O IMP-366 não depende de nada e pode andar em paralelo com 364/365.
 
 | Versão | Data | Descrição |
 |---|---|---|
+| 1.2.0 | 2026-09-08 | Reconcilia o IMP-370 com a implementação verificada: persistência da queda, sincronização, contrato API/BFF, banner global e evidências de backend, frontend, migration, navegador e acessibilidade. |
 | 1.1.0 | 2026-09-04 | Acrescenta o IMP-371, que nao existia quando o plano foi escrito: ele e a lista de consertos que a resposta do time do Evolution Go produziu — `logout` repetido, renovacao automatica do QR e debounce. Vale registrar como o item nasceu: perguntar ao provedor rendeu tres achados que quatro rodadas de review no IMP-369 nao produziram. |
 | 1.0.0 | 2026-08-31 | Sete itens materializando o PLAN-034, com o estado do sistema verificado contra o servidor real em vez de presumido. |

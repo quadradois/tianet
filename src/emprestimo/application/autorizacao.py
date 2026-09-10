@@ -48,6 +48,8 @@ class ContextoOperacionalResultado:
     permissoes: tuple[str, ...]
     whatsapp_pareada: bool
     whatsapp_numero: str | None
+    whatsapp_alerta_queda_ativa: bool
+    whatsapp_queda_detectada_em: datetime | None
 
 
 class RecursoDeOutroTenantError(LookupError):
@@ -173,6 +175,12 @@ class AutorizacaoService:
             ),
             whatsapp_pareada=conexao is not None and conexao.pareada,
             whatsapp_numero=conexao.numero_pareado if conexao is not None else None,
+            whatsapp_alerta_queda_ativa=(
+                conexao.queda_detectada_em is not None if conexao is not None else False
+            ),
+            whatsapp_queda_detectada_em=(
+                conexao.queda_detectada_em if conexao is not None else None
+            ),
         )
 
     def exigir_permissao(self, principal: Principal, operacao: str) -> None:

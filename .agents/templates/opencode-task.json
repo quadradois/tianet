@@ -1,0 +1,38 @@
+{
+  "schemaVersion": 2,
+  "taskId": "00000000-0000-0000-0000-000000000000",
+  "attempt": 1,
+  "workflow": "discover",
+  "classification": "SMALL",
+  "agenticImpact": "NONE",
+  "agenticTriggers": [],
+  "specialistRole": null,
+  "mutationPolicy": "READ_ONLY",
+  "objective": "Descreva um único resultado observável.",
+  "nonObjectives": [
+    "Não amplie o escopo."
+  ],
+  "plan": "Referência do plano aprovado ou 'não aplicável'.",
+  "slice": "Identificador do slice ou 'não aplicável'.",
+  "allowedPaths": [
+    "caminho/permitido"
+  ],
+  "knownBaseline": "Resumo das alterações preexistentes que devem ser preservadas.",
+  "acceptance": [
+    "Critério observável de aceite."
+  ],
+  "checks": [
+    "Check que o coordenador reexecutará."
+  ],
+  "allowedCommands": [
+    "Comando explicitamente permitido ou 'nenhum'."
+  ],
+  "prohibitions": [
+    "Sem commit, push, publicação, produção, ação externa ou limpeza do working tree."
+  ],
+  "model": "opencode/muse-spark-1.3-contributor-free",
+  "fallbackFrom": null,
+  "agent": "plan",
+  "returnFormat": "Resultado, arquivos tocados, checks executados, riscos e bloqueios.",
+  "dataClassification": "REPOSITORY_NO_SECRETS"
+}

@@ -20,17 +20,49 @@ async function gotoAgenda(page: Page) {
 }
 
 async function screenshotEvidence(page: Page, suffix: string) {
-  await page.evaluate(() => {
+  await expect(page.locator(`[role="status"][aria-label^="loading"], [role="status"][aria-label^="Carregando"]`)).toHaveCount(0);
+  await page.evaluate(async () => {
+    if (document.activeElement instanceof HTMLElement) document.activeElement.blur();
+    const previous = document.querySelector("[data-evidence-stabilizer='agenda']");
+    previous?.remove();
+    const style = document.createElement("style");
+    style.dataset.evidenceStabilizer = "agenda";
+    style.textContent = "html, body, * { scroll-behavior: auto !important; } [aria-live='polite'] { visibility: hidden !important; }";
+    document.head.appendChild(style);
+    const zeroScroll = () => {
+      window.scrollTo(0, 0);
+      document.documentElement.scrollLeft = 0;
+      document.documentElement.scrollTop = 0;
+      if (document.body) {
+        document.body.scrollLeft = 0;
+        document.body.scrollTop = 0;
+      }
+      for (const el of Array.from(document.querySelectorAll("main, div, section, article, aside, [role='region'], [role='dialog']"))) {
+        const element = el as HTMLElement;
+        if (element.scrollLeft !== 0) element.scrollLeft = 0;
+        if (element.scrollTop !== 0) element.scrollTop = 0;
+      }
+    };
+    zeroScroll();
+    const FIXED_UUID = "00000000-0000-4000-8000-00000000evid";
+    const uuidRegex = new RegExp("[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}", "gi");
+    const corrRegex = /Correlation ID:\s*corr-[A-Za-z0-9._:-]+/g;
     const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
     const texts: Text[] = [];
     while (walker.nextNode()) texts.push(walker.currentNode as Text);
     for (const text of texts) {
-      text.data = text.data.replace(/Correlation ID: [A-Za-z0-9._:-]+/g, "Correlation ID: corr-evidence-296");
+      const original = text.data;
+      const normalized = original.replace(uuidRegex, FIXED_UUID).replace(corrRegex, "Correlation ID: corr-evidence-296");
+      if (normalized !== original) text.data = normalized;
     }
+    await document.fonts.ready;
+    await new Promise<void>((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve())));
+    zeroScroll();
+    if (window.scrollX !== 0 || window.scrollY !== 0) throw new Error(`evidence scroll not zeroed: ${window.scrollX},${window.scrollY}`);
   });
   await page.screenshot({
     animations: "disabled",
-    caret: "initial",
+    caret: "hide",
     fullPage: false,
     path: resolve(`../docs/audits/evidence/frontend-mvp-imp-296-${suffix}.png`),
   });

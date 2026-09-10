@@ -7,7 +7,7 @@ import type { components, paths } from "../../src/lib/api/openapi.generated";
 
 const HTTP_METHODS = new Set(["get", "post", "put", "patch", "delete"]);
 const ERROR_STATUSES = new Set(["400", "401", "403", "404", "409", "422", "500", "503"]);
-const SNAPSHOT_SHA256 = "662ad947ed4de59e8d4d47d597ea450091d5ff6966a15b67ee1953386418f84f";
+const SNAPSHOT_SHA256 = "ee83d2d2e13337e56669abc9f272b65a99bf8ab1aa52b2dbf3fe9c50a33a904b";
 const snapshotUrl = new URL(
   "../../../docs/governance/contracts/openapi/frontend-mvp-backend-openapi.json",
   import.meta.url,
@@ -60,7 +60,7 @@ describe("generated OpenAPI client contract", () => {
     let operationCount = 0;
     const idempotencyParameters: Array<Record<string, unknown>> = [];
 
-    for (const pathItem of Object.values(pathsObject)) {
+    for (const [path, pathItem] of Object.entries(pathsObject)) {
       for (const [method, operationValue] of Object.entries(asRecord(pathItem))) {
         if (!HTTP_METHODS.has(method)) continue;
         operationCount += 1;
@@ -77,17 +77,19 @@ describe("generated OpenAPI client contract", () => {
         for (const [status, response] of Object.entries(responses)) {
           if (!ERROR_STATUSES.has(status)) continue;
           const schema = responseSchema(response);
-          const expected = status === "503" ? "#/components/schemas/HealthResponse" : "#/components/schemas/ErroResponse";
+          const expected = status === "503" && path === "/health"
+            ? "#/components/schemas/HealthResponse"
+            : "#/components/schemas/ErroResponse";
           expect(schema).toEqual({ $ref: expected });
         }
       }
     }
 
-    expect(operationCount).toBe(111);
-    expect(Object.keys(schemas)).toHaveLength(138);
+    expect(operationCount).toBe(115);
+    expect(Object.keys(schemas)).toHaveLength(146);
     // IMP-355: voltou a 63 com POST /iam/usuarios, que tambem exige a chave.
     // Eram 63 antes do IMP-351 retirar POST /platform/tenants.
-    expect(idempotencyParameters).toHaveLength(63);
+    expect(idempotencyParameters).toHaveLength(64);
     for (const parameter of idempotencyParameters) {
       expect(parameter.required).toBe(true);
       expect(asRecord(parameter.schema)).toMatchObject({ minLength: 1, maxLength: 255 });

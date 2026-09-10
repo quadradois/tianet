@@ -7,10 +7,15 @@ import { SHELL_NAVIGATION, visibleNavigationItems } from "../../lib/shell/naviga
 import { ContextSummary } from "./context-summary";
 import { Navigation } from "./navigation";
 import { WhatsAppBadge } from "./whatsapp-badge";
+import { WhatsAppDisconnectionAlert } from "./whatsapp-disconnection-alert";
 
-type AppShellProps = Readonly<{ children: ReactNode; context: OperationalContext }>;
+type AppShellProps = Readonly<{
+  children: ReactNode;
+  context: OperationalContext;
+  openaiBadge?: ReactNode;
+}>;
 
-export function AppShell({ children, context }: AppShellProps) {
+export function AppShell({ children, context, openaiBadge = null }: AppShellProps) {
   const navigation = visibleNavigationItems(SHELL_NAVIGATION, context.permissoes);
   return (
     <div className="min-h-screen bg-muted/40">
@@ -23,13 +28,18 @@ export function AppShell({ children, context }: AppShellProps) {
           <LogoutButton />
         </div>
       </header>
+      {/* Banner global de queda (IMP-370): em TODA pagina autenticada enquanto
+          o contexto indicar alerta ativo; some sozinho na reconexao. */}
+      <WhatsAppDisconnectionAlert whatsapp={context.whatsapp} />
       <div className="mx-auto grid w-full max-w-(--size-content) gap-5 px-5 py-6 sm:px-8 lg:grid-cols-[15rem_minmax(0,1fr)] lg:px-10 lg:py-8">
         <aside className="grid content-start gap-5 rounded-xl border border-border bg-background p-4 shadow-sm">
           <ContextSummary context={context} />
           <Navigation items={navigation} />
-          {/* Depois do menu, e fora dele: o canal e estado da operacao, nao um
-              destino a mais disputando a primeira olhada. */}
-          <WhatsAppBadge whatsapp={context.whatsapp} />
+          {/* Conexoes ficam sempre legiveis e fora do menu de tarefas. */}
+          <div className="grid gap-2">
+            <WhatsAppBadge whatsapp={context.whatsapp} />
+            {openaiBadge}
+          </div>
         </aside>
         <main className="min-w-0" id="conteudo-principal" tabIndex={-1}>{children}</main>
       </div>

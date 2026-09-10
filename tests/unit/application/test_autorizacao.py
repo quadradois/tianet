@@ -21,6 +21,8 @@ from emprestimo.application.iam_catalogo import (
     PERMISSOES_PLATAFORMA,
 )
 from emprestimo.application.ports import AuditoriaRegistro, UnitOfWork
+from emprestimo.domain.credit.carteira import Carteira
+from emprestimo.domain.platform.conexao_whatsapp import ConexaoWhatsApp
 from emprestimo.domain.platform.perfil import PerfilAcesso
 from emprestimo.domain.platform.permissao import Permissao
 from emprestimo.domain.platform.tenant import Tenant, TenantState
@@ -81,16 +83,54 @@ def _tenant(*, estado: TenantState = TenantState.ATIVO) -> Tenant:
     )
 
 
+CARTEIRA_ID = uuid.UUID("eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee")
+QUEDA_EM = datetime(2026, 9, 8, 10, 30, tzinfo=UTC)
+
+
+def _carteira() -> Carteira:
+    return Carteira(
+        id=CARTEIRA_ID,
+        tenant_id=TENANT_ID,
+        nome="Carteira Principal",
+    )
+
+
+def _conexao(
+    *,
+    tenant_id: uuid.UUID = TENANT_ID,
+    numero: str | None = None,
+    queda_em: datetime | None = None,
+) -> ConexaoWhatsApp:
+    base = ConexaoWhatsApp.criar(
+        tenant_id=tenant_id,
+        instancia_id="8a8c901f-16f9-4431-b19d-ed69cccc46c0",
+        instancia_nome="adm_tianet",
+    )
+    if numero is not None:
+        base = base.parear(numero, agora=AGORA)
+    if queda_em is not None:
+        base = base.registrar_queda(agora=queda_em)
+    return base
+
+
+def _principal() -> Principal:
+    return Principal(USUARIO_ID, TENANT_ID, "Operador", AGORA + timedelta(minutes=15))
+
+
 def _uow(
     *,
     usuario: Usuario | None = None,
     perfil: PerfilAcesso | None = None,
     tenant: Tenant | None = None,
+    carteiras: list[Carteira] | None = None,
+    conexao: ConexaoWhatsApp | None = None,
 ) -> Mock:
     uow = Mock(spec=UnitOfWork)
     uow.usuario = Mock()
     uow.tenant = Mock()
     uow.perfil_acesso = Mock()
+    uow.carteira = Mock()
+    uow.conexao_whatsapp = Mock()
     uow.commit = Mock()
     uow.rollback = Mock()
     uow.close = Mock()
@@ -105,6 +145,15 @@ def _uow(
     )
     uow.perfil_acesso.find_by_usuario_id.side_effect = lambda usuario_id: (
         perfil if perfil is not None and usuario_id == USUARIO_ID else None
+    )
+    resolvidas = (
+        carteiras if carteiras is not None else ([_carteira()] if usuario is not None else [])
+    )
+    uow.carteira.find_by_tenant_id.side_effect = lambda tenant_id: (
+        [carteira for carteira in resolvidas if carteira.tenant_id == tenant_id]
+    )
+    uow.conexao_whatsapp.find_by_tenant_id.side_effect = lambda tenant_id: (
+        conexao if conexao is not None and conexao.tenant_id == tenant_id else None
     )
     return uow
 
@@ -377,3 +426,82 @@ def test_exigir_permissao_nao_usa_perfil_textual_sem_vinculo_normalizado() -> No
 
     uow.perfil_acesso.find_by_usuario_id.assert_called_once_with(USUARIO_ID)
     uow.perfil_acesso.find_by_tenant_nome.assert_not_called()
+
+
+def test_consultar_contexto_sem_conexao_nao_tem_alerta() -> None:
+    uow = _uow(usuario=_usuario(), perfil=_perfil(), conexao=None)
+    service = _service(uow)
+
+    resultado = service.consultar_contexto(_principal())
+
+    assert resultado.whatsapp_pareada is False
+    assert resultado.whatsapp_numero is None
+    assert resultado.whatsapp_alerta_queda_ativa is False
+    assert resultado.whatsapp_queda_detectada_em is None
+    uow.conexao_whatsapp.find_by_tenant_id.assert_called_once_with(TENANT_ID)
+
+
+def test_consultar_contexto_pareada_sem_queda_nao_tem_alerta() -> None:
+    conexao = _conexao(numero="5511999990001")
+    uow = _uow(usuario=_usuario(), perfil=_perfil(), conexao=conexao)
+    service = _service(uow)
+
+    resultado = service.consultar_contexto(_principal())
+
+    assert resultado.whatsapp_pareada is True
+    assert resultado.whatsapp_numero == "5511999990001"
+    assert resultado.whatsapp_alerta_queda_ativa is False
+    assert resultado.whatsapp_queda_detectada_em is None
+
+
+def test_consultar_contexto_queda_ativa_deriva_do_estado_persistido() -> None:
+    conexao = _conexao(queda_em=QUEDA_EM)
+    uow = _uow(usuario=_usuario(), perfil=_perfil(), conexao=conexao)
+    service = _service(uow)
+
+    resultado = service.consultar_contexto(_principal())
+
+    assert resultado.whatsapp_pareada is False
+    assert resultado.whatsapp_numero is None
+    assert resultado.whatsapp_alerta_queda_ativa is True
+    assert resultado.whatsapp_queda_detectada_em == QUEDA_EM
+    assert resultado.whatsapp_queda_detectada_em is not None
+    assert resultado.whatsapp_queda_detectada_em.tzinfo is not None
+    uow.conexao_whatsapp.find_by_tenant_id.assert_called_once_with(TENANT_ID)
+
+
+def test_consultar_contexto_isola_queda_por_tenant() -> None:
+    conexao_outro_tenant = _conexao(tenant_id=OUTRO_TENANT_ID, queda_em=QUEDA_EM)
+    uow = _uow(usuario=_usuario(), perfil=_perfil(), conexao=conexao_outro_tenant)
+    service = _service(uow)
+
+    resultado = service.consultar_contexto(_principal())
+
+    assert resultado.whatsapp_alerta_queda_ativa is False
+    assert resultado.whatsapp_queda_detectada_em is None
+    uow.conexao_whatsapp.find_by_tenant_id.assert_called_once_with(TENANT_ID)
+
+
+def test_consultar_contexto_nao_carrega_token_nem_qr() -> None:
+    from dataclasses import fields as _campos
+
+    from emprestimo.application.autorizacao import ContextoOperacionalResultado
+
+    nomes = {campo.name for campo in _campos(ContextoOperacionalResultado)}
+    assert nomes == {
+        "usuario_id",
+        "usuario_nome",
+        "usuario_email",
+        "tenant_id",
+        "tenant_nome",
+        "tenant_identificador_institucional",
+        "carteira_id",
+        "carteira_nome",
+        "perfil_id",
+        "perfil_nome",
+        "permissoes",
+        "whatsapp_pareada",
+        "whatsapp_numero",
+        "whatsapp_alerta_queda_ativa",
+        "whatsapp_queda_detectada_em",
+    }

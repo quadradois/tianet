@@ -5,7 +5,7 @@ from __future__ import annotations
 import uuid
 from collections.abc import Iterator
 from dataclasses import dataclass
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 from typing import Any
 
@@ -267,12 +267,19 @@ def test_imp_261_e2e_agenda_scheduler_notification(
     contexto = _emprestimo_com_pagamento(ambiente_mvp)
     template = _criar_template_ativo(ambiente_mvp)
 
+    # Datas relativas ao relogio real: o dominio recusa compromisso no passado
+    # e o lease do scheduler expira em wall-clock. Datas fixas tornavam este
+    # teste valido so na manha de 2026-09-10.
+    agora = datetime.now(UTC).replace(second=0, microsecond=0)
+    horario_lembrete = agora + timedelta(hours=1)
+    previsto_compromisso = agora + timedelta(hours=2)
+
     compromisso = ambiente_mvp.client.post(
         f"/credit/carteiras/{ambiente_mvp.carteira_id}/devedores/{contexto['devedor_id']}"
         "/agenda/compromissos",
         json={
             "titulo": "Contato preventivo",
-            "previsto_para": "2026-09-10T12:00:00Z",
+            "previsto_para": previsto_compromisso.isoformat(),
             "emprestimo_id": contexto["emprestimo_id"],
         },
         headers={**ambiente_mvp.headers, "Idempotency-Key": "plan020-compromisso"},
@@ -281,7 +288,7 @@ def test_imp_261_e2e_agenda_scheduler_notification(
 
     lembrete = ambiente_mvp.client.post(
         f"/credit/agenda/compromissos/{compromisso.json()['agenda_item_id']}/lembretes",
-        json={"horario": "2026-09-10T11:00:00Z", "mensagem": "Ligar para cliente"},
+        json={"horario": horario_lembrete.isoformat(), "mensagem": "Ligar para cliente"},
         headers={**ambiente_mvp.headers, "Idempotency-Key": "plan020-lembrete"},
     )
     assert lembrete.status_code == 200
@@ -303,7 +310,7 @@ def test_imp_261_e2e_agenda_scheduler_notification(
     claims = scheduler.reivindicar(
         slots_livres=1,
         batch_size=1,
-        agora=datetime(2026, 9, 10, 11, 1, tzinfo=UTC),
+        agora=horario_lembrete + timedelta(minutes=1),
     )
     assert len(claims) == 1
 

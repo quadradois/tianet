@@ -2,9 +2,9 @@
 
 **ID:** PLAN-034
 
-**Versão:** 1.1.0
+**Versão:** 1.2.0
 
-**Status:** Aprovado
+**Status:** Aprovado; IMP-370 verificado no working tree, com GATE-E aberto
 
 ---
 
@@ -162,19 +162,23 @@ aceita — **verificado em 2026-08-31**, não inferido.
 
 ## 4.5 `EVOLUTION_INSTANCE_TOKEN` continua funcionando
 
-O worker lê o token do ambiente. Este plano **não muda isso**. Quando a tela criar
-a instância, o token passa a existir também no banco; a leitura pelo worker migra
-para o repositório em fase própria, e **o ambiente mantém precedência também
-depois dela**: o critério de pronto do IMP-370 é explícito — com a variável
-presente, ela prevalece e o comportamento não muda. O repositório passa a ser a
-origem quando a variável está ausente, não no lugar dela. Trocar as duas coisas ao mesmo tempo arriscaria deixar o
-worker sem canal — e worker sem canal é operação sem aviso.
+O IMP-370 concluiu a migração de leitura do worker para o repositório, mantendo
+compatibilidade: quando `EVOLUTION_INSTANCE_TOKEN` está presente, a variável
+continua prevalecendo e o comportamento anterior não muda. O token persistido é
+a origem quando a variável está ausente.
+
+O mesmo item passou a sincronizar o estado conhecido da conexão. Cada consulta
+confirmada ao provedor atualiza o pareamento sob o lock da instância; a primeira
+transição de pareado para não pareado registra `queda_detectada_em`, e uma
+reconexão confirmada limpa esse instante. Desconexão manual não gera falso
+alerta, e erro de consulta ao provedor preserva o estado anterior.
 
 ---
 
 # 5. Modelo de Dados
 
-Migration **aditiva**. Nenhuma tabela existente é alterada.
+O plano criou a tabela por migration aditiva. O IMP-370 acrescenta uma coluna
+nullable à tabela já existente, também por migration aditiva.
 
 ```
 conexao_whatsapp
@@ -184,6 +188,7 @@ conexao_whatsapp
   evolution_instance_nome VARCHAR NOT NULL
   token_cifrado          BYTEA    NOT NULL  -- Fernet; nunca em texto claro
   numero_pareado         VARCHAR  NULL      -- preenchido quando LoggedIn
+  queda_detectada_em     TIMESTAMPTZ NULL  -- primeira queda ainda ativa
   criado_em              TIMESTAMPTZ NOT NULL
   atualizado_em          TIMESTAMPTZ NOT NULL
 
@@ -193,7 +198,10 @@ conexao_whatsapp
 `token_cifrado` é `BYTEA`, não `VARCHAR`: cifra é binário, e guardar binário como
 texto convida a corrupção por encoding.
 
-**Downgrade:** `DROP TABLE conexao_whatsapp`. Aditiva na ida, reversível na volta.
+**Downgrade:** a migration do IMP-370 remove somente `queda_detectada_em`; a
+migration original remove `conexao_whatsapp`. O ciclo completo
+`upgrade head → downgrade base → upgrade head` foi demonstrado em PostgreSQL
+descartável.
 
 ---
 
@@ -222,6 +230,13 @@ Todas exigem Principal autenticado.
   parâmetro do `desconectar`, porque são intenções diferentes: lá o operador
   troca de número, aqui ele encerra a conexão.
 
+O contexto operacional consumido pelo shell inclui, dentro de `whatsapp`,
+`alerta_queda_ativa` e `queda_detectada_em`. O BFF exige coerência entre os dois
+campos e valida o instante como RFC 3339 com calendário válido. Quando o alerta
+está ativo, o shell exibe um banner global persistente com acesso à tela de
+WhatsApp; ele desaparece somente após a reconexão confirmada. A data é mostrada
+em `America/Sao_Paulo`.
+
 **Inventário:** de **107 operações e 135 schemas** para **111 e 137**. O plano
 previa 110/138 quando eram três operações e três schemas; a quarta operação
 reaproveita o `ConexaoWhatsAppResponse` do `desconectar` em vez de trazer corpo
@@ -247,6 +262,10 @@ de auditoria, não em métrica.
 | Contrato | as **quatro** operações no snapshot OpenAPI; contadores conferidos; isenções de `Idempotency-Key` justificadas uma a uma |
 | Integração | RBAC das duas permissões; 401, 403 e 404; **o QR nunca chega a quem só tem `ler`** |
 | Playwright | tela renderiza QR, faz polling e mostra o número ao parear |
+| Unitário — queda | primeira borda, permanência sem duplicação, recuperação, desconexão manual e falha do provedor |
+| Migration — queda | coluna nullable com timezone; upgrade, downgrade e novo upgrade em PostgreSQL descartável |
+| Contrato/BFF | os dois campos do alerta, coerência do estado e validação RFC 3339 estrita |
+| Componente/Playwright | banner global acessível, sem dispensa, presente na queda e ausente após recuperação, em desktop e mobile |
 
 **Nenhum teste chama o Evolution real.** As respostas capturadas viram fixture; a
 suíte não pode depender de rede nem criar instância em servidor de verdade.
@@ -271,6 +290,7 @@ cada polling sem falhar nenhum teste de contrato.
 | 4 | Casos de uso + permissões no catálogo | RBAC junto com o comportamento |
 | 5 | Endpoints + snapshot OpenAPI + contadores | O guardrail cobra os três juntos |
 | 6 | Tela e jornada Playwright | Interface por último, sobre contrato estável |
+| 7 | IMP-370: token do repositório, sincronização e alerta de queda | Fecha a operação recorrente depois do fluxo de pareamento estável |
 
 ---
 
@@ -283,6 +303,8 @@ cada polling sem falhar nenhum teste de contrato.
 | Perder a chave de cifra e tornar o token irrecuperável | Recusa nomeada no start sem a variável. **Reconectar não regenera o token** — o reconnect preserva o valor da instância. Recuperar exige criar instância nova, com token novo, e reparear |
 | Worker ficar sem canal durante a migração de leitura | §4.5: o ambiente tem precedência, e continua tendo depois do IMP-370 |
 | Rede do Evolution instável durante o pareamento | Estado vem sempre do provedor, nunca de cache local; `Connected` ≠ `LoggedIn` |
+| Queda passar despercebida durante a operação | Worker registra a primeira queda e o shell mantém o banner até reconexão confirmada |
+| Aviso demorar ou não alcançar quem está fora do sistema | A varredura pode levar cerca de 300 segundos e o aviso desta etapa existe dentro do TiaNet; esses limites ficam explícitos na verificação |
 
 ---
 
@@ -290,5 +312,6 @@ cada polling sem falhar nenhum teste de contrato.
 
 | Versão | Data | Descrição |
 |---|---|---|
+| 1.2.0 | 2026-09-08 | Reconcilia o plano com o IMP-370 verificado: precedência do token de ambiente, estado e queda persistidos, contrato do contexto operacional, banner global e matriz ampliada de testes. Evidência em [VERIFICACAO-IMP-370-AVISO-QUEDA.md](../../governance/agents/VERIFICACAO-IMP-370-AVISO-QUEDA.md). |
 | 1.1.0 | 2026-09-02 | §3.1: `ConectarWhatsApp` nao registra `Idempotency-Key`, e o motivo fica escrito — o replay devolveria um QR ja expirado, e o nascimento da instancia, que e o efeito externo a proteger, ja e idempotente por advisory lock mais `UNIQUE (tenant_id)`. A deteccao de payload divergente fica para o IMP-368, com o contrato HTTP. |
 | 1.0.0 | 2026-08-31 | Materializa a DR-006: três operações sobre `/platform/whatsapp/conexao`, token cifrado com `cryptography`, cliente de gestão separado do adapter de envio, e o fluxo do Evolution documentado a partir do que foi verificado contra o servidor real. |

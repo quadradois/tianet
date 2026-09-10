@@ -1553,6 +1553,7 @@ class SqlAlchemyConexaoWhatsAppRepository(ConexaoWhatsAppRepository):
                 instancia_nome=conexao.instancia_nome,
                 token_cifrado=cifrado,
                 numero_pareado=conexao.numero_pareado,
+                queda_detectada_em=conexao.queda_detectada_em,
                 criado_em=conexao.criado_em,
                 atualizado_em=conexao.atualizado_em,
             )
@@ -1612,4 +1613,5 @@ def _to_conexao_whatsapp(row: ConexaoWhatsAppORM) -> ConexaoWhatsApp:
         numero_pareado=row.numero_pareado,
         criado_em=row.criado_em,
         atualizado_em=row.atualizado_em,
+        queda_detectada_em=row.queda_detectada_em,
     )

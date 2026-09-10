@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from typing import Any
 
 import httpx
@@ -127,3 +128,70 @@ def _json_seguro(response: httpx.Response) -> dict[str, Any]:
     except ValueError:
         return {}
     return dados if isinstance(dados, dict) else {}
+
+
+class CanalWhatsAppComTokenResolvido(NotificationChannel):
+    """Resolve o token da instancia a cada envio, em vez de recebe-lo na subida.
+
+    O `EvolutionWhatsAppNotificationChannel` recebe o token **no construtor**, e o
+    worker montava um canal so, no bootstrap, a partir de `EVOLUTION_INSTANCE_TOKEN`.
+    Isso funcionava enquanto o token era variavel de ambiente — imutavel durante a
+    vida do processo.
+
+    Com o token vindo do banco (IMP-370) a premissa cai: ele **muda** quando o
+    operador reconecta pela tela, porque reconectar pode criar instancia nova. Um
+    canal montado na subida seguiria tentando com o token velho ate o proximo
+    restart, e o sintoma apareceria longe — comprovante que nao sai.
+
+    O token so e relido quando MUDA: o canal concreto e reaproveitado enquanto o
+    valor for o mesmo, entao nao ha `httpx.Client` novo por mensagem.
+    """
+
+    def __init__(
+        self,
+        *,
+        resolver_token: Callable[[], str | None],
+        fabrica: Callable[[str], NotificationChannel],
+    ) -> None:
+        self._resolver_token = resolver_token
+        self._fabrica = fabrica
+        self._token: str | None = None
+        self._canal: NotificationChannel | None = None
+
+    def _atual(self) -> NotificationChannel | None:
+        token = self._resolver_token()
+        if token is None or not token.strip():
+            return None
+        token = token.strip()
+        if token != self._token or self._canal is None:
+            self._canal = self._fabrica(token)
+            self._token = token
+        return self._canal
+
+    def enviar(
+        self,
+        *,
+        destinatario: str,
+        assunto: str,
+        corpo: str,
+        chave_idempotente: str,
+    ) -> ResultadoEnvio:
+        canal = self._atual()
+        if canal is None:
+            # FALHA_TEMPORARIA, e nao permanente: nao ha token porque ninguem
+            # conectou o WhatsApp ainda, ou porque a conexao foi desfeita. Os
+            # dois casos se resolvem sozinhos quando o operador parear de novo, e
+            # marcar como permanente descartaria a mensagem para sempre.
+            return ResultadoEnvio(ResultadoCanal.FALHA_TEMPORARIA, codigo="whatsapp_sem_conexao")
+        return canal.enviar(
+            destinatario=destinatario,
+            assunto=assunto,
+            corpo=corpo,
+            chave_idempotente=chave_idempotente,
+        )
+
+    def consultar_status(self, provider_message_id: str) -> ResultadoEnvio:
+        canal = self._atual()
+        if canal is None:
+            return ResultadoEnvio(ResultadoCanal.DESCONHECIDO, codigo="whatsapp_sem_conexao")
+        return canal.consultar_status(provider_message_id)

@@ -34,6 +34,9 @@ const FILES = {
   snapshot: 'docs/governance/contracts/openapi/frontend-mvp-backend-openapi.json',
   registry: 'docs/governance/registry/identifier-registry.json',
   packageJson: 'package.json',
+  // Aditivo vigente de recertificacao visual (2026-09-08). Relatorios
+  // historicos permanecem imutaveis; este documento publica os SHAs vigentes.
+  visualRecertification: 'docs/audits/reports/tianet-release-candidate-visual-recertification-2026-09-08.md',
 };
 
 const docs = Object.fromEntries(Object.entries(FILES).map(([key, rel]) => [key, read(rel)]));
@@ -588,6 +591,21 @@ function assertNormalizedText(doc, text, context) {
   assert.ok(normalizedDoc.includes(normalizedText), `${context}: contrato ausente: ${text}`);
 }
 
+// Recertificacao visual aditiva (2026-09-08): os PNGs vigentes divergiram dos
+// relatorios historicos, que permanecem imutaveis. O SHA atual passa quando
+// publicado no relatorio historico correspondente OU no aditivo vigente, e
+// falha quando nao esta em nenhuma das duas fontes. O override via
+// source.recertificationReport existe para que mutacoes exercitem o negativo
+// removendo o hash das duas fontes.
+function assertVisualHashDocumented(source, hash, context) {
+  const historical = source.report;
+  const recert = source.recertificationReport ?? docs.visualRecertification;
+  assert.ok(
+    historical.includes(hash) || recert.includes(hash),
+    `${context}: contrato ausente: ${hash}`,
+  );
+}
+
 function readScaffold() {
   const source = Object.fromEntries(Object.entries(SCAFFOLD_FILES).map(([key, rel]) => {
     const absolute = path.join(ROOT, rel);
@@ -1032,12 +1050,10 @@ const contracts = {
       0,
     );
     // O pino acompanha o snapshot vivo, que por contrato deve bater byte a byte
-    // com o runtime. A matriz soma 105 e o contrato 106: PLAN-027/IMP-306
-    // acrescentou POST /credit/carteiras/{id}/lancamentos, que ainda nao tem
-    // jornada frontend propria, e a DR-004 tirou as duas operacoes de plano de
-    // parcelas dos dois lados.
-    assert.strictEqual(operations, 111, 'snapshot deve conter 111 operacoes');
-    assert.strictEqual(Object.keys(snapshot.components.schemas).length, 138, 'snapshot deve conter 138 schemas');
+    // com o runtime. 111 com o IMP-368 (quatro rotas do WhatsApp); 115 com a
+    // ADR-020, que publicou as quatro rotas administrativas OpenAI.
+    assert.strictEqual(operations, 115, 'snapshot deve conter 115 operacoes');
+    assert.strictEqual(Object.keys(snapshot.components.schemas).length, 146, 'snapshot deve conter 146 schemas');
     assert.ok(snapshot.paths['/iam/contexto-atual']?.get, 'snapshot deve publicar contexto atual');
     assert.ok(snapshot.paths['/iam/permissoes']?.get, 'snapshot deve publicar catalogo IAM');
     const snapshotHash = crypto.createHash('sha256').update(Buffer.from(source.snapshot, 'utf8')).digest('hex');
@@ -1205,8 +1221,8 @@ const contracts = {
     assertText(source.componentSmoke, 'fetch("http://msw.harness.invalid/unhandled")', 'MSW deve testar request inesperada');
     assertText(source.componentSmoke, '.rejects.toThrow()', 'request inesperada deve falhar observavelmente');
     assertText(source.contractSmoke, 'frontend-mvp-backend-openapi.json', 'contrato deve ler snapshot oficial');
-    assertText(source.contractSmoke, '111', 'contrato deve validar 111 operacoes');
-    assertText(source.contractSmoke, '138', 'contrato deve validar 138 schemas');
+    assertText(source.contractSmoke, '115', 'contrato deve validar 115 operacoes');
+    assertText(source.contractSmoke, '146', 'contrato deve validar 146 schemas');
     assert.ok(!/\sas\s+Record</.test(source.contractSmoke), 'contrato nao pode contornar narrowing com cast manual');
     assertText(source.playwrightConfig, 'reuseExistingServer: false', 'Playwright nao pode reutilizar servidor');
     assertText(source.playwrightConfig, 'screenshot: "only-on-failure"', 'screenshot diagnostica');
@@ -1357,7 +1373,11 @@ const contracts = {
       // servidor. O polling nasceu em arquivo proprio e foi ABSORVIDO por esta
       // tela quando esta regra o apontou: eram dois Client Components onde um
       // hook de dez linhas resolve. A regra fez o trabalho dela.
-      ['components/configuracoes-financeiras/configuracoes-actions.client.tsx', 'components/foundation/destructive-dialog-demo.tsx', 'components/ui/dialog.tsx', 'components/ui/sheet.tsx', 'components/whatsapp/whatsapp.client.tsx'],
+      // Slice D OpenAI/Codex: a tela de conexao entra aqui pelo mesmo motivo —
+      // `useActionState` (conectar/desconectar/diagnostico), `useEffect`
+      // (polling de 3s por ate 10 min) e estado local de exibicao. Acoes de
+      // servidor chegam por props; nenhum fetch, token ou segredo neste arquivo.
+      ['components/configuracoes-financeiras/configuracoes-actions.client.tsx', 'components/foundation/destructive-dialog-demo.tsx', 'components/openai/openai.client.tsx', 'components/ui/dialog.tsx', 'components/ui/sheet.tsx', 'components/whatsapp/whatsapp.client.tsx'],
       'Client Components devem ficar limitados ao dialogo interativo e as telas com acao',
     );
 
@@ -1407,7 +1427,7 @@ const contracts = {
     assertText(source.generated, 'This file was auto-generated by IMP-287. Do not edit manually.', 'header gerado');
     assertText(
       source.generated,
-      '662ad947ed4de59e8d4d47d597ea450091d5ff6966a15b67ee1953386418f84f',
+      'ee83d2d2e13337e56669abc9f272b65a99bf8ab1aa52b2dbf3fe9c50a33a904b',
       'SHA governado no gerado',
     );
     assertText(source.generated, 'AuthLoginRequest:', 'AuthLoginRequest gerado');
@@ -1433,7 +1453,7 @@ const contracts = {
     for (const text of ['AuthLoginRequest', 'AuthRefreshRequest', 'ContextoOperacionalResponse', 'PermissoesCatalogoResponse', 'ErroResponse']) {
       assertText(source.contractTest, text, `teste contratual cobre ${text}`);
     }
-    for (const text of ['toHaveLength(63)', 'required).toBe(true)', 'minLength: 1, maxLength: 255', 'toBe(111)', 'toHaveLength(138)']) {
+    for (const text of ['toBe(115)', 'toHaveLength(146)', 'toHaveLength(64)', 'required).toBe(true)', 'minLength: 1, maxLength: 255']) {
       assertText(source.contractTest, text, `teste contratual cobre ${text}`);
     }
     assertText(source.workflow, 'npm run api:check', 'CI bloqueia drift OpenAPI');
@@ -1748,7 +1768,7 @@ const contracts = {
       assert.deepStrictEqual([...bytes.subarray(0, 8)], [137, 80, 78, 71, 13, 10, 26, 10], `${name} deve ser PNG`);
       assert.strictEqual(bytes.readUInt32BE(16), width, `${name} largura governada`);
       assert.strictEqual(bytes.readUInt32BE(20), height, `${name} altura governada`);
-      assertText(source.report, crypto.createHash('sha256').update(bytes).digest('hex'), `relatorio publica SHA ${name}`);
+      assertVisualHashDocumented(source, crypto.createHash('sha256').update(bytes).digest('hex'), `relatorio publica SHA ${name}`);
     }
     assertText(source.plan, '**Versao:** 3.1.0', 'PLAN vivo pos-IMP-298');
     assertText(source.backlog, '**Versao:** 3.1.0', 'backlog vivo pos-IMP-298');
@@ -1931,7 +1951,7 @@ const contracts = {
       const bytes = fs.readFileSync(path.join(ROOT, relative));
       assert.strictEqual(bytes.readUInt32BE(16), width, `${suffix} largura`);
       assert.strictEqual(bytes.readUInt32BE(20), height, `${suffix} altura`);
-      assertText(source.report, crypto.createHash('sha256').update(bytes).digest('hex'), `relatorio publica SHA ${suffix}`);
+      assertVisualHashDocumented(source, crypto.createHash('sha256').update(bytes).digest('hex'), `relatorio publica SHA ${suffix}`);
     }
     assertText(source.plan, '**Versao:** 3.1.0', 'PLAN vivo pos-IMP-298');
     assertText(source.backlog, '**Versao:** 3.1.0', 'backlog vivo pos-IMP-298');
@@ -2014,7 +2034,7 @@ const contracts = {
       const bytes = fs.readFileSync(path.join(ROOT, relative));
       assert.strictEqual(bytes.readUInt32BE(16), width, `${suffix} largura`);
       assert.strictEqual(bytes.readUInt32BE(20), height, `${suffix} altura`);
-      assertText(source.report, crypto.createHash('sha256').update(bytes).digest('hex'), `relatorio publica SHA ${suffix}`);
+      assertVisualHashDocumented(source, crypto.createHash('sha256').update(bytes).digest('hex'), `relatorio publica SHA ${suffix}`);
     }
     assertText(source.plan, '**Versao:** 3.1.0', 'PLAN vivo pos-IMP-298');
     assertText(source.backlog, '**Versao:** 3.1.0', 'backlog vivo pos-IMP-298');
@@ -2100,7 +2120,7 @@ const contracts = {
       const bytes = fs.readFileSync(path.join(ROOT, relative));
       assert.strictEqual(bytes.readUInt32BE(16), width, `${suffix} largura`);
       assert.strictEqual(bytes.readUInt32BE(20), height, `${suffix} altura`);
-      assertText(source.report, crypto.createHash('sha256').update(bytes).digest('hex'), `relatorio publica SHA ${suffix}`);
+      assertVisualHashDocumented(source, crypto.createHash('sha256').update(bytes).digest('hex'), `relatorio publica SHA ${suffix}`);
     }
     assertText(source.plan, '**Versao:** 3.1.0', 'PLAN vivo pos-IMP-298');
     assertText(source.backlog, '**Versao:** 3.1.0', 'backlog vivo pos-IMP-298');
@@ -2197,7 +2217,7 @@ const contracts = {
       const bytes = fs.readFileSync(path.join(ROOT, relative));
       assert.strictEqual(bytes.readUInt32BE(16), width, `${suffix} largura`);
       assert.strictEqual(bytes.readUInt32BE(20), height, `${suffix} altura`);
-      assertText(source.report, crypto.createHash('sha256').update(bytes).digest('hex'), `relatorio publica SHA ${suffix}`);
+      assertVisualHashDocumented(source, crypto.createHash('sha256').update(bytes).digest('hex'), `relatorio publica SHA ${suffix}`);
     }
     assertText(source.plan, '**Versao:** 3.1.0', 'PLAN final IMP-298');
     assertText(source.backlog, '**Versao:** 3.1.0', 'backlog final IMP-298');
@@ -2274,7 +2294,7 @@ const contracts = {
       const bytes = fs.readFileSync(path.join(ROOT, relative));
       assert.strictEqual(bytes.readUInt32BE(16), width, `${suffix} largura`);
       assert.strictEqual(bytes.readUInt32BE(20), height, `${suffix} altura`);
-      assertText(source.report, crypto.createHash('sha256').update(bytes).digest('hex'), `relatorio publica SHA ${suffix}`);
+      assertVisualHashDocumented(source, crypto.createHash('sha256').update(bytes).digest('hex'), `relatorio publica SHA ${suffix}`);
     }
     assertText(source.plan, '**Versao:** 3.1.0', 'PLAN final IMP-298');
     assertText(source.backlog, '**Versao:** 3.1.0', 'backlog final IMP-298');
@@ -2358,7 +2378,7 @@ const contracts = {
       const bytes = fs.readFileSync(path.join(ROOT, relative));
       assert.strictEqual(bytes.readUInt32BE(16), width, `${suffix} largura`);
       assert.strictEqual(bytes.readUInt32BE(20), height, `${suffix} altura`);
-      assertText(source.report, crypto.createHash('sha256').update(bytes).digest('hex'), `relatorio publica SHA ${suffix}`);
+      assertVisualHashDocumented(source, crypto.createHash('sha256').update(bytes).digest('hex'), `relatorio publica SHA ${suffix}`);
     }
     assertText(source.plan, '**Versao:** 3.1.0', 'PLAN final IMP-298');
     assertText(source.backlog, '**Versao:** 3.1.0', 'backlog final IMP-298');
@@ -2480,7 +2500,7 @@ const contracts = {
       const bytes = fs.readFileSync(path.join(ROOT, relative));
       assert.strictEqual(bytes.readUInt32BE(16), width, `${suffix} largura`);
       assert.strictEqual(bytes.readUInt32BE(20), height, `${suffix} altura`);
-      assertText(source.report, crypto.createHash('sha256').update(bytes).digest('hex'), `relatorio publica SHA ${suffix}`);
+      assertVisualHashDocumented(source, crypto.createHash('sha256').update(bytes).digest('hex'), `relatorio publica SHA ${suffix}`);
     }
     assertText(source.plan, '**Versao:** 3.1.0', 'PLAN final IMP-298');
     assertText(source.backlog, '**Versao:** 3.1.0', 'backlog final IMP-298');
@@ -2566,7 +2586,7 @@ const contracts = {
       const bytes = fs.readFileSync(path.join(ROOT, relative));
       assert.strictEqual(bytes.readUInt32BE(16), width, `${suffix} largura`);
       assert.strictEqual(bytes.readUInt32BE(20), height, `${suffix} altura`);
-      assertText(source.report, crypto.createHash('sha256').update(bytes).digest('hex'), `relatorio publica SHA ${suffix}`);
+      assertVisualHashDocumented(source, crypto.createHash('sha256').update(bytes).digest('hex'), `relatorio publica SHA ${suffix}`);
     }
     assertText(source.plan, '**Versao:** 3.1.0', 'PLAN final IMP-298');
     assertText(source.backlog, '**Versao:** 3.1.0', 'backlog final IMP-298');
@@ -2655,7 +2675,7 @@ const contracts = {
       const bytes = fs.readFileSync(path.join(ROOT, relative));
       assert.strictEqual(bytes.readUInt32BE(16), width, `${suffix} largura`);
       assert.strictEqual(bytes.readUInt32BE(20), height, `${suffix} altura`);
-      assertText(source.report, crypto.createHash('sha256').update(bytes).digest('hex'), `relatorio publica SHA ${suffix}`);
+      assertVisualHashDocumented(source, crypto.createHash('sha256').update(bytes).digest('hex'), `relatorio publica SHA ${suffix}`);
     }
     assertText(source.plan, '**Versao:** 3.1.0', 'PLAN final IMP-299');
     assertText(source.backlog, '**Versao:** 3.1.0', 'backlog final IMP-299');
@@ -2739,7 +2759,7 @@ const contracts = {
       const bytes = fs.readFileSync(path.join(ROOT, relative));
       assert.strictEqual(bytes.readUInt32BE(16), width, `${suffix} largura`);
       assert.strictEqual(bytes.readUInt32BE(20), height, `${suffix} altura`);
-      assertText(source.report, crypto.createHash('sha256').update(bytes).digest('hex'), `relatorio publica SHA ${suffix}`);
+      assertVisualHashDocumented(source, crypto.createHash('sha256').update(bytes).digest('hex'), `relatorio publica SHA ${suffix}`);
     }
     assertText(source.plan, '**Versao:** 3.1.0', 'PLAN final IMP-300');
     assertText(source.backlog, '**Versao:** 3.1.0', 'backlog final IMP-300');
@@ -2877,11 +2897,12 @@ const contracts = {
     const schemaCount = Object.keys(api.components?.schemas ?? {}).length;
     // 105 apos o IMP-351 remover POST /platform/tenants e POST /auth/ativar.
     // 107 com o IMP-362; 111 com o IMP-368, que publicou as quatro operacoes
-    // da conexao de WhatsApp.
-    assert.strictEqual(operationCount, 111, 'OpenAPI reflete as quatro rotas do IMP-368');
-    assert.strictEqual(schemaCount, 138, 'OpenAPI reflete as quatro rotas do IMP-368');
+    // da conexao de WhatsApp; 115 com a ADR-020, que publicou as quatro
+    // rotas administrativas OpenAI.
+    assert.strictEqual(operationCount, 115, 'OpenAPI reflete as quatro rotas da ADR-020');
+    assert.strictEqual(schemaCount, 146, 'OpenAPI reflete as quatro rotas da ADR-020');
     const openapiSha = crypto.createHash('sha256').update(fs.readFileSync(path.join(ROOT, FINAL_READINESS_FILES.openapi))).digest('hex');
-    assert.strictEqual(openapiSha, '662ad947ed4de59e8d4d47d597ea450091d5ff6966a15b67ee1953386418f84f', 'OpenAPI corresponde ao snapshot governado vigente');
+    assert.strictEqual(openapiSha, 'ee83d2d2e13337e56669abc9f272b65a99bf8ab1aa52b2dbf3fe9c50a33a904b', 'OpenAPI corresponde ao snapshot governado vigente');
   },
 };
 
@@ -3890,7 +3911,15 @@ test('mutacao IMP-293: remover hash de evidencia visual e rejeitado', () => {
   const source = readContratos();
   const bytes = fs.readFileSync(path.join(ROOT, 'docs/audits/evidence/frontend-mvp-imp-293-contrato-flow-mobile.png'));
   const hash = crypto.createHash('sha256').update(bytes).digest('hex');
-  assert.throws(() => contracts.contratos({ ...source, report: source.report.replace(hash, 'hash-removido') }));
+  // Contrato dual-source: o negativo exige remover o hash das duas fontes
+  // documentais permitidas (historico e aditivo vigente).
+  const recert = source.recertificationReport ?? docs.visualRecertification;
+  assert.ok(source.report.includes(hash) || recert.includes(hash), 'pre-condicao: hash documentado em ao menos uma fonte');
+  assert.throws(() => contracts.contratos({
+    ...source,
+    report: source.report.split(hash).join('hash-removido'),
+    recertificationReport: recert.split(hash).join('hash-removido'),
+  }));
 });
 
 test('mutacao IMP-293: reabrir IMP-296 e rejeitado', () => {

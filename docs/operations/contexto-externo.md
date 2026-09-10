@@ -1,6 +1,6 @@
 # Contexto Externo
 
-**Versao:** 1.11.0
+**Versao:** 1.12.1
 
 **Status:** Vivo — mantido manualmente
 
@@ -88,6 +88,41 @@ atrapalha ate la — ela so vira sessao morta quando o `conectar` novo criar a
 `tianet_{...}` ao lado. Ate esse momento ela ainda **serve**: e a unica instancia
 real disponivel para medir o `logout` repetido, que e a premissa nao certificada
 da ADR-019. Apaga-la antes custaria essa medicao sem ganhar nada.
+
+### Incidente de QR em 2026-09-09
+
+**Estado: corrigido no Evolution e verificado pela TiaNet em 2026-09-09.**
+
+O teste local chegou corretamente ao Evolution: `POST /instance/connect`
+respondeu `200`, mas `/instance/qr` e `/instance/status` permaneceram em `400`,
+sem QR e com `client disconnected`. A equipe mantenedora correlacionou os logs
+do servidor e identificou dois defeitos no Evolution Go:
+
+1. a aplicacao resolve a versao Web atual, mas grava somente `DeviceProps`; como
+   `store.SetWAVersion` nao e chamado, o handshake usa a versao hardcoded antiga
+   e o WhatsApp recusa com `405 client-outdated`/`err-client-outdated`;
+2. depois da recusa, o ponteiro do client permanece no mapa. `Connect()` o trata
+   como instancia em execucao, atualiza apenas configuracoes e nunca chama
+   `StartClient` novamente.
+
+A correcao proposta pelo mantenedor entrou em conjunto: aplicar
+`store.SetWAVersion` nos dois ramos de resolucao e considerar o client ativo
+somente quando o ponteiro existe e `IsConnected()`, removendo o zumbi antes de
+reiniciar em `Connect()` e `ensureClientConnected`. O segundo item muda a
+recuperacao de todos os tenants, mas evita que qualquer falha equivalente deixe
+a instancia presa. A implementacao precisa serializar o ciclo por instancia ou
+distinguir explicitamente `starting` de `disconnected`: durante a subida normal,
+o ponteiro pode existir antes de `IsConnected()` virar verdadeiro, e um predicado
+isolado poderia remover um client legitimo ainda iniciando. Nao requer workaround
+nem mudanca de contrato na TiaNet.
+
+Depois do rebuild, a mesma instancia antes zumbi recuperou sem delete/recreate:
+`POST /instance/connect` retornou 200, o primeiro `GET /instance/qr` devolveu uma
+data URI PNG valida e `/instance/status` passou a informar
+`Connected=true/LoggedIn=false`. O caso de uso da TiaNet repetiu o resultado,
+gravando `conectar.inicio` e `conectar.sucesso`. A ausencia do `405` foi inferida
+pela criacao do QR e pelo socket conectado; o log interno de versao do Evolution
+continua sendo evidencia de responsabilidade do mantenedor.
 
 ### Custodia da `WHATSAPP_TOKEN_ENCRYPTION_KEY` (decidido em 2026-09-02)
 
@@ -296,11 +331,14 @@ PLAN-034.
 O provedor BYOK da DR-005 **foi escolhido com o cliente e a chave existe**. Com
 isso o IMP-359 fecha inteiro como esta escrito, sem precisar ser fatiado.
 
-*Pendente de registro nesta tabela:* o **nome do provedor** e o **modelo**
-(`LLM_BASE_URL` e `LLM_MODEL`). Ficam em branco de proposito ate serem
-confirmados — este documento prefere lacuna a item errado. A `LLM_API_KEY` nao
-entra aqui nem no git: vai pelo canal de `docs/credenciais/`, ao lado do
-`evolution_api_key` e da `WHATSAPP_TOKEN_ENCRYPTION_KEY`.
+**Provedor registrado em 2026-09-10 (rota A):** API oficial OpenAI,
+`LLM_BASE_URL=https://api.openai.com/v1`, `LLM_MODEL=gpt-4o-mini` (candidato à
+certificação). Chave de projeto validada (modelos 200, inferência sintética
+200, 15 tokens); crédito de $5 informado pelo proprietário. A `LLM_API_KEY`
+não entra aqui nem no git: vai no `.env` local e pelo canal de
+`docs/credenciais/`, ao lado do `evolution_api_key` e da
+`WHATSAPP_TOKEN_ENCRYPTION_KEY`. Pendente: confirmação da política de dados do
+projeto e certificação do modelo antes de dado verdadeiro.
 
 **Nenhum insumo externo bloqueia mais o IMP-359.** O que falta e trabalho nosso.
 
@@ -512,6 +550,8 @@ Corrigir isso e item de codigo, nao de documentacao.
 
 | Versao | Data | Descricao |
 |---|---|---|
+| 1.12.1 | 2026-09-09 | A equipe Evolution aplicou o hotfix e fez rebuild. A TiaNet observou recuperacao da instancia zumbi sem exclusao, QR PNG valido na primeira leitura e estado `Connected=true/LoggedIn=false`; o caso de uso registrou inicio e sucesso. Falta apenas a verificacao visual e o pareamento, caso o proprietario queira usar um numero real. |
+| 1.12.0 | 2026-09-09 | Registrado o incidente que impede QR: a versao Web resolvida nao chega ao handshake, que usa o hardcoded antigo e recebe `405 client-outdated`; o ponteiro desconectado permanece no mapa e transforma novos `connect` em no-op. As duas correcoes propostas pela equipe Evolution devem ser aplicadas juntas e validadas apos rebuild, com serializacao ou estado explicito para nao confundir client iniciando com zumbi; a TiaNet nao precisa de workaround. |
 | 1.11.0 | 2026-09-04 | O caveat da deduplicacao, aberto desde 2026-09-02, foi **medido e fechado**: o Evolution NAO deduplica por `id`, e reenviar entrega duas vezes. Verificado por eles no codigo-fonte, nao por teste em producao. A postura atual — nao reenviar em resultado incerto, conciliar a mao — deixa de ser cautela e passa a ser a unica opcao correta. |
 | 1.10.0 | 2026-09-03 | A remocao da `adm_tianet` deixou de ser acao pendente solta e virou item do checklist do IMP-359, com a ordem fixada: medir o `logout` repetido antes de apagar, porque ela e a unica instancia real disponivel para essa medicao — a premissa nao certificada da ADR-019. Enquanto flutuava sem dono, reaparecia em todo handoff sem ser feita. |
 | 1.9.0 | 2026-09-03 | A §5.1 estava errada em tres pontos ao mesmo tempo — data, contagem de nos e a afirmacao de que o manifesto nao fora salvo. O terceiro era o mais caro: desencorajava o `--update`, e o grafo ficou treze dias parado, escondendo cifra, persistencia e rotas da conexao de WhatsApp. Corrigidos contra o disco, o grafo atualizado (10.768 nos) e a extracao semantica executada: ele passa a **cobrir documentos**, o que a versao anterior declarava impossivel. A consulta antes de alteracao arquitetural virou governanca na SPEC-003. |

@@ -127,6 +127,8 @@ def consultar_contexto_atual(
         whatsapp=ContextoWhatsAppResponse(
             pareada=resultado.whatsapp_pareada,
             numero=resultado.whatsapp_numero,
+            alerta_queda_ativa=resultado.whatsapp_alerta_queda_ativa,
+            queda_detectada_em=resultado.whatsapp_queda_detectada_em,
         ),
     )
 

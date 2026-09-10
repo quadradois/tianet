@@ -72,7 +72,7 @@ function contexto(modo) {
     permissoes: PERMISSOES[modo] ?? PERMISSOES.ausente,
     tenant: { id: "tenant-e2e", identificador_institucional: "ACME", nome: "Instituicao ACME" },
     usuario: { email: "operador@example.test", id: "user-e2e", nome: "Operador E2E" },
-    whatsapp: { numero: conexao.numero, pareada: conexao.pareada },
+    whatsapp: { alerta_queda_ativa: false, numero: conexao.numero, pareada: conexao.pareada, queda_detectada_em: null },
   };
 }
 

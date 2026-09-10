@@ -51,6 +51,10 @@ from emprestimo.application.errors import (
     TransicaoEstadoInvalidaError,
     UsuarioNaoEncontradoError,
 )
+from emprestimo.application.openai_conexao import (
+    OpenAIAgentProtocolError,
+    OpenAIAgentUnavailableError,
+)
 from emprestimo.application.usuarios import UsuarioJaExisteError
 from emprestimo.domain.common.errors import (
     DevedorJaExisteError,
@@ -78,6 +82,7 @@ from emprestimo.presentation.api.observability import (
     registrar_erro_tecnico,
 )
 from emprestimo.presentation.api.observability_routes import router as observability_router
+from emprestimo.presentation.api.openai_routes import router as openai_router
 from emprestimo.presentation.api.openapi import instalar_openapi_observabilidade
 from emprestimo.presentation.api.operacao_diaria_routes import router as operacao_diaria_router
 from emprestimo.presentation.api.routes import router
@@ -106,6 +111,7 @@ def create_app() -> FastAPI:
     app.include_router(configuracoes_financeiras_router)
     app.include_router(automacao_router)
     app.include_router(whatsapp_router)
+    app.include_router(openai_router)
     app.add_exception_handler(RequestValidationError, _payload_invalido)
     app.add_exception_handler(AutenticacaoRecusadaError, _autenticacao_recusada)
     app.add_exception_handler(AcessoNegadoError, _acesso_negado)
@@ -135,6 +141,8 @@ def create_app() -> FastAPI:
     # ausente: nao ha com o que falar com o provedor. O PLAN-034 promete 404,
     # e sem esta linha a excecao subia crua para o handler generico de 500.
     app.add_exception_handler(TokenConexaoIlegivelError, _recurso_nao_encontrado)
+    app.add_exception_handler(OpenAIAgentUnavailableError, _openai_agent_indisponivel)
+    app.add_exception_handler(OpenAIAgentProtocolError, _openai_agent_falha)
     app.add_exception_handler(PerfilConflitoError, _perfil_conflito)
     app.add_exception_handler(ContextoOperacionalIncompletoError, _contexto_incompleto)
     app.add_exception_handler(PerfilJaExisteError, _perfil_conflito)
@@ -267,6 +275,20 @@ async def _erro_inesperado(request: Request, exc: Exception) -> JSONResponse:
     return JSONResponse(
         status_code=500,
         content=_corpo("erro_interno", "erro inesperado no servidor"),
+    )
+
+
+async def _openai_agent_indisponivel(_: Request, __: Exception) -> JSONResponse:
+    return JSONResponse(
+        status_code=503,
+        content=_corpo("openai_indisponivel", "servico OpenAI indisponivel"),
+    )
+
+
+async def _openai_agent_falha(_: Request, __: Exception) -> JSONResponse:
+    return JSONResponse(
+        status_code=502,
+        content=_corpo("openai_falha", "falha ao consultar o servico OpenAI"),
     )
 
 

@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import uuid
+from dataclasses import replace
+from datetime import UTC, datetime
 
 import pytest
 from sqlalchemy import select, text
@@ -207,3 +209,58 @@ def test_delete_de_conexao_ausente_nao_e_erro(
 
         _repo(session).delete(tenant_id)
         session.commit()
+
+
+def test_conexao_nova_nasce_sem_alerta_de_queda(
+    session_factory: sessionmaker[Session],
+) -> None:
+    """IMP-370 Slice 1: coluna nova nullable; linha nova le `None`."""
+    with session_factory() as session:
+        tenant_id = _tenant(session)
+        _repo(session).save(_conexao(tenant_id), token=TOKEN)
+        session.commit()
+
+        recuperada = _repo(session).find_by_tenant_id(tenant_id)
+        assert recuperada is not None
+        assert recuperada.queda_detectada_em is None
+
+
+def test_round_trip_do_instante_de_queda_preserva_token_e_numero(
+    session_factory: sessionmaker[Session],
+) -> None:
+    """IMP-370 Slice 1: ida e volta do campo sem tocar token ou numero_pareado.
+
+    Grava sem alerta, depois atualiza so o instante via `save` sem token — o
+    caminho que o Slice 2 vai usar dentro da sincronizacao — e confere que o
+    segredo e o numero continuam intactos.
+    """
+    instante = datetime(2026, 9, 8, 12, 0, tzinfo=UTC)
+    with session_factory() as session:
+        tenant_id = _tenant(session)
+        repo = _repo(session)
+        repo.save(_conexao(tenant_id).parear("556284290661"), token=TOKEN)
+        session.commit()
+
+        em_queda_base = repo.find_by_tenant_id(tenant_id)
+        assert em_queda_base is not None
+        em_queda = replace(em_queda_base, queda_detectada_em=instante)
+        repo.save(em_queda)
+        session.commit()
+
+        recuperada = repo.find_by_tenant_id(tenant_id)
+        assert recuperada is not None
+        assert recuperada.queda_detectada_em == instante
+        assert recuperada.queda_detectada_em is not None
+        assert recuperada.queda_detectada_em.tzinfo is not None
+        assert recuperada.numero_pareado == "556284290661"
+        assert repo.find_token(tenant_id) == TOKEN
+
+        sem_alerta = replace(recuperada, queda_detectada_em=None)
+        repo.save(sem_alerta)
+        session.commit()
+
+        limpa = repo.find_by_tenant_id(tenant_id)
+        assert limpa is not None
+        assert limpa.queda_detectada_em is None
+        assert limpa.numero_pareado == "556284290661"
+        assert repo.find_token(tenant_id) == TOKEN

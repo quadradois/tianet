@@ -29,8 +29,13 @@ const context = {
   permissoes: ["devedor.ler"],
   tenant: { id: "tenant-e2e", identificador_institucional: "ACME", nome: "Instituicao ACME" },
   usuario: { email: "operador@example.test", id: "user-e2e", nome: "Operador E2E" },
-    whatsapp: { numero: "556299999999", pareada: true },
+    whatsapp: { alerta_queda_ativa: false, numero: "556299999999", pareada: true, queda_detectada_em: null },
 };
+
+// Cenario sintetico de queda ativa (IMP-370): sem dados reais, instante fixo.
+// A operadora cai aqui via `operador+queda@example.test` e o contexto devolve
+// alerta ativo ate a reconexao.
+const QUEDA_EM = "2026-09-08T12:00:00.000Z";
 
 let loopContextCalls = 0;
 
@@ -48,6 +53,7 @@ const server = createServer(async (request, response) => {
     const accessToken = mode === "expirado" ? "access-old"
       : mode === "loop" ? "access-loop-old"
         : mode === "falha" ? "access-error"
+        : mode === "queda" ? "access-queda"
         : mode === "sem-carteira" ? "access-conflict" : "access-ok";
     send(response, 200, {
       access_token: accessToken,
@@ -102,6 +108,13 @@ const server = createServer(async (request, response) => {
     }
     if (authorization === "Bearer access-error") {
       send(response, 500, { codigo: "interno", mensagem: "stack secreta" }, String(correlation));
+      return;
+    }
+    if (authorization === "Bearer access-queda") {
+      send(response, 200, {
+        ...context,
+        whatsapp: { alerta_queda_ativa: true, numero: null, pareada: false, queda_detectada_em: QUEDA_EM },
+      }, String(correlation));
       return;
     }
     if (authorization === "Bearer access-ok" || authorization === "Bearer access-new") {

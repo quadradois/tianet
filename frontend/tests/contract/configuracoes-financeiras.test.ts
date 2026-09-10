@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import openapi from "../../../docs/governance/contracts/openapi/frontend-mvp-backend-openapi.json" with { type: "json" };
 
-const SNAPSHOT_SHA = "662ad947ed4de59e8d4d47d597ea450091d5ff6966a15b67ee1953386418f84f";
+const SNAPSHOT_SHA = "ee83d2d2e13337e56669abc9f272b65a99bf8ab1aa52b2dbf3fe9c50a33a904b";
 const CONFIG_PATHS = [
   "/credit/configuracoes-financeiras",
   "/credit/configuracoes-financeiras/{configuracao_id}",
@@ -46,13 +46,13 @@ function operations() {
 }
 
 describe("contrato OpenAPI de Configuracoes Financeiras", () => {
-  it("preserva snapshot governado 111/138 e SHA publicado", async () => {
+  it("preserva snapshot governado 115/146 e SHA publicado", async () => {
     const { createHash } = await import("node:crypto");
     const { readFile } = await import("node:fs/promises");
     const bytes = await readFile(new URL("../../../docs/governance/contracts/openapi/frontend-mvp-backend-openapi.json", import.meta.url));
     expect(createHash("sha256").update(bytes).digest("hex")).toBe(SNAPSHOT_SHA);
-    expect(operations()).toHaveLength(111);
-    expect(Object.keys(openapi.components.schemas)).toHaveLength(138);
+    expect(operations()).toHaveLength(115);
+    expect(Object.keys(openapi.components.schemas)).toHaveLength(146);
   });
 
   it("certifica 13 operacoes Bearer e Idempotency-Key nas oito escritas", () => {

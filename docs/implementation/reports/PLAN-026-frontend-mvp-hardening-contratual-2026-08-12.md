@@ -289,13 +289,34 @@ Em 2026-09-02 o IMP-368 publicou as quatro operacoes da conexao de WhatsApp
 provedor, e entrou porque o `logout` sozinho acumula sessao morta no Evolution.
 Mudanca **aditiva**: **111 operacoes, 137 schemas**, SHA-256
 `662ad947ed4de59e8d4d47d597ea450091d5ff6966a15b67ee1953386418f84f`.
-Este e o hash **vigente**. As tres escritas novas nao publicam
+Este foi o hash vigente ate o IMP-370. As tres escritas novas nao publicam
 `Idempotency-Key` e estao registradas como excecao justificada no guardrail do
 IMP-333 — o replay devolveria um QR expirado, e o `POST` nao tem corpo a
 divergir.
 
-Das dez regeracoes registradas, as do IMP-326, IMP-355, IMP-362 e IMP-368 sao
-aditivas. A do IMP-324
+Em 2026-09-08 o IMP-370 regerou o snapshot governado: **111 operacoes, 138
+schemas**, SHA-256
+`85187bd7ef7fb4f29540fc3afd21addbcdd48980656f0617ddce47ce8f23cbcf`.
+Este foi o hash vigente até a Slice D. A cadeia anterior permanece intacta — este registro
+se acrescenta, nao se reescreve.
+
+Em 2026-09-09 a Slice D do piloto OpenAI/Codex publicou quatro operações
+administrativas (`GET` e `DELETE` em `/platform/openai/conexao`, `POST` em
+`/platform/openai/conexao/login` e `GET /platform/openai/diagnostico`). Mudança
+**aditiva**: **115 operações, 145 schemas**, SHA-256
+`0d01766283ebe62c5cde983449e3028d710b6f6814d30e746850795cd730c059`.
+Este foi o hash vigente até a extensão UX da Slice D; os registros anteriores
+permanecem intactos.
+
+Em 2026-09-10 a extensão UX da Slice D acrescentou o schema
+`OpenAIUsageSummaryResponse` e o campo anulável `usageSummary` à resposta de
+conexão. As quatro operações foram preservadas. Mudança **aditiva**: **115
+operações, 146 schemas**, SHA-256
+`ee83d2d2e13337e56669abc9f272b65a99bf8ab1aa52b2dbf3fe9c50a33a904b`.
+Este é o hash **vigente**.
+
+Das doze regeracoes registradas, as do IMP-326, IMP-355, IMP-362,
+IMP-368, IMP-370 e da Slice D sao aditivas. A do IMP-324
 retirou campos exigidos, a do IMP-327 retirou operacoes e schemas, a do
 IMP-328 retirou campos de sete schemas e a do IMP-351 retirou duas operacoes e
 tres schemas: as quatro **nao aditivas**, deliberadas, e amparadas pela
@@ -307,6 +328,9 @@ resolucao da DR-004 ou por decisao registrada. Nada do hardening foi desfeito.
 
 | Versao | Data | Descricao |
 |---|---|---|
+| 1.13.0 | 2026-09-10 | Extensão UX OpenAI/Codex: resumo anulável dos limites publicado na conexão; snapshot 115/146 regerado e SHA vigente atualizado. |
+| 1.12.0 | 2026-09-09 | Slice D OpenAI/Codex: quatro operações administrativas publicadas; snapshot 115/145 regerado e SHA vigente atualizado. |
+| 1.11.0 | 2026-09-08 | IMP-370: snapshot 111/138 regerado; SHA vigente atualizado, cadeia anterior preservada. |
 | 1.10.0 | 2026-09-02 | IMP-368: as quatro operacoes de `/platform/whatsapp/conexao` publicadas; snapshot 111/137 regerado. |
 | 1.9.0 | 2026-08-27 | IMP-362: `GET /credit/devedores/{devedor_id}/saldo` publicado; snapshot 107/135 regerado. |
 | 1.8.0 | 2026-08-27 | IMP-355: `POST /iam/usuarios` publicado; snapshot 106/133 regerado. Entrada acrescentada a cadeia, sem reescrever as anteriores. |

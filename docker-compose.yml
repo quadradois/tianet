@@ -10,6 +10,7 @@ x-backend: &backend
     # Credenciais de Tenant: criar, listar e apagar instancia (IMP-368).
     EVOLUTION_TENANT_ID: ${EVOLUTION_TENANT_ID:-}
     EVOLUTION_API_KEY: ${EVOLUTION_API_KEY:-}
+    WHATSAPP_TOKEN_ENCRYPTION_KEY: ${WHATSAPP_TOKEN_ENCRYPTION_KEY:-}
   depends_on:
     postgres:
       condition: service_healthy
@@ -47,6 +48,11 @@ services:
       <<: *backend-env
       PLATFORM_ADMIN_BOOTSTRAP_ENABLED: ${PLATFORM_ADMIN_BOOTSTRAP_ENABLED:-false}
       PLATFORM_ADMIN_BOOTSTRAP_SECRET_HASH: ${PLATFORM_ADMIN_BOOTSTRAP_SECRET_HASH:-}
+      TIANET_AGENT_ENABLED: ${TIANET_AGENT_ENABLED:-false}
+      TIANET_AGENT_INTERNAL_SECRET: ${TIANET_AGENT_INTERNAL_SECRET:-}
+      TIANET_AGENT_SOCKET: /run/tianet-agent/agent.sock
+    volumes:
+      - agent-runtime:/run/tianet-agent:ro
     # 3000 vive aqui porque o frontend compartilha esta netns (ver servico frontend).
     ports:
       - "127.0.0.1:${API_PORT:-8000}:8000"
@@ -88,6 +94,63 @@ services:
     # O worker trata SIGTERM e drena o lease antes de sair.
     stop_grace_period: 30s
 
+  agent:
+    build:
+      context: .
+      dockerfile: Dockerfile.agent
+      args:
+        CODEX_VERSION: "0.146.1"
+        CODEX_SHA256: "f558105aec12bf6fb33570793adfc089f8b41dc32aced60b8b4fba9b451824ac"
+    environment:
+      TIANET_AGENT_ENABLED: ${TIANET_AGENT_ENABLED:-false}
+      TIANET_AGENT_INTERNAL_SECRET: ${TIANET_AGENT_INTERNAL_SECRET:-}
+      CODEX_EXECUTABLE: /usr/local/bin/codex
+      CODEX_HOME: /var/lib/tianet-agent/codex
+      CODEX_USER_AGENT_IDENTITY: tianet-agent-auth/0.146.1
+      TIANET_AGENT_RUNTIME: /tmp/tianet-agent
+      TIANET_AGENT_SOCKET: /run/tianet-agent/agent.sock
+      HTTPS_PROXY: http://agent-egress-proxy:8080
+      HTTP_PROXY: http://agent-egress-proxy:8080
+      NO_PROXY: 127.0.0.1,localhost
+    # Rede interna exclusiva; o unico egress passa pelo proxy com allowlist.
+    networks:
+      - agent-egress
+    depends_on:
+      agent-egress-proxy:
+        condition: service_healthy
+    volumes:
+      - agent-codex-data:/var/lib/tianet-agent/codex
+      - agent-runtime:/run/tianet-agent
+    read_only: true
+    tmpfs:
+      - /tmp:size=32m,mode=1777
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    init: true
+
+  agent-egress-proxy:
+    build:
+      context: .
+      dockerfile: Dockerfile.agent-egress-proxy
+    networks:
+      - agent-egress
+      - provider-egress
+    read_only: true
+    tmpfs:
+      - /tmp:size=8m,mode=1777
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    init: true
+    healthcheck:
+      test: ["CMD", "python", "-m", "emprestimo.agent.egress_proxy", "health"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
   frontend:
     build: ./frontend
     # session.server.ts:95 recusa backend nao-HTTPS em producao, exceto loopback.
@@ -106,3 +169,10 @@ services:
 
 volumes:
   postgres-data:
+  agent-codex-data:
+  agent-runtime:
+
+networks:
+  agent-egress:
+    internal: true
+  provider-egress:
