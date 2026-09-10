@@ -124,6 +124,16 @@ jobs:
       - name: Run Automacao suite
         run: npm run test:automacao
 
+      # Estas duas estavam em `test:harness` e nunca foram enumeradas aqui: o
+      # CI listava as suites à mão e as duas ficaram de fora. A conexão do
+      # WhatsApp é justamente o que o PLAN-034 está construindo — era a jornada
+      # em obra sem nenhum gate cobrindo.
+      - name: Run WhatsApp suite
+        run: npm run test:whatsapp
+
+      - name: Run OpenAI suite
+        run: npm run test:openai
+
       - name: Install uv
         if: runner.os == 'Linux'
         uses: astral-sh/setup-uv@v6
