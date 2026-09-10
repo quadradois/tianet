@@ -166,10 +166,16 @@ if [ "$TOCA_FRONTEND" -eq 1 ]; then
   # a seguinte sobrescrevia o build dava ERR_CONNECTION_REFUSED intermitente, e
   # foi por isso que uma versao anterior deste hook rodava so o dashboard.
   # Medido depois da correcao: as treze passam em ~5,4 min, sem falha.
+  #
+  # whatsapp e openai entraram depois: estavam em test:harness e ficaram de fora
+  # tanto daqui quanto do quality.yml, porque as duas listas sao escritas a mao.
+  # A conexao do WhatsApp e a jornada que o PLAN-034 constroi — era a unica em
+  # obra sem gate nenhum, nem local nem no CI.
+  # scripts/tests/test-deploy-gate.mjs agora reprova a lista que ficar atras.
   passo "suites Playwright por tela — a parte demorada"
   echo "pre-push: e aqui que estavam os defeitos que o CI pegava e o hook antigo nao."
   for suite in e2e session dashboard devedores comercial contratos motor cobranca \
-               agenda relatorios configuracoes iam automacao; do
+               agenda relatorios configuracoes iam automacao whatsapp openai; do
     npm run "test:$suite" || falhou "test:$suite"
   done
 fi

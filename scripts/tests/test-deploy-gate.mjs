@@ -134,19 +134,45 @@ checar('a allowlist não contém o nome do workflow', () => {
  * quality.yml — a suite de WhatsApp, jornada em obra no PLAN-034, era uma
  * delas. A lista do CI é escrita à mão; este teste impede que ela fique atrás.
  */
-checar('quality.yml roda todas as suites de test:harness', () => {
+const suitesDoHarness = () => {
   const pkg = JSON.parse(readFileSync(join(ROOT, 'frontend', 'package.json'), 'utf8'));
-  const harness = pkg.scripts['test:harness']
+  return pkg.scripts['test:harness']
     .split('&&')
     .map((s) => s.trim().replace(/^npm run /, ''))
     .filter(Boolean);
+};
+
+checar('quality.yml roda todas as suites de test:harness', () => {
   const noCi = new Set(
     (readFileSync(QUALITY_YML, 'utf8').match(/npm run (test:[a-z0-9:]+)/g) ?? []).map((m) =>
       m.replace('npm run ', ''),
     ),
   );
-  const ausentes = harness.filter((s) => !noCi.has(s));
+  const ausentes = suitesDoHarness().filter((s) => !noCi.has(s));
   assert.deepEqual(ausentes, [], `suites fora do CI: ${ausentes.join(', ')}`);
+});
+
+/**
+ * O pre-push se declara "mesmo conjunto e mesma ordem do CI" — então tem que
+ * ser verdade. Ele ficou com a mesma lacuna: whatsapp e openai não estavam
+ * nem na lista do loop nem no CI.
+ */
+checar('hooks/pre-push roda todas as suites de test:harness', () => {
+  const texto = readFileSync(join(ROOT, 'hooks', 'pre-push'), 'utf8');
+  const cobertas = new Set(
+    (texto.match(/npm run (?:")?(test:[a-z0-9:]+)/g) ?? []).map((m) =>
+      m.replace(/npm run "?/, ''),
+    ),
+  );
+  // As suites do loop aparecem como `npm run "test:$suite"`: os nomes vêm da
+  // lista do `for`, não de chamadas literais.
+  const loop = texto.match(/for suite in ([\s\S]*?); do/);
+  assert.ok(loop, 'loop `for suite in ...` não encontrado no pre-push');
+  for (const nome of loop[1].split(/[\s\\]+/).filter(Boolean)) {
+    cobertas.add(`test:${nome}`);
+  }
+  const ausentes = suitesDoHarness().filter((s) => !cobertas.has(s));
+  assert.deepEqual(ausentes, [], `suites fora do pre-push: ${ausentes.join(', ')}`);
 });
 
 const temJq = spawnSync('jq', ['--version'], { stdio: 'ignore' }).status === 0;
