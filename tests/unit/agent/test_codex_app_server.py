@@ -220,7 +220,11 @@ def test_close_cancelado_mata_e_recolhe_filho_que_ignora_sigterm() -> None:
             expected_user_agent_identity=None,
         )
         closing = asyncio.create_task(client.close())
-        await asyncio.sleep(0.05)
+        # Um passo do loop basta para close() entrar no await protegido — ordem
+        # de escalonamento deterministica, sem aposta em wall-clock: com
+        # sleep(0.05) um runner lento concluía o close antes do cancel e o
+        # teste falhava com DID NOT RAISE sem nada errado no produto.
+        await asyncio.sleep(0)
         closing.cancel()
         with pytest.raises(asyncio.CancelledError):
             await closing
