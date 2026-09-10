@@ -175,6 +175,24 @@ checar('hooks/pre-push roda todas as suites de test:harness', () => {
   assert.deepEqual(ausentes, [], `suites fora do pre-push: ${ausentes.join(', ')}`);
 });
 
+/**
+ * O job `deploy` é o único que recebe VPS_DEPLOY_KEY. Uma action de terceiro
+ * numa tag móvel ali significa que quem controlar aquele repositório passa a
+ * ver a chave da VPS — a tag pode ser reapontada sem que nada mude aqui.
+ * Actions do próprio GitHub (`actions/*`) ficam de fora: a confiança já é a
+ * mesma do runner.
+ */
+checar('actions de terceiro no job deploy estão pinadas por SHA', () => {
+  const texto = readFileSync(DEPLOY_YML, 'utf8');
+  const jobDeploy = texto.slice(texto.indexOf('\n  deploy:'));
+  assert.ok(jobDeploy.length > 0, 'job `deploy` não encontrado');
+  const naoPinadas = (jobDeploy.match(/uses:\s*\S+/g) ?? [])
+    .map((u) => u.replace(/uses:\s*/, ''))
+    .filter((u) => !u.startsWith('actions/'))
+    .filter((u) => !/@[0-9a-f]{40}$/.test(u));
+  assert.deepEqual(naoPinadas, [], `sem SHA: ${naoPinadas.join(', ')}`);
+});
+
 const temJq = spawnSync('jq', ['--version'], { stdio: 'ignore' }).status === 0;
 if (!temJq) {
   console.log('  AVISO  jq ausente: fixtures do programa jq não rodaram (o CI Linux roda)');
