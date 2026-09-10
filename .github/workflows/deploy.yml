@@ -35,8 +35,10 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
-      actions: read
       checks: read
+    outputs:
+      sha: ${{ steps.tag.outputs.sha }}
+      tag: ${{ steps.tag.outputs.value }}
     steps:
       - name: Checkout completo
         uses: actions/checkout@v4
@@ -45,9 +47,11 @@ jobs:
 
       - name: Resolver tag imutável
         id: tag
+        env:
+          TAG_INPUT: ${{ inputs.tag }}
         run: |
           if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
-            TAG="${{ inputs.tag }}"
+            TAG="$TAG_INPUT"
           else
             TAG="${GITHUB_REF_NAME}"
           fi
@@ -68,20 +72,26 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           SHA="${{ steps.tag.outputs.sha }}"
+          # Allowlist estrita: só o Quality do github-actions conta, e só
+          # success aprova. skipped/neutral/stale não passam como verde.
+          FILTRO='.check_runs[] | select(.app.slug == "github-actions" and (.name | test("^(Quality|Backend gates|Documentation gates|Frontend foundation)$")))'
           for i in $(seq 1 30); do
-            if ! ESTADO=$(gh api "repos/${{ github.repository }}/commits/${SHA}/check-runs?per_page=100" \
-              --jq '[.check_runs[] | select(.name | test("Quality|Backend gates|Documentation gates|Frontend foundation")) | .conclusion] | unique | join(",")'); then
-              echo "API de check-runs falhou (permissao checks:read?)" >&2; exit 1
+            if ! CHECKS=$(gh api "repos/${{ github.repository }}/commits/${SHA}/check-runs?per_page=100" \
+              --jq "{concl: [$FILTRO | .conclusion], pend: [$FILTRO | select(.status != "completed") | .name]}"); then
+              echo "API de check-runs falhou (HTTP/permissao/rede)" >&2; exit 1
             fi
-            case ",$ESTADO," in
-              *,cancelled*|*,failure*|*,timed_out*|*,action_required*)
-                echo "Quality com falha no commit: $ESTADO" >&2; exit 1 ;;
-            esac
-            if [ -n "$ESTADO" ] && ! echo ",$ESTADO," | grep -qE ",(in_progress|queued|stale|null),|,\s*,"; then
-              echo "Quality verde: $ESTADO"
+            CONCL=$(echo "$CHECKS" | jq -r '.concl | join(",")')
+            PEND=$(echo "$CHECKS" | jq -r '.pend | join(",")')
+            if [ -z "$CONCL" ]; then
+              echo "aguardando Quality ($i/30): sem checks ainda"
+            elif [ -n "$PEND" ]; then
+              echo "aguardando Quality ($i/30): pendentes: $PEND"
+            elif [ "$(echo "$CONCL" | tr ',' '\n' | grep -cvx "success")" = "0" ]; then
+              echo "Quality verde: $CONCL"
               exit 0
+            else
+              echo "Quality com falha no commit: $CONCL" >&2; exit 1
             fi
-            echo "aguardando Quality ($i/30): ${ESTADO:-sem checks}"
             sleep 60
           done
           echo "Quality não concluiu a tempo" >&2; exit 1
@@ -111,16 +121,21 @@ jobs:
             image: tianet-frontend
             context: ./frontend
     steps:
-      - name: Checkout da tag
+      # Checkout pinado no SHA auditado pelo gate — nunca no branch de
+      # despacho nem re-resolvido por nome de tag (fecha TOCTOU e tag -f).
+      - name: Checkout do SHA auditado
         uses: actions/checkout@v4
         with:
+          ref: ${{ needs.precondicoes.outputs.sha }}
           fetch-depth: 0
 
       - name: Resolver tag imutável
         id: tag
+        env:
+          TAG_INPUT: ${{ inputs.tag }}
         run: |
           if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
-            TAG="${{ inputs.tag }}"
+            TAG="$TAG_INPUT"
           else
             TAG="${GITHUB_REF_NAME}"
           fi
@@ -163,9 +178,11 @@ jobs:
     steps:
       - name: Resolver tag imutável
         id: tag
+        env:
+          TAG_INPUT: ${{ inputs.tag }}
         run: |
           if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
-            TAG="${{ inputs.tag }}"
+            TAG="$TAG_INPUT"
           else
             TAG="${GITHUB_REF_NAME}"
           fi
