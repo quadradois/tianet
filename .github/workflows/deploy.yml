@@ -36,6 +36,7 @@ jobs:
     permissions:
       contents: read
       actions: read
+      checks: read
     steps:
       - name: Checkout completo
         uses: actions/checkout@v4
@@ -68,8 +69,10 @@ jobs:
         run: |
           SHA="${{ steps.tag.outputs.sha }}"
           for i in $(seq 1 30); do
-            ESTADO=$(gh api "repos/${{ github.repository }}/commits/${SHA}/check-runs?per_page=100" \
-              --jq '[.check_runs[] | select(.name | test("Quality|Backend gates|Documentation gates|Frontend foundation")) | .conclusion] | unique | join(",")')
+            if ! ESTADO=$(gh api "repos/${{ github.repository }}/commits/${SHA}/check-runs?per_page=100" \
+              --jq '[.check_runs[] | select(.name | test("Quality|Backend gates|Documentation gates|Frontend foundation")) | .conclusion] | unique | join(",")'); then
+              echo "API de check-runs falhou (permissao checks:read?)" >&2; exit 1
+            fi
             case ",$ESTADO," in
               *,cancelled*|*,failure*|*,timed_out*|*,action_required*)
                 echo "Quality com falha no commit: $ESTADO" >&2; exit 1 ;;
