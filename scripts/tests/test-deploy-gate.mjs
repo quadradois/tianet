@@ -315,6 +315,69 @@ if (!temBash) {
     });
   }
 
+  /**
+   * Roteamento de escopo do pre-push: quais gates cada caminho dispara.
+   *
+   * Extrai o `case` do próprio hook e roda contra fixtures — testar uma cópia
+   * da regra em JS não provaria nada sobre o hook que de fato executa.
+   *
+   * O que este teste protege: classificar caminho de aplicação como tooling
+   * (e deixar de rodar o gate que pegaria a quebra) é o erro caro aqui; o
+   * inverso só custa tempo.
+   */
+  checar('pre-push roteia cada caminho para o gate certo', () => {
+    const hook = readFileSync(join(ROOT, 'hooks', 'pre-push'), 'utf8');
+    // `\r?\n`: o hook não tem extensão, e até o .gitattributes cobrir `hooks/*`
+    // ele chegava em CRLF no worktree Windows.
+    const bloco = hook.match(/for arquivo in \$ALTERADOS; do\r?\n([\s\S]*?\r?\n)done/);
+    assert.ok(bloco, 'laço de classificação não encontrado no pre-push');
+
+    const rotear = (arquivo) => {
+      const script = [
+        'TOCA_BACKEND=0',
+        'TOCA_FRONTEND=0',
+        `ALTERADOS='${arquivo}'`,
+        'for arquivo in $ALTERADOS; do',
+        bloco[1],
+        'done',
+        'echo "$TOCA_BACKEND$TOCA_FRONTEND"',
+      ].join('\n');
+      const r = spawnSync('bash', ['-c', script], { encoding: 'utf8' });
+      assert.equal(r.status, 0, `bash falhou: ${r.stderr}`);
+      return r.stdout.trim();
+    };
+
+    // arquivo -> "<backend><frontend>"
+    const esperado = {
+      'src/emprestimo/domain/credit/devedor.py': '10',
+      'tests/unit/domain/test_devedor.py': '10',
+      'migrations/versions/abc_x.py': '10',
+      'pyproject.toml': '10',
+      'frontend/src/app/app/page.tsx': '01',
+      'docs/foundation/FOUNDATION-001-product-vision.md': '00',
+      // contrato mora em docs/ mas quebra os dois lados
+      'docs/governance/contracts/openapi/frontend-mvp-backend-openapi.json': '11',
+      // tooling: não entra em build nem runtime
+      '.github/workflows/deploy.yml': '00',
+      'scripts/ci/check-runs-veredito.jq': '00',
+      'scripts/tests/test-deploy-gate.mjs': '00',
+      'scripts/vps-install.sh': '00',
+      // exceção: script Python de scripts/ mexe em migrations e no contrato
+      'scripts/validate_migrations.py': '10',
+      'scripts/export_openapi.py': '10',
+      // desconhecido roda tudo, de propósito
+      Dockerfile: '11',
+      'docker-compose.prod.yml': '11',
+      'arquivo-novo-que-ninguem-previu.xyz': '11',
+    };
+
+    const errados = Object.entries(esperado)
+      .map(([arquivo, quer]) => [arquivo, quer, rotear(arquivo)])
+      .filter(([, quer, tem]) => quer !== tem)
+      .map(([arquivo, quer, tem]) => `${arquivo}: esperado ${quer}, obtido ${tem}`);
+    assert.deepEqual(errados, [], errados.join('; '));
+  });
+
   checar('o rollback não é código morto depois do handler de erro', () => {
     const texto = readFileSync(GATE_SH, 'utf8');
     // O defeito original: `trap 'falha "..."; rollback' ERR` — `falha` termina
