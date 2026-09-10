@@ -70,28 +70,48 @@ jobs:
       - name: Quality verde no commit da tag
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # Allowlist NOMINAL, não regex: o gate exige que cada um destes
+          # exista, tenha concluído e tenha dado success. Um job renomeado ou
+          # removido reprova em vez de sumir da allowlist e aprovar com menos.
+          #
+          # Os sufixos vêm da matriz de `quality.yml`: o check run se chama
+          # "Frontend foundation (ubuntu-latest)", nunca "Frontend foundation".
+          # A versão anterior ancorava `^...$` sem o sufixo e por isso ignorava
+          # as duas suites de frontend inteiras — aprovava com elas vermelhas.
+          # "Quality" também estava na lista e nunca casou: é o nome do
+          # workflow, e check run tem nome de job.
+          ESPERADOS: |
+            Backend gates
+            Documentation gates
+            Frontend foundation (ubuntu-latest)
+            Frontend foundation (windows-latest)
         run: |
           SHA="${{ steps.tag.outputs.sha }}"
-          # Allowlist estrita: só o Quality do github-actions conta, e só
-          # success aprova. skipped/neutral/stale não passam como verde.
-          FILTRO='.check_runs[] | select(.app.slug == "github-actions" and (.name | test("^(Quality|Backend gates|Documentation gates|Frontend foundation)$")))'
           for i in $(seq 1 30); do
-            if ! CHECKS=$(gh api "repos/${{ github.repository }}/commits/${SHA}/check-runs?per_page=100" \
-              --jq "{concl: [$FILTRO | .conclusion], pend: [$FILTRO | select(.status != "completed") | .name]}"); then
+            if ! RAW=$(gh api "repos/${{ github.repository }}/commits/${SHA}/check-runs?per_page=100"); then
               echo "API de check-runs falhou (HTTP/permissao/rede)" >&2; exit 1
             fi
-            CONCL=$(echo "$CHECKS" | jq -r '.concl | join(",")')
-            PEND=$(echo "$CHECKS" | jq -r '.pend | join(",")')
-            if [ -z "$CONCL" ]; then
-              echo "aguardando Quality ($i/30): sem checks ainda"
-            elif [ -n "$PEND" ]; then
-              echo "aguardando Quality ($i/30): pendentes: $PEND"
-            elif [ "$(echo "$CONCL" | tr ',' '\n' | grep -cvx "success")" = "0" ]; then
-              echo "Quality verde: $CONCL"
-              exit 0
-            else
-              echo "Quality com falha no commit: $CONCL" >&2; exit 1
+            # Programa jq em arquivo, não interpolado no YAML: a versão
+            # anterior montava o filtro dentro de aspas duplas e o
+            # `!= "completed"` chegava ao jq sem aspas, quebrando a
+            # compilação. O erro caía no ramo "API falhou" e apontava para
+            # rede/permissão. Em arquivo, ele é testável — ver
+            # scripts/tests/test-deploy-gate.sh.
+            VEREDITO=$(printf '%s' "$RAW" \
+              | jq -c --arg esperados "$ESPERADOS" -f scripts/ci/check-runs-veredito.jq) \
+              || { echo "resposta de check-runs ilegível" >&2; exit 1; }
+
+            REPROVADOS=$(printf '%s' "$VEREDITO" | jq -r '.reprovados | join(", ")')
+            if [ -n "$REPROVADOS" ]; then
+              echo "Quality com falha no commit: $REPROVADOS" >&2; exit 1
             fi
+
+            FALTAM=$(printf '%s' "$VEREDITO" | jq -r '(.ausentes + .pendentes) | join(", ")')
+            if [ -z "$FALTAM" ]; then
+              echo "Quality verde: todos os checks exigidos deram success"
+              exit 0
+            fi
+            echo "aguardando Quality ($i/30): $FALTAM"
             sleep 60
           done
           echo "Quality não concluiu a tempo" >&2; exit 1
