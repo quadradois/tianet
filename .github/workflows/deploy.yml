@@ -1,0 +1,185 @@
+name: Deploy production
+
+# REGRA: nenhum deploy direto no servidor. Todo deploy passa por este
+# workflow, com aprovação manual do ambiente `production` no GitHub.
+# Tags imutáveis `prod-vX.Y.Z` são a única referência de rollback.
+
+on:
+  push:
+    tags:
+      - "prod-v*"
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Tag imutável a publicar (ex.: prod-v1.2.0)"
+        required: true
+
+permissions:
+  contents: read
+  packages: write
+
+concurrency:
+  group: production
+  cancel-in-progress: false
+
+env:
+  REGISTRY: ghcr.io/quadradois/tianet
+
+jobs:
+  # GATE antes do build: a tag precisa apontar para um commit de master com
+  # o workflow Quality verde. A suite completa vive em quality.yml (porta de
+  # entrada: PR + push em master, com branch protection); aqui só amarramos a
+  # tag a essa garantia, sem duplicar a suite. Só usa `gh` (first-party).
+  precondicoes:
+    name: Tag de master com Quality verde
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      actions: read
+    steps:
+      - name: Checkout completo
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Resolver tag imutável
+        id: tag
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            TAG="${{ inputs.tag }}"
+          else
+            TAG="${GITHUB_REF_NAME}"
+          fi
+          case "$TAG" in
+            prod-v[0-9]*.[0-9]*.[0-9]*) ;;
+            *) echo "tag fora do padrão prod-vX.Y.Z: $TAG" >&2; exit 1 ;;
+          esac
+          echo "value=$TAG" >> "$GITHUB_OUTPUT"
+          echo "sha=$(git rev-list -n 1 "$TAG")" >> "$GITHUB_OUTPUT"
+
+      - name: Tag precisa descender de master
+        run: |
+          git fetch origin master --quiet
+          git merge-base --is-ancestor "${{ steps.tag.outputs.sha }}" origin/master
+
+      - name: Quality verde no commit da tag
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          SHA="${{ steps.tag.outputs.sha }}"
+          for i in $(seq 1 30); do
+            ESTADO=$(gh api "repos/${{ github.repository }}/commits/${SHA}/check-runs?per_page=100" \
+              --jq '[.check_runs[] | select(.name | test("Quality|Backend gates|Documentation gates|Frontend foundation")) | .conclusion] | unique | join(",")')
+            case ",$ESTADO," in
+              *,cancelled*|*,failure*|*,timed_out*|*,action_required*)
+                echo "Quality com falha no commit: $ESTADO" >&2; exit 1 ;;
+            esac
+            if [ -n "$ESTADO" ] && ! echo ",$ESTADO," | grep -qE ",(in_progress|queued|stale|null),|,\s*,"; then
+              echo "Quality verde: $ESTADO"
+              exit 0
+            fi
+            echo "aguardando Quality ($i/30): ${ESTADO:-sem checks}"
+            sleep 60
+          done
+          echo "Quality não concluiu a tempo" >&2; exit 1
+
+  build:
+    name: Build e push das imagens (${{ matrix.name }})
+    runs-on: ubuntu-latest
+    needs: precondicoes
+    strategy:
+      fail-fast: true
+      matrix:
+        include:
+          - name: api
+            dockerfile: ./Dockerfile
+            image: tianet-api
+            context: .
+          - name: agent
+            dockerfile: ./Dockerfile.agent
+            image: tianet-agent
+            context: .
+          - name: egress-proxy
+            dockerfile: ./Dockerfile.agent-egress-proxy
+            image: tianet-egress-proxy
+            context: .
+          - name: frontend
+            dockerfile: ./frontend/Dockerfile
+            image: tianet-frontend
+            context: ./frontend
+    steps:
+      - name: Checkout da tag
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Resolver tag imutável
+        id: tag
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            TAG="${{ inputs.tag }}"
+          else
+            TAG="${GITHUB_REF_NAME}"
+          fi
+          case "$TAG" in
+            prod-v[0-9]*.[0-9]*.[0-9]*) ;;
+            *) echo "tag fora do padrão prod-vX.Y.Z: $TAG" >&2; exit 1 ;;
+          esac
+          echo "value=$TAG" >> "$GITHUB_OUTPUT"
+
+      - name: Login no GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Setup Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build e push
+        uses: docker/build-push-action@v6
+        with:
+          context: ${{ matrix.context }}
+          file: ${{ matrix.dockerfile }}
+          push: true
+          tags: |
+            ${{ env.REGISTRY }}-${{ matrix.image }}:${{ steps.tag.outputs.value }}
+            ${{ env.REGISTRY }}-${{ matrix.image }}:${{ github.sha }}
+          build-args: |
+            CODEX_VERSION=0.146.1
+            CODEX_SHA256=f558105aec12bf6fb33570793adfc089f8b41dc32aced60b8b4fba9b451824ac
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  deploy:
+    name: Deploy na VPS (com aprovação)
+    runs-on: ubuntu-latest
+    needs: build
+    environment: production
+    steps:
+      - name: Resolver tag imutável
+        id: tag
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            TAG="${{ inputs.tag }}"
+          else
+            TAG="${GITHUB_REF_NAME}"
+          fi
+          case "$TAG" in
+            prod-v[0-9]*.[0-9]*.[0-9]*) ;;
+            *) echo "tag fora do padrão prod-vX.Y.Z: $TAG" >&2; exit 1 ;;
+          esac
+          echo "value=$TAG" >> "$GITHUB_OUTPUT"
+
+      # A chave SSH restrita só executa /opt/tianet/bin/deploy <tag> na VPS
+      # (authorized_keys com command=, sem port-forward). Segredos de produção
+      # nunca transitam por aqui: vivem em /root/tianet/.env.prod no servidor.
+      - name: Executar gate de deploy na VPS
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          key: ${{ secrets.VPS_DEPLOY_KEY }}
+          port: 22
+          script: /opt/tianet/bin/deploy ${{ steps.tag.outputs.value }}

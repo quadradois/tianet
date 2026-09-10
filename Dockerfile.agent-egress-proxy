@@ -1,0 +1,17 @@
+FROM python:3.12-slim@sha256:78387bc3881b8273120a12ebe6c1ab22b018ccc2c9adf565ae1ac9b536e184ea
+
+WORKDIR /app
+
+COPY src/emprestimo/__init__.py ./emprestimo/__init__.py
+COPY src/emprestimo/agent/__init__.py ./emprestimo/agent/__init__.py
+COPY src/emprestimo/agent/egress_proxy.py ./emprestimo/agent/egress_proxy.py
+
+RUN groupadd --gid 10004 agentproxy \
+    && useradd --no-create-home --uid 10004 --gid agentproxy agentproxy
+
+USER agentproxy
+
+HEALTHCHECK --interval=5s --timeout=3s --retries=5 \
+    CMD ["python", "-m", "emprestimo.agent.egress_proxy", "health"]
+
+CMD ["python", "-m", "emprestimo.agent.egress_proxy", "serve"]

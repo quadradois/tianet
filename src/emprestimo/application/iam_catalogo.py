@@ -2,7 +2,7 @@
 
 from emprestimo.domain.platform.permissao import Permissao
 
-CATALOGO_PERMISSOES_VERSAO = "1.1.0"
+CATALOGO_PERMISSOES_VERSAO = "1.2.0"
 
 CATALOGO_PERMISSOES = (
     # IMP-351: o endpoint POST /platform/tenants saiu, mas esta permissao NAO.
@@ -74,6 +74,8 @@ CATALOGO_PERMISSOES = (
     # canal de comunicacao inteiro do Credor.
     Permissao("whatsapp.conexao.ler", "Consultar a conexao de WhatsApp"),
     Permissao("whatsapp.conexao.gerir", "Conectar e desconectar o WhatsApp"),
+    Permissao("openai.conexao.ler", "Consultar a conexao e os limites OpenAI"),
+    Permissao("openai.conexao.gerir", "Conectar e desconectar a conta OpenAI"),
     Permissao("credencial.redefinir", "Redefinir credenciais"),
     Permissao("perfil.gerir", "Gerir perfis e atribuicoes"),
     Permissao("perfil.ler", "Consultar perfis e permissoes"),

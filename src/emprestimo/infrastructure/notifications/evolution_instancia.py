@@ -79,9 +79,9 @@ class RequisicaoRecusadaError(EvolutionIndisponivelError):
 class QrCodeAindaGerandoError(EvolutionIndisponivelError):
     """O QR ainda nao existe — estado NORMAL logo apos `/instance/connect`.
 
-    O contrato (Evento 4.2) descreve a corrida: o servidor responde "no QR code
-    available. Please wait a moment and try again", e o CRM deve aguardar 3s e
-    repetir, ate 5 vezes.
+    O contrato (Evento 4.2) descreve a corrida: o servidor pode responder "no QR
+    code available" logo apos o `connect`. O QR gira em ~20s e a tela acompanha
+    o ciclo por ate cinco tentativas totais; ausencia momentanea nao e falha.
 
     Escolhemos **sinalizar em vez de dormir**: a tela ja faz polling, e bloquear
     o handler HTTP por ate 15 segundos trocaria uma espera visivel do usuario
@@ -516,13 +516,20 @@ class EvolutionInstanciaClient:
         return imagem
 
     def estado(self) -> EstadoInstancia:
-        dados = _json(
-            _executar(
-                lambda: self._client.get("/instance/status", headers=self._headers),
-                "/instance/status",
-            ),
+        resposta = _executar(
+            lambda: self._client.get("/instance/status", headers=self._headers),
             "/instance/status",
         )
+        if resposta.status_code == 400:
+            # Incidente observado em 2026-09-09: `/instance/status` respondeu
+            # `400` com "client disconnected" para sessao encerrada. Estado
+            # desconectado, nao provedor fora do ar — sem este ramo a tela
+            # recebe 500. Somente os marcadores conhecidos convertem; `400`
+            # desconhecido segue para `_json` e falha fechado.
+            detalhe = _mensagem_do_provedor(resposta).lower()
+            if "client disconnected" in detalhe or "no active session found" in detalhe:
+                return EstadoInstancia(conectado=False, pareado=False, nome_exibicao=None)
+        dados = _json(resposta, "/instance/status")
         nome = dados.get("Name")
         return EstadoInstancia(
             conectado=_booleano(dados, "Connected", "/instance/status"),

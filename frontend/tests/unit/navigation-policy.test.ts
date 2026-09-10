@@ -75,6 +75,13 @@ describe("politica de navegacao", () => {
     expect(visibleNavigationItems(SHELL_NAVIGATION, ["automacao.*", "notificacao"]).map((item) => item.href)).not.toContain("/app/automacao");
   });
 
+  it("mantem OpenAI fora do menu porque o acesso pertence ao selo operacional", async () => {
+    const { SHELL_NAVIGATION } = await import("../../src/lib/shell/navigation-policy");
+    expect(SHELL_NAVIGATION.map((item) => item.href)).not.toContain("/app/openai");
+    expect(visibleNavigationItems(SHELL_NAVIGATION, ["openai.conexao.ler", "openai.conexao.gerir"])
+      .map((item) => item.href)).not.toContain("/app/openai");
+  });
+
   it("separa o dia a dia da administracao sem esconder destino permitido", () => {
     const permitidos = visibleNavigationItems(destinations, ["permission.alpha", "permission.beta"]);
     // Agrupar e so ordenar a vista: a soma dos dois grupos e o conjunto inteiro.

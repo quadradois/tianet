@@ -663,7 +663,7 @@ describe("contratos tecnicos", () => {
       return Object.values(item).filter((operation) => typeof operation === "object" && operation !== null && "responses" in operation);
     });
     const protectedCount = operations.filter((operation) => "security" in operation && Array.isArray(operation.security) && operation.security.length > 0).length;
-    expect(operations).toHaveLength(111);
+    expect(operations).toHaveLength(115);
     // IMP-368: as quatro operacoes da conexao de WhatsApp entraram como
     // protegidas (103 -> 107). Todas exigem `whatsapp.conexao.ler` ou `.gerir`;
     // nenhuma delas e publica, e o numero de publicas segue em 4.
@@ -675,7 +675,7 @@ describe("contratos tecnicos", () => {
     //
     // IMP-362: GET /credit/devedores/{id}/saldo entrou como protegida (102 -> 103).
     // Antes, o IMP-355 levou de 101 para 102 com POST /iam/usuarios.
-    expect(protectedCount).toBe(107);
+    expect(protectedCount).toBe(111);
     expect(operations.length - protectedCount).toBe(4);
   });
   it("normaliza correlation e idempotency sem confundir os identificadores", () => {

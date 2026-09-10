@@ -295,6 +295,37 @@ class TestEvolutionInstanciaClient:
         assert estado.pareado is True
         assert estado.nome_exibicao == "Barbosa"
 
+    def test_status_400_client_disconnected_e_desconectado(self) -> None:
+        """Incidente 2026-09-09: `/instance/status` respondeu 400 client
+        disconnected. Estado desconectado, nao 500 na tela."""
+
+        def handler(_: httpx.Request) -> httpx.Response:
+            return httpx.Response(400, json={"error": "client disconnected"})
+
+        estado = self._cli(handler).estado()
+        assert estado.conectado is False
+        assert estado.pareado is False
+        assert estado.nome_exibicao is None
+
+    def test_status_400_sem_sessao_ativa_e_desconectado(self) -> None:
+        def handler(_: httpx.Request) -> httpx.Response:
+            return httpx.Response(400, json={"error": "no active session found"})
+
+        estado = self._cli(handler).estado()
+        assert estado.conectado is False
+        assert estado.pareado is False
+        assert estado.nome_exibicao is None
+
+    def test_status_400_desconhecido_continua_erro(self) -> None:
+        """Somente os marcadores conhecidos convertem; 400 desconhecido
+        falha fechado em vez de fingir desconexao."""
+
+        def handler(_: httpx.Request) -> httpx.Response:
+            return httpx.Response(400, json={"error": "payload invalido"})
+
+        with pytest.raises(EvolutionIndisponivelError, match="400"):
+            self._cli(handler).estado()
+
     def test_desconectar_usa_delete(self) -> None:
         vistos: dict[str, Any] = {}
 

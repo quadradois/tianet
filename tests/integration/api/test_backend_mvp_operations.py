@@ -69,7 +69,9 @@ def test_imp_266_quality_migrations_gate_e_unico_head_alembic() -> None:
     # IMP-370 Slice 1 adiciona `queda_detectada_em` (`c1d2e3f4a5b6`): uma coluna
     # nullable com timezone em `conexao_whatsapp`, sem default — linhas antigas
     # leem `NULL`, ou seja, sem alerta ativo. O downgrade remove somente ela.
-    assert script.get_current_head() == "c1d2e3f4a5b6"
+    # ADR-020 adiciona somente as duas permissoes OpenAI e suas atribuicoes aos
+    # perfis administrativos (`d2e4f6a8b0c1`), sem tabela de credenciais.
+    assert script.get_current_head() == "d2e4f6a8b0c1"
 
 
 def test_imp_267_health_correlation_e_erro_tecnico_sem_vazamento(

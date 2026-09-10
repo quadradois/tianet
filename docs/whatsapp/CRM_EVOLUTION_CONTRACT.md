@@ -8,6 +8,8 @@ Este documento foi auditado linha a linha contra o código-fonte real (`/opt/evo
 
 **Reauditoria de 2026-08-16:** a reauditoria encontrou dois bugs de exposição cross-tenant que contradiziam este documento — a `GLOBAL_API_KEY` conseguia listar/deletar/ler logs de instâncias de **qualquer** tenant via `/instance/*` (contradizendo a Seção 1, que já dizia que isso não deveria acontecer), e `GET /instance/logs/:id` não filtrava por tenant (qualquer tenant podia ler logs de outro sabendo o `instanceId`). Ambos foram corrigidos no código e no deploy em produção nesta mesma data — o comportamento descrito nas Seções 1 e 8 agora reflete exatamente o que o código faz. A Seção 5.2 também foi corrigida (nomes de evento de `CALL` e categorias que faltavam).
 
+**Esclarecimento de 2026-09-04:** o ciclo do QR, o logout repetido, a ausência de deduplicação no envio e a semântica dos estados foram novamente conferidos pela equipe mantenedora diretamente no código em produção. As respostas e referências estão em `2026-09-04-resposta-esclarecimento-evolution.md` e prevalecem sobre descrições anteriores deste contrato.
+
 ---
 
 ## 0. Segurança — leia antes de copiar qualquer coisa daqui
@@ -251,7 +253,14 @@ apikey: {evolution_instance_token}
 ⚠️ Note o `Q` e o `C` maiúsculos — não é `qrcode`/`code`. Confirmado em teste ao vivo nesta auditoria.
 
 > Exibir `data.Qrcode` como `<img src="data:image/png;base64,...">` no CRM.
-> Se der erro `"no QR code available. Please wait a moment and try again"`: aguardar 3 segundos e tentar de novo (máximo 5x). O QR expira sozinho em ~20s e o servidor gera até 5 antes de reiniciar o ciclo — se demorar demais entre gerar e escanear, vai dar erro no celular ("não foi possível conectar o dispositivo"); é só pedir um novo.
+> Se der erro `"no QR code available. Please wait a moment and try again"`, trate
+> como ausência momentânea, não como indisponibilidade. Cada QR gira em ~20s e o
+> teto padrão da aplicação é cinco códigos. Ao atingir o teto, o client é
+> desmontado; um novo `GET /instance/qr` detecta a ausência e inicia a autocura de
+> um novo ciclo. Repetir `POST /instance/connect` enquanto o pareamento está em
+> curso também é seguro, mas apenas atualiza webhook/assinaturas e não reinicia o
+> ciclo atual. Comportamento esclarecido em
+> `2026-09-04-resposta-esclarecimento-evolution.md` §2.
 
 **Passo 4.3 — Aguardar confirmação via webhook** *(ver Seção 5)*
 
@@ -615,7 +624,7 @@ Conhecidos, confirmados no código, ainda não corrigidos. Desenhe sua integraç
 3. **`GLOBAL_API_KEY` em qualquer rota `/instance/*` sempre falha com `401`** ("not authorized" com `X-Tenant-ID`, ou "X-Tenant-ID header is required" sem ele). Use sempre a chave do próprio tenant + `X-Tenant-ID` — a global só serve pra `/tenant/*`. Até 2026-08-16 esse erro só existia em `/instance/create` (e vinha como `400`, não `401`) e a chave global efetivamente gerenciava instâncias de qualquer tenant nas outras rotas de `/instance/*` — isso foi o bug real de exposição cross-tenant corrigido nesta data (ver nota de reauditoria no topo do documento). O comportamento atual (rejeição uniforme) não é mais um bug, é o desenhado.
 4. **Valores inválidos em `subscribe` são descartados silenciosamente**, sem erro na resposta — só um log no servidor que você não vê. Valide contra a lista da Seção 4 antes de enviar.
 5. **`POST /instance/connect` numa instância já conectada é idempotente** — só atualiza `webhookUrl`/`subscribe`/configurações, não força QR novo nem derruba a sessão. Seguro de chamar repetidamente pra rotacionar o segredo do webhook.
-6. **QR code expira em ~20s, até 5 por ciclo**, depois reinicia sozinho um novo ciclo. Buscar um QR e não escanear na hora dá erro no app ("não foi possível conectar o dispositivo") — não é bug, é o código já ter rotacionado.
+6. **QR code expira em ~20s, com teto padrão de 5 por ciclo.** No teto, o client é desmontado; uma nova leitura em `/instance/qr` detecta a ausência e inicia a autocura de outro ciclo. Buscar um QR e não escanear na hora dá erro no app ("não foi possível conectar o dispositivo") — não é bug, é o código já ter rotacionado.
 7. **Sessão sobrevive a restart do servidor** (fica persistida no Postgres) — reconectar depois de um restart normalmente não pede QR novo, só uma chamada de `/instance/connect`. Exceção observada: pareamentos muito recentes (poucas horas) podem não ter sido gravados a tempo antes de um restart — nesse caso específico, vai pedir QR novo mesmo.
 8. **Nenhum endpoint existe pra inspecionar ou drenar webhooks que falharam** — depois das 5 tentativas de retry (Seção 6.3), o evento simplesmente some.
 

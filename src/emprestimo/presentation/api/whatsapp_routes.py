@@ -12,14 +12,11 @@ o mesmo nas tres**, e generalizá-lo foi imprecisão pega em review:
 - `DELETE /conexao/instancia` — convergência **verificada**: apagar o que já não
   existe não produz resultado novo, e o adapter trata `record not found` do
   provedor como sucesso a partir de resposta observada;
-- `DELETE /conexao` — convergência **assumida, e essa distinção importa**. O lado
-  da TiaNet converge (`desparear()` sobre conexão já despareada é no-op, coberto
-  por teste), mas **ninguém mediu o que o Evolution responde a um `logout`
-  repetido**, e este adapter recusa qualquer não-2xx. Não há ambiente de teste do
-  provedor (`contexto-externo` §2.1), então a verificação só existe em produção.
-  Agrupar este caso com o de cima — como este comentário fazia — apagava
-  justamente a diferença entre medido e suposto. Ver ADR-019 §"Premissa
-  declarada".
+- `DELETE /conexao` — convergência **adaptada ao contrato observado**. A resposta
+  de 2026-09-04 confirmou por leitura do código do Evolution que logout repetido
+  devolve sempre `400`, com mensagem dependente do timing. O adapter trata
+  qualquer `400` somente nessa rota como "já desconectado", conforme ADR-019
+  v1.2.0, e preserva erro para os demais status.
 
 **Nenhuma rota aceita o nome da instância.** Ele é derivado do Tenant
 (`nome_da_instancia`): a adoção casa pelo nome, e um campo digitável

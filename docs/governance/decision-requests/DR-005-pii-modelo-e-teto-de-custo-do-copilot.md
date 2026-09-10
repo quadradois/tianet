@@ -181,12 +181,72 @@ Com a decisao 1, esta retencao passa a valer sobre **conversas com PII
 integral** — o que torna o expurgo automatico um controle de risco, nao apenas
 higiene de armazenamento. Ele nao pode ser silenciosamente desligado.
 
+### 5. Adendo de provedor e gateway — 2026-09-09
+
+O proprietário confirmou OpenRouter como rota proposta do piloto e aprovou o
+plano agentic v1.4.0. O primeiro candidato nominal e
+`inclusionai/ling-3.0-flash-fin:free`, ainda sujeito a certificacao de tools
+nativas, disponibilidade gratuita e reconfirmacao de `data_collection=deny` e
+`zdr=true`. A escolha nao autoriza fallback, modelo pago ou envio de dados reais
+antes dos gates aplicaveis.
+
+`nvidia/nemotron-3-super-120b-a12b` via NVIDIA direta entra somente na
+comparacao sintetica enquanto o endpoint gratuito estiver sob termos de trial
+sem uso produtivo e sem controle ZDR equivalente demonstrado. Qualidade tecnica
+nao supera esse filtro.
+
+O OmniRoute pode ser avaliado como gateway privado opcional, mantendo o mesmo
+contrato OpenAI-compatible. Nao e provedor nem fonte de verdade da
+elegibilidade. O piloto fica bloqueado enquanto a versao avaliada puder
+sintetizar `tool_calls` a partir de texto e ate passar a prova de transparencia,
+privacidade, tentativa unica upstream e ausencia de fallback definida no plano.
+O endpoint direto permanece rollback suportado por configuracao conjunta de
+URL, referencia segura à credencial, modelo e politica de dados.
+
+### 6. Adendo de autenticação OpenAI/Codex — 2026-09-09
+
+O proprietário priorizou uma prova prática de autenticação pela própria conta
+ChatGPT/Codex. A ADR-020 autoriza preparação administrativa local com o Codex
+App Server oficial, sem inferência ou dados de clientes. Durante essa prova,
+OpenRouter, NVIDIA e OmniRoute ficam em espera e não atuam como fallback.
+
+Esse adendo não seleciona ainda o provedor de inferência e não altera a liberação
+de PII: uma conta pessoal sem política aceitável continua impedida de receber
+dados de terceiros. Plano, modelos e limites observados servem como evidência
+para decisão posterior.
+
+### 7. Adendo de rota A — API OpenAI com chave de projeto — 2026-09-10
+
+O proprietário selecionou a **API oficial OpenAI** como rota de inferência
+(rota A), com cliente `httpx` direto, sem SDK por ora. OAuth/App Server
+permanecem só diagnóstico; OpenRouter, NVIDIA e OmniRoute seguem em espera, sem
+fallback.
+
+- **Endpoint/modelo nominal:** `LLM_BASE_URL=https://api.openai.com/v1`,
+  `LLM_MODEL=gpt-4o-mini` (candidato, sujeito à certificação de function
+  calling da Entrega 356-D antes de qualquer uso real).
+- **Chave validada em 2026-09-10:** `GET /v1/models` 200 com `gpt-4o-mini`
+  acessível; chamada sintética mínima 200 (15 tokens, sem dado TiaNet); cota
+  10k req/200k tokens. Chave fora do git (`.env` local); nenhum segredo neste
+  documento. Crédito de $5 informado pelo proprietário (~1.250 entradas no
+  pior caso; certificação completa < $1).
+- **Pendente antes de dado verdadeiro:** confirmação da política de dados do
+  projeto (retenção/abuse-monitoring; ZDR se elegível) e certificação do
+  modelo. Sem isso, Fase C não sobe.
+- **Escopo pessoal:** projeto em uso pessoal single-tenant; franquia, refresh
+  de token OAuth e ausência de SLA viram aceite de risco do proprietário,
+  registrado aqui — não silencioso. Dado de terceiro segue sob a liberação de
+  PII vigente e a suite adversarial intacta.
+
 ---
 
 ## Historico
 
 | Data | Evento |
 |---|---|
+| 2026-09-10 | Proprietario selecionou a rota A (API OpenAI, chave de projeto, `gpt-4o-mini` candidato): chave validada, $5 de credito, certificacao e politica de dados pendentes; OAuth fica so diagnostico. |
+| 2026-09-09 | Proprietario aprovou o plano de autenticação OpenAI/Codex: preparação local pelo App Server oficial, demais provedores em espera e inferência separada. |
+| 2026-09-09 | Proprietario aprovou o plano agentic v1.4.0: OpenRouter como rota proposta do piloto com modelo gratuito nominal e tools nativas; NVIDIA direta restrita à comparacao sintetica; OmniRoute admitido apenas como gateway opcional condicionado. |
 | 2026-08-27 | Aberta pela Arquitetura com opcoes e recomendacao, conforme IMP-358. |
 | 2026-08-27 | **RESOLVIDA** pelo fundador: PII liberada no prompt (ciente do risco, com ADR-016 e isolamento de contexto intactos), provedor adiado com criterios fixados, sem teto de custo (rate limit e medicao permanecem), retencao de 90 dias. |
 | 2026-08-27 | Reescrita para BYOK apos decisao do fundador: o cliente nao usa Anthropic; provedor via endpoint compativel com OpenAI (OpenRouter, NVIDIA NIM ou similar), chave do cliente. Perguntas 1 e 3 inalteradas; pergunta 2 passa a escolher provedor+modelo. |

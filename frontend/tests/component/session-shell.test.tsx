@@ -1,11 +1,13 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { LoginForm } from "../../src/components/auth/login-form.client";
 import { LogoutButton } from "../../src/components/auth/logout-button.client";
 import { AppShell } from "../../src/components/shell/app-shell";
+import { OpenAIBadge, OpenAIBadgePending } from "../../src/components/shell/openai-badge";
 import type { OperationalContext } from "../../src/lib/bff/context.server";
+import type { OpenAIReadResult } from "../../src/lib/openai/openai-policy";
 
 const replace = vi.fn();
 const refresh = vi.fn();
@@ -24,6 +26,22 @@ const context: OperationalContext = {
 const contextQuedaAtiva: OperationalContext = {
   ...context,
   whatsapp: { alerta_queda_ativa: true, numero: null, pareada: false, queda_detectada_em: "2026-09-08T12:00:00.000Z" },
+};
+
+const openAIConnected: OpenAIReadResult = {
+  kind: "ready",
+  connection: {
+    enabled: true,
+    processAvailable: true,
+    accountConnected: true,
+    planType: "prolite",
+    state: "CONECTADO",
+    usageSummary: {
+      observedAt: "2026-09-10T04:29:01Z",
+      rateLimitsStatus: "ok",
+      rateLimits: [{ limitId: "codex", planType: "prolite", primary: { usedPercent: 60, windowDurationMinutes: 10_080, resetsAt: 1790000000 }, secondary: null }],
+    },
+  },
 };
 
 describe("login e shell", () => {
@@ -77,6 +95,95 @@ describe("login e shell", () => {
     // tela continua alcancavel para quem tem a permissao.
     expect(screen.getByText("Mais ferramentas")).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "IAM" })).toHaveAttribute("href", "/app/iam");
+  });
+
+  it("exibe OpenAI como selo inteligente e o remove de Mais ferramentas", () => {
+    render(
+      <AppShell
+        context={{ ...context, permissoes: ["openai.conexao.ler"] }}
+        openaiBadge={<OpenAIBadge result={openAIConnected} />}
+      >
+        <h1>Inicio</h1>
+      </AppShell>,
+    );
+    const badge = screen.getByRole("link", { name: /OpenAI conectado\s*Plano prolite\s*Maior uso: 60%/i });
+    expect(badge).toHaveAttribute("href", "/app/openai");
+    expect(within(badge).getByText(/^Dados de /)).toBeInTheDocument();
+    expect(within(screen.getByRole("navigation")).queryByText("OpenAI")).not.toBeInTheDocument();
+  });
+
+  it("nao revela o selo OpenAI sem permissao de leitura", () => {
+    render(<AppShell context={context}><h1>Inicio</h1></AppShell>);
+    expect(screen.queryByRole("link", { name: /OpenAI/i })).not.toBeInTheDocument();
+  });
+
+  it("explica indisponibilidade e limite diretamente no selo OpenAI", () => {
+    const authorized = { ...context, permissoes: ["openai.conexao.ler"] };
+    const unavailable: OpenAIReadResult = {
+      kind: "problem", message: "indisponível", status: 502, correlationId: "corr-openai",
+    };
+    const { rerender } = render(
+      <AppShell context={authorized} openaiBadge={<OpenAIBadge result={unavailable} />}><h1>Inicio</h1></AppShell>,
+    );
+    expect(screen.getByRole("link", { name: /OpenAI indisponível\s*Verificar conexão/i })).toBeInTheDocument();
+
+    rerender(
+      <AppShell
+        context={authorized}
+        openaiBadge={<OpenAIBadge result={{
+          kind: "ready",
+          connection: { enabled: true, processAvailable: true, accountConnected: true, planType: "prolite", state: "LIMITE_ATINGIDO", usageSummary: null },
+        }} />}
+      >
+        <h1>Inicio</h1>
+      </AppShell>,
+    );
+    expect(screen.getByRole("link", { name: /OpenAI conectado\s*Limite de uso atingido/i })).toBeInTheDocument();
+
+    rerender(
+      <AppShell
+        context={authorized}
+        openaiBadge={<OpenAIBadge result={{
+          kind: "ready",
+          connection: {
+            enabled: true,
+            processAvailable: true,
+            accountConnected: true,
+            planType: "prolite",
+            state: "CONECTADO",
+            usageSummary: { observedAt: "2026-09-10T04:29:01Z", rateLimitsStatus: "error", rateLimits: [] },
+          },
+        }} />}
+      >
+        <h1>Inicio</h1>
+      </AppShell>,
+    );
+    expect(screen.getByRole("link", { name: /OpenAI conectado\s*Plano prolite\s*Limites indisponíveis\s*Dados de/i })).toBeInTheDocument();
+
+    rerender(
+      <AppShell
+        context={authorized}
+        openaiBadge={<OpenAIBadge result={{
+          kind: "ready",
+          connection: {
+            enabled: true,
+            processAvailable: true,
+            accountConnected: true,
+            planType: "prolite",
+            state: "CONECTADO",
+            usageSummary: { observedAt: "2026-09-10T04:29:01Z", rateLimitsStatus: "ok", rateLimits: [] },
+          },
+        }} />}
+      >
+        <h1>Inicio</h1>
+      </AppShell>,
+    );
+    expect(screen.getByRole("link", { name: /OpenAI conectado\s*Plano prolite\s*Nenhuma janela informada\s*Dados de/i })).toBeInTheDocument();
+  });
+
+  it("mantem o acesso OpenAI legivel enquanto o snapshot carrega", () => {
+    render(<OpenAIBadgePending />);
+    expect(screen.getByRole("link", { name: /OpenAI\s*Verificando conexão/i })).toHaveAttribute("href", "/app/openai");
   });
 
   it("remove PII da tela depois que o logout local encerra a sessao mesmo com backend 5xx", async () => {

@@ -249,6 +249,14 @@ def endpoints_protegidos() -> list[EndpointProtegido]:
         EndpointProtegido("patch", f"/platform/tenants/{tenant_id}", {"json": {"nome": "Novo"}}),
         EndpointProtegido("post", f"/platform/tenants/{tenant_id}/inativar", {}),
         EndpointProtegido("post", f"/platform/tenants/{tenant_id}/reativar", {}),
+        EndpointProtegido("get", "/platform/openai/conexao", {}),
+        EndpointProtegido("get", "/platform/openai/diagnostico", {}),
+        EndpointProtegido("post", "/platform/openai/conexao/login", {}),
+        EndpointProtegido(
+            "delete",
+            "/platform/openai/conexao",
+            {"headers": {"Idempotency-Key": "openai-logout-protected"}},
+        ),
         EndpointProtegido(
             "post",
             f"/credit/carteiras/{carteira_id}/devedores",
@@ -576,7 +584,7 @@ def test_todos_endpoints_platform_e_credit_recusam_sem_token(
     client: TestClient,
     endpoints_protegidos: list[EndpointProtegido],
 ) -> None:
-    assert len(endpoints_protegidos) == 63
+    assert len(endpoints_protegidos) == 67
 
     for endpoint in endpoints_protegidos:
         resp = _chamar(client, endpoint)

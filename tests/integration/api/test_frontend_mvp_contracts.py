@@ -356,15 +356,16 @@ def test_imp_278_catalogo_reflete_fonte_canonica_versionada(
 
     assert resposta.status_code == 200
     corpo = resposta.json()
-    assert corpo["versao"] == "1.1.0"
+    assert corpo["versao"] == "1.2.0"
     assert [item["codigo"] for item in corpo["itens"]] == sorted(
         permissao.codigo for permissao in CATALOGO_PERMISSOES
     )
-    # IMP-367: 57 com `whatsapp.conexao.ler` e `whatsapp.conexao.gerir`; eram 55
-    # desde o IMP-355 (`usuario.criar`), e 54 desde o IMP-360
-    # (`proposta.submeter`). A versao do catalogo sobe junto — o contador sozinho
-    # nao diz ao frontend que o conjunto mudou.
-    assert len(corpo["itens"]) == len(CATALOGO_PERMISSOES) == 57
+    # ADR-020: 59 com `openai.conexao.ler` e `openai.conexao.gerir`; eram 57
+    # desde o IMP-367 (`whatsapp.conexao.*`), 55 desde o IMP-355
+    # (`usuario.criar`), e 54 desde o IMP-360 (`proposta.submeter`). A versao
+    # do catalogo sobe junto — o contador sozinho nao diz ao frontend que o
+    # conjunto mudou.
+    assert len(corpo["itens"]) == len(CATALOGO_PERMISSOES) == 59
     assert all(item["grupo"] == item["codigo"].split(".", maxsplit=1)[0] for item in corpo["itens"])
 
 
@@ -438,6 +439,12 @@ EXCECOES_IDEMPOTENCIA_ESCRITAS: dict[tuple[str, str], str] = {
         "ADR-019 (IMP-368): apagar e convergente por definicao, e o adapter trata "
         "'record not found' do provedor como sucesso. Uma chave guardaria o "
         "resultado de uma exclusao que ja aconteceu."
+    ),
+    ("post", "/platform/openai/conexao/login"): (
+        "ADR-020: a resposta contem o device code, material efemero de "
+        "autenticacao. Persisti-la no replay generico preservaria o desafio; a "
+        "repeticao com login ativo devolve o mesmo desafio so da memoria do "
+        "processo."
     ),
 }
 

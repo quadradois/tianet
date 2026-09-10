@@ -1,0 +1,152 @@
+name: tianet-prod
+
+# Compose de PRODUÇÃO — usado SOMENTE pelo gate /opt/tianet/bin/deploy.
+# Imagens imutáveis do GHCR (tag passada via $TAG); segredos via env_file
+# /root/tianet/.env.prod (600, fora do git). Espelha a topologia do
+# docker-compose.yml de desenvolvimento: API sem webhook público, agent
+# isolado com socket Unix, egress só pelo proxy com allowlist.
+#
+# O Caddy do host (Slice 2) fala com 127.0.0.1:8000; nada aqui publica porta
+# além de loopback.
+
+services:
+  postgres:
+    image: postgres:16
+    environment:
+      POSTGRES_USER: emprestimo
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?defina no .env.prod}
+      POSTGRES_DB: emprestimo
+    volumes:
+      - pgdata-prod:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U emprestimo -d emprestimo"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  migrate:
+    image: ${REGISTRY:?}-tianet-api:${TAG:?}
+    command: alembic upgrade head
+    env_file:
+      - path: /root/tianet/.env.prod
+        required: true
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: "no"
+
+  api:
+    image: ${REGISTRY:?}-tianet-api:${TAG:?}
+    command: uvicorn emprestimo.presentation.api.main:app --host 0.0.0.0 --port 8000
+    env_file:
+      - path: /root/tianet/.env.prod
+        required: true
+    environment:
+      DATABASE_URL: postgresql+psycopg://emprestimo:${POSTGRES_PASSWORD:?}@postgres:5432/emprestimo
+      TIANET_AGENT_SOCKET: /run/tianet-agent/agent.sock
+    volumes:
+      - agent-runtime:/run/tianet-agent:ro
+    ports:
+      - "127.0.0.1:8000:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - import urllib.request;urllib.request.urlopen("http://127.0.0.1:8000/health",timeout=3)
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 20s
+
+  worker:
+    image: ${REGISTRY:?}-tianet-api:${TAG:?}
+    command: emprestimo-scheduler-worker
+    env_file:
+      - path: /root/tianet/.env.prod
+        required: true
+    environment:
+      DATABASE_URL: postgresql+psycopg://emprestimo:${POSTGRES_PASSWORD:?}@postgres:5432/emprestimo
+    depends_on:
+      postgres:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+    stop_grace_period: 30s
+
+  agent:
+    image: ${REGISTRY:?}-tianet-agent:${TAG:?}
+    env_file:
+      - path: /root/tianet/.env.prod
+        required: true
+    environment:
+      CODEX_EXECUTABLE: /usr/local/bin/codex
+      CODEX_HOME: /var/lib/tianet-agent/codex
+      TIANET_AGENT_RUNTIME: /tmp/tianet-agent
+      TIANET_AGENT_SOCKET: /run/tianet-agent/agent.sock
+      HTTPS_PROXY: http://agent-egress-proxy:8080
+      HTTP_PROXY: http://agent-egress-proxy:8080
+      NO_PROXY: 127.0.0.1,localhost
+    networks:
+      - agent-egress
+    depends_on:
+      agent-egress-proxy:
+        condition: service_healthy
+    volumes:
+      - agent-codex-data:/var/lib/tianet-agent/codex
+      - agent-runtime:/run/tianet-agent
+    read_only: true
+    tmpfs:
+      - /tmp:size=32m,mode=1777
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    init: true
+
+  agent-egress-proxy:
+    image: ${REGISTRY:?}-tianet-egress-proxy:${TAG:?}
+    networks:
+      - agent-egress
+      - provider-egress
+    read_only: true
+    tmpfs:
+      - /tmp:size=8m,mode=1777
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    init: true
+    healthcheck:
+      test: ["CMD", "python", "-m", "emprestimo.agent.egress_proxy", "health"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  frontend:
+    image: ${REGISTRY:?}-tianet-frontend:${TAG:?}
+    network_mode: "service:api"
+    environment:
+      FRONTEND_BACKEND_URL: http://127.0.0.1:8000
+      FRONTEND_ORIGIN: ${FRONTEND_ORIGIN:-https://tianet.com.br}
+      FRONTEND_LOGIN_TENANT_IDENTIFICADOR: ${FRONTEND_LOGIN_TENANT_IDENTIFICADOR:-tianet-local}
+      FRONTEND_SESSION_KEY_ID: ${FRONTEND_SESSION_KEY_ID:?defina no .env.prod}
+      FRONTEND_SESSION_KEY: ${FRONTEND_SESSION_KEY:?defina no .env.prod}
+    depends_on:
+      api:
+        condition: service_healthy
+
+volumes:
+  pgdata-prod:
+  agent-codex-data:
+  agent-runtime:
+
+networks:
+  agent-egress:
+    internal: true
+  provider-egress:

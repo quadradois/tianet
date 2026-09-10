@@ -1,13 +1,16 @@
 import type { Metadata } from "next";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
-import type { ReactNode } from "react";
+import { Suspense, type ReactNode } from "react";
 
 import { AppShell } from "@/components/shell/app-shell";
+import { OpenAIBadgeLoader } from "@/components/shell/openai-badge-loader";
+import { OpenAIBadgePending } from "@/components/shell/openai-badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { ApiProblem, createRuntimeDependencies } from "@/lib/bff/backend.server";
 import { recoveryAttemptCookieName } from "@/lib/bff/context.server";
 import { currentOperationalContext } from "@/lib/bff/current-context.server";
+import { OPENAI_READ_PERMISSION, hasOpenAIPermission } from "@/lib/openai/openai-policy";
 
 export const metadata: Metadata = {
   title: "Dashboard | TiaNet",
@@ -15,7 +18,10 @@ export const metadata: Metadata = {
 
 type AuthenticatedLayoutProps = Readonly<{ children: ReactNode }>;
 type ContextResult =
-  | Readonly<{ context: Awaited<ReturnType<typeof currentOperationalContext>>; problem?: never }>
+  | Readonly<{
+    context: Awaited<ReturnType<typeof currentOperationalContext>>;
+    problem?: never;
+  }>
   | Readonly<{ context?: never; problem: ApiProblem }>;
 
 function ContextFailure({ problem }: Readonly<{ problem: ApiProblem }>) {
@@ -42,7 +48,8 @@ export default async function AuthenticatedLayout({ children }: AuthenticatedLay
   const dependencies = createRuntimeDependencies();
   let result: ContextResult;
   try {
-    result = { context: await currentOperationalContext() };
+    const context = await currentOperationalContext();
+    result = { context };
   } catch (error) {
     if (error instanceof ApiProblem && error.status === 401) {
       redirect(cookieStore.get(recoveryAttemptCookieName(dependencies.config)) ? "/login" : "/session/recover");
@@ -53,5 +60,16 @@ export default async function AuthenticatedLayout({ children }: AuthenticatedLay
   }
   return result.problem
     ? <ContextFailure problem={result.problem} />
-    : <AppShell context={result.context}>{children}</AppShell>;
+    : (
+      <AppShell
+        context={result.context}
+        openaiBadge={hasOpenAIPermission(result.context.permissoes, OPENAI_READ_PERMISSION) ? (
+          <Suspense fallback={<OpenAIBadgePending />}>
+            <OpenAIBadgeLoader context={result.context} />
+          </Suspense>
+        ) : null}
+      >
+        {children}
+      </AppShell>
+    );
 }
