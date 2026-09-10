@@ -3,7 +3,7 @@
 **Última revisão:** 2026-09-10 (rev. 2, pós-revisão especializada)
 **Status:** Aguardando aprovação
 **Slice atual:** não iniciado
-**Bloqueado por:** conclusão/commit do PLAN-034 (sequência acordada); acesso SSH à VPS
+**Bloqueado por:** valores dos segredos em `/root/tianet/.env.prod` (Slice 1b, pendente do proprietário); acesso SSH à VPS. O PLAN-034 saiu do caminho crítico — concluído em 2026-09-08 — e o commit que os slices esperavam é o PR #64
 **Risco:** Alto
 **Impacto agentic:** PRESENT — produção, segredos, rede e futuro runtime agentic. Parecer `ai_architect` será reconciliado antes da porta G5.
 **Autorização:** pendente. G5 exigirá aceite explícito do proprietário com escopo e limites.
@@ -131,7 +131,8 @@ Triagem `PRESENT`. Revisão `ai_architect` via Claude Code CLI (somente leitura,
 | 1a | concluído (local) | `.env.example` nominal, runbook, varredura limpa, review Claude incorporado |
 | 1b | parcial | Docker 29.8.0+compose, `/root/tianet/.env.prod` gerado (600); faltam valores do proprietário |
 | 2 | concluído | Caddy 2.6.2 (Ubuntu, auto-update) + UFW só-CF; `https://tianet.com.br/healthz` 200 de ponta a ponta; `/` 503 stub |
-| 3–6 | não iniciados | aguardam commit + segredos + PLAN-034 |
+| 3 | código pronto e revisado, **nunca executado** | PR #64: revisão do fluxo achou 3 bloqueantes, todos provados em execução (jq do gate não compilava; rollback era código morto; allowlist ignorava as duas suites de frontend). Corrigidos, com guardrail e mutação verificada. Governança fechada: `master` ganhou branch protection (PR + os 4 checks, strict) e o environment `production` ficou restrito a tags `prod-v*`. `scripts/vps-install.sh` + [runbook](../../operations/deploy-producao.md) cobrem a sincronização dos artefatos. **Falta o ensaio real**: nenhum deploy rodou ainda |
+| 4–6 | não iniciados | aguardam Slice 3 executado; o 4 (backup) é pré-requisito de produção com dado real |
 
 ## Notas de conclusão
 
