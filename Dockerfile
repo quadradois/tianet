@@ -11,6 +11,11 @@ COPY migrations ./migrations
 
 RUN pip install --no-cache-dir .
 
+# Artefatos de deploy viajam na imagem para que o gate da VPS possa provar que
+# a topologia e ele mesmo correspondem à tag publicada. Não são executados
+# daqui: servem só de referência para conferência de digest.
+COPY docker-compose.prod.yml scripts/deploy-gate.sh ./deploy/
+
 # Nao rodar como root: o container so precisa ler /app e falar com o Postgres.
 RUN groupadd --gid 10003 agentipc \
     && useradd --create-home --uid 10001 app \

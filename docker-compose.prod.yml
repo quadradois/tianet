@@ -46,8 +46,12 @@ services:
       TIANET_AGENT_SOCKET: /run/tianet-agent/agent.sock
     volumes:
       - agent-runtime:/run/tianet-agent:ro
+    # 3000 vive aqui porque o frontend compartilha esta netns (ver `frontend`).
+    # Sem esta linha o Caddy do host não alcança o frontend — só a API tinha
+    # porta publicada, e `/` ficava sem backend para onde apontar.
     ports:
       - "127.0.0.1:8000:8000"
+      - "127.0.0.1:3000:3000"
     depends_on:
       postgres:
         condition: service_healthy
