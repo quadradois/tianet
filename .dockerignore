@@ -7,6 +7,10 @@ frontend
 docs
 tests
 scripts
+# ...menos o gate, que viaja na imagem para o vps-install.sh conferir o digest
+# contra a tag. A regra `scripts` acima o excluia do contexto e o build da api
+# falhava em "/scripts/deploy-gate.sh: not found".
+!scripts/deploy-gate.sh
 graphify-out
 hooks
 migrations/**/__pycache__
