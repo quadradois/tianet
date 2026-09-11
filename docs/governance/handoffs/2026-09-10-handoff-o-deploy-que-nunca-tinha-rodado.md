@@ -1,6 +1,6 @@
 # 2026-09-10 — Handoff: o deploy que nunca tinha rodado
 
-**Versao:** 1.0.0
+**Versao:** 1.1.0
 
 **Status:** PLAN-034 concluído. IMP-359 Slice 3 com **código pronto e revisado,
 execução pendente** dos segredos do proprietário.
@@ -20,12 +20,27 @@ O pipeline de deploy existia inteiro desde o Slice 3 — workflow, compose de
 produção, gate na VPS, environment com aprovação. Parecia pronto. Uma revisão
 completa achou **três defeitos bloqueantes**, e nenhum dos três era sutil:
 
-1. **O gate `precondicoes` falhava 100% das vezes.** O filtro jq era
+1. **O gate `precondicoes` quebraria no próximo deploy.** O filtro jq era
    interpolado dentro de aspas duplas e o `!= "completed"` chegava ao jq sem
-   aspas: `jq: error: completed/0 is not defined`. O `if ! CHECKS=$(gh api ...)`
-   capturava e reportava **"API de check-runs falhou (HTTP/permissao/rede)"** —
-   e foi por isso que os dois `fix(ci)` anteriores foram atrás de permissão e de
-   rede. Nenhum deploy jamais passou desse passo.
+   aspas. Medido nas duas implementações: `jq 1.7.1` responde
+   `completed/0 is not defined`, e o `--jq` do `gh` (gojq) responde
+   `function not defined: completed/0`, saindo com **exit 1 e stdout vazio**.
+   O `if ! CHECKS=$(gh api ...)` capturaria isso e reportaria
+   **"API de check-runs falhou (HTTP/permissao/rede)"** — uma mensagem que
+   aponta para rede e permissão quando o problema é sintaxe.
+
+   > **Correção de registro (2026-09-11).** A primeira versão deste handoff
+   > dizia que o gate "falhava 100% das vezes" e que "nenhum deploy jamais
+   > passou desse passo por causa disso". Errado, e a evidência estava
+   > disponível: o único run de deploy que falhou (`34517798801`,
+   > 2026-09-10T19:00) usou o workflow **do commit da tag** `prod-v1.0.0`
+   > (`70a0552`), que ainda tinha o filtro anterior — funcional. Ele executou e
+   > reprovou por conteúdo: `Quality com falha no commit: ,failure,success`,
+   > isto é, um check `failure` e um `null`. O jq quebrado entrou depois, em
+   > `55ab5d1`, que **não** está na tag; nenhuma tag foi criada desde então,
+   > então o defeito nunca chegou a rodar. Era um defeito latente, não uma
+   > falha observada — e a frase sobre "os dois `fix(ci)` anteriores foram
+   > atrás do alvo errado" era especulação apresentada como fato.
 
 2. **O rollback era código morto.** `trap 'falha "..."; rollback' ERR`, e
    `falha` termina em `exit`. Todo deploy quebrado ficaria de pé na imagem nova
@@ -36,11 +51,17 @@ completa achou **três defeitos bloqueantes**, e nenhum dos três era sutil:
    `Frontend foundation (ubuntu-latest)`. E `Quality`, também na lista, é nome
    de workflow — check run tem nome de job. Na prática o gate exigia 2 de 4.
 
-Os três só existiam porque **o pipeline nunca rodou uma vez**. Revisão de código
-não os pegou em nenhuma das rodadas anteriores; execução pegaria na primeira. É
-o mesmo padrão do handoff anterior — um verde que não provava nada — um nível
-acima: aqui o verde nem chegava a existir, e a mensagem de erro apontava para o
-lugar errado.
+Os três só existiam porque **o pipeline quase nunca rodou** — uma única
+execução, e ela morreu antes do build. Revisão de código não os pegou em
+nenhuma das rodadas anteriores; execução pegaria na primeira.
+
+A correção de registro acima vale como lição própria, e é do mesmo tipo que o
+handoff anterior descreve. Lá, um teste verde não provava o que eu achava que
+provava. Aqui, reproduzi o defeito num teste local, vi que quebrava, e daí
+**inferi** a história de que ele vinha causando as falhas observadas — sem
+olhar o log do run, que estava a um comando de distância e contava outra
+coisa. Reproduzir um defeito prova que ele existe; não prova que foi ele que
+causou o que você viu.
 
 ---
 
@@ -48,7 +69,7 @@ lugar errado.
 
 | Item | O quê |
 |---|---|
-| **3 bloqueantes** | Provados em execução antes de corrigir, e cada correção com mutação verificada |
+| **3 bloqueantes** | Cada um reproduzido localmente antes de corrigir, e cada correção com mutação verificada. Reproduzido ≠ observado em produção: ver a correção de registro na §1 |
 | **Cobertura** | `test:whatsapp` e `test:openai` estavam em `test:harness` e fora do CI **e** do pre-push — a jornada do PLAN-034 era a única sem gate |
 | **Frontend em produção** | `compose.prod` publicava só 8000; o frontend escuta 3000 na netns da api. O Caddy não tinha destino |
 | **Artefatos presos à tag** | A imagem carrega `/app/deploy`; o gate compara digests e recusa (exit 3) antes de tocar produção |
