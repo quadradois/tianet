@@ -93,8 +93,24 @@ for arquivo in $ALTERADOS; do
     # O snapshot mora em docs/ mas e contrato: mexer nele afeta o frontend.
     docs/governance/contracts/openapi/*) TOCA_FRONTEND=1; TOCA_BACKEND=1 ;;
     docs/*) ;;
+    # CI, tooling e artefatos de deploy: nao entram no build nem no runtime da
+    # aplicacao, entao nao ha o que quebrar numa suite de browser. Antes caiam
+    # no `*` e disparavam as quinze suites Playwright — dezesseis minutos para
+    # validar um YAML de workflow, e o pico de memoria chegou a matar o push
+    # duas vezes seguidas em 2026-09-10.
+    #
+    # O que continua coberto: docs:validate e docs:test rodam SEMPRE, e e la
+    # que scripts/tests/* e scripts/ci/* sao exercitados. Nenhum caminho hoje
+    # verificado deixou de ser; o CI segue rodando tudo de qualquer forma.
+    .github/*|scripts/ci/*|scripts/tests/*|scripts/harness/*) ;;
+    # Excecao dentro da excecao: os scripts Python de scripts/ mexem com
+    # migrations e com o contrato OpenAPI, e esses quebram o backend.
+    scripts/*.py) TOCA_BACKEND=1 ;;
+    scripts/*) ;;
     frontend/*) TOCA_FRONTEND=1 ;;
     src/*|tests/*|migrations/*|pyproject.toml|uv.lock) TOCA_BACKEND=1 ;;
+    # Desconhecido roda tudo, de proposito: Dockerfile, compose e afins caem
+    # aqui e precisam mesmo do conjunto inteiro.
     *) TOCA_BACKEND=1; TOCA_FRONTEND=1 ;;
   esac
 done

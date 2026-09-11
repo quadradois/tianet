@@ -149,22 +149,6 @@ jobs:
           ref: ${{ needs.precondicoes.outputs.sha }}
           fetch-depth: 0
 
-      - name: Resolver tag imutável
-        id: tag
-        env:
-          TAG_INPUT: ${{ inputs.tag }}
-        run: |
-          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
-            TAG="$TAG_INPUT"
-          else
-            TAG="${GITHUB_REF_NAME}"
-          fi
-          case "$TAG" in
-            prod-v[0-9]*.[0-9]*.[0-9]*) ;;
-            *) echo "tag fora do padrão prod-vX.Y.Z: $TAG" >&2; exit 1 ;;
-          esac
-          echo "value=$TAG" >> "$GITHUB_OUTPUT"
-
       - name: Login no GHCR
         uses: docker/login-action@v3
         with:
@@ -182,7 +166,7 @@ jobs:
           file: ${{ matrix.dockerfile }}
           push: true
           tags: |
-            ${{ env.REGISTRY }}-${{ matrix.image }}:${{ steps.tag.outputs.value }}
+            ${{ env.REGISTRY }}-${{ matrix.image }}:${{ needs.precondicoes.outputs.tag }}
             ${{ env.REGISTRY }}-${{ matrix.image }}:${{ github.sha }}
           build-args: |
             CODEX_VERSION=0.146.1
@@ -193,33 +177,17 @@ jobs:
   deploy:
     name: Deploy na VPS (com aprovação)
     runs-on: ubuntu-latest
-    needs: build
+    needs: [precondicoes, build]
     environment: production
     steps:
-      - name: Resolver tag imutável
-        id: tag
-        env:
-          TAG_INPUT: ${{ inputs.tag }}
-        run: |
-          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
-            TAG="$TAG_INPUT"
-          else
-            TAG="${GITHUB_REF_NAME}"
-          fi
-          case "$TAG" in
-            prod-v[0-9]*.[0-9]*.[0-9]*) ;;
-            *) echo "tag fora do padrão prod-vX.Y.Z: $TAG" >&2; exit 1 ;;
-          esac
-          echo "value=$TAG" >> "$GITHUB_OUTPUT"
-
       # A chave SSH restrita só executa /opt/tianet/bin/deploy <tag> na VPS
       # (authorized_keys com command=, sem port-forward). Segredos de produção
       # nunca transitam por aqui: vivem em /root/tianet/.env.prod no servidor.
       - name: Executar gate de deploy na VPS
-        uses: appleboy/ssh-action@v1
+        uses: appleboy/ssh-action@0ff4204d59e8e51228ff73bce53f80d53301dee2  # v1.2.5
         with:
           host: ${{ secrets.VPS_HOST }}
           username: ${{ secrets.VPS_USER }}
           key: ${{ secrets.VPS_DEPLOY_KEY }}
           port: 22
-          script: /opt/tianet/bin/deploy ${{ steps.tag.outputs.value }}
+          script: /opt/tianet/bin/deploy ${{ needs.precondicoes.outputs.tag }}

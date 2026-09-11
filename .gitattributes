@@ -7,6 +7,8 @@
 # O gate de deploy é copiado deste repo para a VPS e executado por /bin/bash:
 # um CRLF vindo de checkout no Windows quebra o shebang no servidor.
 *.sh text eol=lf
+# Os hooks nao tem extensao e sao shell script: mesma regra.
+hooks/* text eol=lf
 *.jq text eol=lf
 *.toml text eol=lf
 *.yml text eol=lf
