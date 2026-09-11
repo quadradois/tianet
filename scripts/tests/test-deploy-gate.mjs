@@ -193,6 +193,48 @@ checar('actions de terceiro no job deploy estão pinadas por SHA', () => {
   assert.deepEqual(naoPinadas, [], `sem SHA: ${naoPinadas.join(', ')}`);
 });
 
+/**
+ * Todo `COPY` do Dockerfile precisa sobreviver ao .dockerignore.
+ *
+ * Origem: o Dockerfile passou a copiar `scripts/deploy-gate.sh` para
+ * `/app/deploy`, mas o .dockerignore exclui `scripts` inteiro. O arquivo nunca
+ * esteve no contexto e o build da imagem `api` morreu em produção com
+ * `"/scripts/deploy-gate.sh": not found` — depois da tag publicada, no job de
+ * build, que é onde custa mais caro descobrir.
+ *
+ * Implementa a precedência do .dockerignore: a última regra que casa vence,
+ * e `!` re-inclui.
+ */
+checar('todo COPY do Dockerfile sobrevive ao .dockerignore', () => {
+  const dockerfile = readFileSync(join(ROOT, 'Dockerfile'), 'utf8');
+  const regras = readFileSync(join(ROOT, '.dockerignore'), 'utf8')
+    .split('\n')
+    .map((l) => l.trim())
+    .filter((l) => l && !l.startsWith('#'));
+
+  // Em `COPY a b ./destino/`, o último token é o destino.
+  const fontes = [...dockerfile.matchAll(/^COPY\s+(.+)$/gm)]
+    .flatMap((m) => m[1].trim().split(/\s+/).slice(0, -1))
+    .filter((f) => !f.startsWith('--'));
+
+  const excluido = (caminho) => {
+    let fora = false;
+    for (const regra of regras) {
+      const nega = regra.startsWith('!');
+      const padrao = nega ? regra.slice(1) : regra;
+      if (caminho === padrao || caminho.startsWith(`${padrao}/`)) fora = !nega;
+    }
+    return fora;
+  };
+
+  const perdidos = fontes.filter(excluido);
+  assert.deepEqual(
+    perdidos,
+    [],
+    `COPY de caminho excluído pelo .dockerignore: ${perdidos.join(', ')}`,
+  );
+});
+
 const temJq = spawnSync('jq', ['--version'], { stdio: 'ignore' }).status === 0;
 if (!temJq) {
   console.log('  AVISO  jq ausente: fixtures do programa jq não rodaram (o CI Linux roda)');
