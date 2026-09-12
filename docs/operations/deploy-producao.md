@@ -15,7 +15,13 @@ Este runbook cobre o Slice 3 do IMP-359. O ambiente local equivalente esta em
 [runbook-segredos](runbook-segredos.md).
 
 **Regra:** nenhum deploy direto no servidor. Todo deploy passa pelo workflow
-`.github/workflows/deploy.yml`, com aprovacao manual do ambiente `production`.
+`.github/workflows/deploy.yml`. Merge em `master` publica sozinho: o workflow
+cria a proxima tag `prod-vX.Y.(Z+1)` e segue sem aprovacao manual.
+
+**Decisao (2026-09-11):** o reviewer do environment `production` foi removido —
+mantenedor solo, sem dado real de cliente, a aprovacao so adicionava latencia.
+Recolocar quando entrar dado real ou quando o Slice 4 (backup/restore) fechar,
+o que vier primeiro.
 
 ---
 
@@ -27,7 +33,7 @@ Este runbook cobre o Slice 3 do IMP-359. O ambiente local equivalente esta em
 | pre-push | `hooks/pre-push` | a suite inteira, na ordem do CI |
 | branch protection | GitHub, `master` | merge sem PR ou com qualquer dos 4 checks vermelho |
 | `precondicoes` | `deploy.yml` | tag fora do padrao, que nao descende de master, ou com Quality nao-verde |
-| environment | GitHub, `production` | deploy sem aprovacao; ref que nao seja tag `prod-v*` |
+| environment | GitHub, `production` | ref que nao seja `master` nem tag `prod-v*` |
 | gate da VPS | `/opt/tianet/bin/deploy` | artefato divergente da tag, migrate/up com erro, health que nao fecha |
 
 Nenhuma delas substitui as outras. O gate da VPS e a ultima, nao a unica.
@@ -81,8 +87,11 @@ Repita a cada tag que altere `docker-compose.prod.yml` ou `deploy-gate.sh`.
 
 # 5. Deploy
 
-1. Merge do PR em `master`, com os 4 checks verdes.
-2. Criar e publicar a tag:
+1. Merge do PR em `master`, com os 4 checks verdes. O push dispara o
+   workflow, que cria a proxima tag `prod-vX.Y.(Z+1)` no commit do merge.
+2. Bump de minor ou major e manual, sobre um commit de `master` ja publicado
+   — o push da tag dispara o mesmo workflow, e os merges seguintes continuam
+   a contar a partir dela:
 
    ```bash
    git tag prod-v1.2.0 <sha-de-master>
@@ -90,9 +99,9 @@ Repita a cada tag que altere `docker-compose.prod.yml` ou `deploy-gate.sh`.
    ```
 
 3. O workflow roda `precondicoes` (tag valida, descende de master, Quality
-   verde no commit), constroi e publica as 4 imagens no GHCR, e para na
-   aprovacao do ambiente `production`.
-4. Aprovar no GitHub. O job de deploy chama o gate na VPS.
+   verde no commit — espera ate 30 min pelo `quality.yml` do mesmo push),
+   constroi e publica as 4 imagens no GHCR e chama o gate na VPS, sem parar
+   para aprovacao.
 
 O gate executa, nesta ordem: `pull` → conferencia de artefatos → `up -d`
 (inclui o migrate) → health de api e frontend → estado `running` dos cinco
