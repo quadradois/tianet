@@ -30,6 +30,12 @@ services:
     env_file:
       - path: /root/tianet/.env.prod
         required: true
+    # Sem esta linha o alembic deriva a URL para 127.0.0.1 (o padrão de fora
+    # do Compose) e o primeiro deploy morreu aqui com "connection refused":
+    # dentro da netns do container não há postgres em loopback. Mesma URL
+    # que api e worker recebem.
+    environment:
+      DATABASE_URL: postgresql+psycopg://emprestimo:${POSTGRES_PASSWORD:?}@postgres:5432/emprestimo
     depends_on:
       postgres:
         condition: service_healthy

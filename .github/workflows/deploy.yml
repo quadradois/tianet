@@ -1,11 +1,18 @@
 name: Deploy production
 
 # REGRA: nenhum deploy direto no servidor. Todo deploy passa por este
-# workflow, com aprovação manual do ambiente `production` no GitHub.
-# Tags imutáveis `prod-vX.Y.Z` são a única referência de rollback.
+# workflow. Merge em `master` publica sozinho: o workflow cria a próxima tag
+# `prod-vX.Y.(Z+1)` no commit e segue sem aprovação manual (decisão de
+# 2026-09-11: mantenedor solo, sem dado real de cliente — recolocar o
+# reviewer do environment `production` quando entrar dado real ou fechar o
+# Slice 4 de backup/restore). Push manual de tag continua valendo para
+# bump de minor/major. Tags imutáveis `prod-vX.Y.Z` são a única referência
+# de rollback.
 
 on:
   push:
+    branches:
+      - master
     tags:
       - "prod-v*"
   workflow_dispatch:
@@ -34,7 +41,7 @@ jobs:
     name: Tag de master com Quality verde
     runs-on: ubuntu-latest
     permissions:
-      contents: read
+      contents: write   # cria a tag no push em master
       checks: read
     outputs:
       sha: ${{ steps.tag.outputs.sha }}
@@ -52,6 +59,17 @@ jobs:
         run: |
           if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
             TAG="$TAG_INPUT"
+          elif [ "${GITHUB_REF}" = "refs/heads/master" ]; then
+            # Push em master: próxima patch a partir da maior tag existente.
+            # A tag nasce no SHA deste push, nunca em HEAD re-resolvido.
+            # O push com GITHUB_TOKEN não re-dispara este workflow.
+            ULTIMA=$(git tag -l 'prod-v[0-9]*' | sort -V | tail -n 1)
+            ULTIMA="${ULTIMA:-prod-v0.0.0}"
+            TAG="${ULTIMA%.*}.$(( ${ULTIMA##*.} + 1 ))"
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git tag -a "$TAG" -m "deploy automático do merge ${GITHUB_SHA}" "${GITHUB_SHA}"
+            git push origin "$TAG"
           else
             TAG="${GITHUB_REF_NAME}"
           fi
@@ -175,7 +193,7 @@ jobs:
           cache-to: type=gha,mode=max
 
   deploy:
-    name: Deploy na VPS (com aprovação)
+    name: Deploy na VPS
     runs-on: ubuntu-latest
     needs: [precondicoes, build]
     environment: production

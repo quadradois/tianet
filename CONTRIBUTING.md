@@ -33,3 +33,9 @@ uv run pre-commit run --all-files
 
 O CI continua sendo a confirmação final; o gate local apenas evita o
 round-trip de um run quebrado por erro de lint/typecheck/build.
+
+## Revisão de workflows de CI (regra 2026-09-10)
+
+Workflow novo ou alterado em `.github/workflows/` passa por code review
+somente-leitura (Claude Code CLI, sem segredos) **antes do merge** — gates locais
+não executam semântica de runtime do GitHub (permissões, contextos, runner).

@@ -194,6 +194,26 @@ checar('actions de terceiro no job deploy estão pinadas por SHA', () => {
 });
 
 /**
+ * Todo serviço do compose de produção que roda a imagem da api precisa de
+ * DATABASE_URL apontando para o serviço `postgres`.
+ *
+ * Origem: `migrate` só tinha env_file. O alembic derivou a URL para
+ * 127.0.0.1 (o padrão de fora do Compose) e o primeiro deploy real morreu com
+ * "connection refused" — dentro da netns do container não há postgres em
+ * loopback. Leitura textual, sem parser YAML: o compose é indentado em 2
+ * espaços e cada serviço começa em `  nome:`.
+ */
+checar('todo serviço da imagem api no compose de produção aponta DATABASE_URL para postgres', () => {
+  const texto = readFileSync(join(ROOT, 'docker-compose.prod.yml'), 'utf8');
+  const servicos = texto.split(/\n(?=  [a-z][\w-]*:\n)/);
+  const semUrl = servicos
+    .filter((bloco) => /^  [\w-]+:\n/.test(bloco) && /-tianet-api:/.test(bloco))
+    .filter((bloco) => !/DATABASE_URL: .*@postgres:5432\//.test(bloco))
+    .map((bloco) => bloco.match(/^  ([\w-]+):/)[1]);
+  assert.deepEqual(semUrl, [], `sem DATABASE_URL para @postgres: ${semUrl.join(', ')}`);
+});
+
+/**
  * Todo `COPY` do Dockerfile precisa sobreviver ao .dockerignore.
  *
  * Origem: o Dockerfile passou a copiar `scripts/deploy-gate.sh` para
