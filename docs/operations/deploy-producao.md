@@ -147,6 +147,7 @@ nada.
 | `<arquivo> diverge da versao publicada` (exit 3) | artefato da VPS de outra tag | rodar `vps-install.sh` (secao 4) |
 | `nao carrega /app/deploy/...` | imagem anterior aos artefatos de deploy | publicar uma tag nova |
 | `api sem health` / `frontend sem resposta` | servico nao subiu | ver `docker compose logs`; o rollback ja tentou reverter |
+| `frontend sem resposta` com api ok | `up -d api` sozinho orfana a netns compartilhada (`network_mode: service:api`) | recriar os dois juntos: `up -d api frontend` — nunca `api` isolada |
 | `servico X em estado 'exited'` | container morreu apos subir | logs do servico; o rollback ja tentou reverter |
 
 No workflow, `aguardando Quality` seguido de reprovacao significa que um dos 4
