@@ -131,8 +131,10 @@ Triagem `PRESENT`. Revisão `ai_architect` via Claude Code CLI (somente leitura,
 | 1a | concluído (local) | `.env.example` nominal, runbook, varredura limpa, review Claude incorporado |
 | 1b | parcial | Docker 29.8.0+compose, `/root/tianet/.env.prod` gerado (600); faltam valores do proprietário |
 | 2 | concluído | Caddy 2.6.2 (Ubuntu, auto-update) + UFW só-CF; `https://tianet.com.br/healthz` 200 de ponta a ponta; `/` 503 stub |
-| 3 | código pronto e revisado, **nunca executado** | PR #64: revisão do fluxo achou 3 bloqueantes, todos provados em execução (jq do gate não compilava; rollback era código morto; allowlist ignorava as duas suites de frontend). Corrigidos, com guardrail e mutação verificada. Governança fechada: `master` ganhou branch protection (PR + os 4 checks, strict) e o environment `production` ficou restrito a tags `prod-v*`. `scripts/vps-install.sh` + [runbook](../../operations/deploy-producao.md) cobrem a sincronização dos artefatos. **Falta o ensaio real**: nenhum deploy rodou ainda |
-| 4–6 | não iniciados | aguardam Slice 3 executado; o 4 (backup) é pré-requisito de produção com dado real |
+| 3 | **executado em 2026-09-12 (tag prod-v1.1.3)** | deploy verde após vps-install (artefatos convergiam); causa da falha anterior: compose sem `DATABASE_URL` no `migrate`. Health: api+db+worker ok; fiação frontend na borda (`/`→3000, prefixos→8000). Kill test em 2026-09-13: api derrubada de propósito, volta manual em 12s (borda <60s); sem restart automático — melhoria registrada para a próxima tag |
+| 4 | **executado em 2026-09-13** | backup cifrado diário 03:00 (AES 256 CBC com PBKDF2, chave do `.env.prod`, retenção 7+28); primeiro backup 1,5 MB; restore ensaiado em banco descartável com integridade (45 tabelas, tenant:1) em ~10s; falha gera log + STATUS (alerta dedicado no Slice 5). Tropeços: flag `-o` inválida no openssl e `-q` inexistente no pg_restore — corrigidos |
+| 5 | parcial | checks de cert/backup/5xx + cron ok; envelope como proposta (356-B); expurgo sem o que purgar |
+| 6 | parcial | logout repetido medido 200 + `adm_tianet` apagada e confirmada (401) em 2026-09-13; falta: evidência fail-closed + relatório GATE-E1b |
 
 ## Notas de conclusão
 
