@@ -14,6 +14,10 @@ from dataclasses import dataclass
 from datetime import datetime
 from typing import Any
 
+from emprestimo.agent.conversa import (
+    InboxConversaRepository,
+    SessaoConversaRepository,
+)
 from emprestimo.domain.common.events import DomainEventEnvelope
 from emprestimo.domain.credit.automacao_ports import (
     JobAgendadoRepository,
@@ -177,6 +181,8 @@ class UnitOfWork(ABC):
     template_notificacao: TemplateNotificacaoRepository
     solicitacao_notificacao: SolicitacaoNotificacaoRepository
     conexao_whatsapp: ConexaoWhatsAppRepository
+    inbox_conversa: InboxConversaRepository
+    sessao_conversa: SessaoConversaRepository
     idempotencia: IdempotenciaRegistro
 
     @abstractmethod

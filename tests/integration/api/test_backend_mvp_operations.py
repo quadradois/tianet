@@ -71,7 +71,9 @@ def test_imp_266_quality_migrations_gate_e_unico_head_alembic() -> None:
     # leem `NULL`, ou seja, sem alerta ativo. O downgrade remove somente ela.
     # ADR-020 adiciona somente as duas permissoes OpenAI e suas atribuicoes aos
     # perfis administrativos (`d2e4f6a8b0c1`), sem tabela de credenciais.
-    assert script.get_current_head() == "d2e4f6a8b0c1"
+    # IMP-356-A cria `inbox_conversa` e `sessao_conversa` (`c9a4f2e71b83d`):
+    # duas tabelas novas com unicidade propria; downgrade remove so elas.
+    assert script.get_current_head() == "c9a4f2e71b83d"
 
 
 def test_imp_267_health_correlation_e_erro_tecnico_sem_vazamento(

@@ -1193,3 +1193,81 @@ class ConexaoWhatsAppORM(Base):
     atualizado_em: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )
+
+
+class InboxConversaORM(Base):
+    """Tabela `inbox_conversa` — entrada do webhook antes do ACK (IMP-356-A).
+
+    A unicidade e por (Tenant, instancia resolvida no servidor, ID do
+    provedor): o `instanceId` do envelope nao autentica nada e nunca e chave
+    sozinho — duas instancias configuradas que recebam o mesmo ID do provedor
+    nao colidem. `texto` guarda PII autorizada da Operadora; pertence ao
+    armazenamento protegido da aplicacao com expurgo de 90 dias (DR-005),
+    nunca a logs. Midia e descartada antes da persistencia (356-B).
+    """
+
+    __tablename__ = "inbox_conversa"
+    __table_args__ = (
+        UniqueConstraint(
+            "tenant_id",
+            "instancia_ref",
+            "provider_input_id",
+            name="uq_inbox_conversa_entrada",
+        ),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True)
+    tenant_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid, ForeignKey("tenant.id"), nullable=False, index=True
+    )
+    instancia_ref: Mapped[str] = mapped_column(String(64), nullable=False)
+    envelope_instance_id: Mapped[str] = mapped_column(String(128), nullable=False)
+    provider_input_id: Mapped[str] = mapped_column(String(128), nullable=False)
+    remetente_normalizado: Mapped[str] = mapped_column(String(64), nullable=False)
+    classe: Mapped[str] = mapped_column(String(20), nullable=False)
+    texto: Mapped[str | None] = mapped_column(Text, nullable=True)
+    estado: Mapped[str] = mapped_column(String(40), nullable=False)
+    motivo_descarte: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    recebido_em: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+    atualizado_em: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+
+
+class SessaoConversaORM(Base):
+    """Tabela `sessao_conversa` — contexto por remetente e classe (IMP-356-A).
+
+    Nunca e a `Sessao` do IAM e nunca e compartilhada entre Operadora e
+    PreCadastro: a chave inclui a classe justamente para impedir promocao
+    automatica e vazamento entre contextos. `referencia_pendente` e
+    `expira_em` ganham uso na Entrega 356-F; aqui nascem vazias.
+    """
+
+    __tablename__ = "sessao_conversa"
+    __table_args__ = (
+        UniqueConstraint(
+            "tenant_id",
+            "instancia_ref",
+            "classe",
+            "remetente_normalizado",
+            name="uq_sessao_conversa_chave",
+        ),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True)
+    tenant_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid, ForeignKey("tenant.id"), nullable=False, index=True
+    )
+    instancia_ref: Mapped[str] = mapped_column(String(64), nullable=False)
+    classe: Mapped[str] = mapped_column(String(20), nullable=False)
+    remetente_normalizado: Mapped[str] = mapped_column(String(64), nullable=False)
+    referencia_pendente: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    expira_em: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    criado_em: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+    atualizado_em: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
