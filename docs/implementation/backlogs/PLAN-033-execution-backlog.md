@@ -730,6 +730,7 @@ O plano so fecha quando:
 
 | Versao | Data | Descricao |
 |---|---|---|
+| 1.9.4 | 2026-09-14 | IMP-356-D lote 1 mergeado (`e46c1ba`, PR #73) e implantado (`prod-v1.1.8`): CI verde, `/healthz` healthy, site 200. |
 | 1.9.3 | 2026-09-14 | IMP-356-D lote 1 executado em `feat/imp-356-d-catalogo`: catálogo `consulta_operadora_v1`, dispatcher e apresentadores com T1–T4 verdes (37 testes novos); T4 corrigiu mascaramento no apresentador, `data_referencia` no saldo e 401 sem Bearer. Lote 2 (LLM BYOK, triagem) e vínculo de refs (356-F) pendentes. Evidência em `docs/implementation/reports/PLAN-036-IMP-356-D-lote-1-2026-09-14.md`. |
 | 1.9.2 | 2026-09-10 | Reconcilia segredos do IMP-359 para a rota A (supera direcao OpenRouter); code review do Slice 1a incorporado. |
 | 1.9.1 | 2026-09-10 | Rota A registrada: API OpenAI com chave validada e `gpt-4o-mini` candidato; IMP-361 carimbado concluido; Operadora em fail-closed ate prova de origem. |
