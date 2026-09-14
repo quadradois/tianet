@@ -2,7 +2,7 @@
 
 **Última revisão:** 2026-09-14
 **Status:** Aprovado
-**Slice atual:** Slice 2
+**Slice atual:** Slice 3
 **Bloqueado por:** aprovação explícita do fundador (G5)
 **Risco:** Médio
 **Impacto agentic:** NONE
@@ -186,6 +186,10 @@ critério da revisão). Produção não muda comportamento em nenhum slice.
   novos: matriz adversarial + snapshot de instruções; regressão agente
   141 ok + 1 skip pré-existente; ruff/black/mypy limpos). Pendente:
   push + PR.
+- Slice 3 implementado e verificado localmente em 2026-09-14 (5 testes
+  novos: tabela versionada, agregação, alerta por patamar, retrato sem
+  conteúdo; regressão agente 146 ok + 1 skip pré-existente;
+  ruff/black/mypy limpos). Pendente: push + PR.
 
 ## Notas de conclusão
 
