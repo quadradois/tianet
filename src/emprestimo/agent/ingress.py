@@ -25,6 +25,7 @@ from typing import Any
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 
+from emprestimo.agent.admissao import ControleAdmissao
 from emprestimo.agent.conversa import (
     ClasseContexto,
     ConfiguracaoIngress,
@@ -79,8 +80,14 @@ def create_ingress_app(
     config: ConfiguracaoIngress,
     uow_factory: Callable[[], UnitOfWork],
     instancia_id_esperada: str,
+    admissao: ControleAdmissao | None = None,
 ) -> FastAPI:
-    """Monta o app de ingress com configuração e fábrica injetadas (testável)."""
+    """Monta o app de ingress com configuração e fábrica injetadas (testável).
+
+    Sem `admissao`, o comportamento é o da Entrega 356-A. Com admissao, a
+    ordem é fixa: dedupe primeiro (duplicata nunca consome quota), quota
+    depois, inserção por último — e recusa é `2xx` fixa, sem tempestade.
+    """
 
     app = FastAPI(title="TiaNet — Ingress do agente")
 
@@ -141,6 +148,21 @@ def create_ingress_app(
                 # abaixo só confirma a leitura; o estado não muda.
                 uow.commit()
                 return _aceitar(duplicada=True, classe=existente.classe)
+            if admissao is not None:
+                decisao = admissao.avaliar(
+                    uow.admissao,
+                    tenant_id=config.tenant_id,
+                    instancia_ref=config.instancia_ref,
+                    classe=classificada.classe.value,
+                    remetente=classificada.remetente_normalizado,
+                )
+                if not decisao.admitida:
+                    uow.rollback()
+                    METRICAS.registrar_recusa(decisao.motivo)
+                    return JSONResponse(
+                        status_code=200,
+                        content={"message": "recusada", "motivo": decisao.motivo},
+                    )
             entrada = EntradaConversa(
                 id=uuid.uuid4(),
                 tenant_id=config.tenant_id,

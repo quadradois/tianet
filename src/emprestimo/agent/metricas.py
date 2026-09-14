@@ -18,6 +18,7 @@ class MetricasIngress:
     aceitas: int = 0
     duplicadas: int = 0
     descartes_por_motivo: Counter[str] = field(default_factory=Counter)
+    recusas_por_motivo: Counter[str] = field(default_factory=Counter)
 
     def registrar_entrada(self, tamanho_bytes: int) -> None:
         self.bytes_recebidos += tamanho_bytes
@@ -30,12 +31,16 @@ class MetricasIngress:
     def registrar_descarte(self, motivo: str) -> None:
         self.descartes_por_motivo[motivo] += 1
 
+    def registrar_recusa(self, motivo: str) -> None:
+        self.recusas_por_motivo[motivo] += 1
+
     def retrato(self) -> dict[str, Any]:
         return {
             "bytes_recebidos": self.bytes_recebidos,
             "aceitas": self.aceitas,
             "duplicadas": self.duplicadas,
             "descartes_por_motivo": dict(self.descartes_por_motivo),
+            "recusas_por_motivo": dict(self.recusas_por_motivo),
         }
 
 

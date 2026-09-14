@@ -14,6 +14,7 @@ from dataclasses import dataclass
 from datetime import datetime
 from typing import Any
 
+from emprestimo.agent.admissao import AdmissaoRepository
 from emprestimo.agent.conversa import (
     InboxConversaRepository,
     SessaoConversaRepository,
@@ -183,6 +184,7 @@ class UnitOfWork(ABC):
     conexao_whatsapp: ConexaoWhatsAppRepository
     inbox_conversa: InboxConversaRepository
     sessao_conversa: SessaoConversaRepository
+    admissao: AdmissaoRepository
     idempotencia: IdempotenciaRegistro
 
     @abstractmethod

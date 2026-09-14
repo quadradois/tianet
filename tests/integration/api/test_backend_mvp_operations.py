@@ -73,7 +73,9 @@ def test_imp_266_quality_migrations_gate_e_unico_head_alembic() -> None:
     # perfis administrativos (`d2e4f6a8b0c1`), sem tabela de credenciais.
     # IMP-356-A cria `inbox_conversa` e `sessao_conversa` (`c9a4f2e71b83d`):
     # duas tabelas novas com unicidade propria; downgrade remove so elas.
-    assert script.get_current_head() == "c9a4f2e71b83d"
+    # IMP-356-C cria `cota_evento` e `semeia` os 2 slots de concorrencia
+    # (`e7f8a9b0c1d2`); downgrade remove tabelas e vagas, e so isso.
+    assert script.get_current_head() == "e7f8a9b0c1d2"
 
 
 def test_imp_267_health_correlation_e_erro_tecnico_sem_vazamento(

@@ -110,6 +110,9 @@ from emprestimo.infrastructure.db.orm import (
     UsuarioORM,
     UsuarioPerfilORM,
 )
+from emprestimo.infrastructure.repositories.admissao import (
+    SqlAlchemyAdmissaoRepository as SqlAlchemyAdmissaoRepository,
+)
 from emprestimo.infrastructure.repositories.automacao import (
     SqlAlchemyJobAgendadoRepository as SqlAlchemyJobAgendadoRepository,
 )
