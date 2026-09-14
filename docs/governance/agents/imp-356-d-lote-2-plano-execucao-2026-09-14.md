@@ -178,7 +178,10 @@ critério da revisão). Produção não muda comportamento em nenhum slice.
 
 ## Progresso
 
-- Plano redigido; aguardando aprovação.
+- Slice 1 implementado e verificado localmente (16 testes novos verdes,
+  regressão agente 125 ok + 1 skip pré-existente, ruff/black/mypy limpos).
+  Falha ambiental no caminho (Docker parado) classificada e recuperada sem
+  tocar em teste. Pendente: push + PR.
 
 ## Notas de conclusão
 

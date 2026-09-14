@@ -25,6 +25,7 @@ class Ferramenta:
     metodo_http: str
     rota: str
     permissao: str
+    descricao: str = ""
     argumentos: dict[str, RestricaoArgumento] = field(default_factory=dict)
     apresentador: str = ""
 
@@ -37,6 +38,10 @@ CATALOGO: dict[str, Ferramenta] = {
         metodo_http="GET",
         rota="/credit/carteiras/{carteira_id}/devedores",
         permissao="devedor.ler",
+        descricao=(
+            "Localiza cadastros de devedores pelo nome. "
+            "Nunca use documento, ID ou endereço como argumento."
+        ),
         argumentos={"nome": RestricaoArgumento("texto", True, 1, 200)},
         apresentador="localizar_devedor",
     ),
@@ -45,6 +50,11 @@ CATALOGO: dict[str, Ferramenta] = {
         metodo_http="GET",
         rota="/credit/devedores/{devedor_id}/saldo",
         permissao="motor.saldo.ler",
+        descricao=(
+            "Consulta a posição de dívida de um devedor já localizado. "
+            "Use apenas a referência opaca devolvida pela localização, "
+            "nunca um ID."
+        ),
         argumentos={"devedor_ref": RestricaoArgumento("texto", True, 1, 64)},
         apresentador="consultar_saldo_devedor",
     ),
@@ -53,6 +63,7 @@ CATALOGO: dict[str, Ferramenta] = {
         metodo_http="GET",
         rota="/credit/carteiras/{carteira_id}/relatorios/resumo",
         permissao="relatorios.operacionais.ler",
+        descricao="Resumo operacional da carteira na data de hoje.",
         apresentador="consultar_resumo_carteira",
     ),
     "consultar_acertos": Ferramenta(
@@ -60,6 +71,7 @@ CATALOGO: dict[str, Ferramenta] = {
         metodo_http="GET",
         rota="/credit/carteiras/{carteira_id}/relatorios/vencimentos",
         permissao="relatorios.operacionais.ler",
+        descricao="Acertos pendentes na data de hoje.",
         apresentador="consultar_acertos",
     ),
     "consultar_pagamentos_periodo": Ferramenta(
@@ -67,6 +79,10 @@ CATALOGO: dict[str, Ferramenta] = {
         metodo_http="GET",
         rota="/credit/carteiras/{carteira_id}/relatorios/pagamentos",
         permissao="relatorios.operacionais.ler",
+        descricao=(
+            "Pagamentos recebidos num período de até 31 dias, "
+            "nunca acima de hoje. Datas no formato AAAA-MM-DD."
+        ),
         argumentos={
             "inicio": RestricaoArgumento("data"),
             "fim": RestricaoArgumento("data"),
@@ -78,6 +94,10 @@ CATALOGO: dict[str, Ferramenta] = {
         metodo_http="GET",
         rota="/credit/carteiras/{carteira_id}/relatorios/fluxo",
         permissao="relatorios.operacionais.ler",
+        descricao=(
+            "Recebimentos por dia num período de até 31 dias, "
+            "nunca acima de hoje. Datas no formato AAAA-MM-DD."
+        ),
         argumentos={
             "inicio": RestricaoArgumento("data"),
             "fim": RestricaoArgumento("data"),
