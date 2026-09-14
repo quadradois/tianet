@@ -89,6 +89,58 @@ class AgentSettings:
 
 
 @dataclass(frozen=True)
+class LlmSettings:
+    """Configuração do cliente LLM BYOK, rota A (IMP-356-D lote 2).
+
+    Desligado por padrão; sem fiação produtiva até certificação. Chave só
+    via ambiente, nunca no repo. `max_retries` é 0 por invariante: erro de
+    inferência degrada, nunca re-cobra.
+    """
+
+    enabled: bool
+    base_url: str
+    model: str
+    api_key: str
+    timeout_seconds: float
+    max_retries: int
+    max_tokens_saida: int
+
+    @classmethod
+    def from_environment(cls) -> LlmSettings:
+        enabled = os.environ.get("LLM_ENABLED", "false").lower() == "true"
+        try:
+            timeout = float(os.environ.get("LLM_TIMEOUT_SECONDS", "15.0"))
+        except ValueError as exc:
+            raise RuntimeError("LLM_TIMEOUT_SECONDS deve ser numero positivo") from exc
+        if timeout <= 0:
+            raise RuntimeError("LLM_TIMEOUT_SECONDS deve ser numero positivo")
+        try:
+            retries = int(os.environ.get("LLM_MAX_RETRIES", "0"))
+        except ValueError as exc:
+            raise RuntimeError("LLM_MAX_RETRIES deve ser 0") from exc
+        if retries != 0:
+            raise RuntimeError("LLM_MAX_RETRIES deve ser 0")
+        try:
+            max_tokens = int(os.environ.get("LLM_MAX_TOKENS_SAIDA", "1000"))
+        except ValueError as exc:
+            raise RuntimeError("LLM_MAX_TOKENS_SAIDA deve ser inteiro positivo") from exc
+        if max_tokens <= 0:
+            raise RuntimeError("LLM_MAX_TOKENS_SAIDA deve ser inteiro positivo")
+        api_key = os.environ.get("LLM_API_KEY", "")
+        if enabled and not api_key:
+            raise RuntimeError("LLM_API_KEY ausente com LLM_ENABLED=true")
+        return cls(
+            enabled=enabled,
+            base_url=os.environ.get("LLM_BASE_URL", "https://api.openai.com/v1"),
+            model=os.environ.get("LLM_MODEL", "gpt-4o-mini"),
+            api_key=api_key,
+            timeout_seconds=timeout,
+            max_retries=retries,
+            max_tokens_saida=max_tokens,
+        )
+
+
+@dataclass(frozen=True)
 class _ActiveChallenge:
     challenge: DeviceCodeChallenge
     expires_monotonic: float
