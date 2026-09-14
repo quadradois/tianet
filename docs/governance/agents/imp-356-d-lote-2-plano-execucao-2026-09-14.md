@@ -2,7 +2,7 @@
 
 **Última revisão:** 2026-09-14
 **Status:** Aprovado
-**Slice atual:** Slice 1
+**Slice atual:** Slice 2
 **Bloqueado por:** aprovação explícita do fundador (G5)
 **Risco:** Médio
 **Impacto agentic:** NONE
@@ -182,6 +182,10 @@ critério da revisão). Produção não muda comportamento em nenhum slice.
   regressão agente 125 ok + 1 skip pré-existente, ruff/black/mypy limpos).
   Falha ambiental no caminho (Docker parado) classificada e recuperada sem
   tocar em teste. Pendente: push + PR.
+- Slice 2 implementado e verificado localmente em 2026-09-14 (16 testes
+  novos: matriz adversarial + snapshot de instruções; regressão agente
+  141 ok + 1 skip pré-existente; ruff/black/mypy limpos). Pendente:
+  push + PR.
 
 ## Notas de conclusão
 
