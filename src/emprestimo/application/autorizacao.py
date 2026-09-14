@@ -119,6 +119,7 @@ class AutorizacaoService:
     def recusar_principal_ausente(self) -> None:
         """Audita a ausencia/malformacao do Bearer antes de recusar a requisicao."""
         self._registrar_recusa_autenticacao(AutenticacaoRecusadaError())
+        raise AutenticacaoRecusadaError()
 
     def consultar_contexto(self, principal: Principal) -> ContextoOperacionalResultado:
         """Resolve o contexto do proprio Principal sem aceitar IDs externos."""
