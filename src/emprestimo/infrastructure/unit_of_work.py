@@ -32,6 +32,7 @@ from emprestimo.infrastructure.repositories import (
     SqlAlchemyDevedorRepository,
     SqlAlchemyEmprestimoRepository,
     SqlAlchemyEventoFinanceiroRepository,
+    SqlAlchemyInboxConversaRepository,
     SqlAlchemyJobAgendadoRepository,
     SqlAlchemyLembreteRepository,
     SqlAlchemyMemoriaCalculoRepository,
@@ -44,6 +45,7 @@ from emprestimo.infrastructure.repositories import (
     SqlAlchemyPropostaComercialRepository,
     SqlAlchemyRegistroComunicacaoRepository,
     SqlAlchemyRelatorioOperacionalCacheRepository,
+    SqlAlchemySessaoConversaRepository,
     SqlAlchemySessaoRepository,
     SqlAlchemySimulacaoComercialRepository,
     SqlAlchemySolicitacaoNotificacaoRepository,
@@ -105,6 +107,8 @@ class SqlAlchemyUnitOfWork(UnitOfWork):
         self.conexao_whatsapp = SqlAlchemyConexaoWhatsAppRepository(
             self._session, self._cifra_factory
         )
+        self.inbox_conversa = SqlAlchemyInboxConversaRepository(self._session)
+        self.sessao_conversa = SqlAlchemySessaoConversaRepository(self._session)
         self.idempotencia = SqlAlchemyIdempotenciaRegistro(self._session)
 
     def commit(self) -> None:

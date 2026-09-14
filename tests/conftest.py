@@ -34,6 +34,8 @@ DATABASE_URL_TESTE = preparar_banco_descartavel(database_url())
 os.environ["DATABASE_URL"] = DATABASE_URL_TESTE
 
 TABELAS_TRUNCATE = (
+    "inbox_conversa",
+    "sessao_conversa",
     "notificacao_evidencia",
     "solicitacao_notificacao",
     "template_notificacao",
@@ -81,6 +83,8 @@ TABELAS_TRUNCATE = (
 )
 
 TABELAS_DROP = (
+    "inbox_conversa",
+    "sessao_conversa",
     "notificacao_evidencia",
     "solicitacao_notificacao",
     "template_notificacao",

@@ -134,6 +134,12 @@ from emprestimo.infrastructure.repositories.configuracoes_financeiras import (
 from emprestimo.infrastructure.repositories.configuracoes_financeiras import (
     SqlAlchemyModalidadeFinanceiraRepository as SqlAlchemyModalidadeFinanceiraRepository,
 )
+from emprestimo.infrastructure.repositories.conversa import (
+    SqlAlchemyInboxConversaRepository as SqlAlchemyInboxConversaRepository,
+)
+from emprestimo.infrastructure.repositories.conversa import (
+    SqlAlchemySessaoConversaRepository as SqlAlchemySessaoConversaRepository,
+)
 from emprestimo.infrastructure.repositories.operacao_diaria import (
     SqlAlchemyAcaoCobrancaRepository as SqlAlchemyAcaoCobrancaRepository,
 )
