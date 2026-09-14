@@ -26,6 +26,7 @@ from sqlalchemy import (
     Date,
     DateTime,
     ForeignKey,
+    Index,
     Integer,
     LargeBinary,
     Numeric,
@@ -1271,3 +1272,42 @@ class SessaoConversaORM(Base):
     atualizado_em: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )
+
+
+class CotaEventoORM(Base):
+    """Tabela `cota_evento` — admissões por janela deslizante (IMP-356-C).
+
+    Uma linha por admissão; a contagem é `instante >= agora - janela` e as
+    antigas são expurgadas a cada avaliação. Sem agregados mutáveis: nada
+    para corromper em crash, e restart preserva tudo por ser durável.
+    """
+
+    __tablename__ = "cota_evento"
+    __table_args__ = (Index("ix_cota_evento_janela", "escopo", "chave", "instante"),)
+
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True)
+    tenant_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid, ForeignKey("tenant.id"), nullable=False, index=True
+    )
+    instancia_ref: Mapped[str] = mapped_column(String(64), nullable=False)
+    escopo: Mapped[str] = mapped_column(String(40), nullable=False)
+    chave: Mapped[str] = mapped_column(String(128), nullable=False)
+    instante: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+
+
+class SlotExecucaoORM(Base):
+    """Tabela `slot_execucao` — vagas de concorrência com reserva (IMP-356-C).
+
+    Linhas fixas semeadas na migration (2 vagas, 1 reservada à Operadora).
+    Reserva é um UPDATE atômico com RETURNING implícito: dois executores
+    nunca tomam o mesmo slot, mesmo em corrida ou restart. `dono_sessao`
+    referencia a sessão conversacional como texto opaco; `expira_em`
+    permite recolher reservas de executor morto.
+    """
+
+    __tablename__ = "slot_execucao"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=False)
+    reservado_operadora: Mapped[bool] = mapped_column(Boolean, nullable=False)
+    dono_sessao: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    expira_em: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)

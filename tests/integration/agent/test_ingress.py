@@ -17,6 +17,11 @@ from sqlalchemy.orm import Session, sessionmaker
 from starlette.testclient import TestClient
 from tests.factories import TenantFactory
 
+from emprestimo.agent.admissao import (
+    ConfiguracaoAdmissao,
+    ControleAdmissao,
+    DimensaoCota,
+)
 from emprestimo.agent.conversa import (
     LIMITE_PADRAO_BYTES,
     ClasseContexto,
@@ -364,3 +369,69 @@ def test_metricas_contam_sem_conteudo(
     serializado = json.dumps(retrato, ensure_ascii=False)
     assert "saldo secreto" not in serializado
     assert retrato["bytes_recebidos"] > 0
+
+
+# ---------------------------------------------------------------------------
+# Entrega 356-C: quota no ingress — dedupe antes, recusa fixa depois
+# ---------------------------------------------------------------------------
+
+
+def _app_com_quota(
+    tenant_id: uuid.UUID,
+    session_factory: sessionmaker[Session],
+    limite_operadora: int,
+) -> TestClient:
+    application = create_ingress_app(
+        ConfiguracaoIngress(
+            tenant_id=tenant_id,
+            instancia_ref=INSTANCIA_REF,
+            allowlist_operadora=frozenset({OPERADORA_NUMERO}),
+        ),
+        lambda: SqlAlchemyUnitOfWork(session_factory),
+        INSTANCIA_ID,
+        admissao=ControleAdmissao(
+            ConfiguracaoAdmissao(
+                dimensoes=(
+                    DimensaoCota("instancia", 60, 100),
+                    DimensaoCota("operadora-remetente", 60, limite_operadora),
+                    DimensaoCota("desconhecido-remetente", 60, 100),
+                    DimensaoCota("desconhecido-classe", 60, 100),
+                )
+            )
+        ),
+    )
+    return TestClient(application)
+
+
+def test_duplicada_nao_consome_quota(
+    tenant_id: uuid.UUID, session_factory: sessionmaker[Session], metricas_limpas: None
+) -> None:
+    with _app_com_quota(tenant_id, session_factory, 1) as com_quota:
+        primeira = com_quota.post("/whatsapp/webhook", json=_envelope(info_id="3EB0Q01"))
+        assert primeira.json()["duplicada"] is False
+        # Replay nao passa pela quota: aceita sem consumir a vaga.
+        segunda = com_quota.post("/whatsapp/webhook", json=_envelope(info_id="3EB0Q01"))
+        assert segunda.json() == {"message": "accepted", "duplicada": True, "classe": "operadora"}
+        # ID novo com quota esgotada (limite 1, consumido pela primeira): recusa.
+        terceira = com_quota.post("/whatsapp/webhook", json=_envelope(info_id="3EB0Q02"))
+        assert terceira.json() == {
+            "message": "recusada",
+            "motivo": "janela-cheia:operadora-remetente",
+        }
+    assert _contar(tenant_id) == 1
+    assert METRICAS.retrato()["recusas_por_motivo"] == {"janela-cheia:operadora-remetente": 1}
+
+
+def test_recusada_resposta_fixa_sem_linha_nem_loop(
+    tenant_id: uuid.UUID, session_factory: sessionmaker[Session]
+) -> None:
+    with _app_com_quota(tenant_id, session_factory, 1) as com_quota:
+        assert (
+            com_quota.post("/whatsapp/webhook", json=_envelope(info_id="3EB0R01")).status_code
+            == 200
+        )
+        for i in range(2, 5):
+            resposta = com_quota.post("/whatsapp/webhook", json=_envelope(info_id=f"3EB0R0{i}"))
+            assert resposta.status_code == 200
+            assert resposta.json()["message"] == "recusada"
+    assert _contar(tenant_id) == 1

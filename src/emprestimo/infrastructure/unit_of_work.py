@@ -18,6 +18,7 @@ from emprestimo.infrastructure.cifra import CifraToken, resolver_cifra_token
 from emprestimo.infrastructure.idempotencia import SqlAlchemyIdempotenciaRegistro
 from emprestimo.infrastructure.repositories import (
     SqlAlchemyAcaoCobrancaRepository,
+    SqlAlchemyAdmissaoRepository,
     SqlAlchemyAgendaItemRepository,
     SqlAlchemyApropriacaoPagamentoRepository,
     SqlAlchemyCalendarioFinanceiroRepository,
@@ -109,6 +110,7 @@ class SqlAlchemyUnitOfWork(UnitOfWork):
         )
         self.inbox_conversa = SqlAlchemyInboxConversaRepository(self._session)
         self.sessao_conversa = SqlAlchemySessaoConversaRepository(self._session)
+        self.admissao = SqlAlchemyAdmissaoRepository(self._session)
         self.idempotencia = SqlAlchemyIdempotenciaRegistro(self._session)
 
     def commit(self) -> None:
