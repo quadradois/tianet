@@ -1,8 +1,12 @@
-"""Ingress público do agente — webhook do Evolution (IMP-356-A).
+"""Ingress público do agente — webhook do Evolution (IMP-356-A/B).
 
 Regras de porta, sem exceção:
 - Nenhum campo do envelope autentica nada: instância, remetente, classe e
   URLs vêm da configuração do servidor. O envelope só carrega dados.
+- Tamanho primeiro: o corpo é medido antes de qualquer parse ou
+  persistência; acima do limite, descarte fixo sem LLM (356-B).
+- Só texto e metadados mínimos seguem; mídia sem texto é descartada antes
+  de persistir (356-B). Métricas contam bytes e motivos, nunca conteúdo.
 - Tudo que é aceito entra na inbox persistente ANTES do `2xx`; replay
   responde `2xx` sem reprocessar. Descarte tratável também responde `2xx`
   (o provedor repete até `4xx`), com motivo fixo — nunca conteúdo.
@@ -12,6 +16,7 @@ Regras de porta, sem exceção:
 
 from __future__ import annotations
 
+import json
 import uuid
 from collections.abc import Callable
 from datetime import UTC, datetime
@@ -28,24 +33,38 @@ from emprestimo.agent.conversa import (
     classificar_entrada,
     eh_remetente_de_grupo,
 )
+from emprestimo.agent.metricas import METRICAS, MetricasIngress
 from emprestimo.application.ports import UnitOfWork
 
 ESTADO_RECEBIDA = "recebida"
 
 
-def _texto_da_mensagem(data: dict[str, Any]) -> str | None:
+def _texto_da_mensagem(data: dict[str, Any]) -> tuple[str | None, bool]:
+    """Devolve (texto, eh_midia): mídia sem texto é descarte, não inbox."""
     mensagem = data.get("Message")
-    if not isinstance(mensagem, dict):
-        return None
+    if not isinstance(mensagem, dict) or not mensagem:
+        return None, False
     conversa = mensagem.get("conversation")
-    return conversa if isinstance(conversa, str) and conversa else None
+    if isinstance(conversa, str) and conversa:
+        return conversa, False
+    estendida = mensagem.get("extendedTextMessage")
+    if isinstance(estendida, dict):
+        texto = estendida.get("text")
+        if isinstance(texto, str) and texto:
+            # Legenda ou citação: o texto segue, a mídia citada fica para trás.
+            return texto, False
+    return None, True
 
 
-def _descartar(motivo: MotivoDescarte) -> JSONResponse:
+def _descartar(motivo: MotivoDescarte, metricas: MetricasIngress = METRICAS) -> JSONResponse:
+    metricas.registrar_descarte(motivo.value)
     return JSONResponse(status_code=200, content={"message": "discarded", "motivo": motivo.value})
 
 
-def _aceitar(*, duplicada: bool, classe: ClasseContexto) -> JSONResponse:
+def _aceitar(
+    *, duplicada: bool, classe: ClasseContexto, metricas: MetricasIngress = METRICAS
+) -> JSONResponse:
+    metricas.registrar_aceita(duplicada=duplicada)
     return JSONResponse(
         status_code=200,
         content={
@@ -67,8 +86,14 @@ def create_ingress_app(
 
     @app.post("/whatsapp/webhook")
     async def receber_webhook(request: Request) -> JSONResponse:
+        corpo = await request.body()
+        METRICAS.registrar_entrada(len(corpo))
+        if len(corpo) > config.max_bytes:
+            # Acima do limite: descarte fixo sem parse, sem persistência e
+            # sem LLM — e com 2xx, para não provocar tempestade de retries.
+            return _descartar(MotivoDescarte.CARGA_EXCEDIDA)
         try:
-            envelope = await request.json()
+            envelope = json.loads(corpo.decode("utf-8"))
         except Exception:
             return JSONResponse(status_code=400, content={"message": "corpo-invalido"})
         if not isinstance(envelope, dict):
@@ -96,11 +121,15 @@ def create_ingress_app(
         if info.get("IsGroup") is True or eh_remetente_de_grupo(sender):
             return _descartar(MotivoDescarte.GRUPO)
 
+        texto, eh_midia = _texto_da_mensagem(data)
+        if eh_midia:
+            return _descartar(MotivoDescarte.MIDIA_SEM_TEXTO)
+
         classificada = classificar_entrada(
             config=config,
             provider_input_id=provider_input_id,
             sender=sender,
-            texto=_texto_da_mensagem(data),
+            texto=texto,
         )
 
         with uow_factory() as uow:

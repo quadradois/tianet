@@ -32,6 +32,22 @@ class MotivoDescarte(StrEnum):
     EVENTO_NAO_SUPORTADO = "evento-nao-suportado"
     INSTANCIA_DESCONHECIDA = "instancia-desconhecida"
     DUPLICADA = "duplicada"
+    CARGA_EXCEDIDA = "carga-excedida"
+    MIDIA_SEM_TEXTO = "midia-sem-texto"
+
+
+# Amostra máxima observada de HistorySync (contexto-externo §2.1): 5,6 MB.
+# Leitura conservadora em bytes binários; o limite é o próximo múltiplo de
+# 64 KiB ESTRITAMENTE acima dela, com teto de engenharia de 8 MiB (backlog
+# 356-B e plano-execucao). Valor configurável via AGENT_WEBHOOK_MAX_BYTES;
+# testes usam valores pequenos injetados, nunca este literal.
+AMOSTRA_MAXIMA_OBSERVADA_BYTES = 5_872_026
+MULTIPLO_LIMITE_BYTES = 65_536
+TETO_ENGENHARIA_BYTES = 8 * 1024 * 1024
+LIMITE_PADRAO_BYTES = (
+    AMOSTRA_MAXIMA_OBSERVADA_BYTES // MULTIPLO_LIMITE_BYTES + 1
+) * MULTIPLO_LIMITE_BYTES
+assert LIMITE_PADRAO_BYTES < TETO_ENGENHARIA_BYTES
 
 
 _DIGITOS = re.compile(r"\D+")
@@ -66,6 +82,7 @@ class ConfiguracaoIngress:
     tenant_id: uuid.UUID
     instancia_ref: str
     allowlist_operadora: frozenset[str] = field(default_factory=frozenset)
+    max_bytes: int = LIMITE_PADRAO_BYTES
 
 
 @dataclass(frozen=True)
