@@ -9,6 +9,7 @@ from __future__ import annotations
 
 from collections import Counter
 from dataclasses import dataclass, field
+from typing import Any
 
 
 @dataclass
@@ -29,7 +30,7 @@ class MetricasIngress:
     def registrar_descarte(self, motivo: str) -> None:
         self.descartes_por_motivo[motivo] += 1
 
-    def retrato(self) -> dict[str, object]:
+    def retrato(self) -> dict[str, Any]:
         return {
             "bytes_recebidos": self.bytes_recebidos,
             "aceitas": self.aceitas,
