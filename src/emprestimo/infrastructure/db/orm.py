@@ -1394,3 +1394,31 @@ class ReferenciaSessaoORM(Base):
     criado_em: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )
+
+
+class CredencialCopilotORM(Base):
+    """Tabela `credencial_copilot` — refresh cifrado por tenant/instância.
+
+    Separa a credencial do copiloto das humanas e do WhatsApp: o refresh
+    repousa cifrado (Fernet via ambiente) e nunca em claro. `chave_id`
+    permite rotacionar a chave de cifra sem perder o segredo.
+    """
+
+    __tablename__ = "credencial_copilot"
+    __table_args__ = (
+        UniqueConstraint("tenant_id", "instancia_ref", name="uq_credencial_copilot_dono"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True)
+    tenant_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid, ForeignKey("tenant.id"), nullable=False, index=True
+    )
+    instancia_ref: Mapped[str] = mapped_column(String(64), nullable=False)
+    refresh_cifrado: Mapped[bytes] = mapped_column(LargeBinary, nullable=False)
+    chave_id: Mapped[str] = mapped_column(String(32), nullable=False)
+    criado_em: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+    atualizado_em: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )

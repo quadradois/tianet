@@ -21,6 +21,7 @@ from emprestimo.infrastructure.repositories import (
     SqlAlchemyAdmissaoRepository,
     SqlAlchemyAgendaItemRepository,
     SqlAlchemyApropriacaoPagamentoRepository,
+    SqlAlchemyArmazenRefresh,
     SqlAlchemyCalendarioFinanceiroRepository,
     SqlAlchemyCarteiraRepository,
     SqlAlchemyCobrancaCasoRepository,
@@ -116,6 +117,7 @@ class SqlAlchemyUnitOfWork(UnitOfWork):
         self.mensagem_conversa = SqlAlchemyMensagemConversaRepository(self._session)
         self.tool_call_exec = SqlAlchemyToolCallExecRepository(self._session)
         self.referencia_sessao = SqlAlchemyReferenciaSessaoRepository(self._session)
+        self.credencial_copilot = SqlAlchemyArmazenRefresh(self._session)
         self.admissao = SqlAlchemyAdmissaoRepository(self._session)
         self.idempotencia = SqlAlchemyIdempotenciaRegistro(self._session)
 

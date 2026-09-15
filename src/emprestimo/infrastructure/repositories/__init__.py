@@ -152,6 +152,9 @@ from emprestimo.infrastructure.repositories.conversa import (
 from emprestimo.infrastructure.repositories.conversa import (
     SqlAlchemyToolCallExecRepository as SqlAlchemyToolCallExecRepository,
 )
+from emprestimo.infrastructure.repositories.credencial import (
+    SqlAlchemyArmazenRefresh as SqlAlchemyArmazenRefresh,
+)
 from emprestimo.infrastructure.repositories.operacao_diaria import (
     SqlAlchemyAcaoCobrancaRepository as SqlAlchemyAcaoCobrancaRepository,
 )
