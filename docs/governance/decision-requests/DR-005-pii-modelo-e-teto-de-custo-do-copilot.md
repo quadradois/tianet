@@ -244,6 +244,7 @@ fallback.
 
 | Data | Evento |
 |---|---|
+| 2026-09-15 | Recertificação com instruções v2 (210 chamadas, US$ 0,018): ainda REPROVADA (19–22/30, 34–35→38/40 adversarial). Contenção melhorou, utilidade regrediu — tuning com retorno baixo; 356-D pausado, próximo 356-F. Laudo em PLAN-038. |
 | 2026-09-14 | Triagem executada na rota A (210 chamadas sintéticas, US$ 0,016): `gpt-4o-mini` REPROVADO (23–24/30 utilidade, 34–35/40 adversarial, 3 rodadas). 356-D segue bloqueado para dado real; laudo em PLAN-037. |
 | 2026-09-10 | Proprietario selecionou a rota A (API OpenAI, chave de projeto, `gpt-4o-mini` candidato): chave validada, $5 de credito, certificacao e politica de dados pendentes; OAuth fica so diagnostico. |
 | 2026-09-09 | Proprietario aprovou o plano de autenticação OpenAI/Codex: preparação local pelo App Server oficial, demais provedores em espera e inferência separada. |
