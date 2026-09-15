@@ -75,7 +75,11 @@ def test_imp_266_quality_migrations_gate_e_unico_head_alembic() -> None:
     # duas tabelas novas com unicidade propria; downgrade remove so elas.
     # IMP-356-C cria `cota_evento` e `semeia` os 2 slots de concorrencia
     # (`e7f8a9b0c1d2`); downgrade remove tabelas e vagas, e so isso.
-    assert script.get_current_head() == "e7f8a9b0c1d2"
+    # IMP-356-F slice 1 cria `mensagem_conversa`, `tool_call_exec` e
+    # `referencia_sessao` (`c8d3e5f7a2b4`): tres tabelas novas com
+    # unicidade propria (ordem, call unico, ref por sessao); downgrade
+    # remove so elas.
+    assert script.get_current_head() == "c8d3e5f7a2b4"
 
 
 def test_imp_267_health_correlation_e_erro_tecnico_sem_vazamento(

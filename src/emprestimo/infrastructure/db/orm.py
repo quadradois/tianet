@@ -1311,3 +1311,86 @@ class SlotExecucaoORM(Base):
     reservado_operadora: Mapped[bool] = mapped_column(Boolean, nullable=False)
     dono_sessao: Mapped[str | None] = mapped_column(String(128), nullable=True)
     expira_em: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+
+class MensagemConversaORM(Base):
+    """Tabela `mensagem_conversa` — memória da sessão (IMP-356-F).
+
+    Texto é PII sob expurgo de 90 dias, nunca em logs. Índice único
+    (sessao_id, indice) ordena a conversa sem depender de relógio.
+    """
+
+    __tablename__ = "mensagem_conversa"
+    __table_args__ = (
+        UniqueConstraint("sessao_id", "indice", name="uq_mensagem_conversa_ordem"),
+        Index("ix_mensagem_conversa_sessao", "sessao_id"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True)
+    sessao_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid, ForeignKey("sessao_conversa.id"), nullable=False
+    )
+    inbox_id: Mapped[uuid.UUID | None] = mapped_column(Uuid, nullable=True)
+    indice: Mapped[int] = mapped_column(Integer, nullable=False)
+    papel: Mapped[str] = mapped_column(String(20), nullable=False)
+    texto: Mapped[str] = mapped_column(Text, nullable=False)
+    criado_em: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+
+
+class ToolCallExecORM(Base):
+    """Tabela `tool_call_exec` — registro operacional de tool-calls (IMP-356-F).
+
+    Só ferramenta, schema, parâmetros canônicos e resumo do resultado;
+    dinheiro nunca é persistido aqui. Um (sessao_id, call_id) não se
+    repete: o provedor pode reutilizar IDs entre sessões, nunca dentro.
+    """
+
+    __tablename__ = "tool_call_exec"
+    __table_args__ = (
+        UniqueConstraint("sessao_id", "call_id", name="uq_tool_call_exec_chamada"),
+        Index("ix_tool_call_exec_sessao", "sessao_id"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True)
+    sessao_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid, ForeignKey("sessao_conversa.id"), nullable=False
+    )
+    inbox_id: Mapped[uuid.UUID] = mapped_column(Uuid, nullable=False)
+    call_id: Mapped[str] = mapped_column(String(128), nullable=False)
+    ferramenta: Mapped[str] = mapped_column(String(64), nullable=False)
+    schema_versao: Mapped[str] = mapped_column(String(64), nullable=False)
+    parametros: Mapped[dict[str, object]] = mapped_column(JSON, nullable=False)
+    resultado: Mapped[dict[str, object]] = mapped_column(JSON, nullable=False)
+    latencia_ms: Mapped[int] = mapped_column(Integer, nullable=False)
+    completa: Mapped[bool] = mapped_column(Boolean, nullable=False)
+    criado_em: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+
+
+class ReferenciaSessaoORM(Base):
+    """Tabela `referencia_sessao` — ref opaca → devedor por sessão (IMP-356-F).
+
+    TTL de 5 minutos por relógio do servidor; `revogada_em` invalida sem
+    apagar (auditoria da invalidação). Não herda a retenção de 90 dias.
+    """
+
+    __tablename__ = "referencia_sessao"
+    __table_args__ = (
+        UniqueConstraint("sessao_id", "ref", name="uq_referencia_sessao_ref"),
+        Index("ix_referencia_sessao_expira", "expira_em"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True)
+    sessao_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid, ForeignKey("sessao_conversa.id"), nullable=False
+    )
+    ref: Mapped[str] = mapped_column(String(64), nullable=False)
+    devedor_id: Mapped[uuid.UUID] = mapped_column(Uuid, nullable=False)
+    expira_em: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    revogada_em: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    criado_em: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
