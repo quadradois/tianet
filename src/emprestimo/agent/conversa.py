@@ -11,6 +11,7 @@ from __future__ import annotations
 import re
 import uuid
 from abc import ABC, abstractmethod
+from collections.abc import Iterable
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import StrEnum
@@ -118,6 +119,79 @@ class SessaoConversa:
     instancia_ref: str
     classe: ClasseContexto
     remetente_normalizado: str
+    referencia_pendente: str | None = None
+    expira_em: datetime | None = None
+
+
+class PapelMensagem(StrEnum):
+    """Quem fala na memória da sessão — sistema nunca é persistido."""
+
+    USUARIO = "usuario"
+    ASSISTENTE = "assistente"
+
+
+@dataclass(frozen=True)
+class MensagemConversa:
+    """Uma mensagem da sessão; texto é PII sob expurgo de 90 dias."""
+
+    id: uuid.UUID
+    sessao_id: uuid.UUID
+    inbox_id: uuid.UUID | None
+    indice: int
+    papel: PapelMensagem
+    texto: str
+    criado_em: datetime
+
+
+@dataclass(frozen=True)
+class ToolCallExec:
+    """Registro operacional de um tool-call — sem PII além dos parâmetros
+    canônicos protegidos; dinheiro nunca é persistido aqui."""
+
+    id: uuid.UUID
+    sessao_id: uuid.UUID
+    inbox_id: uuid.UUID
+    call_id: str
+    ferramenta: str
+    schema_versao: str
+    parametros: dict[str, str]
+    resultado: dict[str, str]
+    latencia_ms: int
+    completa: bool
+    criado_em: datetime
+
+
+@dataclass(frozen=True)
+class ReferenciaSessao:
+    """Mapeamento ref opaca → devedor, válido só na sessão de origem."""
+
+    id: uuid.UUID
+    sessao_id: uuid.UUID
+    ref: str
+    devedor_id: uuid.UUID
+    expira_em: datetime
+    revogada_em: datetime | None = None
+    criado_em: datetime | None = None
+
+
+def resolver_referencia(
+    referencias: Iterable[ReferenciaSessao],
+    sessao_id: uuid.UUID,
+    ref: str,
+    agora: datetime,
+) -> uuid.UUID | None:
+    """Resolve ref opaca com escopo de sessão, TTL e revogação.
+
+    Qualquer divergência (outra sessão, expirada, revogada, ausente)
+    devolve None — o chamador recusa fechado, nunca tenta outro caminho.
+    """
+    for candidata in referencias:
+        if candidata.sessao_id != sessao_id or candidata.ref != ref:
+            continue
+        if candidata.revogada_em is not None or candidata.expira_em <= agora:
+            continue
+        return candidata.devedor_id
+    return None
 
 
 def classificar_entrada(
@@ -183,3 +257,44 @@ class SessaoConversaRepository(ABC):
         classe: ClasseContexto,
         remetente_normalizado: str,
     ) -> SessaoConversa | None: ...
+
+    @abstractmethod
+    def definir_referencia(self, sessao_id: uuid.UUID, ref: str, expira_em: datetime) -> None:
+        """Guarda a seleção pendente; expiração por relógio do servidor."""
+
+    @abstractmethod
+    def limpar_referencia(self, sessao_id: uuid.UUID) -> None:
+        """Invalida a seleção pendente (uso, troca de contexto, expurgo)."""
+
+
+class MensagemConversaRepository(ABC):
+    """Porta da memória de mensagens da sessão."""
+
+    @abstractmethod
+    def adicionar(self, mensagem: MensagemConversa) -> None: ...
+
+    @abstractmethod
+    def listar_por_sessao(self, sessao_id: uuid.UUID) -> list[MensagemConversa]: ...
+
+
+class ToolCallExecRepository(ABC):
+    """Porta do registro operacional de tool-calls."""
+
+    @abstractmethod
+    def registrar(self, execucao: ToolCallExec) -> None: ...
+
+    @abstractmethod
+    def listar_por_sessao(self, sessao_id: uuid.UUID) -> list[ToolCallExec]: ...
+
+
+class ReferenciaSessaoRepository(ABC):
+    """Porta do mapeamento ref opaca → devedor, por sessão."""
+
+    @abstractmethod
+    def salvar(self, referencia: ReferenciaSessao) -> None: ...
+
+    @abstractmethod
+    def listar_por_sessao(self, sessao_id: uuid.UUID) -> list[ReferenciaSessao]: ...
+
+    @abstractmethod
+    def invalidar_por_sessao(self, sessao_id: uuid.UUID, agora: datetime) -> None: ...

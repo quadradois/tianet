@@ -17,7 +17,10 @@ from typing import Any
 from emprestimo.agent.admissao import AdmissaoRepository
 from emprestimo.agent.conversa import (
     InboxConversaRepository,
+    MensagemConversaRepository,
+    ReferenciaSessaoRepository,
     SessaoConversaRepository,
+    ToolCallExecRepository,
 )
 from emprestimo.domain.common.events import DomainEventEnvelope
 from emprestimo.domain.credit.automacao_ports import (
@@ -184,6 +187,9 @@ class UnitOfWork(ABC):
     conexao_whatsapp: ConexaoWhatsAppRepository
     inbox_conversa: InboxConversaRepository
     sessao_conversa: SessaoConversaRepository
+    mensagem_conversa: MensagemConversaRepository
+    tool_call_exec: ToolCallExecRepository
+    referencia_sessao: ReferenciaSessaoRepository
     admissao: AdmissaoRepository
     idempotencia: IdempotenciaRegistro
 

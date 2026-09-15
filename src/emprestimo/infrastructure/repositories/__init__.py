@@ -141,7 +141,16 @@ from emprestimo.infrastructure.repositories.conversa import (
     SqlAlchemyInboxConversaRepository as SqlAlchemyInboxConversaRepository,
 )
 from emprestimo.infrastructure.repositories.conversa import (
+    SqlAlchemyMensagemConversaRepository as SqlAlchemyMensagemConversaRepository,
+)
+from emprestimo.infrastructure.repositories.conversa import (
+    SqlAlchemyReferenciaSessaoRepository as SqlAlchemyReferenciaSessaoRepository,
+)
+from emprestimo.infrastructure.repositories.conversa import (
     SqlAlchemySessaoConversaRepository as SqlAlchemySessaoConversaRepository,
+)
+from emprestimo.infrastructure.repositories.conversa import (
+    SqlAlchemyToolCallExecRepository as SqlAlchemyToolCallExecRepository,
 )
 from emprestimo.infrastructure.repositories.operacao_diaria import (
     SqlAlchemyAcaoCobrancaRepository as SqlAlchemyAcaoCobrancaRepository,

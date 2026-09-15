@@ -37,6 +37,7 @@ from emprestimo.infrastructure.repositories import (
     SqlAlchemyJobAgendadoRepository,
     SqlAlchemyLembreteRepository,
     SqlAlchemyMemoriaCalculoRepository,
+    SqlAlchemyMensagemConversaRepository,
     SqlAlchemyModalidadeFinanceiraRepository,
     SqlAlchemyPagamentoRepository,
     SqlAlchemyPerfilAcessoRepository,
@@ -44,6 +45,7 @@ from emprestimo.infrastructure.repositories import (
     SqlAlchemyPreferenciaNotificacaoRepository,
     SqlAlchemyPromessaPagamentoRepository,
     SqlAlchemyPropostaComercialRepository,
+    SqlAlchemyReferenciaSessaoRepository,
     SqlAlchemyRegistroComunicacaoRepository,
     SqlAlchemyRelatorioOperacionalCacheRepository,
     SqlAlchemySessaoConversaRepository,
@@ -53,6 +55,7 @@ from emprestimo.infrastructure.repositories import (
     SqlAlchemyTemplateNotificacaoRepository,
     SqlAlchemyTenantRepository,
     SqlAlchemyTentativaJobRepository,
+    SqlAlchemyToolCallExecRepository,
     SqlAlchemyUsuarioRepository,
 )
 
@@ -110,6 +113,9 @@ class SqlAlchemyUnitOfWork(UnitOfWork):
         )
         self.inbox_conversa = SqlAlchemyInboxConversaRepository(self._session)
         self.sessao_conversa = SqlAlchemySessaoConversaRepository(self._session)
+        self.mensagem_conversa = SqlAlchemyMensagemConversaRepository(self._session)
+        self.tool_call_exec = SqlAlchemyToolCallExecRepository(self._session)
+        self.referencia_sessao = SqlAlchemyReferenciaSessaoRepository(self._session)
         self.admissao = SqlAlchemyAdmissaoRepository(self._session)
         self.idempotencia = SqlAlchemyIdempotenciaRegistro(self._session)
 
