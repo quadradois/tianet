@@ -42,8 +42,10 @@ git ls-files | Select-String -Pattern "\.env$|credenciais|pem$|key$"
 git grep -nE "sk-[A-Za-z0-9_-]{20,}|[A-Za-z0-9_-]{43}=|BEGIN [A-Z ]*PRIVATE KEY|AKIA[0-9A-Z]{16}|xox[bap]-" -- . ":!.env" ":!docs/credenciais/" ":!frontend/package-lock.json" ":!package-lock.json" ":!*fixture*"
 ```
 
-`LLM_*` ainda não são injetadas em nenhum serviço pelo compose — passam ao
-`agent` no Slice 3; até lá, vivem só no `.env` local e no canal.
+`LLM_*` passam ao `agent` pelo compose desde o IMP-356-D lote 2 slice 5
+(valores via ambiente; `LLM_API_KEY` vazia por padrão). Na VPS, os nomes
+precisam existir em `/root/tianet/.env.prod` — provisionamento via SSH,
+pendente do proprietário. Até lá, vivem só no `.env` local e no canal.
 
 ## Vazamento
 

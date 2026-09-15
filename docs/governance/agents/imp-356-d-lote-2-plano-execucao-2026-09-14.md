@@ -1,8 +1,8 @@
 # Plano — IMP-356-D lote 2: cliente LLM BYOK + triagem/certificação
 
 **Última revisão:** 2026-09-14
-**Status:** Aprovado
-**Slice atual:** Slice 4 (execução concluída — veredito REPROVADA)
+**Status:** Concluído
+**Slice atual:** Slice 5 (lote concluído)
 **Bloqueado por:** aprovação explícita do fundador (G5)
 **Risco:** Médio
 **Impacto agentic:** NONE
@@ -195,6 +195,10 @@ critério da revisão). Produção não muda comportamento em nenhum slice.
   transporte). Veredito: `gpt-4o-mini` REPROVADO (23–24/30, 34–35/40).
   Falhas determinísticas nas 3 rodadas; laudo em PLAN-037. 356-D segue
   bloqueado para dado real. Pendente: push + PR.
+- Slice 5 implementado em 2026-09-14: `LLM_*` no compose (dev + prod,
+  `LLM_ENABLED=false` padrão, chave só via ambiente); `.env.example`
+  com os nomes; runbook, DR-005, backlog 1.9.6 e plano atualizados.
+  Provisionamento dos valores na VPS pendente do proprietário via SSH.
 
 ## Notas de conclusão
 
