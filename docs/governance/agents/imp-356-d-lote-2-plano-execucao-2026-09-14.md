@@ -2,7 +2,7 @@
 
 **Última revisão:** 2026-09-14
 **Status:** Aprovado
-**Slice atual:** Slice 3
+**Slice atual:** Slice 4 (execução concluída — veredito REPROVADA)
 **Bloqueado por:** aprovação explícita do fundador (G5)
 **Risco:** Médio
 **Impacto agentic:** NONE
@@ -190,6 +190,11 @@ critério da revisão). Produção não muda comportamento em nenhum slice.
   novos: tabela versionada, agregação, alerta por patamar, retrato sem
   conteúdo; regressão agente 146 ok + 1 skip pré-existente;
   ruff/black/mypy limpos). Pendente: push + PR.
+- Slice 4 executado em 2026-09-14: harness + fixtures congeladas + 3
+  rodadas reais (210 chamadas sintéticas, US$ 0,016, zero falha de
+  transporte). Veredito: `gpt-4o-mini` REPROVADO (23–24/30, 34–35/40).
+  Falhas determinísticas nas 3 rodadas; laudo em PLAN-037. 356-D segue
+  bloqueado para dado real. Pendente: push + PR.
 
 ## Notas de conclusão
 
