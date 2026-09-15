@@ -730,6 +730,7 @@ O plano so fecha quando:
 
 | Versao | Data | Descricao |
 |---|---|---|
+| 1.9.7 | 2026-09-15 | Recertificação com instruções v2 (210 chamadas, US$ 0,018): ainda REPROVADA (19–22/30, 38/40) — contenção melhorou, utilidade regrediu; tuning tem retorno baixo. 356-D pausado; próximo: 356-F. Laudo em `docs/implementation/reports/PLAN-038-recertificacao-v2-2026-09-15.md`. |
 | 1.9.6 | 2026-09-14 | IMP-356-D lote 2 concluído (slices 1–5): `LLM_*` no compose com `LLM_ENABLED=false` padrão; chave só via ambiente. Modelo recusado pela triagem — veredito e caminhos em PLAN-037. 356-F é o próximo passo. |
 | 1.9.5 | 2026-09-14 | Triagem do modelo na rota A executada (210 chamadas sintéticas, US$ 0,016): `gpt-4o-mini` REPROVADO (23–24/30 utilidade, 34–35/40 adversarial, 3 rodadas). 356-D segue bloqueado para dado real. Evidência em `docs/implementation/reports/PLAN-037-triagem-modelo-rota-a-2026-09-14.md`. |
 | 1.9.4 | 2026-09-14 | IMP-356-D lote 1 mergeado (`e46c1ba`, PR #73) e implantado (`prod-v1.1.8`): CI verde, `/healthz` healthy, site 200. |
