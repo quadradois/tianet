@@ -2,7 +2,7 @@
 
 **Última revisão:** 2026-09-15
 **Status:** Aprovado
-**Slice atual:** Slice 1
+**Slice atual:** Slice 2
 **Bloqueado por:** aprovação explícita do fundador (G5)
 **Risco:** Alto
 **Impacto agentic:** PRESENT
@@ -237,6 +237,12 @@ egress. Revert por slice. Produção não muda comportamento.
   novos: domínio+resolvedor puros, repos em PG real, migration mockada;
   regressão agente+migrations 181 ok + 1 skip pré-existente;
   ruff/black/mypy limpos). Pendente: push + PR.
+- Slice 2 implementado e verificado localmente em 2026-09-15 (15 testes
+  novos: renovação proativa, 401 único, revogação, store cifrado real,
+  migration mockada; regressão agente+migrations verde; ruff/black/mypy
+  limpos). ARMADILHA REGISTRADA: `.gitignore:56` (`*credencial*`)
+  ignora também código-fonte com "credencial" no nome — commitar esses
+  arquivos sempre com `git add -f`. Pendente: push + PR.
 
 ## Notas de conclusão
 

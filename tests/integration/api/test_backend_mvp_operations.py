@@ -79,7 +79,9 @@ def test_imp_266_quality_migrations_gate_e_unico_head_alembic() -> None:
     # `referencia_sessao` (`c8d3e5f7a2b4`): tres tabelas novas com
     # unicidade propria (ordem, call unico, ref por sessao); downgrade
     # remove so elas.
-    assert script.get_current_head() == "c8d3e5f7a2b4"
+    # IMP-356-F slice 2 cria `credencial_copilot` (`d4e6f8a1b3c5`): refresh
+    # cifrado por tenant/instancia; downgrade remove so ela.
+    assert script.get_current_head() == "d4e6f8a1b3c5"
 
 
 def test_imp_267_health_correlation_e_erro_tecnico_sem_vazamento(
