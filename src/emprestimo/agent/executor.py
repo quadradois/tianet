@@ -82,6 +82,7 @@ class EntradaExecucao:
     texto: str
     recebido_em: datetime
     correlation_id: str = ""
+    provider_input_id: str = ""
 
 
 @dataclass(frozen=True)
@@ -130,6 +131,7 @@ class Executor:
         observador_tool: Callable[[Any], None] | None = None,
         metricas_llm: Any | None = None,
         metricas: Any | None = None,
+        enviador: Callable[[Any, str, Any], Any] | None = None,
     ) -> None:
         self._uow_factory = uow_factory
         self._credencial = credencial
@@ -144,6 +146,7 @@ class Executor:
         self._observador_tool = observador_tool
         self._metricas_llm = metricas_llm if metricas_llm is not None else METRICAS_LLM
         self._metricas = metricas if metricas is not None else METRICAS
+        self._enviador = enviador
 
     async def executar(self, entrada: EntradaExecucao) -> ResultadoExecucao:
         try:
@@ -206,6 +209,7 @@ class Executor:
     async def _turno(self, entrada: EntradaExecucao, primeiro_claim: datetime) -> ResultadoExecucao:
         orcamento = _OrcamentoTurno()
         if entrada.sessao.classe != ClasseContexto.OPERADORA:
+            self._enviar(entrada, RESPOSTA_FIXA_PRE_CADASTRO, None)
             self._salvar_turno(entrada, RESPOSTA_FIXA_PRE_CADASTRO)
             return ResultadoExecucao("concluida", RESPOSTA_FIXA_PRE_CADASTRO, None)
         if self._medidor_tokens is None:
@@ -273,8 +277,10 @@ class Executor:
         texto = "\n".join(apresentacoes) if apresentacoes else prosa_final or RESPOSTA_INDISPONIVEL
         if len(texto) > MAX_MSG_CANAL:
             return self._incompleta(entrada, [], orcamento, "resposta_excedida")
-        self._salvar_turno(entrada, texto)
         estado = "concluida" if (apresentacoes or prosa_final) else "incompleta"
+        if estado == "concluida":
+            self._enviar(entrada, texto, contexto)
+        self._salvar_turno(entrada, texto)
         return ResultadoExecucao(
             estado,
             texto,
@@ -283,6 +289,24 @@ class Executor:
             orcamento.tools,
             orcamento.https,
         )
+
+    def _enviar(
+        self, entrada: EntradaExecucao, texto: str, contexto: ContextoFerramentas | None
+    ) -> None:
+        """Hook de egress (356-E): revalida identidade e envia sem quebrar o turno."""
+        if self._enviador is None:
+            return
+        try:
+            self._autorizacao.consultar_contexto(self._principal)
+        except Exception:
+            logger.error("egress cancelado: identidade revogada antes de transmitir")
+            return
+        try:
+            self._enviador(entrada, texto, contexto)
+        except Exception:
+            # Sem traceback: a implementação do enviador pode vazar
+            # parâmetros (vide _salvar_turno).
+            logger.error("egress falhou sem quebrar o turno")
 
     async def _fase_tools(
         self,

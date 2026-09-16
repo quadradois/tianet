@@ -36,6 +36,11 @@ os.environ["DATABASE_URL"] = DATABASE_URL_TESTE
 TABELAS_TRUNCATE = (
     "cota_evento",
     "slot_execucao",
+    "egress_conversa",
+    "mensagem_conversa",
+    "tool_call_exec",
+    "referencia_sessao",
+    "credencial_copilot",
     "inbox_conversa",
     "sessao_conversa",
     "notificacao_evidencia",
@@ -87,6 +92,11 @@ TABELAS_TRUNCATE = (
 TABELAS_DROP = (
     "cota_evento",
     "slot_execucao",
+    "egress_conversa",
+    "mensagem_conversa",
+    "tool_call_exec",
+    "referencia_sessao",
+    "credencial_copilot",
     "inbox_conversa",
     "sessao_conversa",
     "notificacao_evidencia",
