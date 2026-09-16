@@ -27,6 +27,14 @@ TABELA_PRECOS: dict[str, PrecoModelo] = {
         entrada_usd_por_milhao=Decimal("0.15"),
         saida_usd_por_milhao=Decimal("0.60"),
     ),
+    "gpt-4.1-mini": PrecoModelo(
+        entrada_usd_por_milhao=Decimal("0.40"),
+        saida_usd_por_milhao=Decimal("1.60"),
+    ),
+    "gpt-4.1-mini-2025-04-14": PrecoModelo(
+        entrada_usd_por_milhao=Decimal("0.40"),
+        saida_usd_por_milhao=Decimal("1.60"),
+    ),
 }
 
 
