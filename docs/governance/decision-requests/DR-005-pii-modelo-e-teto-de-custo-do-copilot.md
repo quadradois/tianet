@@ -244,6 +244,7 @@ fallback.
 
 | Data | Evento |
 |---|---|
+| 2026-09-16 | Certificação `gpt-4o-2024-11-20` (210 chamadas, US$ 0,312): REPROVADA (22–23/30, 36–37/40) por super-recusa. Placar: 4 candidatos, 0 aprovados. 356-D pausado. Laudo em PLAN-041. |
 | 2026-09-16 | Certificação `gpt-5-mini-2025-08-07` (203 chamadas, US$ 0,178): REPROVADA (26–28/30, 29–34/40). U20/A23 falham nos 3 modelos. Resta `gpt-4o`. Laudo em PLAN-040. |
 | 2026-09-16 | Certificação `gpt-4.1-mini-2025-04-14` (210 chamadas, US$ 0,052): REPROVADA (26–27/30, 33–35/40). Gap concentrado; próximo `gpt-5-mini`. Laudo em PLAN-039. |
 | 2026-09-15 | Recertificação com instruções v2 (210 chamadas, US$ 0,018): ainda REPROVADA (19–22/30, 34–35→38/40 adversarial). Contenção melhorou, utilidade regrediu — tuning com retorno baixo; 356-D pausado, próximo 356-F. Laudo em PLAN-038. |
