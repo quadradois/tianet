@@ -2,7 +2,7 @@
 
 **Última revisão:** 2026-09-15
 **Status:** Aprovado
-**Slice atual:** Slice 3
+**Slice atual:** Slice 4
 **Bloqueado por:** aprovação explícita do fundador (G5)
 **Risco:** Alto
 **Impacto agentic:** PRESENT
@@ -251,6 +251,14 @@ egress. Revert por slice. Produção não muda comportamento.
   (token estava fresco → revogação); prosa descartada quando há
   apresentações. Qualificação de custo backend adiada ao slice 5
   (flag `ferramentas_habilitadas` pronta). Pendente: push + PR.
+- Slice 4 implementado e verificado localmente em 2026-09-16 (11 testes
+  novos: trilha com correlação, zero-writes em `audit_log`, logs com
+  correlation sem PII/segredo, expurgo em lotes poupando auditoria;
+  regressão agente+migrations verde; ruff/black/mypy limpos). Achado:
+  traceback de banco ecoa parâmetros do INSERT — `_salvar_turno` loga
+  sem `exc_info`. Métricas persistidas = linhas tool_call (latência
+  real) + contadores; pipeline externo fica para operação. Pendente:
+  push + PR.
 
 ## Notas de conclusão
 

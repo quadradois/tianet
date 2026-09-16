@@ -1365,6 +1365,7 @@ class ToolCallExecORM(Base):
     resultado: Mapped[dict[str, object]] = mapped_column(JSON, nullable=False)
     latencia_ms: Mapped[int] = mapped_column(Integer, nullable=False)
     completa: Mapped[bool] = mapped_column(Boolean, nullable=False)
+    correlation_id: Mapped[str] = mapped_column(String(64), nullable=False, default="")
     criado_em: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )

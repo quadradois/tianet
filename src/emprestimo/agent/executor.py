@@ -13,6 +13,7 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
+import time
 import uuid
 from collections.abc import Callable
 from dataclasses import dataclass
@@ -79,6 +80,7 @@ class EntradaExecucao:
     sessao: SessaoConversa
     texto: str
     recebido_em: datetime
+    correlation_id: str = ""
 
 
 @dataclass(frozen=True)
@@ -144,12 +146,22 @@ class Executor:
 
     async def executar(self, entrada: EntradaExecucao) -> ResultadoExecucao:
         try:
-            return await self._executar(entrada)
+            resultado = await self._executar(entrada)
         except Exception:  # terminal: registra e não propaga
             logger.exception("falha interna do executor")
             self._metricas_llm.registrar_chamada(None, None, "crash")
             self._metricas.registrar_recusa("falha_interna")
             return ResultadoExecucao("incompleta", RESPOSTA_INDISPONIVEL, "falha_interna")
+        logger.info(
+            "turno %s estado=%s motivo=%s llm=%d tools=%d https=%d",
+            entrada.correlation_id or "-",
+            resultado.estado,
+            resultado.motivo or "-",
+            resultado.chamadas_llm,
+            resultado.tools,
+            resultado.https,
+        )
+        return resultado
 
     async def _executar(self, entrada: EntradaExecucao) -> ResultadoExecucao:
         agora = self._relogio()
@@ -297,6 +309,7 @@ class Executor:
                 except Exception:
                     raise _TerminalError("ferramenta_negada") from None
                 try:
+                    inicio_chamada = time.monotonic()
                     dto = await self._chamar_com_reconsulta(
                         api,
                         contexto,
@@ -311,28 +324,26 @@ class Executor:
                     orcamento.tools += 1
                     nomes.append(intencao.nome)
                     trechos.append(mensagem_ausencia(intencao.nome))
+                    self._observar(
+                        entrada,
+                        chamada.id,
+                        intencao.nome,
+                        intencao.argumentos,
+                        self._latencia_ms(inicio_chamada),
+                        {"estado": "ausente"},
+                    )
                     continue
                 self._guardar_resposta(dto)
                 orcamento.tools += 1
                 nomes.append(intencao.nome)
-                if self._observador_tool is not None:
-                    from emprestimo.agent.conversa import ToolCallExec
-
-                    self._observador_tool(
-                        ToolCallExec(
-                            id=uuid.uuid4(),
-                            sessao_id=entrada.sessao.id,
-                            inbox_id=entrada.inbox_id,
-                            call_id=chamada.id,
-                            ferramenta=intencao.nome,
-                            schema_versao=CATALOGO_VERSAO,
-                            parametros=dict(intencao.argumentos),
-                            resultado={"estado": "ok"},
-                            latencia_ms=0,
-                            completa=True,
-                            criado_em=self._relogio(),
-                        )
-                    )
+                self._observar(
+                    entrada,
+                    chamada.id,
+                    intencao.nome,
+                    intencao.argumentos,
+                    self._latencia_ms(inicio_chamada),
+                    {"estado": "ok"},
+                )
                 try:
                     trechos.append(renderizar(intencao.nome, dto))
                 except ValueError:
@@ -399,6 +410,40 @@ class Executor:
             raise _TerminalError("revogada") from exc
         except ApiError as exc:
             raise _ReconsultaError() from exc
+
+    @staticmethod
+    def _latencia_ms(inicio: float) -> int:
+        return max(0, int((time.monotonic() - inicio) * 1000))
+
+    def _observar(
+        self,
+        entrada: EntradaExecucao,
+        call_id: str,
+        ferramenta: str,
+        argumentos: dict[str, str],
+        latencia_ms: int,
+        resultado: dict[str, str],
+    ) -> None:
+        if self._observador_tool is None:
+            return
+        from emprestimo.agent.conversa import ToolCallExec
+
+        self._observador_tool(
+            ToolCallExec(
+                id=uuid.uuid4(),
+                sessao_id=entrada.sessao.id,
+                inbox_id=entrada.inbox_id,
+                call_id=call_id,
+                ferramenta=ferramenta,
+                schema_versao=CATALOGO_VERSAO,
+                parametros=dict(argumentos),
+                resultado=dict(resultado),
+                latencia_ms=latencia_ms,
+                completa=True,
+                criado_em=self._relogio(),
+                correlation_id=entrada.correlation_id,
+            )
+        )
 
     def _guardar_resposta(self, dto: dict[str, Any]) -> None:
         try:
@@ -499,7 +544,9 @@ class Executor:
                 )
                 uow.commit()
         except Exception:
-            logger.exception("turno sem persistencia de memoria")
+            # Sem traceback de propósito: tracebacks de banco ecoam os
+            # parâmetros do INSERT (texto com PII) para o log.
+            logger.error("turno sem persistencia de memoria")
 
 
 __all__ = [

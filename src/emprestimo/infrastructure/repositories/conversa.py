@@ -86,6 +86,7 @@ def _to_tool_call(row: ToolCallExecORM) -> ToolCallExec:
         latencia_ms=row.latencia_ms,
         completa=row.completa,
         criado_em=row.criado_em,
+        correlation_id=row.correlation_id,
     )
 
 
@@ -270,6 +271,7 @@ class SqlAlchemyToolCallExecRepository(ToolCallExecRepository):
                 resultado=dict(execucao.resultado),
                 latencia_ms=execucao.latencia_ms,
                 completa=execucao.completa,
+                correlation_id=execucao.correlation_id,
             )
         )
         self._session.flush()
