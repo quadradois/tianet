@@ -730,6 +730,7 @@ O plano so fecha quando:
 
 | Versao | Data | Descricao |
 |---|---|---|
+| 1.9.10 | 2026-09-16 | Certificação `gpt-4o` (snapshot fixo, 210 chamadas, US$ 0,312): REPROVADA (22–23/30, 36–37/40) — super-recusa em buscas ordinárias; pior utilidade dos 4. Placar: 4 candidatos, 0 aprovados, ≈US$ 0,58. 356-D pausado. Laudo em `docs/implementation/reports/PLAN-041-certificacao-4o-2026-09-16.md`. |
 | 1.9.9 | 2026-09-16 | Certificação `gpt-5-mini` (snapshot fixo, 203 chamadas, US$ 0,178): REPROVADA (26–28/30, 29–34/40). Resolve refs/datas/intervalos; restam U20/U30 + volume. Harness ganhou 429/retomada/falha-isolada. Resta `gpt-4o`. Laudo em `docs/implementation/reports/PLAN-040-certificacao-5mini-2026-09-16.md`. |
 | 1.9.8 | 2026-09-16 | Certificação `gpt-4.1-mini` (snapshot fixo, 210 chamadas, US$ 0,052): REPROVADA (26–27/30, 33–35/40). Progresso real, gap concentrado em 3 utilidades + volume. Próximo: `gpt-5-mini`. Laudo em `docs/implementation/reports/PLAN-039-certificacao-41mini-2026-09-16.md`. |
 | 1.9.7 | 2026-09-15 | Recertificação com instruções v2 (210 chamadas, US$ 0,018): ainda REPROVADA (19–22/30, 38/40) — contenção melhorou, utilidade regrediu; tuning tem retorno baixo. 356-D pausado; próximo: 356-F. Laudo em `docs/implementation/reports/PLAN-038-recertificacao-v2-2026-09-15.md`. |
