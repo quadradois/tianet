@@ -26,6 +26,7 @@ class ResultadoExpurgo:
     removidas_sessao: int = 0
     removidas_inbox: int = 0
     removidas_credencial: int = 0
+    removidas_egress: int = 0
 
     @property
     def total(self) -> int:
@@ -36,6 +37,7 @@ class ResultadoExpurgo:
             + self.removidas_sessao
             + self.removidas_inbox
             + self.removidas_credencial
+            + self.removidas_egress
         )
 
 
@@ -60,6 +62,9 @@ class ExpurgoRepository(ABC):
     @abstractmethod
     def remover_inbox_antiga(self, corte: datetime, lote: int) -> int: ...
 
+    @abstractmethod
+    def remover_egress_antigos(self, corte: datetime, lote: int) -> int: ...
+
 
 def executar_expurgo(
     uow_factory: Callable[[], Any], agora: datetime, lote: int = 1000
@@ -75,18 +80,43 @@ def executar_expurgo(
         "sessao": 0,
         "inbox": 0,
         "credencial": 0,
+        "egress": 0,
     }
-    while True:
+
+    def _rodada(filhos: bool) -> dict[str, int]:
         with uow_factory() as uow:
-            rodada = {
-                "mensagem": uow.expurgo.remover_mensagens_antigas(corte, lote),
-                "tool_call": uow.expurgo.remover_tool_calls_antigos(corte, lote),
-                "referencia": uow.expurgo.remover_referencias_expiradas(agora, lote),
-                "credencial": uow.expurgo.remover_credenciais_antigas(corte, lote),
-                "sessao": uow.expurgo.remover_sessoes_antigas(corte, lote),
-                "inbox": uow.expurgo.remover_inbox_antiga(corte, lote),
-            }
+            if filhos:
+                rodada = {
+                    "mensagem": uow.expurgo.remover_mensagens_antigas(corte, lote),
+                    "tool_call": uow.expurgo.remover_tool_calls_antigos(corte, lote),
+                    "referencia": uow.expurgo.remover_referencias_expiradas(agora, lote),
+                    "egress": uow.expurgo.remover_egress_antigos(corte, lote),
+                    "credencial": uow.expurgo.remover_credenciais_antigas(corte, lote),
+                    "sessao": 0,
+                    "inbox": 0,
+                }
+            else:
+                rodada = {
+                    "mensagem": 0,
+                    "tool_call": 0,
+                    "referencia": 0,
+                    "egress": 0,
+                    "credencial": 0,
+                    "sessao": uow.expurgo.remover_sessoes_antigas(corte, lote),
+                    "inbox": uow.expurgo.remover_inbox_antiga(corte, lote),
+                }
             uow.commit()
+            return rodada
+
+    # Filhos até zerar e só então os pais: lote parcial nunca viola FK.
+    while True:
+        rodada = _rodada(filhos=True)
+        for chave, quantidade in rodada.items():
+            acumulado[chave] += quantidade
+        if sum(rodada.values()) == 0:
+            break
+    while True:
+        rodada = _rodada(filhos=False)
         for chave, quantidade in rodada.items():
             acumulado[chave] += quantidade
         if sum(rodada.values()) == 0:
@@ -98,4 +128,5 @@ def executar_expurgo(
         removidas_sessao=acumulado["sessao"],
         removidas_inbox=acumulado["inbox"],
         removidas_credencial=acumulado["credencial"],
+        removidas_egress=acumulado["egress"],
     )

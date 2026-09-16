@@ -243,8 +243,15 @@ Sem rollout: canal falso, sem wiring, sem envio real. Revert por slice.
   executor + avisador de quota; 10 testes novos; regressão agente
   167 ok + 1 skip pré-existente; ruff/black/mypy limpos). Decisões:
   JIDs individuais passam como estão (LID nunca vira telefone);
-  hook só em `concluida`, falha de envio nunca quebra o turno.
-  Pendente: push + PR.
+  hook só em `concluida`, falha de envio nunca quebra o turno;
+  commitado local.
+- Slice 4 implementado e verificado localmente em 2026-09-16 (firewall
+  fim a fim com 4 testes em stack real, revalidação pré-envio,
+  incertos para conciliação, expurgo de egress em 2 fases, truncate
+  das tabelas novas no conftest; regressão agente 136 ok + 1 skip
+  pré-existente; ruff/black/mypy limpos). Achados: FK exige filhos
+  antes dos pais mesmo em lotes (2 fases); traceback de hook também
+  vaza — logs sem exc_info. Pendente: push + PR.
 
 ## Notas de conclusão
 

@@ -29,6 +29,7 @@ from emprestimo.domain.platform.tenant import TenantState
 from emprestimo.infrastructure.db.orm import (
     AuditoriaLogORM,
     CredencialCopilotORM,
+    EgressConversaORM,
     InboxConversaORM,
     MensagemConversaORM,
     ReferenciaSessaoORM,
@@ -287,6 +288,23 @@ def _semeiar_antigo(session: Session, tenant_id: uuid.UUID, velho: datetime, suf
                 criado_em=velho,
                 atualizado_em=velho,
             ),
+            EgressConversaORM(
+                id=uuid.uuid4(),
+                inbox_id=inbox.id,
+                sessao_id=sessao.id,
+                indice=0,
+                chave=f"egress/v1/antiga-{sufixo}",
+                payload_canonico="{}",
+                payload_hash="h",
+                tenant_id=tenant_id,
+                instancia_ref="inst",
+                classe="operadora",
+                principal_id=uuid.uuid4(),
+                destinatario="5511999999999",
+                estado="aceito",
+                tentativas=1,
+                criado_em=velho,
+            ),
             AuditoriaLogORM(
                 id=uuid.uuid4(),
                 entidade="autenticacao",
@@ -315,7 +333,8 @@ def test_expurgo_remove_em_lotes_e_poup_audit_log(
     resultado = executar_expurgo(
         lambda: SqlAlchemyUnitOfWork(session_factory), datetime.now(UTC), lote=3
     )
-    assert resultado.total == 12
+    assert resultado.total == 14
+    assert resultado.removidas_egress == 2
     with session_factory() as leitura:
         assert leitura.scalar(select(func.count()).select_from(InboxConversaORM)) == 0
         assert leitura.scalar(select(func.count()).select_from(SessaoConversaORM)) == 0
@@ -323,4 +342,23 @@ def test_expurgo_remove_em_lotes_e_poup_audit_log(
         assert leitura.scalar(select(func.count()).select_from(ToolCallExecORM)) == 0
         assert leitura.scalar(select(func.count()).select_from(ReferenciaSessaoORM)) == 0
         assert leitura.scalar(select(func.count()).select_from(CredencialCopilotORM)) == 0
+        assert leitura.scalar(select(func.count()).select_from(EgressConversaORM)) == 0
         assert leitura.scalar(select(func.count()).select_from(AuditoriaLogORM)) == 2
+
+
+def test_expurgo_lote_parcial_nao_viola_fk(
+    session: Session, session_factory: sessionmaker[Session]
+) -> None:
+    tenant = TenantFactory.build(estado=TenantState.ATIVO)
+    SqlAlchemyTenantRepository(session).save(tenant)
+    session.commit()
+    velho = datetime.now(UTC) - timedelta(days=100)
+    for sufixo in ("p", "q", "r"):
+        _semeiar_antigo(session, tenant.id, velho, sufixo)
+    resultado = executar_expurgo(
+        lambda: SqlAlchemyUnitOfWork(session_factory), datetime.now(UTC), lote=1
+    )
+    assert resultado.total == 21
+    with session_factory() as leitura:
+        assert leitura.scalar(select(func.count()).select_from(InboxConversaORM)) == 0
+        assert leitura.scalar(select(func.count()).select_from(SessaoConversaORM)) == 0

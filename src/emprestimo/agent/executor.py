@@ -131,7 +131,7 @@ class Executor:
         observador_tool: Callable[[Any], None] | None = None,
         metricas_llm: Any | None = None,
         metricas: Any | None = None,
-        enviador: Callable[[Any, str], Any] | None = None,
+        enviador: Callable[[Any, str, Any], Any] | None = None,
     ) -> None:
         self._uow_factory = uow_factory
         self._credencial = credencial
@@ -293,13 +293,20 @@ class Executor:
     def _enviar(
         self, entrada: EntradaExecucao, texto: str, contexto: ContextoFerramentas | None
     ) -> None:
-        """Hook de egress (356-E): enviar nunca quebra o turno concluído."""
+        """Hook de egress (356-E): revalida identidade e envia sem quebrar o turno."""
         if self._enviador is None:
+            return
+        try:
+            self._autorizacao.consultar_contexto(self._principal)
+        except Exception:
+            logger.error("egress cancelado: identidade revogada antes de transmitir")
             return
         try:
             self._enviador(entrada, texto, contexto)
         except Exception:
-            logger.exception("egress falhou sem quebrar o turno")
+            # Sem traceback: a implementação do enviador pode vazar
+            # parâmetros (vide _salvar_turno).
+            logger.error("egress falhou sem quebrar o turno")
 
     async def _fase_tools(
         self,

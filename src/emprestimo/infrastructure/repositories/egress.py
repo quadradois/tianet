@@ -110,6 +110,19 @@ class SqlAlchemyEgressRepository(EgressRepository):
         ).one_or_none()
         return _to_egress(row) if row is not None else None
 
+    def listar_incertos_por_sessao(self, sessao_id: UUID) -> list[EgressConversa]:
+        rows = self._session.scalars(
+            select(EgressConversaORM)
+            .where(EgressConversaORM.sessao_id == sessao_id)
+            .where(
+                EgressConversaORM.estado.in_(
+                    [EstadoEgress.EM_ENVIO.value, EstadoEgress.DESCONHECIDO.value]
+                )
+            )
+            .order_by(EgressConversaORM.criado_em)
+        ).all()
+        return [_to_egress(row) for row in rows]
+
     def marcar_estado(
         self,
         egresso_id: UUID,

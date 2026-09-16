@@ -348,6 +348,11 @@ class EgressRepository(ABC):
     def buscar_por_chave(self, chave: str) -> EgressConversa | None: ...
 
     @abstractmethod
+    def listar_incertos_por_sessao(self, sessao_id: UUID) -> list[EgressConversa]:
+        """EM_ENVIO + DESCONHECIDO: fila da conciliação manual. Nada aqui
+        reenvia sozinho."""
+
+    @abstractmethod
     def marcar_estado(
         self,
         egresso_id: UUID,

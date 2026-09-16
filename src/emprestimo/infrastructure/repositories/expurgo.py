@@ -11,6 +11,7 @@ from sqlalchemy.orm import Session
 from emprestimo.agent.expurgo import ExpurgoRepository
 from emprestimo.infrastructure.db.orm import (
     CredencialCopilotORM,
+    EgressConversaORM,
     InboxConversaORM,
     MensagemConversaORM,
     ReferenciaSessaoORM,
@@ -67,4 +68,9 @@ class SqlAlchemyExpurgoRepository(ExpurgoRepository):
     def remover_inbox_antiga(self, corte: datetime, lote: int) -> int:
         return _apagar_lote(
             self._session, InboxConversaORM, InboxConversaORM.recebido_em < corte, lote
+        )
+
+    def remover_egress_antigos(self, corte: datetime, lote: int) -> int:
+        return _apagar_lote(
+            self._session, EgressConversaORM, EgressConversaORM.criado_em < corte, lote
         )
