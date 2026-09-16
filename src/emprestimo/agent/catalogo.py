@@ -63,7 +63,10 @@ CATALOGO: dict[str, Ferramenta] = {
         metodo_http="GET",
         rota="/credit/carteiras/{carteira_id}/relatorios/resumo",
         permissao="relatorios.operacionais.ler",
-        descricao="Resumo operacional da carteira na data de hoje.",
+        descricao=(
+            "Resumo operacional da carteira na data de hoje: panorama com "
+            "contadores, sem listar vencimentos."
+        ),
         apresentador="consultar_resumo_carteira",
     ),
     "consultar_acertos": Ferramenta(
@@ -71,7 +74,10 @@ CATALOGO: dict[str, Ferramenta] = {
         metodo_http="GET",
         rota="/credit/carteiras/{carteira_id}/relatorios/vencimentos",
         permissao="relatorios.operacionais.ler",
-        descricao="Acertos pendentes na data de hoje.",
+        descricao=(
+            "Acertos pendentes na data de hoje: lista quem deve e quando. "
+            "Use para perguntas sobre atraso, vencimento ou situação de cobrança."
+        ),
         apresentador="consultar_acertos",
     ),
     "consultar_pagamentos_periodo": Ferramenta(
@@ -81,7 +87,9 @@ CATALOGO: dict[str, Ferramenta] = {
         permissao="relatorios.operacionais.ler",
         descricao=(
             "Pagamentos recebidos num período de até 31 dias, "
-            "nunca acima de hoje. Datas no formato AAAA-MM-DD."
+            "nunca acima de hoje. Lista item a item, com encerramentos. "
+            "Use para detalhe, lista ou item a item; nunca para totais "
+            "por dia. Datas no formato AAAA-MM-DD."
         ),
         argumentos={
             "inicio": RestricaoArgumento("data"),
@@ -96,7 +104,9 @@ CATALOGO: dict[str, Ferramenta] = {
         permissao="relatorios.operacionais.ler",
         descricao=(
             "Recebimentos por dia num período de até 31 dias, "
-            "nunca acima de hoje. Datas no formato AAAA-MM-DD."
+            "nunca acima de hoje. Total agregado por dia, sem detalhe. "
+            "Use para quanto entrou, totais ou por dia; nunca para "
+            "lista item a item. Datas no formato AAAA-MM-DD."
         ),
         argumentos={
             "inicio": RestricaoArgumento("data"),
