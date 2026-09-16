@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import uuid
-from collections.abc import Callable, Sequence
+from collections.abc import Callable, Collection, Sequence
 from dataclasses import dataclass, field
 from datetime import UTC, date, datetime
 from decimal import Decimal
@@ -346,6 +346,16 @@ class _PagamentoFakeRepository:
 
     def find_by_emprestimo_id(self, emprestimo_id: uuid.UUID) -> list[Pagamento]:
         return [item for item in self.pagamentos if item.emprestimo_id == emprestimo_id]
+
+    def find_by_emprestimo_ids(
+        self, emprestimo_ids: Collection[uuid.UUID]
+    ) -> dict[uuid.UUID, list[Pagamento]]:
+        chaves = set(emprestimo_ids)
+        agrupados: dict[uuid.UUID, list[Pagamento]] = {chave: [] for chave in chaves}
+        for item in self.pagamentos:
+            if item.emprestimo_id in agrupados:
+                agrupados[item.emprestimo_id].append(item)
+        return agrupados
 
 
 class _FakeUoW:

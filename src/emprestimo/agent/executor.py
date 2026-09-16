@@ -54,6 +54,7 @@ from emprestimo.agent.llm_client import (
 )
 from emprestimo.agent.metricas import METRICAS, METRICAS_LLM
 from emprestimo.agent.prompts import RESPOSTA_FIXA_PRE_CADASTRO, montar_sistema_operadora
+from emprestimo.application.errors import AutenticacaoRecusadaError
 
 logger = logging.getLogger(__name__)
 
@@ -218,7 +219,9 @@ class Executor:
                 hoje=primeiro_claim.date(),
             )
         except Exception as exc:
-            raise _TerminalError("contexto") from exc
+            if isinstance(exc, AutenticacaoRecusadaError):
+                return self._incompleta(entrada, [], orcamento, "revogada")
+            return self._incompleta(entrada, [], orcamento, "contexto")
         sistema = montar_sistema_operadora(contexto.hoje)
         ferramentas = montar_tools()
         historico = self._historico(entrada.sessao.id, primeiro_claim)
@@ -408,6 +411,8 @@ class Executor:
             raise
         except ApiAutorizacaoError as exc:
             raise _TerminalError("revogada") from exc
+        except (FerramentaDesconhecidaError, ArgumentoInvalidoError):
+            raise
         except ApiError as exc:
             raise _ReconsultaError() from exc
 

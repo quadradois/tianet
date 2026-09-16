@@ -15,7 +15,7 @@ from emprestimo.domain.credit.emprestimo import EmprestimoState
 from emprestimo.domain.credit.proposta_comercial_state import PropostaComercialState
 
 if TYPE_CHECKING:
-    from collections.abc import Sequence
+    from collections.abc import Collection, Sequence
 
     from emprestimo.domain.credit.configuracoes_financeiras import (
         CalendarioFinanceiro,
@@ -526,6 +526,12 @@ class PagamentoRepository(ABC):
 
     @abstractmethod
     def find_by_emprestimo_id(self, emprestimo_id: uuid.UUID) -> list[Pagamento]: ...
+
+    @abstractmethod
+    def find_by_emprestimo_ids(
+        self, emprestimo_ids: Collection[uuid.UUID]
+    ) -> dict[uuid.UUID, list[Pagamento]]:
+        """Lote único por carteira: evita N+1 nos relatórios (IMP-356-F)."""
 
     @abstractmethod
     def find_by_idempotency_key(

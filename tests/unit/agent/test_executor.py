@@ -493,11 +493,18 @@ def test_401_terminal_como_revogada() -> None:
 
 
 def test_crash_nao_propaga_e_terminal() -> None:
-    executor, *_ = _montar(roteiro_llm=[], auth=AuthFalsa(quebrar_contexto=True))
+    executor, *_ = _montar(roteiro_llm=[RuntimeError("bug inesperado")])
     resultado = _executar(executor, _entrada(_sessao()))
     assert resultado.estado == "incompleta"
     assert resultado.texto == RESPOSTA_INDISPONIVEL
     assert resultado.motivo == "falha_interna"
+
+
+def test_contexto_quebrado_encerra_sem_propagar() -> None:
+    executor, *_ = _montar(roteiro_llm=[], auth=AuthFalsa(quebrar_contexto=True))
+    resultado = _executar(executor, _entrada(_sessao()))
+    assert resultado.estado == "incompleta"
+    assert resultado.motivo == "contexto"
 
 
 def test_metrica_registra_chamada_e_recusa() -> None:

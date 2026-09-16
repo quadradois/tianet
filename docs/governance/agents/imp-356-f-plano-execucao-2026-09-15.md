@@ -1,8 +1,8 @@
 # Plano — IMP-356-F: executor, sessão, auditoria própria e observabilidade
 
 **Última revisão:** 2026-09-15
-**Status:** Aprovado
-**Slice atual:** Slice 4
+**Status:** Concluído
+**Slice atual:** Slice 5 (lote concluído tecnicamente)
 **Bloqueado por:** aprovação explícita do fundador (G5)
 **Risco:** Alto
 **Impacto agentic:** PRESENT
@@ -259,6 +259,13 @@ egress. Revert por slice. Produção não muda comportamento.
   sem `exc_info`. Métricas persistidas = linhas tool_call (latência
   real) + contadores; pipeline externo fica para operação. Pendente:
   push + PR.
+- Slice 5 implementado e verificado localmente em 2026-09-16 (suite
+  operacional com 8 casos em stack real + qualificação de custo 6/6 OK;
+  regressões verdes; ruff/black/mypy/docs:validate limpos). Achado:
+  resumo media p95 8,9s (N+1 + filtro O(L×P) na projeção) — corrigido
+  sem mudar contrato (`find_by_emprestimo_ids` + agrupamento único);
+  segunda medição estável, nenhuma ferramenta desabilitada. Habilitação
+  produtiva segue condicionada (fail-closed, certificação, GATE-E3).
 
 ## Notas de conclusão
 

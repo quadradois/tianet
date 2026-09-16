@@ -7,7 +7,7 @@ transacional pertencem ao Unit of Work da fase de Aplicação (IMP-014).
 from __future__ import annotations
 
 import uuid
-from collections.abc import Callable
+from collections.abc import Callable, Collection
 from datetime import date
 from math import ceil
 
@@ -970,6 +970,23 @@ class SqlAlchemyPagamentoRepository(PagamentoRepository):
             .order_by(PagamentoORM.recebido_em, PagamentoORM.id)
         ).all()
         return [_to_pagamento(row) for row in rows]
+
+    def find_by_emprestimo_ids(
+        self, emprestimo_ids: Collection[uuid.UUID]
+    ) -> dict[uuid.UUID, list[Pagamento]]:
+        ids = list(emprestimo_ids)
+        if not ids:
+            return {}
+        rows = self._session.scalars(
+            select(PagamentoORM)
+            .where(PagamentoORM.emprestimo_id.in_(ids))
+            .order_by(PagamentoORM.recebido_em, PagamentoORM.id)
+        ).all()
+        agrupados: dict[uuid.UUID, list[Pagamento]] = {i: [] for i in ids}
+        for row in rows:
+            pagamento = _to_pagamento(row)
+            agrupados.setdefault(pagamento.emprestimo_id, []).append(pagamento)
+        return agrupados
 
     def find_by_idempotency_key(
         self,
