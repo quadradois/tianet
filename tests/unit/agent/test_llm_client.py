@@ -22,6 +22,7 @@ from emprestimo.agent.llm_client import (
     Mensagem,
     PedidoChat,
     montar_tools,
+    parametro_teto_saida,
 )
 from emprestimo.agent.service import LlmSettings
 
@@ -81,6 +82,40 @@ def test_tools_espelha_catalogo_frozen() -> None:
         for esquema in parametros["properties"].values():
             assert esquema["type"] == "string"
     assert ferramentas
+
+
+def test_parametro_de_teto_por_familia_de_modelo() -> None:
+    assert parametro_teto_saida("gpt-4o-mini") == "max_tokens"
+    assert parametro_teto_saida("gpt-4.1-mini-2025-04-14") == "max_tokens"
+    assert parametro_teto_saida("gpt-5-mini") == "max_completion_tokens"
+    assert parametro_teto_saida("gpt-5-mini-2025-08-07") == "max_completion_tokens"
+    assert parametro_teto_saida("o3-mini") == "max_completion_tokens"
+
+
+def test_cliente_5_mini_envia_max_completion_tokens() -> None:
+    vistos: dict[str, Any] = {}
+
+    def _handler(request: httpx.Request) -> httpx.Response:
+        import json
+
+        vistos.update(json.loads(request.content.decode()))
+        status, corpo = _ok()
+        return httpx.Response(status, json=corpo)
+
+    cliente = LlmClient(
+        "https://api.exemplo/v1",
+        "gpt-5-mini-2025-08-07",
+        lambda: CHAVE,
+        transporte=httpx.MockTransport(_handler),
+    )
+
+    async def _cenario() -> None:
+        await cliente.chat(_pedido())
+        await cliente.close()
+
+    asyncio.run(_cenario())
+    assert "max_tokens" not in vistos
+    assert vistos["max_completion_tokens"] == 1000
 
 
 def test_pedido_envia_modelo_tools_e_teto() -> None:
@@ -171,6 +206,19 @@ def test_timeout_vira_indisponivel() -> None:
         await cliente.close()
 
     asyncio.run(_cenario())
+
+
+def test_429_vira_limite_distinto_sem_conteudo() -> None:
+    from emprestimo.agent.llm_client import LlmLimiteError
+
+    cliente = _cliente((429, {"error": {"message": "quota", "code": "rate_limit"}}))
+
+    async def _cenario() -> None:
+        with pytest.raises(LlmLimiteError) as ctx:
+            await cliente.chat(_pedido())
+        await cliente.close()
+        assert isinstance(ctx.value, LlmIndisponivelError)
+        assert "quota" not in str(ctx.value)
 
 
 @pytest.mark.parametrize(

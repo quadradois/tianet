@@ -20,6 +20,16 @@ from emprestimo.agent.catalogo import CATALOGO, CATALOGO_VERSAO
 TIMEOUT_PADRAO_SEGUNDOS = 15.0
 MAX_TOKENS_SAIDA_PADRAO = 1000
 
+# Famílias que rejeitam `max_tokens` e exigem `max_completion_tokens`.
+MODELOS_TETO_COMPLETION = ("gpt-5", "o1", "o3")
+
+
+def parametro_teto_saida(modelo: str) -> str:
+    """Nome do parâmetro de teto de saída aceito pelo modelo."""
+    if modelo.startswith(MODELOS_TETO_COMPLETION):
+        return "max_completion_tokens"
+    return "max_tokens"
+
 
 class LlmError(Exception):
     """Falha fechada do provedor — degrada, nunca tenta outro modelo/rota."""
@@ -27,6 +37,15 @@ class LlmError(Exception):
 
 class LlmIndisponivelError(LlmError):
     """Transporte, timeout, HTTP não-2xx: provedor indisponível."""
+
+
+class LlmLimiteError(LlmIndisponivelError):
+    """429: a chamada não executou (sem cobrança, sem incerteza).
+
+    Distinta para o harness poder espacar e continuar; no produto,
+    degrada como indisponibilidade — nunca retry automático de
+    inferência incerta.
+    """
 
 
 class LlmRespostaInvalidaError(LlmError):
@@ -185,7 +204,7 @@ class LlmClient:
             ],
             "tools": list(pedido.ferramentas),
             "tool_choice": "auto",
-            "max_tokens": pedido.max_tokens_saida,
+            parametro_teto_saida(self._modelo): pedido.max_tokens_saida,
         }
         try:
             resposta = await self._client.post(
@@ -200,7 +219,7 @@ class LlmClient:
         if resposta.status_code in (401, 403):
             raise LlmIndisponivelError("credencial do provedor recusada")
         if resposta.status_code == 429:
-            raise LlmIndisponivelError("cota do provedor esgotada")
+            raise LlmLimiteError("cota do provedor esgotada")
         if not 200 <= resposta.status_code < 300:
             raise LlmIndisponivelError("provedor indisponivel")
         try:
@@ -221,6 +240,7 @@ __all__ = [
     "LlmClient",
     "LlmError",
     "LlmIndisponivelError",
+    "LlmLimiteError",
     "LlmRespostaInvalidaError",
     "MAX_TOKENS_SAIDA_PADRAO",
     "Mensagem",
@@ -229,4 +249,5 @@ __all__ = [
     "TIMEOUT_PADRAO_SEGUNDOS",
     "Uso",
     "montar_tools",
+    "parametro_teto_saida",
 ]
