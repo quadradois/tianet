@@ -164,7 +164,11 @@ class RelatoriosOperacionaisService:
                     for pagamento in pagamentos
                     if pagamento.estado is not PagamentoState.ESTORNADO
                 ),
-                projecao_juros=_projecao_juros_12m(emprestimos, pagamentos, data_referencia),
+                projecao_juros=_projecao_juros_12m(
+                    emprestimos,
+                    _pagamentos_agrupados_por_emprestimo(emprestimos, pagamentos),
+                    data_referencia,
+                ),
             )
 
     def vencimentos_inadimplencia(
@@ -336,11 +340,22 @@ def _pagamentos_dos_emprestimos(
     uow: UnitOfWork,
     emprestimos: tuple[Emprestimo, ...],
 ) -> tuple[Pagamento, ...]:
+    if not emprestimos:
+        return ()
+    agrupados = uow.pagamento.find_by_emprestimo_ids([e.id for e in emprestimos])
     return tuple(
-        pagamento
-        for emprestimo in emprestimos
-        for pagamento in uow.pagamento.find_by_emprestimo_id(emprestimo.id)
+        pagamento for emprestimo in emprestimos for pagamento in agrupados.get(emprestimo.id, [])
     )
+
+
+def _pagamentos_agrupados(
+    uow: UnitOfWork,
+    emprestimos: tuple[Emprestimo, ...],
+) -> dict[uuid.UUID, tuple[Pagamento, ...]]:
+    if not emprestimos:
+        return {}
+    agrupados = uow.pagamento.find_by_emprestimo_ids([e.id for e in emprestimos])
+    return {e.id: tuple(agrupados.get(e.id, [])) for e in emprestimos}
 
 
 def _vencimento_resultado(
@@ -387,9 +402,21 @@ def _adicionar_meses_data(valor: date, meses: int) -> date:
     return date(ano, mes, dia)
 
 
-def _projecao_juros_12m(
+def _pagamentos_agrupados_por_emprestimo(
     emprestimos: tuple[Emprestimo, ...],
     pagamentos: tuple[Pagamento, ...],
+) -> dict[uuid.UUID, tuple[Pagamento, ...]]:
+    """Agrupa uma vez: a projeção percorria a lista inteira por empréstimo."""
+    agrupados: dict[uuid.UUID, list[Pagamento]] = {e.id: [] for e in emprestimos}
+    for pagamento in pagamentos:
+        if pagamento.emprestimo_id in agrupados:
+            agrupados[pagamento.emprestimo_id].append(pagamento)
+    return {chave: tuple(valor) for chave, valor in agrupados.items()}
+
+
+def _projecao_juros_12m(
+    emprestimos: tuple[Emprestimo, ...],
+    por_emprestimo: dict[uuid.UUID, tuple[Pagamento, ...]],
     data_referencia: date,
 ) -> Decimal:
     """Projecao de juros a 12 meses (run-rate) sobre o saldo atual de cada ativo.
@@ -407,7 +434,7 @@ def _projecao_juros_12m(
             continue
         motor.carregar_historico(
             emprestimo_id=emprestimo.id,
-            pagamentos=tuple(p for p in pagamentos if p.emprestimo_id == emprestimo.id),
+            pagamentos=por_emprestimo.get(emprestimo.id, ()),
         )
         saldo_hoje = motor.consultar_saldo(emprestimo=emprestimo, data_referencia=data_referencia)
         saldo_futuro = motor.consultar_saldo(emprestimo=emprestimo, data_referencia=horizonte)

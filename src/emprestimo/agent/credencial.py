@@ -103,7 +103,12 @@ class ProvedorTokenCopilot:
 
     def entrar(self, credenciais: CredenciaisLogin) -> None:
         """Autentica: tenta o refresh guardado antes da senha."""
-        guardado = self._refresh_guardado()
+        try:
+            guardado = self._refresh_guardado()
+        except Exception:
+            # Cifra trocada ou dado adulterado: sem refresh utilizável,
+            # cai para o login com senha.
+            guardado = None
         if guardado is not None:
             try:
                 self._aplicar_renovacao(self._autenticacao.refresh(refresh_token=guardado))
