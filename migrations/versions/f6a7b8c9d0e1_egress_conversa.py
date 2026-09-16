@@ -36,7 +36,7 @@ def upgrade() -> None:
         sa.Column("carteira_id", postgresql.UUID(), nullable=True),
         sa.Column("instancia_ref", sa.String(64), nullable=False),
         sa.Column("classe", sa.String(20), nullable=False),
-        sa.Column("principal_id", postgresql.UUID(), nullable=False),
+        sa.Column("principal_id", postgresql.UUID(), nullable=True),
         sa.Column("destinatario", sa.String(32), nullable=False),
         sa.Column("ferramenta", sa.String(64), nullable=True),
         sa.Column("call_id", sa.String(128), nullable=True),

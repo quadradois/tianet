@@ -1458,7 +1458,7 @@ class EgressConversaORM(Base):
     carteira_id: Mapped[uuid.UUID | None] = mapped_column(Uuid, nullable=True)
     instancia_ref: Mapped[str] = mapped_column(String(64), nullable=False)
     classe: Mapped[str] = mapped_column(String(20), nullable=False)
-    principal_id: Mapped[uuid.UUID] = mapped_column(Uuid, nullable=False)
+    principal_id: Mapped[uuid.UUID | None] = mapped_column(Uuid, nullable=True)
     destinatario: Mapped[str] = mapped_column(String(32), nullable=False)
     ferramenta: Mapped[str | None] = mapped_column(String(64), nullable=True)
     call_id: Mapped[str | None] = mapped_column(String(128), nullable=True)

@@ -12,13 +12,17 @@ from __future__ import annotations
 import hashlib
 import json
 import re
+import uuid
 from abc import ABC, abstractmethod
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import UTC, datetime
 from enum import StrEnum
 from typing import Any
 from uuid import UUID
+
+from emprestimo.domain.credit.automacao_ports import NotificationChannel
+from emprestimo.domain.credit.notifications import ResultadoCanal
 
 VERSAO_CHAVE_EGRESS = "egress/v1"
 
@@ -38,14 +42,25 @@ class ConflitoEgressError(Exception):
 
 
 def normalizar_destino(remetente: str) -> str:
-    """Reduz a dígitos e exige discável (10–15 dígitos).
+    """Normaliza o destino pelo servidor.
 
-    Recusa grupo, LID, vazio e curto/longo: identidade não resolvida
-    nunca ganha egress, e LID nunca vira telefone.
+    Aceita dígitos discáveis (10–15) e JIDs individuais (`@s.whatsapp.net`,
+    `@lid`) com parte local discável — repassados como estão. Recusa
+    grupo (`@g.us`), vazio, curto/longo e LID convertido em telefone:
+    identidade não resolvida nunca ganha egress.
     """
-    if "@" in remetente:
-        raise DestinoInvalidoError("identidade com domínio não é discável")
-    digitos = _DIGITOS.sub("", remetente)
+    texto = remetente.strip()
+    if "@g.us" in texto:
+        raise DestinoInvalidoError("grupo nunca é destino")
+    if "@" in texto:
+        local, _, dominio = texto.partition("@")
+        if dominio not in ("s.whatsapp.net", "lid"):
+            raise DestinoInvalidoError("domínio desconhecido")
+        digitos = _DIGITOS.sub("", local)
+        if not 10 <= len(digitos) <= 15:
+            raise DestinoInvalidoError("destinatário fora do formato discável")
+        return texto
+    digitos = _DIGITOS.sub("", texto)
     if not 10 <= len(digitos) <= 15:
         raise DestinoInvalidoError("destinatário fora do formato discável")
     return digitos
@@ -62,7 +77,7 @@ class IntencaoEgress:
     carteira_id: UUID | None
     instancia_ref: str
     classe: str
-    principal_id: UUID
+    principal_id: UUID | None
     destinatario: str
     provider_input_id: str
     indice: int
@@ -127,6 +142,147 @@ class ResolvedorTokenEgress:
         return self._decifrar(cifrado)
 
 
+@dataclass(frozen=True)
+class ContextoEnvio:
+    inbox_id: UUID
+    sessao_id: UUID
+    tenant_id: UUID
+    carteira_id: UUID | None
+    instancia_ref: str
+    classe: str
+    principal_id: UUID | None
+    remetente: str
+    provider_input_id: str
+    correlation_id: str = ""
+    indice: int = 0
+    ferramenta: str | None = None
+    call_id: str | None = None
+
+
+class AvisadorQuota:
+    """No máximo 1 aviso por remetente a cada 60s (processo-local)."""
+
+    JANELA_SEGUNDOS = 60
+
+    def __init__(self, relogio: Callable[[], datetime] | None = None) -> None:
+        self._relogio = relogio or (lambda: datetime.now(UTC))
+        self._ultimos: dict[str, datetime] = {}
+
+    def deve_avis_ar(self, remetente: str) -> bool:
+        agora = self._relogio()
+        ultimo = self._ultimos.get(remetente)
+        if ultimo is not None and (agora - ultimo).total_seconds() < self.JANELA_SEGUNDOS:
+            return False
+        self._ultimos[remetente] = agora
+        return True
+
+
+def _para_intencao(contexto: ContextoEnvio, destinatario: str, texto: str) -> IntencaoEgress:
+    return IntencaoEgress(
+        tenant_id=contexto.tenant_id,
+        carteira_id=contexto.carteira_id,
+        instancia_ref=contexto.instancia_ref,
+        classe=contexto.classe,
+        principal_id=contexto.principal_id,
+        destinatario=destinatario,
+        provider_input_id=contexto.provider_input_id,
+        indice=contexto.indice,
+        ferramenta=contexto.ferramenta,
+        call_id=contexto.call_id,
+        texto=texto,
+    )
+
+
+def enviar_texto(
+    repositorio: EgressRepository,
+    canal: NotificationChannel,
+    contexto: ContextoEnvio,
+    texto: str,
+    prazo_restante_s: float | None = None,
+) -> EgressConversa:
+    """Persiste a intenção, transmite e persiste o desfecho.
+
+    Replay encontra a linha terminal sem nova chamada; divergência é
+    conflito; desconhecido e falha sem prova nunca repetem sozinhos.
+    No máximo 2 transmissões (tentativa + 1 retry temporário), sempre
+    dentro do prazo quando informado.
+    """
+    import hashlib
+
+    destinatario = normalizar_destino(contexto.remetente)
+    intencao = _para_intencao(contexto, destinatario, texto)
+    chave = derivar_chave(intencao)
+    payload = payload_canonico(
+        {
+            "texto": texto,
+            "destinatario": destinatario,
+            "indice": contexto.indice,
+            "classe": contexto.classe,
+            "ferramenta": intencao.ferramenta or "",
+            "call_id": intencao.call_id or "",
+        }
+    )
+    novo = EgressConversa(
+        id=uuid.uuid4(),
+        inbox_id=contexto.inbox_id,
+        sessao_id=contexto.sessao_id,
+        indice=contexto.indice,
+        chave=chave,
+        payload_canonico=payload,
+        payload_hash=hashlib.sha256(payload.encode("utf-8")).hexdigest(),
+        tenant_id=contexto.tenant_id,
+        carteira_id=contexto.carteira_id,
+        instancia_ref=contexto.instancia_ref,
+        classe=contexto.classe,
+        principal_id=contexto.principal_id,
+        destinatario=destinatario,
+        ferramenta=intencao.ferramenta,
+        call_id=intencao.call_id,
+        estado=EstadoEgress.PREPARADO,
+        tentativas=0,
+    )
+    existente = repositorio.preparar(novo)
+    if existente.estado != EstadoEgress.PREPARADO:
+        return existente
+    for _ in range(2):
+        if existente.tentativas >= 2:
+            return existente
+        if prazo_restante_s is not None and prazo_restante_s <= 0:
+            return repositorio.marcar_estado(existente.id, EstadoEgress.FALHA, codigo="deadline")
+        existente = repositorio.marcar_estado(existente.id, EstadoEgress.EM_ENVIO)
+        try:
+            resultado = canal.enviar(
+                destinatario=destinatario,
+                assunto="conversa",
+                corpo=texto,
+                chave_idempotente=chave,
+            )
+        except Exception:
+            return repositorio.marcar_estado(
+                existente.id, EstadoEgress.DESCONHECIDO, codigo="excecao_envio"
+            )
+        if resultado.resultado == ResultadoCanal.ACEITA:
+            return repositorio.marcar_estado(
+                existente.id,
+                EstadoEgress.ACEITO,
+                provider_id=resultado.provider_message_id,
+                codigo=resultado.codigo,
+            )
+        if resultado.resultado == ResultadoCanal.FALHA_PERMANENTE:
+            return repositorio.marcar_estado(
+                existente.id, EstadoEgress.FALHA, codigo=resultado.codigo
+            )
+        if resultado.resultado == ResultadoCanal.DESCONHECIDO:
+            return repositorio.marcar_estado(
+                existente.id, EstadoEgress.DESCONHECIDO, codigo=resultado.codigo
+            )
+        repositorio.marcar_estado(existente.id, EstadoEgress.FALHA, codigo=resultado.codigo)
+        recarregado = repositorio.buscar_por_chave(chave)
+        assert recarregado is not None
+        existente = recarregado
+    return existente
+
+
 class EstadoEgress(StrEnum):
     """Máquina de estados da intenção de envio (slice 2)."""
 
@@ -168,7 +324,7 @@ class EgressConversa:
     carteira_id: UUID | None
     instancia_ref: str
     classe: str
-    principal_id: UUID
+    principal_id: UUID | None
     destinatario: str
     ferramenta: str | None
     call_id: str | None

@@ -236,7 +236,14 @@ Sem rollout: canal falso, sem wiring, sem envio real. Revert por slice.
   normalização; ruff/black/mypy limpos; commitado local).
 - Slice 2 implementado e verificado localmente em 2026-09-16 (6 testes:
   replay, conflito, transições terminais, migration mockada; regressão
-  agente 150 ok + 1 skip pré-existente; ruff/black/mypy limpos).
+  agente 150 ok + 1 skip pré-existente; ruff/black/mypy limpos;
+  commitado local).
+- Slice 3 implementado e verificado localmente em 2026-09-16 (runner
+  com 5 estados/retry/desconhecido/replay/conflito/deadline + hook no
+  executor + avisador de quota; 10 testes novos; regressão agente
+  167 ok + 1 skip pré-existente; ruff/black/mypy limpos). Decisões:
+  JIDs individuais passam como estão (LID nunca vira telefone);
+  hook só em `concluida`, falha de envio nunca quebra o turno.
   Pendente: push + PR.
 
 ## Notas de conclusão

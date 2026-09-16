@@ -81,7 +81,15 @@ def test_destinos_discaveis_passam(destinatario: str) -> None:
 
 @pytest.mark.parametrize(
     "destinatario",
-    ["123", "1234567890123456", "", "grupo@g.us", "abc@lid", "sem-numero"],
+    ["5511999999999@s.whatsapp.net", "12345678901@lid"],
+)
+def test_jids_individuais_passam_como_estao(destinatario: str) -> None:
+    assert normalizar_destino(destinatario) == destinatario
+
+
+@pytest.mark.parametrize(
+    "destinatario",
+    ["123", "1234567890123456", "", "grupo@g.us", "abc@lid", "sem-numero", "x@desconhecido"],
 )
 def test_destinos_nao_discaveis_recusam(destinatario: str) -> None:
     with pytest.raises(DestinoInvalidoError):
@@ -112,3 +120,17 @@ def test_transicoes_terminais_nao_saem_do_lugar() -> None:
     assert not transicao_permitida(EstadoEgress.ACEITO, EstadoEgress.EM_ENVIO)
     assert not transicao_permitida(EstadoEgress.DESCONHECIDO, EstadoEgress.EM_ENVIO)
     assert not transicao_permitida(EstadoEgress.PREPARADO, EstadoEgress.ACEITO)
+
+
+def test_avisador_quota_um_por_minuto() -> None:
+    from datetime import UTC, datetime, timedelta
+
+    from emprestimo.agent.egress import AvisadorQuota
+
+    agora = [datetime(2026, 9, 16, 12, 0, tzinfo=UTC)]
+    avisador = AvisadorQuota(relogio=lambda: agora[0])
+    assert avisador.deve_avis_ar("5511999999999") is True
+    assert avisador.deve_avis_ar("5511999999999") is False
+    assert avisador.deve_avis_ar("5511888888888") is True
+    agora[0] = agora[0] + timedelta(seconds=61)
+    assert avisador.deve_avis_ar("5511999999999") is True
