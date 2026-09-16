@@ -31,7 +31,10 @@ class ProtocoloClienteApi(Protocol):
     """Borda que o dispatcher enxerga: um GET autenticado, nada mais."""
 
     async def get(
-        self, caminho: str, params: Mapping[str, str | int] | None = None
+        self,
+        caminho: str,
+        params: Mapping[str, str | int] | None = None,
+        timeout_segundos: float | None = None,
     ) -> dict[str, Any]: ...
 
 
@@ -51,15 +54,20 @@ class ClienteApi:
         self._provedor_token = provedor_token
 
     async def get(
-        self, caminho: str, params: Mapping[str, str | int] | None = None
+        self,
+        caminho: str,
+        params: Mapping[str, str | int] | None = None,
+        timeout_segundos: float | None = None,
     ) -> dict[str, Any]:
         if not caminho.startswith("/"):
             raise ApiError("caminho interno deve ser absoluto")
+        timeout = httpx.Timeout(timeout_segundos) if timeout_segundos is not None else None
         try:
             resposta = await self._client.get(
                 caminho,
                 params=dict(params or {}),
                 headers={"Authorization": f"Bearer {self._provedor_token()}"},
+                timeout=timeout,
             )
         except httpx.TimeoutException as exc:
             raise ApiError("tempo esgotado na API") from exc
