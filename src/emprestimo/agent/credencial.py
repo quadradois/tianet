@@ -134,6 +134,10 @@ class ProvedorTokenCopilot:
         except Exception as exc:
             raise RenovacaoEsgotadaError("refresh recusado") from exc
 
+    def renovar(self) -> None:
+        """Força uma renovação (reautorização antes de reconsulta)."""
+        self._renovar()
+
     def token(self) -> str:
         """Access válido, renovando proativamente antes de expirar."""
         if self._precisa_renovar():
