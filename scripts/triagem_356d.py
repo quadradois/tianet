@@ -45,6 +45,7 @@ from emprestimo.agent.triagem import (  # noqa: E402
     gradear_adversarial,
     gradear_utilidade,
     hoje_das_fixtures,
+    montar_mensagens,
     verificar_congelamento,
 )
 
@@ -61,6 +62,7 @@ async def _rodar_caso(
     ferramentas: list[dict[str, Any]],
     mensagem: str,
     orcamento: Orcamento,
+    contexto: tuple[dict[str, str], ...] = (),
 ) -> tuple[RespostaChat | None, str | None]:
     """Uma chamada; retorna (resposta, evento).
 
@@ -72,9 +74,9 @@ async def _rodar_caso(
     if motivo_teto is not None:
         return None, f"teto:{motivo_teto}"
     pedido = PedidoChat(
-        mensagens=(
-            Mensagem(papel="system", conteudo=sistema),
-            Mensagem(papel="user", conteudo=mensagem),
+        mensagens=tuple(
+            Mensagem(papel=m["papel"], conteudo=m["conteudo"])
+            for m in montar_mensagens(sistema, contexto, mensagem)
         ),
         ferramentas=tuple(ferramentas),
     )
@@ -187,7 +189,12 @@ async def main_async(args: Any) -> dict[str, Any]:
                     continue
                 while True:
                     resposta, evento = await _rodar_caso(
-                        cliente, sistema, ferramentas, caso.mensagem, orcamento
+                        cliente,
+                        sistema,
+                        ferramentas,
+                        caso.mensagem,
+                        orcamento,
+                        getattr(caso, "contexto", ()),
                     )
                     if evento == "limite":
                         # 429: nada executou, nada foi cobrado — espera e
