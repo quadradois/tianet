@@ -93,6 +93,7 @@ async def executar_ferramenta(
     contexto: ContextoFerramentas,
     nome: str,
     argumentos: Mapping[str, Any],
+    timeout_segundos: float | None = None,
 ) -> dict[str, Any]:
     """Executa uma chamada validada; nada além do catálogo alcança a rede."""
     ferramenta = CATALOGO.get(nome)
@@ -118,4 +119,4 @@ async def executar_ferramenta(
         params = {"data_referencia": contexto.hoje.isoformat()}
     elif ferramenta.nome in ("consultar_pagamentos_periodo", "consultar_fluxo_realizado"):
         params = {"inicio": args["inicio"], "fim": args["fim"]}
-    return await cliente.get(caminho, params)
+    return await cliente.get(caminho, params, timeout_segundos=timeout_segundos)

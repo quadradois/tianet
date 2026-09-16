@@ -195,7 +195,7 @@ class LlmClient:
         self._modelo = modelo
         self._provedor_chave = provedor_chave
 
-    async def chat(self, pedido: PedidoChat) -> RespostaChat:
+    async def chat(self, pedido: PedidoChat, timeout_segundos: float | None = None) -> RespostaChat:
         corpo_pedido = {
             "model": self._modelo,
             "messages": [
@@ -206,11 +206,13 @@ class LlmClient:
             "tool_choice": "auto",
             parametro_teto_saida(self._modelo): pedido.max_tokens_saida,
         }
+        timeout = httpx.Timeout(timeout_segundos) if timeout_segundos is not None else None
         try:
             resposta = await self._client.post(
                 "/chat/completions",
                 json=corpo_pedido,
                 headers={"Authorization": f"Bearer {self._provedor_chave()}"},
+                timeout=timeout,
             )
         except httpx.TimeoutException as exc:
             raise LlmIndisponivelError("tempo esgotado no provedor") from exc
