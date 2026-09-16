@@ -2,7 +2,7 @@
 
 **Última revisão:** 2026-09-15
 **Status:** Aprovado
-**Slice atual:** Slice 2
+**Slice atual:** Slice 3
 **Bloqueado por:** aprovação explícita do fundador (G5)
 **Risco:** Alto
 **Impacto agentic:** PRESENT
@@ -243,6 +243,14 @@ egress. Revert por slice. Produção não muda comportamento.
   limpos). ARMADILHA REGISTRADA: `.gitignore:56` (`*credencial*`)
   ignora também código-fonte com "credencial" no nome — commitar esses
   arquivos sempre com `git add -f`. Pendente: push + PR.
+- Slice 3 implementado e verificado localmente em 2026-09-15 (17 testes
+  novos: idade/vaga/deadline/orçamentos/reconsulta/404/resposta
+  excedida/negada/crash + 1–2 turnos; regressão agente 182 ok + 1 skip
+  pré-existente; ruff/black/mypy limpos). Decisões: 2º turno só após
+  localizar (única dependência entre tools); 401 mid-turn é terminal
+  (token estava fresco → revogação); prosa descartada quando há
+  apresentações. Qualificação de custo backend adiada ao slice 5
+  (flag `ferramentas_habilitadas` pronta). Pendente: push + PR.
 
 ## Notas de conclusão
 

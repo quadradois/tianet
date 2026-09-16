@@ -53,8 +53,12 @@ class ClienteFalso:
         self._resposta = resposta
 
     async def get(
-        self, caminho: str, params: Mapping[str, str | int] | None = None
+        self,
+        caminho: str,
+        params: Mapping[str, str | int] | None = None,
+        timeout_segundos: float | None = None,
     ) -> dict[str, Any]:
+        del timeout_segundos
         self.chamadas.append((caminho, dict(params or {})))
         if isinstance(self._resposta, Exception):
             raise self._resposta
