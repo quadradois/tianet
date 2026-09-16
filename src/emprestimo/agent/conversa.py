@@ -159,6 +159,7 @@ class ToolCallExec:
     latencia_ms: int
     completa: bool
     criado_em: datetime
+    correlation_id: str = ""
 
 
 @dataclass(frozen=True)

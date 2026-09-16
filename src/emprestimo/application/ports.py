@@ -23,6 +23,7 @@ from emprestimo.agent.conversa import (
     ToolCallExecRepository,
 )
 from emprestimo.agent.credencial import ArmazenRefresh
+from emprestimo.agent.expurgo import ExpurgoRepository
 from emprestimo.domain.common.events import DomainEventEnvelope
 from emprestimo.domain.credit.automacao_ports import (
     JobAgendadoRepository,
@@ -192,6 +193,7 @@ class UnitOfWork(ABC):
     tool_call_exec: ToolCallExecRepository
     referencia_sessao: ReferenciaSessaoRepository
     credencial_copilot: ArmazenRefresh
+    expurgo: ExpurgoRepository
     admissao: AdmissaoRepository
     idempotencia: IdempotenciaRegistro
 
