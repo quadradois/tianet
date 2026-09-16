@@ -12,8 +12,11 @@ from __future__ import annotations
 import hashlib
 import json
 import re
+from abc import ABC, abstractmethod
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass
+from datetime import datetime
+from enum import StrEnum
 from typing import Any
 from uuid import UUID
 
@@ -122,3 +125,78 @@ class ResolvedorTokenEgress:
         if cifrado is None:
             raise TokenEgressError("conexão ausente")
         return self._decifrar(cifrado)
+
+
+class EstadoEgress(StrEnum):
+    """Máquina de estados da intenção de envio (slice 2)."""
+
+    PREPARADO = "preparado"
+    EM_ENVIO = "em_envio"
+    ACEITO = "aceito"
+    FALHA = "falha"
+    DESCONHECIDO = "desconhecido"
+
+
+_TRANSICOES_EGRESS: dict[EstadoEgress, frozenset[EstadoEgress]] = {
+    EstadoEgress.PREPARADO: frozenset({EstadoEgress.EM_ENVIO, EstadoEgress.FALHA}),
+    EstadoEgress.EM_ENVIO: frozenset(
+        {EstadoEgress.ACEITO, EstadoEgress.FALHA, EstadoEgress.DESCONHECIDO}
+    ),
+    EstadoEgress.FALHA: frozenset({EstadoEgress.EM_ENVIO}),
+    EstadoEgress.ACEITO: frozenset(),
+    EstadoEgress.DESCONHECIDO: frozenset(),
+}
+
+
+def transicao_permitida(de: EstadoEgress, para: EstadoEgress) -> bool:
+    """Aceito e desconhecido são terminais: nunca reenviam sozinhos."""
+    return para in _TRANSICOES_EGRESS[de]
+
+
+@dataclass(frozen=True)
+class EgressConversa:
+    """Intenção de envio persistida antes de transmitir."""
+
+    id: UUID
+    inbox_id: UUID
+    sessao_id: UUID
+    indice: int
+    chave: str
+    payload_canonico: str
+    payload_hash: str
+    tenant_id: UUID
+    carteira_id: UUID | None
+    instancia_ref: str
+    classe: str
+    principal_id: UUID
+    destinatario: str
+    ferramenta: str | None
+    call_id: str | None
+    estado: EstadoEgress
+    tentativas: int
+    provider_id: str | None = None
+    codigo: str | None = None
+    conciliacao_chave: str | None = None
+    criado_em: datetime | None = None
+
+
+class EgressRepository(ABC):
+    """Porta da intenção durável de envio."""
+
+    @abstractmethod
+    def preparar(self, egresso: EgressConversa) -> EgressConversa:
+        """Insere; chave/inbox+índice repetidos com mesmo payload devolvem
+        o existente (replay); com payload divergente, conflito terminal."""
+
+    @abstractmethod
+    def buscar_por_chave(self, chave: str) -> EgressConversa | None: ...
+
+    @abstractmethod
+    def marcar_estado(
+        self,
+        egresso_id: UUID,
+        para: EstadoEgress,
+        provider_id: str | None = None,
+        codigo: str | None = None,
+    ) -> EgressConversa:
+        """Transição validada; terminal não sai do lugar."""

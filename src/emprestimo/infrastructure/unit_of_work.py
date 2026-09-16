@@ -32,6 +32,7 @@ from emprestimo.infrastructure.repositories import (
     SqlAlchemyContratoCreditoRepository,
     SqlAlchemyCredencialRepository,
     SqlAlchemyDevedorRepository,
+    SqlAlchemyEgressRepository,
     SqlAlchemyEmprestimoRepository,
     SqlAlchemyEventoFinanceiroRepository,
     SqlAlchemyExpurgoRepository,
@@ -119,6 +120,7 @@ class SqlAlchemyUnitOfWork(UnitOfWork):
         self.tool_call_exec = SqlAlchemyToolCallExecRepository(self._session)
         self.referencia_sessao = SqlAlchemyReferenciaSessaoRepository(self._session)
         self.credencial_copilot = SqlAlchemyArmazenRefresh(self._session)
+        self.egresso = SqlAlchemyEgressRepository(self._session)
         self.expurgo = SqlAlchemyExpurgoRepository(self._session)
         self.admissao = SqlAlchemyAdmissaoRepository(self._session)
         self.idempotencia = SqlAlchemyIdempotenciaRegistro(self._session)

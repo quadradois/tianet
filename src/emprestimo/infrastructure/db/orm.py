@@ -1423,3 +1423,53 @@ class CredencialCopilotORM(Base):
     atualizado_em: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )
+
+
+class EgressConversaORM(Base):
+    """Tabela `egress_conversa` — intenção de envio antes de transmitir.
+
+    Chave idempotente única + (inbox, índice) único: replay encontra a
+    mesma linha, nunca cria outra. Divergência de payload com mesma
+    chave é detectada na aplicação (conflito terminal). Estados incluem
+    `em_envio` para distinguir crash pré de pós-POST.
+    """
+
+    __tablename__ = "egress_conversa"
+    __table_args__ = (
+        UniqueConstraint("inbox_id", "indice", name="uq_egress_conversa_destino"),
+        UniqueConstraint("chave", name="uq_egress_conversa_chave"),
+        Index("ix_egress_conversa_sessao", "sessao_id"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True)
+    inbox_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid, ForeignKey("inbox_conversa.id"), nullable=False
+    )
+    sessao_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid, ForeignKey("sessao_conversa.id"), nullable=False
+    )
+    indice: Mapped[int] = mapped_column(Integer, nullable=False)
+    chave: Mapped[str] = mapped_column(String(128), nullable=False)
+    payload_canonico: Mapped[str] = mapped_column(Text, nullable=False)
+    payload_hash: Mapped[str] = mapped_column(String(64), nullable=False)
+    tenant_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid, ForeignKey("tenant.id"), nullable=False, index=True
+    )
+    carteira_id: Mapped[uuid.UUID | None] = mapped_column(Uuid, nullable=True)
+    instancia_ref: Mapped[str] = mapped_column(String(64), nullable=False)
+    classe: Mapped[str] = mapped_column(String(20), nullable=False)
+    principal_id: Mapped[uuid.UUID] = mapped_column(Uuid, nullable=False)
+    destinatario: Mapped[str] = mapped_column(String(32), nullable=False)
+    ferramenta: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    call_id: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    estado: Mapped[str] = mapped_column(String(20), nullable=False)
+    tentativas: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    provider_id: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    codigo: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    conciliacao_chave: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    criado_em: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+    atualizado_em: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )

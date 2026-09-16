@@ -83,7 +83,9 @@ def test_imp_266_quality_migrations_gate_e_unico_head_alembic() -> None:
     # cifrado por tenant/instancia; downgrade remove so ela.
     # IMP-356-F slice 4 adiciona `correlation_id` em `tool_call_exec`
     # (`e5f6a7b8c9d0`); downgrade remove so a coluna.
-    assert script.get_current_head() == "e5f6a7b8c9d0"
+    # IMP-356-E slice 2 cria `egress_conversa` (`f6a7b8c9d0e1`); downgrade
+    # remove so ela.
+    assert script.get_current_head() == "f6a7b8c9d0e1"
 
 
 def test_imp_267_health_correlation_e_erro_tecnico_sem_vazamento(

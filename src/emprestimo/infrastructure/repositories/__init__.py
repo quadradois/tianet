@@ -155,6 +155,9 @@ from emprestimo.infrastructure.repositories.conversa import (
 from emprestimo.infrastructure.repositories.credencial import (
     SqlAlchemyArmazenRefresh as SqlAlchemyArmazenRefresh,
 )
+from emprestimo.infrastructure.repositories.egress import (
+    SqlAlchemyEgressRepository as SqlAlchemyEgressRepository,
+)
 from emprestimo.infrastructure.repositories.expurgo import (
     SqlAlchemyExpurgoRepository as SqlAlchemyExpurgoRepository,
 )

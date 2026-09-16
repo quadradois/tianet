@@ -233,7 +233,11 @@ Sem rollout: canal falso, sem wiring, sem envio real. Revert por slice.
 
 - Slice 1 implementado e verificado localmente em 2026-09-16 (13 testes:
   vetores de chave, conflito terminal, cross-tenant negativo,
-  normalização; ruff/black/mypy limpos). Pendente: push + PR.
+  normalização; ruff/black/mypy limpos; commitado local).
+- Slice 2 implementado e verificado localmente em 2026-09-16 (6 testes:
+  replay, conflito, transições terminais, migration mockada; regressão
+  agente 150 ok + 1 skip pré-existente; ruff/black/mypy limpos).
+  Pendente: push + PR.
 
 ## Notas de conclusão
 

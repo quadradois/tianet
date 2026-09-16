@@ -15,6 +15,7 @@ from emprestimo.agent.egress import (
     VERSAO_CHAVE_EGRESS,
     ConflitoEgressError,
     DestinoInvalidoError,
+    EstadoEgress,
     IntencaoEgress,
     ResolvedorTokenEgress,
     TokenEgressError,
@@ -22,6 +23,7 @@ from emprestimo.agent.egress import (
     derivar_chave,
     normalizar_destino,
     payload_canonico,
+    transicao_permitida,
 )
 
 TENANT = uuid.uuid4()
@@ -101,3 +103,12 @@ def test_resolvedor_single_tenant() -> None:
     vazio = ResolvedorTokenEgress(TENANT, "x", carregar=lambda t, i: None, decifrar=lambda b: "")
     with pytest.raises(TokenEgressError):
         vazio.resolver(TENANT, "x")
+
+
+def test_transicoes_terminais_nao_saem_do_lugar() -> None:
+    assert transicao_permitida(EstadoEgress.PREPARADO, EstadoEgress.EM_ENVIO)
+    assert transicao_permitida(EstadoEgress.EM_ENVIO, EstadoEgress.DESCONHECIDO)
+    assert transicao_permitida(EstadoEgress.FALHA, EstadoEgress.EM_ENVIO)
+    assert not transicao_permitida(EstadoEgress.ACEITO, EstadoEgress.EM_ENVIO)
+    assert not transicao_permitida(EstadoEgress.DESCONHECIDO, EstadoEgress.EM_ENVIO)
+    assert not transicao_permitida(EstadoEgress.PREPARADO, EstadoEgress.ACEITO)
