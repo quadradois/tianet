@@ -1,8 +1,8 @@
 # Plano — IMP-356-E: saída durável (egress WhatsApp)
 
 **Última revisão:** 2026-09-16
-**Status:** Aprovado
-**Slice atual:** Slice 1
+**Status:** Concluído
+**Slice atual:** Slice 5 (lote concluído tecnicamente)
 **Bloqueado por:** aprovação explícita do fundador (G5) + decisão de rota de rede ANTES do slice 1 + parecer incorporado (ver Registro de revisão)
 **Risco:** Alto
 **Impacto agentic:** PRESENT
@@ -251,7 +251,10 @@ Sem rollout: canal falso, sem wiring, sem envio real. Revert por slice.
   das tabelas novas no conftest; regressão agente 136 ok + 1 skip
   pré-existente; ruff/black/mypy limpos). Achados: FK exige filhos
   antes dos pais mesmo em lotes (2 fases); traceback de hook também
-  vaza — logs sem exc_info. Pendente: push + PR.
+  vaza — logs sem exc_info; commitado local.
+- Slice 5 implementado em 2026-09-16: laudo PLAN-044, backlog 1.9.13,
+  registry 44, plano concluído. Sem envio real, sem wiring;
+  habilitação segue condicionada.
 
 ## Notas de conclusão
 

@@ -15,6 +15,7 @@ from types import SimpleNamespace
 from typing import Any
 
 from emprestimo.agent.api_client import ApiAutorizacaoError, ApiError
+from emprestimo.agent.catalogo import CATALOGO
 from emprestimo.agent.conversa import ClasseContexto, SessaoConversa
 from emprestimo.agent.executor import (
     RESPOSTA_INDISPONIVEL,
@@ -241,7 +242,7 @@ def _montar(
         modelo="gpt-4o-mini",
         medidor_tokens=medidor,
         relogio=relogio,
-        **({"ferramentas_habilitadas": habilitadas} if habilitadas is not None else {}),
+        ferramentas_habilitadas=habilitadas if habilitadas is not None else frozenset(CATALOGO),
         observador_tool=(observadas.append if observadas is not None else None),
         metricas_llm=metricas_llm,
         metricas=metricas,
@@ -530,13 +531,13 @@ def test_enviador_chamado_so_em_concluida() -> None:
         roteiro_llm=[_resposta(chamadas=[_chamada("consultar_acertos", "{}")])],
         roteiro_api=[ACERTOS_DTO],
     )
-    executor._enviador = _enviador  # type: ignore[method-assign]
+    executor._enviador = _enviador
     resultado = _executar(executor, _entrada(_sessao()))
     assert resultado.estado == "concluida"
     assert len(enviadas) == 1 and "pendente" in enviadas[0][0]
 
     executor2, *_ = _montar(roteiro_llm=[], slots=Slots(vaga=False))
-    executor2._enviador = _enviador  # type: ignore[method-assign]
+    executor2._enviador = _enviador
     resultado2 = _executar(executor2, _entrada(_sessao()))
     assert resultado2.estado == "recusada"
     assert len(enviadas) == 1
@@ -550,6 +551,6 @@ def test_enviador_com_falha_nao_quebra_turno() -> None:
         roteiro_llm=[_resposta(chamadas=[_chamada("consultar_acertos", "{}")])],
         roteiro_api=[ACERTOS_DTO],
     )
-    executor._enviador = _quebrar  # type: ignore[method-assign]
+    executor._enviador = _quebrar
     resultado = _executar(executor, _entrada(_sessao()))
     assert resultado.estado == "concluida"

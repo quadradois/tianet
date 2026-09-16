@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import uuid
 from datetime import UTC, datetime
+from typing import Any
 
 import pytest
 from sqlalchemy.orm import Session
@@ -20,6 +21,7 @@ from emprestimo.agent.egress import (
     EstadoEgress,
     enviar_texto,
 )
+from emprestimo.domain.credit.automacao_ports import NotificationChannel
 from emprestimo.domain.credit.notifications import ResultadoCanal, ResultadoEnvio
 from emprestimo.domain.platform.tenant import TenantState
 from emprestimo.infrastructure.db.orm import InboxConversaORM, SessaoConversaORM
@@ -31,8 +33,8 @@ from emprestimo.infrastructure.repositories import (
 T0 = datetime(2026, 9, 16, 12, 0, tzinfo=UTC)
 
 
-class CanalFalso:
-    def __init__(self, roteiro: list[object]) -> None:
+class CanalFalso(NotificationChannel):
+    def __init__(self, roteiro: list[Any]) -> None:
         self.roteiro = list(roteiro)
         self.chamadas = 0
 
@@ -144,7 +146,7 @@ def _repo(session: Session) -> SqlAlchemyEgressRepository:
     return SqlAlchemyEgressRepository(session)
 
 
-def test_aceite_persiste_sem_alegar_entrega(session: Session, base: dict) -> None:
+def test_aceite_persiste_sem_alegar_entrega(session: Session, base: dict[str, object]) -> None:
     canal = CanalFalso([_aceito()])
     saida = enviar_texto(_repo(session), canal, _contexto(base), "texto")
     session.commit()
@@ -153,7 +155,7 @@ def test_aceite_persiste_sem_alegar_entrega(session: Session, base: dict) -> Non
     assert canal.chamadas == 1
 
 
-def test_temporario_retenta_uma_vez_e_para(session: Session, base: dict) -> None:
+def test_temporario_retenta_uma_vez_e_para(session: Session, base: dict[str, object]) -> None:
     canal = CanalFalso([_temp(), _aceito()])
     saida = enviar_texto(_repo(session), canal, _contexto(base), "texto")
     session.commit()
@@ -164,7 +166,7 @@ def test_temporario_retenta_uma_vez_e_para(session: Session, base: dict) -> None
     assert saida2.estado == EstadoEgress.FALHA and canal2.chamadas == 2
 
 
-def test_permanente_e_desconhecido_sem_retry(session: Session, base: dict) -> None:
+def test_permanente_e_desconhecido_sem_retry(session: Session, base: dict[str, object]) -> None:
     canal = CanalFalso([_perm()])
     saida = enviar_texto(_repo(session), canal, _contexto(base), "texto")
     assert saida.estado == EstadoEgress.FALHA and canal.chamadas == 1
@@ -174,7 +176,7 @@ def test_permanente_e_desconhecido_sem_retry(session: Session, base: dict) -> No
     session.commit()
 
 
-def test_excecao_pos_transmissao_e_desconhecida(session: Session, base: dict) -> None:
+def test_excecao_pos_transmissao_e_desconhecida(session: Session, base: dict[str, object]) -> None:
     canal = CanalFalso([RuntimeError("socket caiu")])
     saida = enviar_texto(_repo(session), canal, _contexto(base), "texto")
     session.commit()
@@ -183,7 +185,9 @@ def test_excecao_pos_transmissao_e_desconhecida(session: Session, base: dict) ->
     assert canal.chamadas == 1
 
 
-def test_replay_nao_retransmite_e_conflito_encerra(session: Session, base: dict) -> None:
+def test_replay_nao_retransmite_e_conflito_encerra(
+    session: Session, base: dict[str, object]
+) -> None:
     canal = CanalFalso([_aceito()])
     primeira = enviar_texto(_repo(session), canal, _contexto(base), "texto")
     session.commit()
@@ -195,7 +199,9 @@ def test_replay_nao_retransmite_e_conflito_encerra(session: Session, base: dict)
     session.rollback()
 
 
-def test_terminal_nao_sai_do_lugar_nem_com_deadline(session: Session, base: dict) -> None:
+def test_terminal_nao_sai_do_lugar_nem_com_deadline(
+    session: Session, base: dict[str, object]
+) -> None:
     canal = CanalFalso([_aceito()])
     saida = enviar_texto(_repo(session), canal, _contexto(base), "texto")
     session.commit()

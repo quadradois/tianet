@@ -730,6 +730,7 @@ O plano so fecha quando:
 
 | Versao | Data | Descricao |
 |---|---|---|
+| 1.9.13 | 2026-09-16 | IMP-356-E concluído tecnicamente (slices 1–4, rota (c) decidida): identidade, tabela, runner, firewall fim a fim. Sem envio real, sem wiring; habilitação segue condicionada. Evidência em `docs/implementation/reports/PLAN-044-entrega-356e-2026-09-16.md`. |
 | 1.9.12 | 2026-09-16 | IMP-356-F slice 5: suite operacional (8 casos, stack real) + qualificação de custo 6/6 OK (p95 ≤ 2s) após otimização sem mudar contrato (lote + agrupamento). Nenhuma ferramenta desabilitada. Evidência em `docs/implementation/reports/PLAN-043-suite-356f-custo-2026-09-16.md`. 356-F concluído tecnicamente; habilitação segue condicionada. |
 | 1.9.11 | 2026-09-16 | Certificação final `gpt-5-mini` com régua justa (209 chamadas, US$ 0,186): 28–30/30, 38–40/40, 1 rodada aprovada isolada — veredito REPROVADA. Ciclo de certificação encerrado (5 certificações, ≈US$ 0,94). 356-D pausado; caminho: 356-F/356-E. Laudo em `docs/implementation/reports/PLAN-042-certificacao-final-2026-09-16.md`. |
 | 1.9.10 | 2026-09-16 | Certificação `gpt-4o` (snapshot fixo, 210 chamadas, US$ 0,312): REPROVADA (22–23/30, 36–37/40) — super-recusa em buscas ordinárias; pior utilidade dos 4. Placar: 4 candidatos, 0 aprovados, ≈US$ 0,58. 356-D pausado. Laudo em `docs/implementation/reports/PLAN-041-certificacao-4o-2026-09-16.md`. |
