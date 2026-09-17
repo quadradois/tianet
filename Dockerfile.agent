@@ -83,6 +83,12 @@ RUN uv pip install --system --no-cache --require-hashes \
     && python -m pip check
 COPY src/emprestimo/__init__.py ./emprestimo/__init__.py
 COPY src/emprestimo/agent ./emprestimo/agent
+# O ingress do WhatsApp monta com UnitOfWork/SQLAlchemy reais (_montar_ingress):
+# sem domain/application/infrastructure a imagem quebra no boot (v1.1.28).
+# Presentation/worker continuam fora — o agent nunca os importa.
+COPY src/emprestimo/domain ./emprestimo/domain
+COPY src/emprestimo/application ./emprestimo/application
+COPY src/emprestimo/infrastructure ./emprestimo/infrastructure
 
 RUN groupadd --gid 10003 agentipc \
     && useradd --create-home --uid 10002 --gid agentipc agent \

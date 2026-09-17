@@ -109,7 +109,122 @@ def test_imagem_fixa_cli_oficial_e_executa_com_usuario_sem_privilegio() -> None:
     assert "COPY migrations" not in dockerfile
     assert "COPY src ./src" not in dockerfile
     assert "COPY src/emprestimo/agent ./emprestimo/agent" in dockerfile
+    # O ingress monta com UnitOfWork/SQLAlchemy reais: sem estes pacotes a
+    # imagem quebra no boot (v1.1.28). Presentation/worker continuam fora.
+    assert "COPY src/emprestimo/domain ./emprestimo/domain" in dockerfile
+    assert "COPY src/emprestimo/application ./emprestimo/application" in dockerfile
+    assert "COPY src/emprestimo/infrastructure ./emprestimo/infrastructure" in dockerfile
     assert "--require-hashes" in dockerfile
     assert "ghcr.io/astral-sh/uv@sha256:" in dockerfile
     assert "generate-json-schema" in dockerfile
     assert 'CMD ["python", "-m", "emprestimo.agent.server", "serve"]' in dockerfile
+
+
+def _terceiros_do_lock() -> set[str]:
+    terceiros: set[str] = set()
+    for linha in (ROOT / "requirements-agent.lock").read_text(encoding="utf-8").splitlines():
+        if "==" in linha and not linha.startswith((" ", "#")):
+            nome = linha.split("==")[0].strip().lower().replace("-", "_")
+            terceiros.add(nome)
+    return terceiros
+
+
+_MODULO_PARA_PACOTE = {
+    # Casos em que o módulo difere do nome da distribuição.
+    "dotenv": "python_dotenv",
+    "yaml": "pyyaml",
+}
+
+
+def _cadeia_de_boot() -> tuple[set[str], set[str]]:
+    """Importações de terceiros alcançáveis do boot do agent (runtime).
+
+    Segue apenas módulos `emprestimo.*` copiados para a imagem (agent,
+    domain, application, infrastructure). Blocos `if TYPE_CHECKING:` são
+    ignorados: anotação não exige o pacote em runtime — foi exatamente um
+    import desses (httpx via metricas) que derrubou a v1.1.28.
+    """
+    import ast
+    import sys
+
+    raiz = ROOT / "src" / "emprestimo"
+    pacotes_na_imagem = {"agent", "domain", "application", "infrastructure"}
+    visitados: set[str] = set()
+    terceiros: set[str] = set()
+    proibidos: set[str] = set()
+
+    def modulo_para_arquivo(modulo: str) -> Path | None:
+        partes = modulo.split(".")
+        assert partes[0] == "emprestimo"
+        if partes[1] not in pacotes_na_imagem:
+            if partes[1] in {"presentation", "worker"}:
+                proibidos.add(modulo)
+            return None
+        base = raiz
+        for parte in partes[1:]:
+            base = base / parte
+        if base.with_suffix(".py").is_file():
+            return base.with_suffix(".py")
+        candidato = base / "__init__.py"
+        return candidato if candidato.is_file() else None
+
+    def visitar(modulo: str, pacote_atual: str) -> None:
+        if modulo in visitados:
+            return
+        visitados.add(modulo)
+        arquivo = modulo_para_arquivo(modulo)
+        if arquivo is None:
+            return
+        arvore = ast.parse(arquivo.read_text(encoding="utf-8"))
+
+        def coletar(no: ast.AST, somente_tipos: bool = False) -> None:
+            if (
+                isinstance(no, ast.If)
+                and isinstance(no.test, ast.Name)
+                and no.test.id == "TYPE_CHECKING"
+            ):
+                for filho in no.body:
+                    coletar(filho, somente_tipos=True)
+                for filho in no.orelse:
+                    coletar(filho, somente_tipos=somente_tipos)
+                return
+            if isinstance(no, (ast.Import, ast.ImportFrom)) and not somente_tipos:
+                alvos = (
+                    [a.name for a in no.names] if isinstance(no, ast.Import) else [no.module or ""]
+                )
+                for alvo in alvos:
+                    topo = alvo.split(".")[0]
+                    if not topo or topo == "__future__":
+                        continue
+                    if topo in sys.stdlib_module_names:
+                        continue
+                    if topo == "emprestimo":
+                        visitar(alvo, pacote_atual)
+                    else:
+                        terceiros.add(topo)
+                return
+            for sub_no in ast.iter_child_nodes(no):
+                coletar(sub_no, somente_tipos=somente_tipos)
+
+        coletar(arvore)
+
+    visitar("emprestimo.agent.server", "emprestimo.agent")
+    visitar("emprestimo.agent.service", "emprestimo.agent")
+    return terceiros, proibidos
+
+
+def test_boot_do_agent_cabe_no_lock_sem_presentation() -> None:
+    """Guardrail da v1.1.28: todo terceiro importado no boot existe no lock.
+
+    O Quality passava com as dev-dependencies instaladas enquanto a imagem
+    mínima quebrava (`No module named 'httpx'`). Este teste conta o efeito
+    na fonte: a cadeia de import em runtime contra o lock com hashes.
+    """
+    terceiros, proibidos = _cadeia_de_boot()
+    assert proibidos == set(), proibidos
+    lock = _terceiros_do_lock()
+    ausentes = {
+        modulo for modulo in terceiros if _MODULO_PARA_PACOTE.get(modulo, modulo) not in lock
+    }
+    assert ausentes == set(), ausentes
+    assert terceiros != set(), "a cadeia de boot deveria ter terceiros (fastapi)"
