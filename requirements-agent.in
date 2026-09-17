@@ -1,2 +1,8 @@
 fastapi==0.141.1
 uvicorn[standard]==0.52.4
+# Ingress monta com UnitOfWork/SQLAlchemy reais: sem estes o boot quebra.
+sqlalchemy==2.0.44
+cryptography==48.0.1
+psycopg[binary]==3.3.5
+# Credencial copilot usa api_client (httpx) no caminho de refresh em runtime.
+httpx==0.28.1

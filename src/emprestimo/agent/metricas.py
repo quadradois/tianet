@@ -11,9 +11,12 @@ from __future__ import annotations
 from collections import Counter
 from dataclasses import dataclass, field
 from decimal import Decimal
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
-from emprestimo.agent.llm_client import Uso
+if TYPE_CHECKING:
+    # Só anotação: `Uso` em runtime puxaria `llm_client` (e o HTTP dele)
+    # para o boot do agent, que não precisa de inferência para existir.
+    from emprestimo.agent.llm_client import Uso
 
 
 @dataclass
