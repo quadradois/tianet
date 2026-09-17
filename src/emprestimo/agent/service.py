@@ -4,8 +4,10 @@ from __future__ import annotations
 
 import asyncio
 import hmac
+import logging
 import os
 import time
+import uuid
 from collections.abc import AsyncIterator, Awaitable, Callable
 from contextlib import asynccontextmanager, suppress
 from dataclasses import dataclass
@@ -15,6 +17,11 @@ from typing import Protocol, TypeVar
 
 from fastapi import FastAPI, Header, HTTPException, Response, status
 
+from emprestimo.agent.admissao import (
+    PADRAO_DIMENSOES,
+    ConfiguracaoAdmissao,
+    ControleAdmissao,
+)
 from emprestimo.agent.codex_app_server import (
     AccountInfo,
     CodexAppServerClient,
@@ -25,6 +32,10 @@ from emprestimo.agent.codex_app_server import (
     RateLimitInfo,
     RateLimitWindow,
 )
+from emprestimo.agent.conversa import ConfiguracaoIngress, normalizar_remetente
+from emprestimo.agent.ingress import create_ingress_app
+from emprestimo.infrastructure.db.session import get_session_factory
+from emprestimo.infrastructure.unit_of_work import SqlAlchemyUnitOfWork
 
 LOGIN_TTL_SECONDS = 10 * 60
 DIAGNOSTIC_TTL_SECONDS = 60
@@ -689,4 +700,41 @@ def create_agent_app(
         except Exception as exc:
             raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY) from exc
 
+    _montar_ingress(app)
+
     return app
+
+
+def _montar_ingress(app: FastAPI) -> None:
+    """Monta o ingress do WhatsApp quando o ambiente o configura.
+
+    Sem `AGENT_TENANT_ID` + `AGENT_INSTANCIA_ID` válidos, nada é montado
+    e o processo serve só a API interna (comportamento atual preservado).
+    Fail-closed por construção: superfície só existe configurada.
+    """
+    tenant_bruto = os.environ.get("AGENT_TENANT_ID", "").strip()
+    instancia_id = os.environ.get("AGENT_INSTANCIA_ID", "").strip()
+    if not tenant_bruto or not instancia_id:
+        return
+    try:
+        tenant_id = uuid.UUID(tenant_bruto)
+    except ValueError as exc:
+        raise RuntimeError("AGENT_TENANT_ID inválido") from exc
+    allowlist = frozenset(
+        normalizar_remetente(parte)
+        for parte in os.environ.get("COPILOT_OPERATOR_ALLOWLIST", "").split(",")
+        if parte.strip()
+    )
+    session_factory = get_session_factory()
+    ingress = create_ingress_app(
+        ConfiguracaoIngress(
+            tenant_id=tenant_id,
+            instancia_ref=os.environ.get("AGENT_INSTANCIA_REF", "tianet").strip() or "tianet",
+            allowlist_operadora=allowlist,
+        ),
+        lambda: SqlAlchemyUnitOfWork(session_factory),
+        instancia_id,
+        ControleAdmissao(ConfiguracaoAdmissao(dimensoes=PADRAO_DIMENSOES)),
+    )
+    app.mount("/", ingress)
+    logging.getLogger(__name__).info("ingress do WhatsApp montado")

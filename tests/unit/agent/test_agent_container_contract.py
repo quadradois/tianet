@@ -37,7 +37,10 @@ def test_agent_fica_em_rede_e_volume_exclusivos_sem_porta_publicada() -> None:
     config = _compose_config()
     agent = config["services"]["agent"]
     assert set(agent["networks"]) == {"agent-egress"}
-    assert "ports" not in agent
+    # Loopback publicado não é porta pública: só o Caddy do host alcança;
+    # qualquer bind fora de 127.0.0.1 continua proibido (ingress WhatsApp).
+    for publicada in agent.get("ports", []):
+        assert publicada.get("host_ip", "") == "127.0.0.1", publicada
     assert agent["read_only"] is True
     assert agent["cap_drop"] == ["ALL"]
     assert agent["security_opt"] == ["no-new-privileges:true"]
