@@ -7,12 +7,16 @@ import socket
 import stat
 import sys
 from pathlib import Path
+from typing import Any
 
 import uvicorn
 
 DEFAULT_SOCKET_PATH = Path("/run/tianet-agent/agent.sock")
 MAX_HEALTH_RESPONSE = 16 * 1024
-UNIX_SOCKET_FAMILY = getattr(socket, "AF_UNIX")  # noqa: B009 -- ausente nos stubs Windows
+UNIX_SOCKET_FAMILY: Any = getattr(
+    socket, "AF_UNIX", None
+)  # noqa: B009 -- ausente nos stubs Windows
+LOOPBACK_HOST = "127.0.0.1"
 
 
 def socket_path() -> Path:
@@ -47,7 +51,37 @@ def prepare_socket(path: Path) -> None:
         probe.close()
 
 
+def porta_http() -> int | None:
+    """Porta TCP loopback do ingress, ou None para socket Unix exclusivo.
+
+    Ausente = comportamento atual preservado (só socket). Quando definida,
+    escuta SOMENTE em 127.0.0.1 — exposição pública é papel do proxy.
+    """
+    bruto = os.environ.get("TIANET_AGENT_HTTP_PORT", "").strip()
+    if not bruto:
+        return None
+    try:
+        porta = int(bruto)
+    except ValueError as exc:
+        raise RuntimeError("TIANET_AGENT_HTTP_PORT deve ser inteiro") from exc
+    if not 1 <= porta <= 65535:
+        raise RuntimeError("TIANET_AGENT_HTTP_PORT fora do intervalo")
+    return porta
+
+
 def serve() -> None:
+    porta = porta_http()
+    if porta is not None:
+        uvicorn.run(
+            "emprestimo.agent.service:create_agent_app",
+            factory=True,
+            host=LOOPBACK_HOST,
+            port=porta,
+            limit_concurrency=16,
+            timeout_keep_alive=5,
+            h11_max_incomplete_event_size=1024 * 1024,
+        )
+        return
     path = socket_path()
     prepare_socket(path)
     os.umask(0o007)

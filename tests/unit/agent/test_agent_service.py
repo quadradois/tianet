@@ -5,6 +5,7 @@ import time
 from pathlib import Path
 
 import pytest
+from fastapi import FastAPI
 from fastapi.routing import APIRoute
 from fastapi.testclient import TestClient
 
@@ -701,3 +702,48 @@ def test_cancelamento_de_um_consumidor_nao_cancela_diagnostico_compartilhado() -
         await runtime.close()
 
     asyncio.run(scenario())
+
+
+def _rotas(app: FastAPI) -> set[str]:
+    return {getattr(r, "path", "") for r in app.routes}
+
+
+def test_ingress_ausente_sem_configuracao(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.delenv("AGENT_TENANT_ID", raising=False)
+    monkeypatch.delenv("AGENT_INSTANCIA_ID", raising=False)
+    app = create_agent_app(_settings(enabled=False, executable=Path("C:/missing.exe")))
+    assert "/whatsapp/webhook" not in _rotas(app)
+
+
+def test_ingress_montado_com_configuracao(monkeypatch: pytest.MonkeyPatch) -> None:
+    import uuid
+
+    monkeypatch.setenv("AGENT_TENANT_ID", str(uuid.uuid4()))
+    monkeypatch.setenv("AGENT_INSTANCIA_ID", "inst-evolution-1")
+    monkeypatch.setenv("COPILOT_OPERATOR_ALLOWLIST", "5511999999999")
+    app = create_agent_app(_settings(enabled=False, executable=Path("C:/missing.exe")))
+    with TestClient(app) as client:
+        resposta = client.post("/whatsapp/webhook", content=b"nao-json")
+        assert resposta.status_code == 400
+
+
+def test_ingress_recusa_tenant_invalido(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("AGENT_TENANT_ID", "nao-uuid")
+    monkeypatch.setenv("AGENT_INSTANCIA_ID", "inst-evolution-1")
+    with pytest.raises(RuntimeError):
+        create_agent_app(_settings(enabled=False, executable=Path("C:/missing.exe")))
+
+
+def test_porta_http_loopback(monkeypatch: pytest.MonkeyPatch) -> None:
+    from emprestimo.agent.server import porta_http
+
+    monkeypatch.delenv("TIANET_AGENT_HTTP_PORT", raising=False)
+    assert porta_http() is None
+    monkeypatch.setenv("TIANET_AGENT_HTTP_PORT", "8010")
+    assert porta_http() == 8010
+    monkeypatch.setenv("TIANET_AGENT_HTTP_PORT", "0")
+    with pytest.raises(RuntimeError):
+        porta_http()
+    monkeypatch.setenv("TIANET_AGENT_HTTP_PORT", "abc")
+    with pytest.raises(RuntimeError):
+        porta_http()
