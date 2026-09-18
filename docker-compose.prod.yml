@@ -23,6 +23,11 @@ services:
       interval: 5s
       timeout: 5s
       retries: 10
+    # O agent persiste inbox no banco e vive só na agent-egress: sem esta
+    # rede aqui ele nunca alcança o postgres (S1, 500 no webhook).
+    networks:
+      - default
+      - agent-egress
 
   migrate:
     image: ${REGISTRY:?}-tianet-api:${TAG:?}
@@ -110,6 +115,10 @@ services:
       # Unix (/run/tianet-agent/agent.sock) e o Caddy do host faz proxy para
       # o socket. TCP publicado não funciona aqui — o agent vive SOMENTE na
       # rede interna agent-egress e o daemon descarta publish sem NAT (S1).
+      # Sem esta linha o agent deriva a URL para 127.0.0.1 e o webhook morre
+      # com "connection refused" (mesmo caso do migrate): dentro da netns do
+      # container não há postgres em loopback.
+      DATABASE_URL: postgresql+psycopg://emprestimo:${POSTGRES_PASSWORD:?}@postgres:5432/emprestimo
       AGENT_TENANT_ID: ${AGENT_TENANT_ID:-}
       AGENT_INSTANCIA_REF: ${AGENT_INSTANCIA_REF:-tianet}
       AGENT_INSTANCIA_ID: ${AGENT_INSTANCIA_ID:-}
@@ -119,6 +128,8 @@ services:
     networks:
       - agent-egress
     depends_on:
+      postgres:
+        condition: service_healthy
       agent-egress-proxy:
         condition: service_healthy
     volumes:

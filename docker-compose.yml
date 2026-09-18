@@ -34,6 +34,10 @@ services:
       interval: 5s
       timeout: 5s
       retries: 10
+    # O agent persiste inbox no banco e vive só na agent-egress (idem prod).
+    networks:
+      - default
+      - agent-egress
 
   # One-shot: api e worker so sobem depois que o schema esta na versao head.
   migrate:
@@ -116,6 +120,9 @@ services:
       LLM_TIMEOUT_SECONDS: ${LLM_TIMEOUT_SECONDS:-15.0}
       LLM_MAX_RETRIES: ${LLM_MAX_RETRIES:-0}
       LLM_MAX_TOKENS_SAIDA: ${LLM_MAX_TOKENS_SAIDA:-1000}
+      # Sem esta URL o agent deriva 127.0.0.1 e o webhook morre com
+      # "connection refused" (idem prod/migrate).
+      DATABASE_URL: postgresql+psycopg://emprestimo:${POSTGRES_PASSWORD:?defina POSTGRES_PASSWORD no .env}@postgres:5432/emprestimo
       # Sem TIANET_AGENT_HTTP_PORT de propósito: modo socket Unix; TCP
       # publicado não funciona na rede interna exclusiva (ver prod).
       AGENT_TENANT_ID: ${AGENT_TENANT_ID:-}
@@ -128,6 +135,8 @@ services:
     networks:
       - agent-egress
     depends_on:
+      postgres:
+        condition: service_healthy
       agent-egress-proxy:
         condition: service_healthy
     volumes:

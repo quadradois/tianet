@@ -68,8 +68,11 @@ def test_agent_fica_em_rede_e_volume_exclusivos_sem_porta_publicada() -> None:
             "volume": {},
         }
     ]
-    for service_name in ("api", "postgres", "worker", "migrate"):
+    for service_name in ("api", "worker", "migrate"):
         assert "agent-egress" not in config["services"][service_name]["networks"]
+    # O postgres entra na agent-egress de propósito: o agent persiste inbox
+    # via UnitOfWork e vive só nessa rede (S1). api/worker/migrate ficam fora.
+    assert set(config["services"]["postgres"]["networks"]) == {"default", "agent-egress"}
 
 
 def test_compose_carrega_com_agent_desligado_e_sem_segredo() -> None:
@@ -139,6 +142,22 @@ def test_compose_prod_sem_tcp_do_agent_modo_socket() -> None:
     assert "TIANET_AGENT_HTTP_PORT:" not in prod
     assert "8010:8010" not in prod
     assert "agent-runtime:/run/tianet-agent" in prod
+
+
+def test_agent_alcanca_postgres_sem_sair_da_contencao() -> None:
+    """Guardrail do 500 no webhook (S1): o agent persiste inbox via
+    SqlAlchemyUnitOfWork, mas vive só na agent-egress — sem DATABASE_URL
+    ele deriva 127.0.0.1 (connection refused) e sem o postgres nessa rede
+    nem o hostname resolve. A contenção de egress segue intacta: o agent
+    NÃO entra na rede default."""
+    prod = (ROOT / "docker-compose.prod.yml").read_text(encoding="utf-8")
+    agente = prod.split("\n  agent:", 1)[1].split("\n  agent-egress-proxy:", 1)[0]
+    assert "@postgres:5432/emprestimo" in agente
+    assert "postgres:\n        condition: service_healthy" in agente
+    assert "\n      - agent-egress\n" in agente
+    assert "- default" not in agente
+    postgres = prod.split("\n  postgres:", 1)[1].split("\n  migrate:", 1)[0]
+    assert "- agent-egress" in postgres
 
 
 def _terceiros_do_lock() -> set[str]:
