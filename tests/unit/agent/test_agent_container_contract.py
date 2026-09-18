@@ -130,6 +130,17 @@ def test_ingress_tcp_liga_em_0000_com_perimetro_no_compose() -> None:
     assert "LOOPBACK_HOST" not in server
 
 
+def test_compose_prod_sem_tcp_do_agent_modo_socket() -> None:
+    """Guardrail da topologia (S1/opção B): o agent vive SOMENTE na rede
+    interna agent-egress, onde o daemon descarta publish sem NAT — publicar
+    8010 ali é config morta que finge alcance. O prod sobe em modo socket
+    Unix e o Caddy do host faz proxy para o socket do volume."""
+    prod = (ROOT / "docker-compose.prod.yml").read_text(encoding="utf-8")
+    assert "TIANET_AGENT_HTTP_PORT:" not in prod
+    assert "8010:8010" not in prod
+    assert "agent-runtime:/run/tianet-agent" in prod
+
+
 def _terceiros_do_lock() -> set[str]:
     terceiros: set[str] = set()
     for linha in (ROOT / "requirements-agent.lock").read_text(encoding="utf-8").splitlines():
