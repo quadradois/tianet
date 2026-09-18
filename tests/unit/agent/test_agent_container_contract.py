@@ -120,6 +120,16 @@ def test_imagem_fixa_cli_oficial_e_executa_com_usuario_sem_privilegio() -> None:
     assert 'CMD ["python", "-m", "emprestimo.agent.server", "serve"]' in dockerfile
 
 
+def test_ingress_tcp_liga_em_0000_com_perimetro_no_compose() -> None:
+    """Guardrail do bind inalcançável (S1): 127.0.0.1 no container recusa o
+    DNAT do publish — o bind precisa ser 0.0.0.0 e a restrição a 127.0.0.1
+    vive no compose (coberta por
+    test_agent_fica_em_rede_e_volume_exclusivos_sem_porta_publicada)."""
+    server = (ROOT / "src" / "emprestimo" / "agent" / "server.py").read_text(encoding="utf-8")
+    assert 'BIND_HOST = "0.0.0.0"' in server
+    assert "LOOPBACK_HOST" not in server
+
+
 def _terceiros_do_lock() -> set[str]:
     terceiros: set[str] = set()
     for linha in (ROOT / "requirements-agent.lock").read_text(encoding="utf-8").splitlines():

@@ -16,7 +16,12 @@ MAX_HEALTH_RESPONSE = 16 * 1024
 UNIX_SOCKET_FAMILY: Any = getattr(
     socket, "AF_UNIX", None
 )  # noqa: B009 -- ausente nos stubs Windows
-LOOPBACK_HOST = "127.0.0.1"
+# Dentro do container, 127.0.0.1 alcançaria só o próprio loopback e o
+# publish do compose (mesmo em 127.0.0.1 do host) nunca chegaria: o DNAT
+# entrega no IP do container, que o socket de loopback recusa. Por isso o
+# bind é 0.0.0.0 AQUI e o perímetro fica no compose, que publica só em
+# 127.0.0.1 do host — exposição pública continua papel do proxy.
+BIND_HOST = "0.0.0.0"
 
 
 def socket_path() -> Path:
@@ -52,10 +57,11 @@ def prepare_socket(path: Path) -> None:
 
 
 def porta_http() -> int | None:
-    """Porta TCP loopback do ingress, ou None para socket Unix exclusivo.
+    """Porta TCP do ingress, ou None para socket Unix exclusivo.
 
     Ausente = comportamento atual preservado (só socket). Quando definida,
-    escuta SOMENTE em 127.0.0.1 — exposição pública é papel do proxy.
+    o bind é 0.0.0.0 no container e o perímetro fica no compose, que publica
+    só em 127.0.0.1 do host — exposição pública é papel do proxy.
     """
     bruto = os.environ.get("TIANET_AGENT_HTTP_PORT", "").strip()
     if not bruto:
@@ -75,7 +81,7 @@ def serve() -> None:
         uvicorn.run(
             "emprestimo.agent.service:create_agent_app",
             factory=True,
-            host=LOOPBACK_HOST,
+            host=BIND_HOST,
             port=porta,
             limit_concurrency=16,
             timeout_keep_alive=5,
