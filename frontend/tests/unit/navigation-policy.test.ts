@@ -82,6 +82,12 @@ describe("politica de navegacao", () => {
       .map((item) => item.href)).not.toContain("/app/openai");
   });
 
+  it("expoe Agente somente por permissao exata", async () => {
+    const { SHELL_NAVIGATION } = await import("../../src/lib/shell/navigation-policy");
+    expect(visibleNavigationItems(SHELL_NAVIGATION, ["agent.inbox.ler"]).map((item) => item.href)).toContain("/app/agent");
+    expect(visibleNavigationItems(SHELL_NAVIGATION, ["agent.inbox.*", "agent"]).map((item) => item.href)).not.toContain("/app/agent");
+  });
+
   it("separa o dia a dia da administracao sem esconder destino permitido", () => {
     const permitidos = visibleNavigationItems(destinations, ["permission.alpha", "permission.beta"]);
     // Agrupar e so ordenar a vista: a soma dos dois grupos e o conjunto inteiro.

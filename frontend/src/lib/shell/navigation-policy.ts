@@ -139,6 +139,12 @@ export const SHELL_NAVIGATION: readonly NavigationDestination[] = [
       "notificacao.conciliar",
     ],
   },
+  {
+    grupo: "administracao",
+    href: "/app/agent",
+    label: "Agente",
+    requiredPermission: "agent.inbox.ler",
+  },
 ];
 
 export function navigationByGroup(

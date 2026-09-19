@@ -23,6 +23,7 @@ from emprestimo.infrastructure.repositories import (
     SqlAlchemyPerfilAcessoRepository,
     SqlAlchemyUsuarioRepository,
 )
+from emprestimo.presentation.api.agent_routes import router as agent_router
 from emprestimo.presentation.api.auth_routes import router as auth_router
 from emprestimo.presentation.api.automacao_routes import router as automacao_router
 from emprestimo.presentation.api.comercial_routes import router as comercial_router
@@ -85,7 +86,8 @@ def test_imp_269_openapi_cobre_routers_reais_e_contratos_transversais() -> None:
     router_operations = _router_operations()
 
     # ADR-020: +4 com conexao, diagnostico, login e logout OpenAI.
-    assert len(operations) == 115
+    # S3: +1 com GET /platform/agent/inbox (somente leitura).
+    assert len(operations) == 116
     assert operations.keys() == router_operations
     assert schema["components"]["schemas"]["ErroResponse"]["required"] == [
         "codigo",
@@ -227,6 +229,7 @@ def _api_routes() -> Iterable[APIRoute]:
     for api_router in (
         observability_router,
         auth_router,
+        agent_router,
         iam_router,
         platform_router,
         devedores_router,

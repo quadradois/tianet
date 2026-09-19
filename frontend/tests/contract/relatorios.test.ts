@@ -34,9 +34,9 @@ describe("contrato OpenAPI de Relatorios", () => {
   it("preserva snapshot governado 115/146/SHA e os quatro GETs oficiais", () => {
     const allOperations = operations();
     const schemas = record(record(record(snapshot).components).schemas);
-    expect(allOperations).toHaveLength(115);
-    expect(Object.keys(schemas)).toHaveLength(146);
-    expect(snapshotHash).toBe("ee83d2d2e13337e56669abc9f272b65a99bf8ab1aa52b2dbf3fe9c50a33a904b");
+    expect(allOperations).toHaveLength(116);
+    expect(Object.keys(schemas)).toHaveLength(148);
+    expect(snapshotHash).toBe("18a29b265e9f0b785145458cf56a6d90a83a4b41a8f63cf9c576237dfdb7cc4a");
     for (const path of REPORT_PATHS) {
       const operation = allOperations.find((item) => item.path === path && item.method === "get");
       expect(operation, `${path} deve ser GET`).toBeTruthy();

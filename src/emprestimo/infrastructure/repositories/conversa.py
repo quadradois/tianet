@@ -156,6 +156,23 @@ class SqlAlchemyInboxConversaRepository(InboxConversaRepository):
             or 0
         )
 
+    def contar_por_classe(self, tenant_id: uuid.UUID) -> dict[ClasseContexto, int]:
+        rows = self._session.execute(
+            select(InboxConversaORM.classe, func.count())
+            .where(InboxConversaORM.tenant_id == tenant_id)
+            .group_by(InboxConversaORM.classe)
+        ).all()
+        return {ClasseContexto(classe): int(total) for classe, total in rows}
+
+    def listar_recentes(self, tenant_id: uuid.UUID, limite: int) -> list[EntradaConversa]:
+        rows = self._session.scalars(
+            select(InboxConversaORM)
+            .where(InboxConversaORM.tenant_id == tenant_id)
+            .order_by(InboxConversaORM.recebido_em.desc(), InboxConversaORM.provider_input_id)
+            .limit(max(limite, 0))
+        ).all()
+        return [_to_entrada(row) for row in rows]
+
 
 class SqlAlchemySessaoConversaRepository(SessaoConversaRepository):
     """Sessões isoladas por (tenant, instancia, classe, remetente)."""

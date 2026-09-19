@@ -2,7 +2,7 @@
 
 from emprestimo.domain.platform.permissao import Permissao
 
-CATALOGO_PERMISSOES_VERSAO = "1.2.0"
+CATALOGO_PERMISSOES_VERSAO = "1.3.0"
 
 CATALOGO_PERMISSOES = (
     # IMP-351: o endpoint POST /platform/tenants saiu, mas esta permissao NAO.
@@ -76,6 +76,9 @@ CATALOGO_PERMISSOES = (
     Permissao("whatsapp.conexao.gerir", "Conectar e desconectar o WhatsApp"),
     Permissao("openai.conexao.ler", "Consultar a conexao e os limites OpenAI"),
     Permissao("openai.conexao.gerir", "Conectar e desconectar a conta OpenAI"),
+    # S3: só leitura da inbox do agente (resumo + recentes para triagem).
+    # Sem gerir: não há ação mutável do agente exposta na v1.
+    Permissao("agent.inbox.ler", "Consultar a inbox do agente"),
     Permissao("credencial.redefinir", "Redefinir credenciais"),
     Permissao("perfil.gerir", "Gerir perfis e atribuicoes"),
     Permissao("perfil.ler", "Consultar perfis e permissoes"),

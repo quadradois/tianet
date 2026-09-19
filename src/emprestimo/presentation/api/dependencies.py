@@ -70,6 +70,7 @@ from emprestimo.application.estado import TenantEstadoService
 from emprestimo.application.estado_devedor import DevedorEstadoService
 from emprestimo.application.health import HealthService
 from emprestimo.application.historico_devedor import DevedorHistoricoService
+from emprestimo.application.inbox_agente import ConsultarInboxAgente
 from emprestimo.application.lancamento import LancamentoService
 from emprestimo.application.notifications import (
     AvisoSobraPagamentoService,
@@ -248,6 +249,13 @@ def get_excluir_conexao_whatsapp() -> ExcluirConexaoWhatsApp:
         lambda: SqlAlchemyUnitOfWork(session_factory),
         get_provedor_whatsapp(),
         SqlAlchemyAuditoriaRegistro(session_factory),
+    )
+
+
+def get_consultar_inbox_agente() -> ConsultarInboxAgente:
+    session_factory = get_session_factory()
+    return ConsultarInboxAgente(
+        lambda: SqlAlchemyUnitOfWork(session_factory),
     )
 
 

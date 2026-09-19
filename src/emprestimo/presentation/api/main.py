@@ -66,6 +66,7 @@ from emprestimo.domain.common.errors import (
     ViolacaoInvarianteError,
 )
 from emprestimo.domain.credit.contato import ContatoInvalidoError
+from emprestimo.presentation.api.agent_routes import router as agent_router
 from emprestimo.presentation.api.auth_routes import router as auth_router
 from emprestimo.presentation.api.automacao_routes import router as automacao_router
 from emprestimo.presentation.api.comercial_routes import router as comercial_router
@@ -112,6 +113,7 @@ def create_app() -> FastAPI:
     app.include_router(automacao_router)
     app.include_router(whatsapp_router)
     app.include_router(openai_router)
+    app.include_router(agent_router)
     app.add_exception_handler(RequestValidationError, _payload_invalido)
     app.add_exception_handler(AutenticacaoRecusadaError, _autenticacao_recusada)
     app.add_exception_handler(AcessoNegadoError, _acesso_negado)
