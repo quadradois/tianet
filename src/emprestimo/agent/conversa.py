@@ -235,6 +235,16 @@ class InboxConversaRepository(ABC):
     @abstractmethod
     def contar(self, tenant_id: uuid.UUID) -> int: ...
 
+    @abstractmethod
+    def contar_por_classe(self, tenant_id: uuid.UUID) -> dict[ClasseContexto, int]:
+        """Totais por classe para o resumo operacional (S3, só leitura)."""
+        ...
+
+    @abstractmethod
+    def listar_recentes(self, tenant_id: uuid.UUID, limite: int) -> list[EntradaConversa]:
+        """Mais recentes primeiro, para triagem do operador (S3, só leitura)."""
+        ...
+
 
 class SessaoConversaRepository(ABC):
     """Porta das sessões conversacionais, isoladas por classe."""

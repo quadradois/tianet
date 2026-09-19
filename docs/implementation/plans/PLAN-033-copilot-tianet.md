@@ -91,6 +91,12 @@ As duas leituras exigem `openai.conexao.ler`; as escritas exigem
 `openai.conexao.gerir`. Essas rotas nao contam como execucao do IMP-356 e nao
 alteram suas dependencias.
 
+Tela de operacao do agente (S3, somente leitura):
+
+- `GET /platform/agent/inbox` — resumo por classe + entradas mais recentes da
+  inbox do Tenant, para triagem do operador; exige `agent.inbox.ler`. Inbox
+  vazia devolve zeros, nao 404. Sem escrita, sem `Idempotency-Key`.
+
 Alteracao de permissao sem endpoint novo, no mesmo ciclo:
 `POST /credit/propostas-comerciais/{proposta_id}/enviar-para-analise` passou a
 exigir `comercial.proposta.submeter` em vez de `comercial.proposta.decidir`
@@ -127,6 +133,7 @@ O detalhe de cada gate, com condicao para seguir, esta no backlog §11.
 
 | Versao | Data | Descricao |
 |---|---|---|
+| 1.3.0 | 2026-09-19 | Declara `GET /platform/agent/inbox` (S3, somente leitura) e a permissao `agent.inbox.ler`. |
 | 1.2.0 | 2026-09-09 | Registra a preparacao administrativa local do Codex App Server e seus quatro endpoints; mantem IMP-359 e os gates do IMP-356. |
 | 1.1.0 | 2026-09-09 | Reconcilia a aprovacao do catalogo B1 e da direcao de provedor: OpenRouter no piloto proposto, NVIDIA em comparacao sintetica e OmniRoute como gateway opcional condicionado. Gates operacionais permanecem abertos. |
 | 1.0.0 | 2026-08-27 | Plano materializado a partir do backlog v1.5.0, com a secao API declarando `POST /iam/usuarios` do IMP-355. |

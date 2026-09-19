@@ -85,7 +85,9 @@ def test_imp_266_quality_migrations_gate_e_unico_head_alembic() -> None:
     # (`e5f6a7b8c9d0`); downgrade remove so a coluna.
     # IMP-356-E slice 2 cria `egress_conversa` (`f6a7b8c9d0e1`); downgrade
     # remove so ela.
-    assert script.get_current_head() == "f6a7b8c9d0e1"
+    # S3 concede `agent.inbox.ler` aos perfis admin (`62c5a6f94173`); downgrade
+    # remove so ela.
+    assert script.get_current_head() == "62c5a6f94173"
 
 
 def test_imp_267_health_correlation_e_erro_tecnico_sem_vazamento(

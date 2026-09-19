@@ -2173,6 +2173,56 @@
         "title": "EmprestimoState",
         "type": "string"
       },
+      "EntradaInboxResponse": {
+        "properties": {
+          "classe": {
+            "description": "operadora ou pre_cadastro.",
+            "title": "Classe",
+            "type": "string"
+          },
+          "estado": {
+            "description": "Estado da entrada na inbox.",
+            "title": "Estado",
+            "type": "string"
+          },
+          "provider_input_id": {
+            "description": "ID do provedor (dedupe replay).",
+            "title": "Provider Input Id",
+            "type": "string"
+          },
+          "recebido_em": {
+            "format": "date-time",
+            "title": "Recebido Em",
+            "type": "string"
+          },
+          "remetente_normalizado": {
+            "description": "Remetente normalizado.",
+            "title": "Remetente Normalizado",
+            "type": "string"
+          },
+          "texto": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Texto, quando houver.",
+            "title": "Texto"
+          }
+        },
+        "required": [
+          "provider_input_id",
+          "remetente_normalizado",
+          "classe",
+          "estado",
+          "recebido_em"
+        ],
+        "title": "EntradaInboxResponse",
+        "type": "object"
+      },
       "ErroResponse": {
         "description": "Corpo padronizado de erro da API.",
         "properties": {
@@ -2525,6 +2575,37 @@
           "total"
         ],
         "title": "HistoricoComunicacaoResponse",
+        "type": "object"
+      },
+      "InboxAgenteResponse": {
+        "description": "Resumo + recentes da inbox do Tenant.",
+        "properties": {
+          "operadora": {
+            "default": 0,
+            "title": "Operadora",
+            "type": "integer"
+          },
+          "pre_cadastro": {
+            "default": 0,
+            "title": "Pre Cadastro",
+            "type": "integer"
+          },
+          "recentes": {
+            "items": {
+              "$ref": "#/components/schemas/EntradaInboxResponse"
+            },
+            "title": "Recentes",
+            "type": "array"
+          },
+          "total": {
+            "title": "Total",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "total"
+        ],
+        "title": "InboxAgenteResponse",
         "type": "object"
       },
       "JobListResponse": {
@@ -23035,6 +23116,137 @@
         "summary": "Permissoes Efetivas",
         "tags": [
           "iam"
+        ]
+      }
+    },
+    "/platform/agent/inbox": {
+      "get": {
+        "description": "Resumo por classe + entradas mais recentes, para triagem do operador.",
+        "operationId": "consultar_inbox_platform_agent_inbox_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "limite",
+            "required": false,
+            "schema": {
+              "default": 20,
+              "maximum": 100,
+              "minimum": 1,
+              "title": "Limite",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "Identificador tecnico de correlacao aceito ou gerado pela API.",
+            "in": "header",
+            "name": "X-Correlation-ID",
+            "required": false,
+            "schema": {
+              "maxLength": 128,
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InboxAgenteResponse"
+                }
+              }
+            },
+            "description": "Successful Response",
+            "headers": {
+              "X-Correlation-ID": {
+                "description": "Identificador tecnico de correlacao da requisicao.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErroResponse"
+                }
+              }
+            },
+            "description": "Payload, parametros ou headers invalidos para a operacao.",
+            "headers": {
+              "X-Correlation-ID": {
+                "description": "Identificador tecnico de correlacao da requisicao.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErroResponse"
+                }
+              }
+            },
+            "description": "Autenticacao recusada por token ausente, invalido ou expirado.",
+            "headers": {
+              "X-Correlation-ID": {
+                "description": "Identificador tecnico de correlacao da requisicao.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErroResponse"
+                }
+              }
+            },
+            "description": "Principal autenticado nao possui permissao para a operacao.",
+            "headers": {
+              "X-Correlation-ID": {
+                "description": "Identificador tecnico de correlacao da requisicao.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErroResponse"
+                }
+              }
+            },
+            "description": "Erro tecnico inesperado com resposta segura e correlacionavel.",
+            "headers": {
+              "X-Correlation-ID": {
+                "description": "Identificador tecnico de correlacao da requisicao.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "summary": "Consultar Inbox",
+        "tags": [
+          "Agent"
         ]
       }
     },
