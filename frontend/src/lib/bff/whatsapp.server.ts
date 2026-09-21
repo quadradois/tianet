@@ -2,24 +2,29 @@ import "server-only";
 
 import { createBackendClient } from "../api/client.server";
 import {
+  INITIAL_NUMERO_AVISOS_ACTION_STATE,
   INITIAL_WHATSAPP_ACTION_STATE,
   WHATSAPP_MANAGE_PERMISSION,
   WHATSAPP_READ_PERMISSION,
   hasExactPermission,
+  isNumeroAvisos,
   isWhatsAppConnection,
   isWhatsAppQrCode,
+  type NumeroAvisosActionState,
+  type NumeroAvisosReadResult,
   type WhatsAppActionState,
   type WhatsAppPermission,
   type WhatsAppReadResult,
 } from "../whatsapp/whatsapp-policy";
 
-import { ApiProblem, apiProblemFromResponse, correlationId, createCookieAuthenticatedFetch, type BffDependencies } from "./backend.server";
+import { ApiProblem, apiProblemFromResponse, correlationId, createCookieAuthenticatedFetch, idempotencyKey, type BffDependencies } from "./backend.server";
 import type { OperationalContext } from "./context.server";
 import type { CookieStore } from "./session.server";
 
 type TypedClient = ReturnType<typeof createBackendClient>;
 
 const ROTA_CONEXAO = "/platform/whatsapp/conexao" as const;
+const ROTA_AVISOS = "/platform/whatsapp/avisos" as const;
 
 /**
  * BFF da conexao de WhatsApp (IMP-369).
@@ -51,7 +56,7 @@ function indisponivel(correlation: string): ApiProblem {
   return new ApiProblem({ status: 502, codigo: "backend_indisponivel", mensagem: "Servico temporariamente indisponivel.", correlationId: correlation });
 }
 
-function problemState(problem: ApiProblem): WhatsAppActionState {
+function problemState(problem: ApiProblem): Readonly<{ kind: "problem"; message: string; status: number; correlationId: string }> {
   return { kind: "problem", message: problem.message, status: problem.status, correlationId: problem.correlationId };
 }
 
@@ -162,4 +167,69 @@ export async function disconnectWhatsApp(
   }), "WhatsApp desconectado.", "desconectar");
 }
 
-export { INITIAL_WHATSAPP_ACTION_STATE };
+/**
+ * Numero que recebe os avisos do sistema (IMP-353) — configuracao
+ * `credor_whatsapp` do Tenant. Nao e a conexao: e o destino do resumo diario
+ * e do aviso de sobra. O PUT LEVA `Idempotency-Key` (a isencao da ADR-019 e
+ * so das tres operacoes da conexao); a chave vem do formulario para que a
+ * repeticao do mesmo envio seja replay, nao segunda escrita.
+ */
+export async function readNumeroAvisos(
+  cookies: CookieStore,
+  context: OperationalContext,
+  dependencies: BffDependencies,
+): Promise<NumeroAvisosReadResult> {
+  const correlation = correlationId();
+  if (!hasExactPermission(context.permissoes, WHATSAPP_READ_PERMISSION)) return problemState(negado(correlation));
+  try {
+    const result = await comCliente(cookies, dependencies, correlation, (client) => client.GET(ROTA_AVISOS, {
+      params: { header: { "X-Correlation-ID": correlation } },
+    }));
+    if (result.response.status !== 200) return problemState(await problemOf(result.response, correlation));
+    if (!isNumeroAvisos(result.data)) {
+      return problemState(new ApiProblem({ status: 502, codigo: "resposta_backend_invalida", mensagem: "Servico temporariamente indisponivel.", correlationId: correlationOf(result.response, correlation) }));
+    }
+    return { kind: "ready", numero: result.data.numero ?? null };
+  } catch (error) {
+    return problemState(error instanceof ApiProblem ? error : indisponivel(correlation));
+  }
+}
+
+export async function saveNumeroAvisos(
+  cookies: CookieStore,
+  context: OperationalContext,
+  dependencies: BffDependencies,
+  formData: FormData,
+): Promise<NumeroAvisosActionState> {
+  const correlation = correlationId();
+  if (!hasExactPermission(context.permissoes, WHATSAPP_MANAGE_PERMISSION)) return problemState(negado(correlation));
+  const numero = formData.get("numero");
+  const chaveBruta = formData.get("idempotency_key");
+  // Mesma regra do backend (10 a 15 digitos com DDI), validada aqui para a
+  // mensagem chegar inteira a tela: o 400 do backend vira texto generico.
+  const digitos = typeof numero === "string" ? numero.replace(/\D+/g, "") : "";
+  if (typeof numero !== "string" || digitos.length < 10 || digitos.length > 15) {
+    return problemState(new ApiProblem({ status: 400, codigo: "payload_invalido", mensagem: "Informe o numero com DDI e DDD, de 10 a 15 digitos (ex.: 5511999998888).", correlationId: correlation }));
+  }
+  let chave: string;
+  try {
+    chave = idempotencyKey(true, typeof chaveBruta === "string" ? chaveBruta : undefined) ?? "";
+  } catch (error) {
+    return problemState(error instanceof ApiProblem ? error : indisponivel(correlation));
+  }
+  try {
+    const result = await comCliente(cookies, dependencies, correlation, (client) => client.PUT(ROTA_AVISOS, {
+      params: { header: { "X-Correlation-ID": correlation, "Idempotency-Key": chave } },
+      body: { numero },
+    }));
+    if (result.response.status !== 200) return problemState(await problemOf(result.response, correlation));
+    if (!isNumeroAvisos(result.data)) {
+      return problemState(new ApiProblem({ status: 502, codigo: "resposta_backend_invalida", mensagem: "Servico temporariamente indisponivel.", correlationId: correlationOf(result.response, correlation) }));
+    }
+    return { kind: "success", message: "Numero salvo. Os avisos do sistema vao para ele.", numero: result.data.numero ?? null, correlationId: correlationOf(result.response, correlation) };
+  } catch (error) {
+    return problemState(error instanceof ApiProblem ? error : indisponivel(correlation));
+  }
+}
+
+export { INITIAL_NUMERO_AVISOS_ACTION_STATE, INITIAL_WHATSAPP_ACTION_STATE };

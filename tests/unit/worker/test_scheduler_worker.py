@@ -2,7 +2,7 @@ import threading
 import time
 import uuid
 from concurrent.futures import Future
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, date, datetime, timedelta
 from types import SimpleNamespace
 from typing import Any, cast
 
@@ -171,3 +171,22 @@ def test_varredura_periodica_respeita_o_intervalo() -> None:
     relogio[0] = 300.0
     periodica.talvez_varrer()
     assert varredura.execucoes == 2
+
+
+def test_semeador_decide_a_data_pelo_fuso_de_sao_paulo() -> None:
+    """23:30 UTC de 21/09 ainda e 20:30 de 21/09 em Sao Paulo; 02:30 UTC de 22/09 tambem e 21/09."""
+    chamadas: list[date] = []
+    agendador = cast(
+        AgendadorVarreduraCobranca,
+        SimpleNamespace(agendar_dia=lambda **dados: chamadas.append(dados["data_referencia"])),
+    )
+    instante = [datetime(2026, 9, 21, 23, 30, tzinfo=UTC)]
+    semeador = SemeadorDiarioCobranca(agendador, agora=lambda: instante[0])
+
+    semeador.semear()
+    instante[0] = datetime(2026, 9, 22, 2, 30, tzinfo=UTC)
+    semeador.semear()
+    instante[0] = datetime(2026, 9, 22, 3, 30, tzinfo=UTC)
+    semeador.semear()
+
+    assert chamadas == [date(2026, 9, 21), date(2026, 9, 22)]

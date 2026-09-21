@@ -26,7 +26,7 @@ provedor, enquanto o WhatsApp do operador segue ligado na primeira.
 
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Header
 
 from emprestimo.application.autorizacao import Principal
 from emprestimo.application.conexao_whatsapp import (
@@ -35,12 +35,14 @@ from emprestimo.application.conexao_whatsapp import (
     DesconectarWhatsApp,
     ExcluirConexaoWhatsApp,
 )
+from emprestimo.application.numero_avisos import NumeroAvisosService
 from emprestimo.presentation.api.dependencies import (
     exigir_permissao,
     get_conectar_whatsapp,
     get_consultar_conexao_whatsapp,
     get_desconectar_whatsapp,
     get_excluir_conexao_whatsapp,
+    get_numero_avisos_service,
     get_principal_atual,
 )
 from emprestimo.presentation.api.openapi import (
@@ -50,6 +52,8 @@ from emprestimo.presentation.api.openapi import (
 )
 from emprestimo.presentation.api.whatsapp_schemas import (
     ConexaoWhatsAppResponse,
+    NumeroAvisosRequest,
+    NumeroAvisosResponse,
     QrCodeConexaoResponse,
 )
 
@@ -135,4 +139,36 @@ def excluir_instancia(
     """
     return ConexaoWhatsAppResponse.de(
         caso_de_uso.executar(tenant_id=principal.tenant_id, usuario_id=principal.usuario_id)
+    )
+
+
+# --- Numero que recebe os avisos (IMP-353) ---------------------------------
+# Nao e a conexao: e a configuracao `credor_whatsapp` do Tenant, destino do
+# resumo diario e do aviso de sobra. PUT porque e substituicao total de um
+# valor unico por Tenant; `Idempotency-Key` obrigatoria (a ADR-019 isenta so
+# as tres operacoes da conexao).
+
+
+@router.get("/avisos", response_model=NumeroAvisosResponse)
+def consultar_numero_avisos(
+    principal: Principal = Depends(exigir_permissao("whatsapp.conexao.ler")),
+    service: NumeroAvisosService = Depends(get_numero_avisos_service),
+) -> NumeroAvisosResponse:
+    return NumeroAvisosResponse.de(service.consultar(principal.tenant_id))
+
+
+@router.put("/avisos", response_model=NumeroAvisosResponse)
+def definir_numero_avisos(
+    payload: NumeroAvisosRequest,
+    idempotency_key: str = Header(alias="Idempotency-Key", min_length=1, max_length=255),
+    principal: Principal = Depends(exigir_permissao("whatsapp.conexao.gerir")),
+    service: NumeroAvisosService = Depends(get_numero_avisos_service),
+) -> NumeroAvisosResponse:
+    return NumeroAvisosResponse.de(
+        service.definir(
+            tenant_id=principal.tenant_id,
+            numero=payload.numero,
+            idempotency_key=idempotency_key.strip(),
+            usuario_id=principal.usuario_id,
+        )
     )

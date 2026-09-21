@@ -5,8 +5,8 @@ import { cookies } from "next/headers";
 
 import { createRuntimeDependencies } from "@/lib/bff/backend.server";
 import { currentOperationalContext } from "@/lib/bff/current-context.server";
-import { connectWhatsApp, disconnectWhatsApp } from "@/lib/bff/whatsapp.server";
-import type { WhatsAppActionState } from "@/lib/whatsapp/whatsapp-policy";
+import { connectWhatsApp, disconnectWhatsApp, saveNumeroAvisos } from "@/lib/bff/whatsapp.server";
+import type { NumeroAvisosActionState, WhatsAppActionState } from "@/lib/whatsapp/whatsapp-policy";
 
 /**
  * Uma acao so para conectar e desconectar, escolhida por `intent`.
@@ -35,5 +35,12 @@ export async function whatsappAction(_state: WhatsAppActionState, formData: Form
   // antes de o QR falhar, e a tela precisa refletir a instancia que passou a
   // existir. No desconectar, falha nao muda estado local.
   if (result.kind === "success" || !desconectar) revalidatePath("/app/whatsapp");
+  return result;
+}
+
+/** Grava o numero que recebe os avisos do sistema (configuracao `credor_whatsapp`). */
+export async function numeroAvisosAction(_state: NumeroAvisosActionState, formData: FormData): Promise<NumeroAvisosActionState> {
+  const result = await saveNumeroAvisos(await cookies(), await currentOperationalContext(), createRuntimeDependencies(), formData);
+  if (result.kind === "success") revalidatePath("/app/whatsapp");
   return result;
 }

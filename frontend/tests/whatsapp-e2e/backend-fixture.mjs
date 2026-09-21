@@ -63,6 +63,7 @@ const conexoes = {
 };
 
 const estadoAtual = new Map();
+const numerosAvisos = new Map();
 
 function contexto(modo) {
   const conexao = estadoAtual.get(modo) ?? conexoes[modo] ?? conexoes.ausente;
@@ -100,6 +101,7 @@ const server = createServer(async (request, response) => {
   if (request.method === "POST" && url.pathname === "/auth/login") {
     const modo = loginMode(await jsonBody(request));
     estadoAtual.set(modo, { ...(conexoes[modo] ?? conexoes.ausente) });
+    numerosAvisos.delete(modo);
     send(response, 200, {
       access_token: `access-${modo}`,
       access_token_expira_em: "2099-08-13T12:15:00.000Z",
@@ -147,6 +149,33 @@ const server = createServer(async (request, response) => {
     if (request.method === "DELETE") {
       estadoAtual.set(modo, { ...conexoes.pendente, pareada: false, conectado: false });
       send(response, 200, estadoAtual.get(modo), correlation);
+      return;
+    }
+  }
+
+  // Numero que recebe os avisos (IMP-353): um por modo, nasce vazio.
+  if (url.pathname === "/platform/whatsapp/avisos") {
+    const modo = modoDoToken(request);
+    if (request.method === "GET") {
+      send(response, 200, { numero: numerosAvisos.get(modo) ?? null }, correlation);
+      return;
+    }
+    if (request.method === "PUT") {
+      if (!PERMISSOES[modo]?.includes("whatsapp.conexao.gerir")) {
+        send(response, 403, { codigo: "acesso_negado", mensagem: "Acao indisponivel para este acesso." }, correlation);
+        return;
+      }
+      if (!request.headers["idempotency-key"]) {
+        send(response, 400, { codigo: "idempotency_key_ausente", mensagem: "Idempotency-Key obrigatoria" }, correlation);
+        return;
+      }
+      const digitos = String((await jsonBody(request)).numero ?? "").replace(/\D+/g, "");
+      if (digitos.length < 10 || digitos.length > 15) {
+        send(response, 400, { codigo: "payload_invalido", mensagem: "Payload, parametros ou headers invalidos" }, correlation);
+        return;
+      }
+      numerosAvisos.set(modo, digitos);
+      send(response, 200, { numero: digitos }, correlation);
       return;
     }
   }

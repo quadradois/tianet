@@ -652,7 +652,7 @@ describe("transporte autenticado", () => {
 });
 
 describe("contratos tecnicos", () => {
-  it("confirma 4 operacoes publicas e 112 protegidas no snapshot governado", async () => {
+  it("confirma 4 operacoes publicas e 114 protegidas no snapshot governado", async () => {
     const snapshotPath = resolve(process.cwd(), "..", "docs", "governance", "contracts", "openapi", "frontend-mvp-backend-openapi.json");
     const snapshot: unknown = JSON.parse(await readFile(snapshotPath, "utf8"));
     if (typeof snapshot !== "object" || snapshot === null || !("paths" in snapshot)) throw new Error("snapshot invalido");
@@ -663,7 +663,8 @@ describe("contratos tecnicos", () => {
       return Object.values(item).filter((operation) => typeof operation === "object" && operation !== null && "responses" in operation);
     });
     const protectedCount = operations.filter((operation) => "security" in operation && Array.isArray(operation.security) && operation.security.length > 0).length;
-    expect(operations).toHaveLength(116);
+    expect(operations).toHaveLength(118);
+    // IMP-353: GET/PUT /platform/whatsapp/avisos entraram como protegidas (112 -> 114).
     // S3: GET /platform/agent/inbox entrou como protegida (111 -> 112).
     // IMP-368: as quatro operacoes da conexao de WhatsApp entraram como
     // protegidas (103 -> 107). Todas exigem `whatsapp.conexao.ler` ou `.gerir`;
@@ -676,7 +677,7 @@ describe("contratos tecnicos", () => {
     //
     // IMP-362: GET /credit/devedores/{id}/saldo entrou como protegida (102 -> 103).
     // Antes, o IMP-355 levou de 101 para 102 com POST /iam/usuarios.
-    expect(protectedCount).toBe(112);
+    expect(protectedCount).toBe(114);
     expect(operations.length - protectedCount).toBe(4);
   });
   it("normaliza correlation e idempotency sem confundir os identificadores", () => {

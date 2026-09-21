@@ -12,6 +12,7 @@ from collections.abc import Callable
 from concurrent.futures import Future
 from dataclasses import dataclass
 from datetime import UTC, date, datetime, timedelta
+from zoneinfo import ZoneInfo
 
 from sqlalchemy import create_engine, delete, func, select
 from sqlalchemy.orm import Session, sessionmaker
@@ -26,6 +27,11 @@ from emprestimo.application.notifications import (
     EntregaAvisoSobraPagamentoService,
     FakeNotificationChannel,
     NotificationService,
+)
+from emprestimo.application.resumo_diario import (
+    TIPO_JOB_RESUMO_DIARIO,
+    EntregaResumoDiarioService,
+    ResumoDiarioService,
 )
 from emprestimo.application.scheduler import ClaimScheduler, ResultadoExecucao, SchedulerService
 from emprestimo.application.varredura_cobranca import (
@@ -290,6 +296,9 @@ class HeartbeatStore:
             session.commit()
 
 
+FUSO_OPERACIONAL = ZoneInfo("America/Sao_Paulo")
+
+
 class SemeadorDiarioCobranca:
     """Cria jobs diarios no scheduler existente, uma vez por data e processo."""
 
@@ -305,7 +314,9 @@ class SemeadorDiarioCobranca:
 
     def semear(self) -> None:
         instante = self._agora()
-        data_referencia = instante.date()
+        # O dia operacional e o da Credora, nao o do servidor: em UTC o resumo
+        # sairia ~21h da vespera no Brasil (decisao do IMP-372 / PLAN-045 §4.8).
+        data_referencia = instante.astimezone(FUSO_OPERACIONAL).date()
         if self._ultima_data == data_referencia:
             return
         self._agendador.agendar_dia(
@@ -421,9 +432,12 @@ def main() -> None:
         whatsapp_channel,
         auditoria,
     )
+    resumo_diario = ResumoDiarioService(uow_factory, auditoria)
+    entrega_resumo = EntregaResumoDiarioService(uow_factory, whatsapp_channel, auditoria)
     varredura = VarreduraCobrancaService(
         uow_factory,
         auditoria,
+        apos_sucesso=resumo_diario.enfileirar,
     )
     semeador_cobranca = SemeadorDiarioCobranca(AgendadorVarreduraCobranca(uow_factory, auditoria))
 
@@ -463,6 +477,7 @@ def main() -> None:
             TIPO_JOB_COMPROVANTE: comprovantes.processar_comprovante,
             TIPO_JOB_AVISO_SOBRA: avisos_sobra.processar_aviso,
             TIPO_JOB_VARREDURA_COBRANCA: varredura.processar_job,
+            TIPO_JOB_RESUMO_DIARIO: entrega_resumo.processar,
         },
         settings=settings,
         before_cycle=antes_do_ciclo,

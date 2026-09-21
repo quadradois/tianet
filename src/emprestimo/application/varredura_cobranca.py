@@ -89,6 +89,28 @@ class DevedorVarreduraCobranca:
             Decimal("0.00"),
         )
 
+    @property
+    def em_atraso(self) -> bool:
+        return any(item.em_atraso for item in self.emprestimos)
+
+    @property
+    def juros_pendente_acerto(self) -> Decimal:
+        """Juro exigivel acumulado, ja apurado pelo Motor na varredura."""
+        return sum(
+            (item.juros_pendente_acerto for item in self.emprestimos if item.em_atraso),
+            Decimal("0.00"),
+        )
+
+    @property
+    def atraso_desde(self) -> date | None:
+        """Acerto em aberto mais antigo entre os emprestimos atrasados."""
+        datas = [
+            item.acerto_vigente_em
+            for item in self.emprestimos
+            if item.em_atraso and item.acerto_vigente_em is not None
+        ]
+        return min(datas) if datas else None
+
 
 @dataclass(frozen=True)
 class ResultadoVarreduraCobranca:
@@ -108,6 +130,10 @@ class ResultadoVarreduraCobranca:
     def vencem_amanha(self) -> tuple[DevedorVarreduraCobranca, ...]:
         return tuple(item for item in self.devedores if item.vence_amanha)
 
+    @property
+    def em_atraso(self) -> tuple[DevedorVarreduraCobranca, ...]:
+        return tuple(item for item in self.devedores if item.em_atraso)
+
 
 class VarreduraCobrancaService:
     """Consulta o Motor e sincroniza o ciclo de vida dos casos da carteira."""
@@ -119,11 +145,17 @@ class VarreduraCobrancaService:
         *,
         motor_factory: Callable[[], MotorFinanceiro] = MotorFinanceiro,
         agora: Callable[[], datetime] | None = None,
+        apos_sucesso: (
+            Callable[[uuid.UUID, uuid.UUID, ResultadoVarreduraCobranca], object] | None
+        ) = None,
     ) -> None:
         self._uow_factory = uow_factory
         self._auditoria = auditoria
         self._motor_factory = motor_factory
         self._agora = agora or (lambda: datetime.now(UTC))
+        # Consumidores do snapshot (IMP-353): so rodam depois do sucesso da
+        # varredura da mesma data, no caminho do worker.
+        self._apos_sucesso = apos_sucesso
 
     def processar_job(self, claim: ClaimScheduler) -> ResultadoExecucao:
         """Handler registrado no scheduler duravel."""
@@ -131,12 +163,14 @@ class VarreduraCobrancaService:
         valor_data = claim.job.payload.get("data_referencia")
         if not isinstance(valor_data, str):
             raise ValueError("job de varredura sem data_referencia")
-        self.executar(
+        resultado = self.executar(
             tenant_id=claim.job.tenant_id,
             carteira_id=claim.job.carteira_id,
             data_referencia=date.fromisoformat(valor_data),
             execucao_id=claim.tentativa.execution_id,
         )
+        if self._apos_sucesso is not None:
+            self._apos_sucesso(claim.job.tenant_id, claim.job.carteira_id, resultado)
         return ResultadoExecucao.SUCESSO
 
     def executar(

@@ -58,6 +58,8 @@ Verificado em 2026-09-21 por leitura de código e do handoff vigente, não presu
 
 ### IMP-372 — Fechar IMP-353 com fuso, bloco de atraso e deploy
 
+- **Status:** código pronto e verde em 2026-09-21 (backend 1599, frontend unit/component/bff/contract/Playwright WhatsApp); resta deploy, `credor_whatsapp` em produção e observação do primeiro envio real.
+
 - **Objetivo:** o resumo diário sai de verdade para a Credora, no horário certo, e inclui quem está em atraso.
 - **Escopo:** rodar `tests/integration` inteira e `gate:full` sobre o working tree do IMP-353; semeadura diária em `America/Sao_Paulo` (`SemeadorDiarioCobranca` recebe `ZoneInfo`, testes com relógio controlado); bloco "em atraso" no `montar_texto_resumo_diario` (nome, dias, juro acumulado por `data_referencia` — só leitura do Motor); PR, deploy, cadastrar `credor_whatsapp` na tela, observar o primeiro envio real.
 - **Critério de pronto:** resumo observado no WhatsApp da Credora às 08:00 BRT com vence-hoje e em-atraso; dia vazio não envia; replay não duplica; nenhum valor calculado fora do Motor (teste de arquitetura existente continua verde).
