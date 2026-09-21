@@ -240,10 +240,40 @@ fallback.
 
 ---
 
+### 8. Adendo — politica de dados deixa de ser criterio de elegibilidade — 2026-09-21
+
+O proprietario, ao revisar a DR para o desenho do atendimento ao devedor,
+declarou que a exigencia de politica de dados do provedor (retencao declarada,
+sem uso para treino, sub-processadores conhecidos, `data_collection=deny`,
+`zdr=true`) foi proposta pela engenharia e aprovada em bloco sem leitura
+deliberada. Decide **remove-la como criterio de elegibilidade** de
+provedor/modelo.
+
+- Permanece como criterio **eliminatorio** apenas o **function calling
+  confiavel**, provado por certificacao (356-D).
+- A escolha de provedor/modelo, incluindo rotas gratuitas, passa a ser decisao
+  de operacao registrada por configuracao, sob responsabilidade do proprietario
+  como controlador dos dados. A engenharia registra o risco quando houver, mas
+  nao bloqueia por ele.
+- **Nao muda:** retencao interna de 90 dias (§4), isolamento absoluto de
+  contextos, suite adversarial, ausencia de fallback automatico e rate limit.
+  Sao controles proprios de risco, nao exigencias de provedor; retira-los
+  seria outra decisao.
+- **Fato registrado para nao induzir retrabalho:** este criterio nunca bloqueou
+  a rota A (a API OpenAI o cumpre por padrao). O que ele bloqueava eram as
+  rotas gratuitas (OpenRouter `:free` sem ZDR provado; NVIDIA em trial). Sua
+  remocao reabre essas rotas em tese; a decisao de 2026-09-21 e **manter a
+  rota A** (`gpt-5-mini`) pela previsibilidade de disponibilidade — modelo
+  gratuito pode sumir ou perder cota sem aviso e, sem fallback, isso vira
+  indisponibilidade do atendimento sem causa visivel ao operador.
+
+---
+
 ## Historico
 
 | Data | Evento |
 |---|---|
+| 2026-09-21 | §8: politica de dados do provedor removida como criterio de elegibilidade por decisao do proprietario; function calling confiavel segue eliminatorio; rota A mantida por previsibilidade. Contexto: desenho do atendimento ao devedor. |
 | 2026-09-16 | Certificação final `gpt-5-mini` com régua justa (209 chamadas, US$ 0,186): 28–30/30, 38–40/40, 1 rodada aprovada isolada — REPROVADA. Ciclo encerrado: 5 certificações, ≈US$ 0,94. Laudo em PLAN-042. |
 | 2026-09-16 | Certificação `gpt-4o-2024-11-20` (210 chamadas, US$ 0,312): REPROVADA (22–23/30, 36–37/40) por super-recusa. Placar: 4 candidatos, 0 aprovados. 356-D pausado. Laudo em PLAN-041. |
 | 2026-09-16 | **ACEITE A23 (contenção de volume é garantia de código):** o modelo pode tentar volume (caso A23: 10 chamadas); o executor garante no máximo 2 tools + 6 HTTP, refs inexistentes recusadas, só leitura, resposta mascarada. Prova: testes de orçamento do 356-F slice 3 + suite do slice 5. A medição do A23 permanece estrita no harness; o aceite vale para o veredito. Decisão do fundador. |
