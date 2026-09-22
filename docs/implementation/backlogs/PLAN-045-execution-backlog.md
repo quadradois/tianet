@@ -1,6 +1,6 @@
 # PLAN-045-EXEC — Atendimento ao devedor, recebimento por Pix e BYOK
 
-**Versão:** 1.0.0
+**Versão:** 1.0.1
 
 **Status:** Aprovado pelo proprietário em 2026-09-21 (PLAN-045 v1.1.0); execução ainda não iniciada
 
@@ -127,8 +127,8 @@ Verificado em 2026-09-21 por leitura de código e do handoff vigente, não presu
 ### IMP-381 — Slice 6, identidade por telefone e classe `devedor`
 
 - **Objetivo:** só pacote do Evolution vale; o agente sabe quem é devedor pelo número.
-- **Escopo:** ingress compara `instanceToken` em tempo constante com o token da instância (decifrado, cacheado, invalidado na rotação; descarte `token_invalido` com métrica); índice em `contato.valor` normalizado E.164 para `tipo='whatsapp'` (migration + normalização na escrita); `GET /credit/devedores?telefone=` (permissão `devedor.ler`; só ativos); `ClasseContexto.DEVEDOR` e classificação na ordem allowlist → devedor → pré-cadastro; contrato reconciliado.
-- **Critério de pronto:** pacote com token errado/ausente descartado antes de qualquer leitura de `Sender`; token rotacionado na tela → cache invalidado (teste); classificação com/sem `+`, com/sem 9º dígito; devedor inativo → `pre_cadastro`; cross-tenant 404.
+- **Escopo:** ingress compara `instanceToken` em tempo constante com o token da instância (decifrado, cacheado, invalidado na rotação; descarte `token_invalido` com métrica); índice em `contato.valor` normalizado E.164 para `tipo='whatsapp'` (migration + normalização na escrita); `GET /credit/devedores?telefone=` (permissão `devedor.ler`; só ativos); `ClasseContexto.DEVEDOR` e classificação na ordem credora → devedor → pré-cadastro; **a identidade da Credora deixa de ser `COPILOT_OPERATOR_ALLOWLIST` (env) e passa a ser o `credor_whatsapp` do Tenant** — o mesmo número que recebe os avisos é o que responde por eles (decisão do proprietário em 2026-09-21); a variável sai do compose e do `.env.example`, e o agent lê a configuração do Tenant como já lê o token da instância; contrato reconciliado.
+- **Critério de pronto:** pacote com token errado/ausente descartado antes de qualquer leitura de `Sender`; token rotacionado na tela → cache invalidado (teste); classificação com/sem `+`, com/sem 9º dígito; devedor inativo → `pre_cadastro`; cross-tenant 404; `credor_whatsapp` alterado na tela → próxima mensagem já classifica pelo novo número, sem restart; `grep` em teste garante que `COPILOT_OPERATOR_ALLOWLIST` não existe mais no repo.
 
 ### IMP-382 — Consumidor da inbox, egress real e confirmação obrigatória
 
@@ -213,4 +213,5 @@ PLAN-045 §1.2, na íntegra. Em particular: IMP-357 (pré-cadastro) segue no PLA
 
 | Versão | Data | Alteração |
 |---|---|---|
+| 1.0.1 | 2026-09-21 | IMP-381: identidade da Credora passa de `COPILOT_OPERATOR_ALLOWLIST` (env) para `credor_whatsapp` do Tenant, setável na tela. |
 | 1.0.0 | 2026-09-21 | Backlog inicial: IMP-372..387 em seis gates, a partir do PLAN-045 v1.1.0 aprovado pelo proprietário. |
