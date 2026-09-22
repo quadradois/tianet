@@ -424,22 +424,74 @@ Migrations aditivas, downgrade reversível, `alembic revision -m` manual:
 
 # 6. API
 
-| Método | Rota | Permissão | Idempotency-Key |
-|---|---|---|---|
-| GET/PUT | `/platform/mercadopago/configuracao` | `mercadopago.configurar` | PUT sim |
-| POST | `/platform/mercadopago/configuracao/testar` · `/habilitar` · `/desabilitar` | `mercadopago.configurar` | sim |
-| POST | `/credit/emprestimos/{id}/cobrancas-pix` | `cobranca_pix.criar` | sim |
-| GET | `/credit/emprestimos/{id}/cobrancas-pix` | `emprestimo.ler` | — |
-| GET | `/credit/devedores?telefone=` | `devedor.ler` | — |
-| POST | `/credit/devedores/{id}/avisos/suspender` | `preferencia_notificacao.suspender` | sim |
-| GET/POST | `/credit/lembretes/autorizacoes/{data}` | `lembrete.autorizar` | POST sim |
-| GET/PUT | `/platform/llm/configuracao` | `llm.configurar` | PUT sim |
-| POST | `/platform/llm/configuracao/testar` | `llm.configurar` | sim |
-| POST | `/platform/llm/configuracao/habilitar` · `/desabilitar` | `llm.configurar` | sim |
-| POST | `/mercadopago/webhook` (agent, pública) | HMAC | — |
+Lista, não tabela: o `contract-check.js` ignora linhas de tabela ao comparar a
+seção com o código.
 
-`POST /credit/emprestimos/{id}/pagamentos` ganha `origem` opcional (default
-`manual`). Rito: `export_openapi` → `api:generate` → `test:contract` →
+**Recebimento por Pix (Mercado Pago), IMP-388 e IMP-376:**
+
+- `GET /platform/mercadopago/configuracao` — estado da integração (ligada ou
+  não, credenciais presentes, último teste). Permissão `mercadopago.configurar`.
+  **Nunca devolve segredo.**
+- `PUT /platform/mercadopago/configuracao` — grava `access_token` e
+  `webhook_secret` cifrados. Permissão `mercadopago.configurar`,
+  `Idempotency-Key`.
+- `POST /platform/mercadopago/configuracao/testar` — uma leitura autenticada no
+  provedor, sem criar cobrança. Permissão `mercadopago.configurar`,
+  `Idempotency-Key`.
+- `POST /platform/mercadopago/configuracao/habilitar` e
+  `POST /platform/mercadopago/configuracao/desabilitar` — ligam e desligam.
+  Habilitar exige credenciais e teste bem-sucedido; desabilitar **não** invalida
+  `CobrancaPix` `pendente`. Permissão `mercadopago.configurar`,
+  `Idempotency-Key`.
+- `POST /credit/emprestimos/{id}/cobrancas-pix` — cria o Pix do acerto.
+  Permissão `cobranca_pix.criar`, `Idempotency-Key`. `422` quando o valor cai
+  fora do intervalo do Motor (`INV-001`) ou quando a integração está desligada.
+- `GET /credit/emprestimos/{id}/cobrancas-pix` — lista as cobranças do
+  empréstimo, com estado e validade. Permissão `emprestimo.ler`.
+- `POST /mercadopago/webhook` — **no serviço `agent`, pública**, autenticada por
+  HMAC (ADR-021). Sem permissão de Principal e sem `Idempotency-Key`: a
+  deduplicação é por `mp_notification_id`.
+
+**Motor, IMP-389:**
+
+- `GET /credit/emprestimos/{id}/alocacao-prevista` — divisão que um valor
+  produziria (`valor` e `data_referencia` na query), sem registrar nada.
+  Permissão `motor.saldo.ler`. `400` para valor não positivo. Existe para o
+  copiloto anunciar juro e amortização **antes** de a Credora autorizar o
+  lançamento, com número do Motor.
+- `POST /credit/emprestimos/{id}/pagamentos` ganha `origem` opcional (`manual`,
+  `pix_mp`, `copilot_credora`), com default `manual` — mudança aditiva.
+
+**Devedor e avisos, IMP-381, IMP-383 e IMP-386:**
+
+- `GET /credit/devedores` com filtro `telefone` — localiza o devedor pelo
+  contato WhatsApp normalizado em E.164. Permissão `devedor.ler`.
+- `POST /credit/devedores/{id}/avisos/suspender` — suspende avisos proativos até
+  o próximo acerto. Permissão `preferencia_notificacao.suspender`,
+  `Idempotency-Key`.
+- `GET /credit/lembretes/autorizacoes/{data}` — lista do dia com os elegíveis.
+  Permissão `lembrete.autorizar`.
+- `POST /credit/lembretes/autorizacoes/{data}` — registra quem a Credora
+  autorizou. Permissão `lembrete.autorizar`, `Idempotency-Key`.
+
+**Comprovante, IMP-390:**
+
+- `POST /credit/emprestimos/{id}/comprovantes` — guarda o comprovante recebido
+  do devedor. Permissão `comprovante.registrar`, `Idempotency-Key` derivada do
+  `sha256`. Expurgado na quitação do empréstimo.
+
+**Provedor de IA (BYOK), IMP-379:**
+
+- `GET /platform/llm/configuracao` e `PUT /platform/llm/configuracao` —
+  provedor, modelo e chave (write-only). Permissão `llm.configurar`; `PUT` com
+  `Idempotency-Key`.
+- `POST /platform/llm/configuracao/testar`,
+  `POST /platform/llm/configuracao/habilitar` e
+  `POST /platform/llm/configuracao/desabilitar` — teste sintético e
+  interruptor. Habilitar exige par provedor+modelo certificado. Permissão
+  `llm.configurar`, `Idempotency-Key`.
+
+Rito a cada mudança: `export_openapi` → `api:generate` → `test:contract` →
 matriz e contadores.
 
 ---

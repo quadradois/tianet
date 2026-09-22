@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import spec from "../../../docs/governance/contracts/openapi/frontend-mvp-backend-openapi.json" with { type: "json" };
 
-const SNAPSHOT_SHA256 = "c0bfa8b85e1651a12a86f836e64f01e3f5ba9a075768e1911ffaeac42c435b3e";
+const SNAPSHOT_SHA256 = "11edf6acc4c134f27357ef3e6e6d9d0e7f68819396c48d36848a87bb16d8b30f";
 type HttpMethod = "get" | "patch" | "post";
 type OpenApiParameter = Readonly<{ name: string }>;
 type OpenApiOperation = Readonly<{
@@ -37,8 +37,8 @@ describe("contrato OpenAPI Comercial", () => {
     const { readFile } = await import("node:fs/promises");
     const bytes = await readFile(new URL("../../../docs/governance/contracts/openapi/frontend-mvp-backend-openapi.json", import.meta.url));
     expect(createHash("sha256").update(bytes).digest("hex")).toBe(SNAPSHOT_SHA256);
-    expect(Object.values(openapi.paths).flatMap((pathItem) => Object.keys(pathItem))).toHaveLength(118);
-    expect(Object.keys(openapi.components.schemas)).toHaveLength(150);
+    expect(Object.values(openapi.paths).flatMap((pathItem) => Object.keys(pathItem))).toHaveLength(119);
+    expect(Object.keys(openapi.components.schemas)).toHaveLength(151);
   });
 
   it("publica exatamente as 12 operacoes Comerciais esperadas", () => {

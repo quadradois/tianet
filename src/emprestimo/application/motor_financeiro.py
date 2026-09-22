@@ -29,7 +29,7 @@ from emprestimo.domain.credit.emprestimo import Emprestimo, EmprestimoState
 from emprestimo.domain.credit.eventos_financeiros import EventoFinanceiro
 from emprestimo.domain.credit.financeiro import TaxaJuros, ValorQuitacao
 from emprestimo.domain.credit.memoria_calculo import MemoriaCalculo
-from emprestimo.domain.credit.motor_financeiro import MotorFinanceiro
+from emprestimo.domain.credit.motor_financeiro import MotorFinanceiro, prever_alocacao
 from emprestimo.domain.credit.pagamento import Pagamento, PagamentoState
 from emprestimo.domain.credit.ports import EmprestimoFiltros, Paginacao
 
@@ -116,6 +116,20 @@ class SaldoResultado:
     encargos: Decimal
     total: Decimal
     memoria: MemoriaCalculo
+
+
+@dataclass(frozen=True)
+class AlocacaoPrevistaResultado:
+    """Divisao prevista de um valor, sem pagamento registrado (IMP-389)."""
+
+    emprestimo_id: uuid.UUID
+    tenant_id: uuid.UUID
+    data_referencia: date
+    valor: Decimal
+    valor_juros: Decimal
+    valor_encargos: Decimal
+    valor_amortizacao: Decimal
+    valor_devolvido: Decimal
 
 
 @dataclass(frozen=True)
@@ -705,6 +719,55 @@ class ConsultaSaldoService:
                 encargos=saldo.encargos,
                 total=saldo.total,
                 memoria=saldo.memoria,
+            )
+
+    def prever_alocacao(
+        self,
+        *,
+        emprestimo_id: uuid.UUID,
+        tenant_id: uuid.UUID,
+        valor: Decimal,
+        data_referencia: date,
+    ) -> AlocacaoPrevistaResultado:
+        """Divisao que `valor` produziria, sem registrar nada (IMP-389).
+
+        Existe para o copiloto anunciar a divisao antes de a Credora autorizar
+        o lancamento: o numero mostrado tem de ser o mesmo que o lancamento
+        produzira, e por isso vem do Motor, nunca do modelo.
+        """
+        with self._uow_factory() as uow:
+            emprestimo = _emprestimo_do_tenant(
+                uow,
+                emprestimo_id=emprestimo_id,
+                tenant_id=tenant_id,
+            )
+            motor = self._motor_factory()
+            motor.carregar_historico(
+                emprestimo_id=emprestimo_id,
+                pagamentos=uow.pagamento.find_by_emprestimo_id(emprestimo_id),
+            )
+            try:
+                alocacao = prever_alocacao(
+                    motor=motor,
+                    emprestimo=emprestimo,
+                    valor=valor,
+                    data_referencia=data_referencia,
+                )
+            except ViolacaoInvarianteError as exc:
+                raise TransicaoEstadoInvalidaError(
+                    emprestimo_id,
+                    "prever_alocacao",
+                    str(exc),
+                ) from exc
+            return AlocacaoPrevistaResultado(
+                emprestimo_id=emprestimo.id,
+                tenant_id=emprestimo.tenant_id,
+                data_referencia=data_referencia,
+                valor=valor,
+                valor_juros=alocacao.valor_juros,
+                valor_encargos=alocacao.valor_encargos,
+                valor_amortizacao=alocacao.valor_amortizacao,
+                valor_devolvido=alocacao.valor_devolvido,
             )
 
     def consultar_por_devedor(

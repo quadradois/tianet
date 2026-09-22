@@ -77,6 +77,64 @@ class RenegociacaoFinanceira:
         )
 
 
+@dataclass(frozen=True)
+class AlocacaoPagamento:
+    """Como um valor se reparte entre juros, encargos, amortizacao e sobra.
+
+    Ordem fixada pela DR-004: o juro do periodo vem primeiro, depois encargos,
+    depois amortizacao; o que exceder a divida e devolvido. Valores brutos —
+    quem persiste quantiza, quem apresenta formata.
+    """
+
+    valor_juros: Decimal
+    valor_encargos: Decimal
+    valor_amortizacao: Decimal
+    valor_devolvido: Decimal
+    remanescente_apos_encargos: Decimal
+
+
+def alocar_pagamento(*, valor: Decimal, saldo: SaldoFinanceiro) -> AlocacaoPagamento:
+    """Reparte `valor` sobre `saldo`, sem tocar em estado nenhum.
+
+    Extraida de `registrar_pagamento` no IMP-389 para servir tambem a previsao
+    de leitura: o copiloto precisa dizer a divisao ANTES de lancar, e o numero
+    tem de ser o mesmo que o lancamento produzira.
+    """
+    valor_juros = min(valor, saldo.juros)
+    remanescente = valor - valor_juros
+    valor_encargos = min(remanescente, saldo.encargos)
+    remanescente -= valor_encargos
+    valor_amortizacao = min(remanescente, saldo.principal)
+    return AlocacaoPagamento(
+        valor_juros=valor_juros,
+        valor_encargos=valor_encargos,
+        valor_amortizacao=valor_amortizacao,
+        valor_devolvido=remanescente - valor_amortizacao,
+        remanescente_apos_encargos=remanescente,
+    )
+
+
+def prever_alocacao(
+    *,
+    motor: MotorFinanceiro,
+    emprestimo: Emprestimo,
+    valor: Decimal,
+    data_referencia: date,
+) -> AlocacaoPagamento:
+    """Divisao que `valor` produziria naquela data, ja quantizada, sem registrar."""
+    if valor <= Decimal("0.00"):
+        raise ViolacaoInvarianteError("EPIC-005", "valor do pagamento deve ser positivo")
+    saldo = motor.consultar_saldo(emprestimo=emprestimo, data_referencia=data_referencia)
+    bruta = alocar_pagamento(valor=valor, saldo=saldo)
+    return AlocacaoPagamento(
+        valor_juros=_quantizar(bruta.valor_juros),
+        valor_encargos=_quantizar(bruta.valor_encargos),
+        valor_amortizacao=_quantizar(bruta.valor_amortizacao),
+        valor_devolvido=_quantizar(bruta.valor_devolvido),
+        remanescente_apos_encargos=_quantizar(bruta.remanescente_apos_encargos),
+    )
+
+
 class MotorFinanceiro:
     """Unica superficie de calculo definitivo do dominio financeiro."""
 
@@ -122,20 +180,17 @@ class MotorFinanceiro:
             emprestimo=emprestimo,
             data_referencia=recebido_em.date(),
         )
-        valor_juros = min(valor, saldo.juros)
-        remanescente = valor - valor_juros
-        valor_encargos = min(remanescente, saldo.encargos)
-        remanescente -= valor_encargos
-        valor_amortizacao = min(remanescente, saldo.principal)
-        valor_devolvido = remanescente - valor_amortizacao
+        alocacao = alocar_pagamento(valor=valor, saldo=saldo)
+        valor_juros = alocacao.valor_juros
+        remanescente = alocacao.remanescente_apos_encargos
         pagamento = Pagamento(
             emprestimo_id=emprestimo.id,
             valor_recebido=valor,
             recebido_em=recebido_em,
-            valor_juros=_quantizar(valor_juros),
-            valor_amortizacao=_quantizar(valor_amortizacao),
-            valor_encargos=_quantizar(valor_encargos),
-            valor_devolvido=_quantizar(valor_devolvido),
+            valor_juros=_quantizar(alocacao.valor_juros),
+            valor_amortizacao=_quantizar(alocacao.valor_amortizacao),
+            valor_encargos=_quantizar(alocacao.valor_encargos),
+            valor_devolvido=_quantizar(alocacao.valor_devolvido),
             chave_idempotencia=chave_idempotencia,
             usuario_id=usuario_id,
         )

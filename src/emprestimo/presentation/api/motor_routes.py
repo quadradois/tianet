@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import uuid
 from datetime import date
+from decimal import Decimal
 from typing import Any
 
 from fastapi import APIRouter, Depends, Header, HTTPException, Query
@@ -23,6 +24,7 @@ from emprestimo.presentation.api.dependencies import (
     get_quitacao_renegociacao_service,
 )
 from emprestimo.presentation.api.motor_schemas import (
+    AlocacaoPrevistaResponse,
     EmprestimoListagemResponse,
     EmprestimoResponse,
     EstornoPagamentoRequest,
@@ -219,6 +221,37 @@ def consultar_saldo_do_devedor(
             )
             for item in resultado.itens
         ],
+    )
+
+
+@router.get(
+    "/emprestimos/{emprestimo_id}/alocacao-prevista",
+    response_model=AlocacaoPrevistaResponse,
+    summary="Prever divisao de um valor entre juros e amortizacao",
+)
+def prever_alocacao(
+    emprestimo_id: uuid.UUID,
+    valor: Decimal = Query(..., gt=0),
+    data_referencia: date = Query(...),
+    principal: Principal = Depends(exigir_permissao(PERMISSAO_SALDO_LER)),
+    service: Any = Depends(get_consulta_saldo_service),
+) -> AlocacaoPrevistaResponse:
+    """Leitura: o copiloto anuncia a divisao antes de a Credora autorizar."""
+    resultado = service.prever_alocacao(
+        emprestimo_id=emprestimo_id,
+        tenant_id=principal.tenant_id,
+        valor=valor,
+        data_referencia=data_referencia,
+    )
+    return AlocacaoPrevistaResponse(
+        emprestimo_id=resultado.emprestimo_id,
+        tenant_id=resultado.tenant_id,
+        data_referencia=resultado.data_referencia,
+        valor=resultado.valor,
+        valor_juros=resultado.valor_juros,
+        valor_encargos=resultado.valor_encargos,
+        valor_amortizacao=resultado.valor_amortizacao,
+        valor_devolvido=resultado.valor_devolvido,
     )
 
 

@@ -19,7 +19,7 @@ A fonte contratual observada e o OpenAPI gerado por `create_app().openapi()` na
 worktree derivada do commit backend `e48cb72`, congelado no snapshot governado
 do PLAN-025. O contrato vigente possui 116 operacoes e 148 schemas; o SHA-256
 do snapshot e
-`c0bfa8b85e1651a12a86f836e64f01e3f5ba9a075768e1911ffaeac42c435b3e`,
+`11edf6acc4c134f27357ef3e6e6d9d0e7f68819396c48d36848a87bb16d8b30f`,
 atualizado pelo IMP-353, que acrescentou `GET/PUT /platform/whatsapp/avisos`
 (numero que recebe os avisos do sistema). A contagem anterior registrada
 aqui (116/148) era o estado pos-S3 do agente (`GET /platform/agent/inbox`);

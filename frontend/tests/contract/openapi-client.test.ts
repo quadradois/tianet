@@ -7,7 +7,7 @@ import type { components, paths } from "../../src/lib/api/openapi.generated";
 
 const HTTP_METHODS = new Set(["get", "post", "put", "patch", "delete"]);
 const ERROR_STATUSES = new Set(["400", "401", "403", "404", "409", "422", "500", "503"]);
-const SNAPSHOT_SHA256 = "c0bfa8b85e1651a12a86f836e64f01e3f5ba9a075768e1911ffaeac42c435b3e";
+const SNAPSHOT_SHA256 = "11edf6acc4c134f27357ef3e6e6d9d0e7f68819396c48d36848a87bb16d8b30f";
 const snapshotUrl = new URL(
   "../../../docs/governance/contracts/openapi/frontend-mvp-backend-openapi.json",
   import.meta.url,
@@ -85,8 +85,8 @@ describe("generated OpenAPI client contract", () => {
       }
     }
 
-    expect(operationCount).toBe(118);
-    expect(Object.keys(schemas)).toHaveLength(150);
+    expect(operationCount).toBe(119);
+    expect(Object.keys(schemas)).toHaveLength(151);
     // IMP-355: voltou a 63 com POST /iam/usuarios, que tambem exige a chave.
     // Eram 63 antes do IMP-351 retirar POST /platform/tenants.
     // IMP-353: 65 com PUT /platform/whatsapp/avisos.

@@ -1,6 +1,6 @@
 # PLAN-045-EXEC — Atendimento ao devedor, recebimento por Pix e BYOK
 
-**Versão:** 1.2.0
+**Versão:** 1.2.1
 
 **Status:** Aprovado pelo proprietário em 2026-09-21 (PLAN-045 v1.1.0); execução ainda não iniciada
 
@@ -180,6 +180,8 @@ Verificado em 2026-09-21 por leitura de código e do handoff vigente, não presu
 
 ### IMP-389 — `prever_alocacao`: a divisão juro/amortização como leitura
 
+- **Status:** concluído em 2026-09-22 — `alocar_pagamento` extraída de `registrar_pagamento`, `prever_alocacao` no domínio e na aplicação, `GET /credit/emprestimos/{id}/alocacao-prevista`; snapshot 119 ops / 151 schemas, hash `11edf6ac…`; caracterização prova que o registro não mudou.
+
 - **Objetivo:** o agente dizer "R$ 627 de juros e R$ 1.000 de amortização" **antes** de lançar, com número do Motor.
 - **Escopo:** extrair a alocação de `MotorFinanceiro.registrar_pagamento` (juros → encargos → amortização → devolvido) para função pura do domínio; `registrar_pagamento` passa a usá-la, sem mudar comportamento; `prever_alocacao(emprestimo, valor, data_referencia) → AlocacaoPrevista`; caso de uso de leitura e `GET /credit/emprestimos/{id}/alocacao-prevista?valor=&data=` (permissão `emprestimo.ler`); apresentador do texto.
 - **Critério de pronto:** teste de caracterização prova que a extração **não** mudou o resultado de `registrar_pagamento` em nenhum caso já coberto; previsão bate com o pagamento real registrado em seguida (mesmo valor, mesma data); valor menor que o juro, valor igual à quitação e valor acima da quitação (devolvido) cobertos; contrato reconciliado.
@@ -249,6 +251,7 @@ PLAN-045 §1.2, na íntegra. Em particular: IMP-357 (pré-cadastro) segue no PLA
 
 | Versão | Data | Alteração |
 |---|---|---|
+| 1.2.1 | 2026-09-22 | IMP-389 concluído. |
 | 1.2.0 | 2026-09-22 | Fase 4b (IMP-389..391): caminho sem taxa com comprovante — `prever_alocacao` no Motor, recepção/guarda/expurgo do comprovante na quitação, e o fluxo conversacional com autorização da Credora. |
 | 1.1.0 | 2026-09-22 | IMP-388: Mercado Pago opcional por Tenant (taxa de 0,99%), desligado por padrão; catálogo de tools montado por configuração; recusa no caso de uso. |
 | 1.0.3 | 2026-09-22 | IMP-373 concluído (ADR-021, CobrancaPix, régua, DOMAIN-031). |

@@ -128,6 +128,19 @@ class SaldoResponse(BaseModel):
     memoria: MemoriaCalculoResponse
 
 
+class AlocacaoPrevistaResponse(BaseModel):
+    """Divisao que um valor produziria, sem pagamento registrado (IMP-389)."""
+
+    emprestimo_id: uuid.UUID
+    tenant_id: uuid.UUID
+    data_referencia: date
+    valor: Decimal
+    valor_juros: Decimal
+    valor_encargos: Decimal
+    valor_amortizacao: Decimal
+    valor_devolvido: Decimal
+
+
 class SaldoItemDevedorResponse(BaseModel):
     """Parcela do total por emprestimo (IMP-362)."""
 
