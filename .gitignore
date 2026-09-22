@@ -55,5 +55,11 @@ postgres-data/
 /docs/credenciais/
 *credencial*
 *credentials*
+# ...mas codigo, teste, migration e doc de produto com esse nome sao legitimos
+# (credencial.py, credenciais.py, US-028..034). Descoberto em 2026-09-22, quando
+# a CLI recuperar_credencial.py e seus testes ficaram fora de um commit.
+!*credencial*.py
+!*credencial*.md
+!*credenciais*.py
 *.env.bak*
 *.bak

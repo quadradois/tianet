@@ -80,6 +80,27 @@ Nao inative o Tenant de controle. A API bloqueia essa operacao para o proprio
 Administrador da Plataforma e impede que a gestao comum de Perfis conceda
 permissoes `tenant.*`.
 
+## Recuperacao de credencial (administrador esqueceu a senha)
+
+`POST /iam/usuarios/{id}/credencial/redefinir` exige alguem logado com
+`credencial.redefinir`; se o unico administrador perdeu a senha, ninguem
+consegue chama-la. O caminho operacional e a CLI
+`emprestimo-recuperar-credencial`, atras do **mesmo gate** deste documento
+(gate habilitado + segredo cujo SHA-256 esta no hash). Na VPS:
+
+```bash
+docker compose -f docker-compose.prod.yml exec \
+  -e PLATFORM_ADMIN_BOOTSTRAP_ENABLED=true \
+  -e PLATFORM_ADMIN_BOOTSTRAP_SECRET_HASH=<hash do .env.prod> \
+  api emprestimo-recuperar-credencial --email admin@tenant.local
+```
+
+Pede por `getpass` o segredo de autorizacao e, duas vezes, a nova credencial.
+Exige usuario ativo; revoga todas as sessoes do usuario; audita como
+`credencial.recuperar_operacional` (inicio, sucesso ou falha). Nada aparece em
+`argv` nem na saida alem de `usuario_id`, `tenant_id` e `estado`. Feche a
+janela como no encerramento obrigatorio acima.
+
 ## Falhas
 
 - `bootstrap operacional desabilitado`: habilite o gate somente durante a janela aprovada;

@@ -213,6 +213,40 @@ class CredenciaisService:
                 f"estado atual '{estado.value}' nao permite redefinir credencial",
             )
 
+    def recuperar_operacional(self, *, email: str, novo_segredo: str) -> CredencialResultado:
+        """Redefine a credencial de um Usuario pelo e-mail, sem solicitante.
+
+        Caminho de operacao (CLI na VPS, atras do mesmo gate do bootstrap),
+        para o caso em que o unico administrador esqueceu a senha e nao
+        existe ninguem logado com `credencial.redefinir`. Audita como
+        `recuperar_operacional`, revoga as sessoes e exige usuario ativo.
+        """
+        email_normalizado = email.strip().lower()
+        with self._uow_factory() as uow:
+            usuario = uow.usuario.find_by_email(email_normalizado)
+            if usuario is None:
+                raise UsuarioNaoEncontradoError(uuid.UUID(int=0))
+            usuario_id, tenant_id = usuario.id, usuario.tenant_id
+        self._registrar_inicio("recuperar_operacional", usuario_id, tenant_id=tenant_id)
+        try:
+            with self._uow_factory() as uow:
+                usuario = self._usuario_do_tenant(uow, usuario_id, tenant_id)
+                self._validar_usuario_ativo_para_redefinicao(usuario.id, usuario.estado)
+                credencial = uow.credencial.find_by_usuario_id(usuario.id)
+                if credencial is None:
+                    credencial = Credencial.definir(usuario_id=usuario.id, segredo=novo_segredo)
+                else:
+                    credencial.redefinir(novo_segredo)
+                uow.credencial.save(credencial)
+                self._revogar_sessoes(uow, usuario.id)
+                resultado = CredencialResultado(usuario.id, usuario.tenant_id, usuario.estado)
+                uow.commit()
+            self._registrar_sucesso("recuperar_operacional", usuario_id, tenant_id=tenant_id)
+            return resultado
+        except Exception as exc:
+            self._registrar_falha("recuperar_operacional", usuario_id, exc, tenant_id=tenant_id)
+            raise
+
     def _revogar_sessoes(self, uow: UnitOfWork, usuario_id: uuid.UUID) -> None:
         for sessao in uow.sessao.find_by_usuario_id(usuario_id):
             sessao.revogar()
