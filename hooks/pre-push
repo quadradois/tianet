@@ -203,7 +203,8 @@ if [ "$TOCA_FRONTEND" -eq 1 ]; then
   passo "suites Playwright por tela — a parte demorada"
   echo "pre-push: e aqui que estavam os defeitos que o CI pegava e o hook antigo nao."
   for suite in e2e session dashboard devedores comercial contratos motor cobranca \
-               agenda relatorios configuracoes iam automacao whatsapp openai; do
+               agenda relatorios configuracoes iam automacao whatsapp openai \
+               pagamentos; do
     npm run "test:$suite" || falhou "test:$suite"
   done
 fi

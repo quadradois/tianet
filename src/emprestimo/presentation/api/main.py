@@ -21,6 +21,10 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 
 from emprestimo.application.autorizacao import RecursoDeOutroTenantError
+from emprestimo.application.configuracao_mercadopago import (
+    MercadoPagoDesabilitadoError,
+    VerificacaoCredencialError,
+)
 from emprestimo.application.errors import (
     AcessoNegadoError,
     AgendaItemNaoEncontradoError,
@@ -77,6 +81,7 @@ from emprestimo.presentation.api.contratos_routes import router as contratos_rou
 from emprestimo.presentation.api.devedores_routes import router as devedores_router
 from emprestimo.presentation.api.iam_routes import router as iam_router
 from emprestimo.presentation.api.lancamento_routes import router as lancamento_router
+from emprestimo.presentation.api.mercadopago_routes import router as mercadopago_router
 from emprestimo.presentation.api.motor_routes import router as motor_router
 from emprestimo.presentation.api.observability import (
     install_observability,
@@ -111,6 +116,7 @@ def create_app() -> FastAPI:
     app.include_router(operacao_diaria_router)
     app.include_router(configuracoes_financeiras_router)
     app.include_router(automacao_router)
+    app.include_router(mercadopago_router)
     app.include_router(whatsapp_router)
     app.include_router(openai_router)
     app.include_router(agent_router)
@@ -156,6 +162,8 @@ def create_app() -> FastAPI:
     app.add_exception_handler(IdempotenciaConflitoError, _conflito_idempotencia)
     app.add_exception_handler(TransicaoEstadoInvalidaError, _conflito_estado)
     app.add_exception_handler(ViolacaoInvarianteError, _regra_violada)
+    app.add_exception_handler(MercadoPagoDesabilitadoError, _mercadopago_desabilitado)
+    app.add_exception_handler(VerificacaoCredencialError, _credencial_recusada)
     app.add_exception_handler(DocumentoInvalidoError, _regra_violada)
     app.add_exception_handler(ContatoInvalidoError, _regra_violada)
     app.add_exception_handler(HTTPException, _http_exception)
@@ -264,6 +272,20 @@ async def _conflito_estado(_: Request, exc: Exception) -> JSONResponse:
 
 async def _regra_violada(_: Request, exc: Exception) -> JSONResponse:
     return JSONResponse(status_code=422, content=_corpo("regra_violada", str(exc)))
+
+
+async def _mercadopago_desabilitado(_: Request, exc: Exception) -> JSONResponse:
+    """422: desligado e escolha da Credora, nao erro tecnico nem falta de permissao."""
+    erro = cast(MercadoPagoDesabilitadoError, exc)
+    return JSONResponse(status_code=422, content=_corpo(erro.codigo, str(erro)))
+
+
+async def _credencial_recusada(_: Request, exc: Exception) -> JSONResponse:
+    """422: o provedor recusou a credencial, ou nao respondeu."""
+    erro = cast(VerificacaoCredencialError, exc)
+    return JSONResponse(
+        status_code=422, content=_corpo("credencial_mercadopago_invalida", erro.detalhe)
+    )
 
 
 async def _http_exception(_: Request, exc: Exception) -> JSONResponse:

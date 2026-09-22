@@ -13,6 +13,9 @@ from typing import Literal
 
 from emprestimo.domain.platform.conexao_whatsapp import ConexaoWhatsApp, EstadoPareamento
 from emprestimo.domain.platform.configuracao import Configuracao
+from emprestimo.domain.platform.configuracao_mercadopago import (
+    ConfiguracaoMercadoPago,
+)
 from emprestimo.domain.platform.credencial import Credencial
 from emprestimo.domain.platform.perfil import PerfilAcesso
 from emprestimo.domain.platform.permissao import Permissao
@@ -99,6 +102,16 @@ class ConfiguracaoRepository(ABC):
 
     @abstractmethod
     def find_by_tenant_id(self, tenant_id: uuid.UUID) -> list[Configuracao]: ...
+
+
+class ConfiguracaoMercadoPagoRepository(ABC):
+    """Contrato de persistencia da configuracao do Mercado Pago (IMP-388)."""
+
+    @abstractmethod
+    def find_by_tenant_id(self, tenant_id: uuid.UUID) -> ConfiguracaoMercadoPago | None: ...
+
+    @abstractmethod
+    def save(self, configuracao: ConfiguracaoMercadoPago) -> None: ...
 
 
 class ConexaoWhatsAppRepository(ABC):

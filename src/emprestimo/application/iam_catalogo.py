@@ -2,7 +2,7 @@
 
 from emprestimo.domain.platform.permissao import Permissao
 
-CATALOGO_PERMISSOES_VERSAO = "1.3.0"
+CATALOGO_PERMISSOES_VERSAO = "1.4.0"
 
 CATALOGO_PERMISSOES = (
     # IMP-351: o endpoint POST /platform/tenants saiu, mas esta permissao NAO.
@@ -74,6 +74,9 @@ CATALOGO_PERMISSOES = (
     # canal de comunicacao inteiro do Credor.
     Permissao("whatsapp.conexao.ler", "Consultar a conexao de WhatsApp"),
     Permissao("whatsapp.conexao.gerir", "Conectar e desconectar o WhatsApp"),
+    # IMP-388: uma so, e de administrador. Ligar o Mercado Pago escolhe pagar
+    # taxa por recebimento — decisao economica do proprietario, nao de operacao.
+    Permissao("mercadopago.configurar", "Configurar o recebimento por Pix (Mercado Pago)"),
     Permissao("openai.conexao.ler", "Consultar a conexao e os limites OpenAI"),
     Permissao("openai.conexao.gerir", "Conectar e desconectar a conta OpenAI"),
     # S3: só leitura da inbox do agente (resumo + recentes para triagem).

@@ -28,6 +28,7 @@ from emprestimo.infrastructure.repositories import (
     SqlAlchemyCobrancaPixRepository,
     SqlAlchemyConexaoWhatsAppRepository,
     SqlAlchemyConfiguracaoFinanceiraRepository,
+    SqlAlchemyConfiguracaoMercadoPagoRepository,
     SqlAlchemyConfiguracaoRepository,
     SqlAlchemyContatoRepository,
     SqlAlchemyContratoCreditoRepository,
@@ -103,6 +104,7 @@ class SqlAlchemyUnitOfWork(UnitOfWork):
         self.emprestimo = SqlAlchemyEmprestimoRepository(self._session)
         self.pagamento = SqlAlchemyPagamentoRepository(self._session)
         self.cobranca_pix = SqlAlchemyCobrancaPixRepository(self._session)
+        self.configuracao_mercadopago = SqlAlchemyConfiguracaoMercadoPagoRepository(self._session)
         self.memoria_calculo = SqlAlchemyMemoriaCalculoRepository(self._session)
         self.evento_financeiro = SqlAlchemyEventoFinanceiroRepository(self._session)
         self.job_agendado = SqlAlchemyJobAgendadoRepository(self._session)

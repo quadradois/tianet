@@ -1,6 +1,6 @@
 # PLAN-045-EXEC — Atendimento ao devedor, recebimento por Pix e BYOK
 
-**Versão:** 1.2.2
+**Versão:** 1.3.0
 
 **Status:** Aprovado pelo proprietário em 2026-09-21 (PLAN-045 v1.1.0); execução ainda não iniciada
 
@@ -87,9 +87,11 @@ Verificado em 2026-09-21 por leitura de código e do handoff vigente, não presu
 
 ### IMP-388 — `ConfiguracaoMercadoPago`: integração opcional por Tenant
 
+- **Status:** concluído em 2026-09-22 — domínio (INV-001 credenciais, INV-002 teste), migration `b2c3d4e5f6a7` + permissão `mercadopago.configurar`, cliente `verificar_credencial`, serviço com auditoria e idempotência, 5 rotas, card em `/app/pagamentos`. Snapshot 124 ops / 153 schemas.
+
 - **Objetivo:** a Credora liga e desliga o recebimento por Pix no painel; desligado é o padrão.
 - **Por quê:** o provedor cobra **0,99%** por recebimento e ela já tem o caminho sem taxa (devedor paga no Pix dela, ela avisa o agente, §3.10 do plano). A integração é escolha econômica, não pressuposto.
-- **Escopo:** `domain/platform/configuracao_mercadopago.py` (`habilitado` padrão `false`, `access_token_cifrado`, `webhook_secret_cifrado`, `testado_em`, `atualizado_em/por`; habilitar exige as duas credenciais e teste ok); migration `configuracao_mercadopago`; cifra pelo mesmo `CifraToken` da `ConexaoWhatsApp`; `GET/PUT /platform/mercadopago/configuracao`, `POST .../testar|habilitar|desabilitar`; permissão `mercadopago.configurar` (administrador, nunca copilot); card em `/app/configuracoes` com interruptor, credenciais write-only e a taxa vigente; auditoria em toda mudança.
+- **Escopo:** `domain/platform/configuracao_mercadopago.py` (`habilitado` padrão `false`, `access_token_cifrado`, `webhook_secret_cifrado`, `testado_em`, `atualizado_em/por`; habilitar exige as duas credenciais e teste ok); migration `configuracao_mercadopago`; cifra pelo mesmo `CifraToken` da `ConexaoWhatsApp`; `GET/PUT /platform/mercadopago/configuracao`, `POST .../testar|habilitar|desabilitar`; permissão `mercadopago.configurar` (administrador, nunca copilot); card em `/app/pagamentos` com interruptor, credenciais write-only e a taxa vigente; auditoria em toda mudança.
 - **Critério de pronto:** habilitar sem credencial ou sem teste → 422 nomeado; DTO nunca devolve segredo (guardrail AST); desligar **não** invalida `CobrancaPix` `pendente` nem recusa webhook delas (teste explícito); tenant novo nasce desligado; BFF + component + E2E; contrato reconciliado.
 
 ### IMP-375 — Cliente Mercado Pago
@@ -253,6 +255,7 @@ PLAN-045 §1.2, na íntegra. Em particular: IMP-357 (pré-cadastro) segue no PLA
 
 | Versão | Data | Alteração |
 |---|---|---|
+| 1.3.0 | 2026-09-22 | IMP-388 concluído: interruptor do Mercado Pago ponta a ponta, em `/app/pagamentos`. |
 | 1.2.2 | 2026-09-22 | IMP-374 parcial: `cobranca_pix` e `pagamento.origem` em banco; `inbox_pagamento` movida para o IMP-377. |
 | 1.2.1 | 2026-09-22 | IMP-389 concluído. |
 | 1.2.0 | 2026-09-22 | Fase 4b (IMP-389..391): caminho sem taxa com comprovante — `prever_alocacao` no Motor, recepção/guarda/expurgo do comprovante na quitação, e o fluxo conversacional com autorização da Credora. |

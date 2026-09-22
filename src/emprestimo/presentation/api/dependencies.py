@@ -41,6 +41,7 @@ from emprestimo.application.conexao_whatsapp import (
     DesconectarWhatsApp,
     ExcluirConexaoWhatsApp,
 )
+from emprestimo.application.configuracao_mercadopago import ConfiguracaoMercadoPagoService
 from emprestimo.application.configuracoes_financeiras import (
     CalendarioFinanceiroService,
     CapturaSnapshotConfiguracaoService,
@@ -109,6 +110,7 @@ from emprestimo.infrastructure.auditoria import (
     SqlAlchemyAuditoriaConsulta,
     SqlAlchemyAuditoriaRegistro,
 )
+from emprestimo.infrastructure.cifra import resolver_cifra_token
 from emprestimo.infrastructure.db.session import create_session, get_session_factory
 from emprestimo.infrastructure.notifications.evolution_instancia import (
     EvolutionProvedorWhatsApp,
@@ -231,6 +233,15 @@ def get_numero_avisos_service() -> NumeroAvisosService:
     return NumeroAvisosService(
         lambda: SqlAlchemyUnitOfWork(session_factory),
         SqlAlchemyAuditoriaRegistro(session_factory),
+    )
+
+
+def get_configuracao_mercadopago_service() -> ConfiguracaoMercadoPagoService:
+    session_factory = get_session_factory()
+    return ConfiguracaoMercadoPagoService(
+        lambda: SqlAlchemyUnitOfWork(session_factory),
+        SqlAlchemyAuditoriaRegistro(session_factory),
+        lambda: resolver_cifra_token(os.environ),
     )
 
 

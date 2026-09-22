@@ -326,7 +326,7 @@ Em 2026-09-20 o IMP-353 publicou `GET/PUT /platform/whatsapp/avisos` (número
 que recebe os avisos do sistema — configuração `credor_whatsapp` do Tenant;
 PUT com `Idempotency-Key`). Mudança **aditiva**: **118 operações, 150
 schemas**, SHA-256
-`11edf6acc4c134f27357ef3e6e6d9d0e7f68819396c48d36848a87bb16d8b30f`.
+`e3b75133a010c657638e84f3b16adbd830e6dbbedef9ce40c33b7b0a013c80f6`.
 Este é o hash **vigente**.
 
 Das doze regeracoes registradas, as do IMP-326, IMP-355, IMP-362,

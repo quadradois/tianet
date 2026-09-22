@@ -2,7 +2,7 @@
 
 **ID:** PLAN-045
 
-**Versão:** 1.3.0
+**Versão:** 1.3.1
 
 **Status:** Aprovado pelo proprietário em 2026-09-21 (v1.1.0); execução via [PLAN-045-execution-backlog](../backlogs/PLAN-045-execution-backlog.md) (IMP-372..387, GATE-E1..E6)
 
@@ -234,14 +234,16 @@ copia-e-cola/QR para ela enviar por onde quiser. Mesma expiração e confirmaç�
 
 ## 3.12-b Credora configura a chave Pix própria
 
-Card em `/app/configuracoes`: tipo e valor da chave Pix (CPF/CNPJ, telefone,
+Card em `/app/pagamentos`: tipo e valor da chave Pix (CPF/CNPJ, telefone,
 e-mail ou aleatória) e o nome que aparece para o devedor. É o que o agente
 envia no §3.2-b. Sem chave configurada, o agente informa os valores e encaminha
 à Credora, sem prometer Pix.
 
 ## 3.12 Credora liga ou desliga o Mercado Pago
 
-Card **"Recebimento por Pix (Mercado Pago)"** em `/app/configuracoes`:
+Card **"Recebimento por Pix (Mercado Pago)"** em `/app/pagamentos` (rótulo
+"Recebimento" na navegação; `/app/configuracoes` não foi usado para não
+colidir com as Configurações financeiras, que já ocupam esse nome):
 interruptor, `access_token` e `webhook_secret` write-only (mesmo padrão da
 chave do provedor de IA e do token da instância: cifrados em repouso, nunca
 devolvidos na leitura), botão **Testar** (uma chamada de leitura autenticada ao
@@ -560,6 +562,7 @@ reboot da VPS, runbook da ponte socat/Caddy.
 
 | Versão | Data | Alteração |
 |---|---|---|
+| 1.3.1 | 2026-09-22 | Card do Mercado Pago vai para `/app/pagamentos` ("Recebimento"): `/app/configuracoes` colidiria com as Configurações financeiras. |
 | 1.3.0 | 2026-09-22 | Caminho **sem taxa** completo (D13–D15): agente envia valores e a chave Pix da Credora, recebe e guarda o comprovante, extrai o valor, consulta `prever_alocacao` no Motor, pede autorização a ela com a imagem anexa e, no `sim`, lança e devolve ao devedor saldo, juros e próximo acerto atualizados. Comprovante é alegação, não prova; guardado enquanto o empréstimo vive e expurgado na quitação. Reverte o descarte de mídia do 356-B para devedor identificado. |
 | 1.2.0 | 2026-09-22 | Mercado Pago passa a ser **opcional por Tenant**, ligado/desligado no painel, desligado por padrão: o provedor cobra 0,99% e a Credora já tem o caminho sem taxa (§3.10). Acrescenta `ConfiguracaoMercadoPago`, o caso §3.4-b (pedido de pagamento com a integração desligada), a §4.8-b (catálogo de tools montado por configuração) e a §3.12 (card no painel). |
 | 1.1.0 | 2026-09-21 | Revisão documental: contrato real de assinatura do MP (manifesto, `ts`/`v1`, `data.id` da query), separação `mp_notification_id`/`mp_payment_id`, `external_reference` modelado como chave de correlação, egress herdando ADR-009/§6.2 sem retry cego, migração governada de `LLM_*` → banco, exceção de rota pública registrada no contexto externo §2.4. |

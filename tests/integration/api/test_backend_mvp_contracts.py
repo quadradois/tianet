@@ -35,6 +35,7 @@ from emprestimo.presentation.api.devedores_routes import router as devedores_rou
 from emprestimo.presentation.api.iam_routes import router as iam_router
 from emprestimo.presentation.api.lancamento_routes import router as lancamento_router
 from emprestimo.presentation.api.main import create_app
+from emprestimo.presentation.api.mercadopago_routes import router as mercadopago_router
 from emprestimo.presentation.api.motor_routes import router as motor_router
 from emprestimo.presentation.api.observability_routes import router as observability_router
 from emprestimo.presentation.api.openai_routes import router as openai_router
@@ -88,7 +89,10 @@ def test_imp_269_openapi_cobre_routers_reais_e_contratos_transversais() -> None:
     # ADR-020: +4 com conexao, diagnostico, login e logout OpenAI.
     # S3: +1 com GET /platform/agent/inbox (somente leitura).
     # IMP-353: +2 com GET/PUT /platform/whatsapp/avisos.
-    assert len(operations) == 119
+    # IMP-389: +1 com GET /credit/emprestimos/{id}/alocacao-prevista.
+    # IMP-388: +5 com a configuracao do Mercado Pago (GET, PUT, testar,
+    # habilitar, desabilitar).
+    assert len(operations) == 124
     assert operations.keys() == router_operations
     assert schema["components"]["schemas"]["ErroResponse"]["required"] == [
         "codigo",
@@ -242,6 +246,7 @@ def _api_routes() -> Iterable[APIRoute]:
         configuracoes_financeiras_router,
         automacao_router,
         whatsapp_router,
+        mercadopago_router,
         openai_router,
     ):
         yield from (route for route in api_router.routes if isinstance(route, APIRoute))

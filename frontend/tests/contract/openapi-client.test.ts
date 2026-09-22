@@ -7,7 +7,7 @@ import type { components, paths } from "../../src/lib/api/openapi.generated";
 
 const HTTP_METHODS = new Set(["get", "post", "put", "patch", "delete"]);
 const ERROR_STATUSES = new Set(["400", "401", "403", "404", "409", "422", "500", "503"]);
-const SNAPSHOT_SHA256 = "11edf6acc4c134f27357ef3e6e6d9d0e7f68819396c48d36848a87bb16d8b30f";
+const SNAPSHOT_SHA256 = "e3b75133a010c657638e84f3b16adbd830e6dbbedef9ce40c33b7b0a013c80f6";
 const snapshotUrl = new URL(
   "../../../docs/governance/contracts/openapi/frontend-mvp-backend-openapi.json",
   import.meta.url,
@@ -85,12 +85,14 @@ describe("generated OpenAPI client contract", () => {
       }
     }
 
-    expect(operationCount).toBe(119);
-    expect(Object.keys(schemas)).toHaveLength(151);
+    expect(operationCount).toBe(124);
+    expect(Object.keys(schemas)).toHaveLength(153);
     // IMP-355: voltou a 63 com POST /iam/usuarios, que tambem exige a chave.
     // Eram 63 antes do IMP-351 retirar POST /platform/tenants.
     // IMP-353: 65 com PUT /platform/whatsapp/avisos.
-    expect(idempotencyParameters).toHaveLength(65);
+    // IMP-388: PUT configuracao + testar + habilitar + desabilitar entraram como
+    // escritas idempotentes (65 -> 69).
+    expect(idempotencyParameters).toHaveLength(69);
     for (const parameter of idempotencyParameters) {
       expect(parameter.required).toBe(true);
       expect(asRecord(parameter.schema)).toMatchObject({ minLength: 1, maxLength: 255 });

@@ -141,6 +141,12 @@ export const SHELL_NAVIGATION: readonly NavigationDestination[] = [
   },
   {
     grupo: "administracao",
+    href: "/app/pagamentos",
+    label: "Recebimento",
+    requiredPermission: "mercadopago.configurar",
+  },
+  {
+    grupo: "administracao",
     href: "/app/agent",
     label: "Agente",
     requiredPermission: "agent.inbox.ler",
