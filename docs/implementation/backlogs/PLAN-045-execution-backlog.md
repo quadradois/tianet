@@ -1,6 +1,6 @@
 # PLAN-045-EXEC — Atendimento ao devedor, recebimento por Pix e BYOK
 
-**Versão:** 1.0.2
+**Versão:** 1.0.3
 
 **Status:** Aprovado pelo proprietário em 2026-09-21 (PLAN-045 v1.1.0); execução ainda não iniciada
 
@@ -70,6 +70,8 @@ Verificado em 2026-09-21 por leitura de código e do handoff vigente, não presu
 ## Fase 2a — Mercado Pago pela tela
 
 ### IMP-373 — ADR da segunda rota pública e Aggregate `CobrancaPix`
+
+- **Status:** concluído em 2026-09-22 — ADR-021 emitida e registrada no AMP-001 v1.5.0; `cobranca_pix.py` (INV-001/002/003), `regua_lembrete.py`, DOMAIN-031; 29 testes de domínio. INV-004 (um pendente por empréstimo) é de conjunto e entra com o índice parcial no IMP-374.
 
 - **Objetivo:** a exceção de rota pública tem decisão formal, e o domínio sabe o que é uma cobrança Pix.
 - **Escopo:** reservar identificador na tabela do AMP-001 e emitir a ADR "segunda rota pública assinada no serviço `agent`" (contexto, decisão, consequências, rollback por polling); `domain/credit/cobranca_pix.py` com os campos da §2 do plano, INV-001 (`juro_periodo ≤ valor ≤ quitacao`), INV-002 (um `pendente` por empréstimo — verificado no repositório com índice parcial), transições `pendente→pago|expirado|cancelado`, terminais imutáveis, `external_reference = str(id)`; `OrigemPagamento` em `Pagamento`; `elegivel_lembrete` em `domain/credit/regua_lembrete.py`; documento de aggregate em `docs/domain/credit/aggregates/`.
@@ -214,6 +216,7 @@ PLAN-045 §1.2, na íntegra. Em particular: IMP-357 (pré-cadastro) segue no PLA
 
 | Versão | Data | Alteração |
 |---|---|---|
+| 1.0.3 | 2026-09-22 | IMP-373 concluído (ADR-021, CobrancaPix, régua, DOMAIN-031). |
 | 1.0.2 | 2026-09-22 | Regra 9: branch novo por IMP a partir de master (PRs entram por squash). |
 | 1.0.1 | 2026-09-21 | IMP-381: identidade da Credora passa de `COPILOT_OPERATOR_ALLOWLIST` (env) para `credor_whatsapp` do Tenant, setável na tela. |
 | 1.0.0 | 2026-09-21 | Backlog inicial: IMP-372..387 em seis gates, a partir do PLAN-045 v1.1.0 aprovado pelo proprietário. |

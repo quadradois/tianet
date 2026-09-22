@@ -78,7 +78,7 @@
       "classe": "DOCUMENT",
       "governadoPor": "sequencial",
       "regraNumeracao": "ultimo + 1",
-      "ultimo": 30,
+      "ultimo": 31,
       "status": "ACTIVE",
       "validador": "docs:validate/identifiers",
       "local": "docs/domain/**"
