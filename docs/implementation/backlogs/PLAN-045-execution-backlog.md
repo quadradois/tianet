@@ -1,6 +1,6 @@
 # PLAN-045-EXEC — Atendimento ao devedor, recebimento por Pix e BYOK
 
-**Versão:** 1.0.1
+**Versão:** 1.0.2
 
 **Status:** Aprovado pelo proprietário em 2026-09-21 (PLAN-045 v1.1.0); execução ainda não iniciada
 
@@ -49,6 +49,7 @@ Verificado em 2026-09-21 por leitura de código e do handoff vigente, não presu
 6. Migrations aditivas, reversíveis, manuais. `Idempotency-Key` em todo POST/PUT de escrita (exceto webhook assinado).
 7. Segredos (`MP_ACCESS_TOKEN`, `MP_WEBHOOK_SECRET`, chave LLM) nunca em imagem, log, DTO, métrica ou erro.
 8. Um PR por IMP, deploy observado por Gate, handoff no encerramento sincronizado.
+9. **Cada IMP nasce em branch novo a partir de `origin/master`** (`feat/imp-NNN-...`), nunca sobre o branch do IMP anterior: os PRs entram por squash, e um branch que já contém o conteúdo mergeado conflita em tudo que o próximo IMP tocar (custou o PR #97). `feat/imp-356-e-slice-1` aposenta-se após o #97.
 
 ---
 
@@ -213,5 +214,6 @@ PLAN-045 §1.2, na íntegra. Em particular: IMP-357 (pré-cadastro) segue no PLA
 
 | Versão | Data | Alteração |
 |---|---|---|
+| 1.0.2 | 2026-09-22 | Regra 9: branch novo por IMP a partir de master (PRs entram por squash). |
 | 1.0.1 | 2026-09-21 | IMP-381: identidade da Credora passa de `COPILOT_OPERATOR_ALLOWLIST` (env) para `credor_whatsapp` do Tenant, setável na tela. |
 | 1.0.0 | 2026-09-21 | Backlog inicial: IMP-372..387 em seis gates, a partir do PLAN-045 v1.1.0 aprovado pelo proprietário. |
