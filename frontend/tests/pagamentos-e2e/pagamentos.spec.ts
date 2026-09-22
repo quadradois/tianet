@@ -67,3 +67,16 @@ test("tela funciona por teclado, sem overflow e sem violação séria", async ({
   expect(results.violations.filter((item) => item.impact === "critical" || item.impact === "serious")).toEqual([]);
   expect(results.incomplete.filter((item) => item.id === "color-contrast")).toEqual([]);
 });
+
+test("a chave Pix sem taxa é cadastrada e passa a ser oferecida", async ({ page }) => {
+  await entrar(page, "novo");
+  const main = page.locator("#conteudo-principal");
+  await expect(main.getByTestId("chave-pix-estado")).toHaveText(/nao oferece Pix ate cadastrar/i);
+
+  await main.getByLabel("Chave", { exact: true }).fill("5562999998888");
+  await main.getByLabel("Nome do favorecido").fill("Ivonete");
+  await main.getByRole("button", { name: "Salvar chave" }).click();
+
+  await expect(main.getByTestId("chave-pix-estado")).toContainText("5562999998888");
+  await expect(main.getByTestId("chave-pix-estado")).toContainText("Ivonete");
+});

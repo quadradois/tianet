@@ -1000,6 +1000,7 @@ class QuitacaoRenegociacaoService:
             uow.pagamento.save(resultado.pagamento)
             uow.memoria_calculo.save(calculada.memoria, emprestimo.id)
             uow.memoria_calculo.save(resultado.memoria, emprestimo.id, resultado.pagamento.id)
+            _expurgar_comprovantes(uow, emprestimo.id, recebido_em)
             _persistir_eventos_financeiros_novos(uow, emprestimo)
             uow.idempotencia.concluir(
                 idempotency_key,
@@ -1293,6 +1294,25 @@ def _validar_pagamento_replay(
         raise IdempotenciaConflitoError(idempotency_key, "payload divergente")
     if valor is not None and pagamento.valor_recebido != valor:
         raise IdempotenciaConflitoError(idempotency_key, "payload divergente")
+
+
+def _expurgar_comprovantes(uow: UnitOfWork, emprestimo_id: uuid.UUID, agora: datetime) -> None:
+    """Quitou, limpou (IMP-390, decisao D15 do PLAN-045).
+
+    Apaga a imagem e os valores dos comprovantes do emprestimo, mantendo a
+    linha e o vinculo com o `Pagamento`. A prova contabil e o Pagamento, a
+    memoria de calculo e a trilha — nenhum depende do documento, e guardar
+    documento de terceiro depois que a divida acabou e risco sem
+    contrapartida.
+
+    Roda DENTRO da transacao da quitacao: se a quitacao nao fechar, o
+    comprovante continua la.
+    """
+    for comprovante in uow.comprovante_pagamento.listar_por_emprestimo(emprestimo_id):
+        if comprovante.expurgado_em is not None:
+            continue
+        comprovante.expurgar(agora=agora)
+        uow.comprovante_pagamento.save(comprovante)
 
 
 def _persistir_eventos_financeiros_novos(

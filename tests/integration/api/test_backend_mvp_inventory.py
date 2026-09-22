@@ -45,14 +45,14 @@ def test_openapi_inventory_covers_backend_mvp_contexts() -> None:
     schema = create_app().openapi()
     operations = _operations(schema)
 
-    assert len(operations) == 124
+    assert len(operations) == 128
     # S3: +1 com GET /platform/agent/inbox (somente leitura).
     # IMP-351: eram 5 publicas; POST /auth/ativar saiu com o fluxo de ativacao.
     assert sum(1 for _, path in operations if _is_public(path)) == 4
     # ADR-020: quatro rotas administrativas OpenAI foram adicionadas.
     # S3: +1 com GET /platform/agent/inbox (somente leitura).
     # IMP-353: +2 com GET/PUT /platform/whatsapp/avisos.
-    assert sum(1 for _, path in operations if not _is_public(path)) == 120
+    assert sum(1 for _, path in operations if not _is_public(path)) == 124
 
     paths = set(schema["paths"])
     for context, expected_fragment in EXPECTED_CONTEXTS.items():

@@ -60,3 +60,24 @@ export function isMercadoPagoConfig(value: unknown): value is MercadoPagoConfig 
 export function hasMercadoPagoPermission(permissoes: readonly string[]): boolean {
   return permissoes.includes(MERCADOPAGO_PERMISSION);
 }
+
+
+export type ChavePix = components["schemas"]["ChavePixResponse"];
+
+export type ChavePixReadResult =
+  | Readonly<{ kind: "ready"; chave: ChavePix }>
+  | Readonly<{ kind: "problem"; message: string; status: number; correlationId: string }>;
+
+export type ChavePixActionState =
+  | Readonly<{ kind: "idle" }>
+  | Readonly<{ kind: "success"; message: string; correlationId: string; chave: ChavePix }>
+  | Readonly<{ kind: "problem"; message: string; status: number; correlationId: string }>;
+
+export const INITIAL_CHAVE_PIX_ACTION_STATE: ChavePixActionState = { kind: "idle" };
+
+export const TIPOS_CHAVE_PIX = ["cpf", "cnpj", "telefone", "email", "aleatoria"] as const;
+
+export function isChavePix(value: unknown): value is ChavePix {
+  if (typeof value !== "object" || value === null) return false;
+  return typeof (value as Record<string, unknown>).configurada === "boolean";
+}

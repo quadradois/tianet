@@ -10,6 +10,7 @@ from typing import TYPE_CHECKING
 
 from emprestimo.domain.credit.carteira import Carteira
 from emprestimo.domain.credit.cobranca_pix import CobrancaPix
+from emprestimo.domain.credit.comprovante import ComprovantePagamento
 from emprestimo.domain.credit.contrato_credito_state import ContratoCreditoState
 from emprestimo.domain.credit.documento import Documento
 from emprestimo.domain.credit.emprestimo import EmprestimoState
@@ -514,6 +515,24 @@ class EmprestimoRepository(ABC):
         filtros: EmprestimoFiltros,
         paginacao: Paginacao,
     ) -> EmprestimoResultadoPaginado: ...
+
+
+class ComprovantePagamentoRepository(ABC):
+    """Contrato de persistencia dos comprovantes (IMP-390)."""
+
+    @abstractmethod
+    def save(self, comprovante: ComprovantePagamento) -> None: ...
+
+    @abstractmethod
+    def find_by_id(self, comprovante_id: uuid.UUID) -> ComprovantePagamento | None: ...
+
+    @abstractmethod
+    def find_by_sha256(
+        self, emprestimo_id: uuid.UUID, sha256: str
+    ) -> ComprovantePagamento | None: ...
+
+    @abstractmethod
+    def listar_por_emprestimo(self, emprestimo_id: uuid.UUID) -> list[ComprovantePagamento]: ...
 
 
 class CobrancaPixRepository(ABC):

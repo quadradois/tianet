@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import base64
+import binascii
 import uuid
 from datetime import date
 from decimal import Decimal
@@ -15,6 +17,7 @@ from emprestimo.domain.credit.emprestimo import EmprestimoState
 from emprestimo.presentation.api.dependencies import (
     exigir_permissao,
     get_carteira_do_principal,
+    get_comprovante_pagamento_service,
     get_consulta_emprestimo_service,
     get_consulta_saldo_service,
     get_criacao_emprestimo_service,
@@ -22,6 +25,10 @@ from emprestimo.presentation.api.dependencies import (
     get_pagamento_service,
     get_principal_atual,
     get_quitacao_renegociacao_service,
+)
+from emprestimo.presentation.api.mercadopago_schemas import (
+    ComprovanteCreateRequest,
+    ComprovanteResponse,
 )
 from emprestimo.presentation.api.motor_schemas import (
     AlocacaoPrevistaResponse,
@@ -53,6 +60,7 @@ PERMISSAO_EMPRESTIMO_CRIAR = "motor.emprestimo.criar"
 PERMISSAO_EMPRESTIMO_LER = "motor.emprestimo.ler"
 PERMISSAO_PAGAMENTO_REGISTRAR = "motor.pagamento.registrar"
 PERMISSAO_SALDO_LER = "motor.saldo.ler"
+PERMISSAO_COMPROVANTE_REGISTRAR = "comprovante.registrar"
 PERMISSAO_MEMORIA_LER = "motor.memoria.ler"
 PERMISSAO_QUITACAO_EXECUTAR = "motor.quitacao.executar"
 PERMISSAO_RENEGOCIACAO_CRIAR = "motor.renegociacao.criar"
@@ -222,6 +230,62 @@ def consultar_saldo_do_devedor(
             for item in resultado.itens
         ],
     )
+
+
+@router.post(
+    "/emprestimos/{emprestimo_id}/comprovantes",
+    response_model=ComprovanteResponse,
+    summary="Registrar comprovante de pagamento enviado pelo Devedor",
+    responses=combinar_respostas(RESPOSTA_PAYLOAD_INVALIDO),
+)
+def registrar_comprovante(
+    emprestimo_id: uuid.UUID,
+    payload: ComprovanteCreateRequest,
+    idempotency_key: str = Header(alias="Idempotency-Key", min_length=1, max_length=255),
+    principal: Principal = Depends(exigir_permissao(PERMISSAO_COMPROVANTE_REGISTRAR)),
+    service: Any = Depends(get_comprovante_pagamento_service),
+) -> ComprovanteResponse:
+    """Guarda a alegacao do devedor; quem verifica e a Credora, na conta dela.
+
+    A `Idempotency-Key` e exigida pelo contrato do sistema, mas a convergencia
+    real vem do `sha256` do conteudo: o devedor reenvia a IMAGEM, nao a
+    requisicao, e duas linhas do mesmo arquivo confundiriam a conferencia.
+    """
+    del idempotency_key
+    try:
+        conteudo = base64.b64decode(payload.conteudo_base64, validate=True)
+    except (ValueError, binascii.Error) as exc:
+        raise HTTPException(
+            status_code=400,
+            detail={"codigo": "payload_invalido", "mensagem": "conteudo_base64 invalido."},
+        ) from exc
+    return ComprovanteResponse.de(
+        service.registrar(
+            tenant_id=principal.tenant_id,
+            emprestimo_id=emprestimo_id,
+            conteudo=conteudo,
+            tipo_midia=payload.tipo_midia,
+            valor_extraido=payload.valor_extraido,
+            valor_informado=payload.valor_informado,
+        )
+    )
+
+
+@router.get(
+    "/emprestimos/{emprestimo_id}/comprovantes",
+    response_model=list[ComprovanteResponse],
+    summary="Listar comprovantes do emprestimo",
+    responses=combinar_respostas(RESPOSTA_PAYLOAD_INVALIDO),
+)
+def listar_comprovantes(
+    emprestimo_id: uuid.UUID,
+    principal: Principal = Depends(exigir_permissao(PERMISSAO_COMPROVANTE_REGISTRAR)),
+    service: Any = Depends(get_comprovante_pagamento_service),
+) -> list[ComprovanteResponse]:
+    return [
+        ComprovanteResponse.de(item)
+        for item in service.listar(tenant_id=principal.tenant_id, emprestimo_id=emprestimo_id)
+    ]
 
 
 @router.get(

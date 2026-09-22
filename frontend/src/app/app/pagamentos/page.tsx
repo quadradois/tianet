@@ -2,17 +2,19 @@ import type { Metadata } from "next";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 
+import { ChavePixCard } from "@/components/pagamentos/chave-pix.client";
 import { MercadoPagoCard } from "@/components/pagamentos/mercadopago.client";
 import { createRuntimeDependencies } from "@/lib/bff/backend.server";
 import { recoveryAttemptCookieName } from "@/lib/bff/context.server";
 import { currentOperationalContext } from "@/lib/bff/current-context.server";
-import { readMercadoPagoConfig } from "@/lib/bff/mercadopago.server";
+import { readChavePix, readMercadoPagoConfig } from "@/lib/bff/mercadopago.server";
 import {
+  INITIAL_CHAVE_PIX_ACTION_STATE,
   INITIAL_MERCADOPAGO_ACTION_STATE,
   MERCADOPAGO_PERMISSION,
 } from "@/lib/pagamentos/mercadopago-policy";
 
-import { mercadoPagoAction } from "./actions";
+import { chavePixAction, mercadoPagoAction } from "./actions";
 
 export const metadata: Metadata = {
   title: "Recebimento | TiaNet",
@@ -22,7 +24,10 @@ export default async function PagamentosRoute() {
   const cookieStore = await cookies();
   const dependencies = createRuntimeDependencies();
   const context = await currentOperationalContext();
-  const resultado = await readMercadoPagoConfig(cookieStore, context, dependencies);
+  const [resultado, chave] = await Promise.all([
+    readMercadoPagoConfig(cookieStore, context, dependencies),
+    readChavePix(cookieStore, context, dependencies),
+  ]);
 
   if (resultado.kind === "problem" && resultado.status === 401) {
     redirect(cookieStore.get(recoveryAttemptCookieName(dependencies.config)) ? "/login" : "/session/recover");
@@ -43,6 +48,14 @@ export default async function PagamentosRoute() {
   return (
     <section className="grid gap-4">
       <h1 className="text-xl font-semibold">Recebimento</h1>
+      {chave.kind === "ready" ? (
+        <ChavePixCard
+          action={chavePixAction}
+          chave={chave.chave}
+          initialState={INITIAL_CHAVE_PIX_ACTION_STATE}
+          podeConfigurar={context.permissoes.includes(MERCADOPAGO_PERMISSION)}
+        />
+      ) : null}
       <MercadoPagoCard
         action={mercadoPagoAction}
         config={resultado.config}

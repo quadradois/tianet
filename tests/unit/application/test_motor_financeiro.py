@@ -657,6 +657,7 @@ class _FakeUoW:
     memoria_calculo: _MemoriaCalculoRepo = field(default_factory=_MemoriaCalculoRepo)
     evento_financeiro: _EventoFinanceiroRepo = field(default_factory=_EventoFinanceiroRepo)
     idempotencia: _IdempotenciaFake = field(default_factory=_IdempotenciaFake)
+    comprovante_pagamento: _ComprovanteRepo = field(default_factory=lambda: _ComprovanteRepo())
 
     def __post_init__(self) -> None:
         self.contrato_credito = _RepoId(self.contrato)
@@ -679,6 +680,21 @@ class _FakeUoW:
 
     def close(self) -> None:
         self.closed = True
+
+
+class _ComprovanteRepo:
+    """Comprovantes do emprestimo. O IMP-390 expurga todos na quitacao."""
+
+    def __init__(self, itens: list[object] | None = None) -> None:
+        self.itens = itens or []
+        self.salvos: list[object] = []
+
+    def listar_por_emprestimo(self, emprestimo_id: uuid.UUID) -> list[object]:
+        del emprestimo_id
+        return list(self.itens)
+
+    def save(self, comprovante: object) -> None:
+        self.salvos.append(comprovante)
 
 
 @dataclass(frozen=True)

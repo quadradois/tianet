@@ -540,6 +540,43 @@ class PagamentoORM(Base):
     )
 
 
+class ComprovantePagamentoORM(Base):
+    """Tabela `comprovante_pagamento` — o que o devedor diz ter pago (IMP-390).
+
+    `conteudo` e nulavel porque o expurgo da quitacao apaga a imagem e mantem
+    a linha: o vinculo com o `Pagamento` sobrevive ao documento.
+    """
+
+    __tablename__ = "comprovante_pagamento"
+    __table_args__ = (
+        Index("uq_comprovante_emprestimo_sha256", "emprestimo_id", "sha256", unique=True),
+        Index("ix_comprovante_tenant", "tenant_id"),
+        Index("ix_comprovante_devedor", "devedor_id"),
+        CheckConstraint("tamanho > 0", name="ck_comprovante_tamanho_positivo"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True)
+    tenant_id: Mapped[uuid.UUID] = mapped_column(Uuid, ForeignKey("tenant.id"), nullable=False)
+    emprestimo_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid, ForeignKey("emprestimo.id"), nullable=False
+    )
+    devedor_id: Mapped[uuid.UUID] = mapped_column(Uuid, ForeignKey("devedor.id"), nullable=False)
+    sha256: Mapped[str] = mapped_column(String(64), nullable=False)
+    tipo_midia: Mapped[str] = mapped_column(String(40), nullable=False)
+    tamanho: Mapped[int] = mapped_column(Integer, nullable=False)
+    conteudo: Mapped[bytes | None] = mapped_column(LargeBinary, nullable=True)
+    valor_extraido: Mapped[Decimal | None] = mapped_column(Numeric(18, 2), nullable=True)
+    valor_informado: Mapped[Decimal | None] = mapped_column(Numeric(18, 2), nullable=True)
+    estado: Mapped[str] = mapped_column(String(20), nullable=False)
+    pagamento_id: Mapped[uuid.UUID | None] = mapped_column(
+        Uuid, ForeignKey("pagamento.id"), nullable=True
+    )
+    motivo_recusa: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    recebido_em: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    atualizado_em: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    expurgado_em: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+
 class ConfiguracaoMercadoPagoORM(Base):
     """Tabela `configuracao_mercadopago` — interruptor do recebimento por Pix.
 

@@ -6,6 +6,10 @@ import {
   MERCADOPAGO_PERMISSION,
   hasMercadoPagoPermission,
   isMercadoPagoConfig,
+  INITIAL_CHAVE_PIX_ACTION_STATE,
+  isChavePix,
+  type ChavePixActionState,
+  type ChavePixReadResult,
   type MercadoPagoActionState,
   type MercadoPagoReadResult,
 } from "../pagamentos/mercadopago-policy";
@@ -20,6 +24,7 @@ const ROTA = "/platform/mercadopago/configuracao" as const;
 const ROTA_TESTAR = "/platform/mercadopago/configuracao/testar" as const;
 const ROTA_HABILITAR = "/platform/mercadopago/configuracao/habilitar" as const;
 const ROTA_DESABILITAR = "/platform/mercadopago/configuracao/desabilitar" as const;
+const ROTA_CHAVE = "/platform/mercadopago/chave-pix" as const;
 
 /**
  * BFF do interruptor do Mercado Pago (IMP-388).
@@ -184,4 +189,57 @@ async function acaoSimples(
   }
 }
 
-export { INITIAL_MERCADOPAGO_ACTION_STATE, MERCADOPAGO_PERMISSION };
+export async function readChavePix(
+  cookies: CookieStore,
+  context: OperationalContext,
+  dependencies: BffDependencies,
+): Promise<ChavePixReadResult> {
+  const correlation = correlationId();
+  if (!hasMercadoPagoPermission(context.permissoes)) return problemState(negado(correlation));
+  try {
+    const result = await comCliente(cookies, dependencies, correlation, (client) => client.GET(ROTA_CHAVE, {
+      params: { header: { "X-Correlation-ID": correlation } },
+    }));
+    if (result.response.status !== 200) return problemState(await problemOf(result.response, correlation));
+    if (!isChavePix(result.data)) {
+      return problemState(new ApiProblem({ status: 502, codigo: "resposta_backend_invalida", mensagem: "Servico temporariamente indisponivel.", correlationId: correlationOf(result.response, correlation) }));
+    }
+    return { kind: "ready", chave: result.data };
+  } catch (error) {
+    return problemState(error instanceof ApiProblem ? error : indisponivel(correlation));
+  }
+}
+
+/** Grava a chave que o agente oferece ao devedor no caminho sem taxa. */
+export async function saveChavePix(
+  cookies: CookieStore,
+  context: OperationalContext,
+  dependencies: BffDependencies,
+  formData: FormData,
+): Promise<ChavePixActionState> {
+  const correlation = correlationId();
+  if (!hasMercadoPagoPermission(context.permissoes)) return problemState(negado(correlation));
+  const tipo = formData.get("tipo");
+  const valor = formData.get("valor");
+  const favorecido = formData.get("favorecido");
+  if (typeof tipo !== "string" || typeof valor !== "string" || valor.trim().length < 3 || typeof favorecido !== "string" || favorecido.trim().length < 2) {
+    return problemState(new ApiProblem({ status: 400, codigo: "payload_invalido", mensagem: "Informe tipo, chave e o nome do favorecido.", correlationId: correlation }));
+  }
+  const chave = chaveDe(formData, correlation);
+  if (typeof chave !== "string") return chave;
+  try {
+    const result = await comCliente(cookies, dependencies, correlation, (client) => client.PUT(ROTA_CHAVE, {
+      params: { header: { "X-Correlation-ID": correlation, "Idempotency-Key": chave } },
+      body: { tipo, valor: valor.trim(), favorecido: favorecido.trim() },
+    }));
+    if (result.response.status !== 200) return problemState(await problemOf(result.response, correlation));
+    if (!isChavePix(result.data)) {
+      return problemState(new ApiProblem({ status: 502, codigo: "resposta_backend_invalida", mensagem: "Servico temporariamente indisponivel.", correlationId: correlationOf(result.response, correlation) }));
+    }
+    return { kind: "success", message: "Chave Pix salva. O agente passa a oferece-la ao devedor.", chave: result.data, correlationId: correlationOf(result.response, correlation) };
+  } catch (error) {
+    return problemState(error instanceof ApiProblem ? error : indisponivel(correlation));
+  }
+}
+
+export { INITIAL_CHAVE_PIX_ACTION_STATE, INITIAL_MERCADOPAGO_ACTION_STATE, MERCADOPAGO_PERMISSION };

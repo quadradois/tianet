@@ -91,7 +91,9 @@ def test_imp_266_quality_migrations_gate_e_unico_head_alembic() -> None:
     # (`a1b2c3d4e5f6`); downgrade remove a tabela e a coluna.
     # IMP-388 cria `configuracao_mercadopago` e concede
     # `mercadopago.configurar` (`b2c3d4e5f6a7`); downgrade remove as duas.
-    assert script.get_current_head() == "b2c3d4e5f6a7"
+    # IMP-390 cria `comprovante_pagamento` e concede `comprovante.registrar`
+    # (`c3d4e5f6a7b8`); downgrade remove as duas.
+    assert script.get_current_head() == "c3d4e5f6a7b8"
 
 
 def test_imp_267_health_correlation_e_erro_tecnico_sem_vazamento(

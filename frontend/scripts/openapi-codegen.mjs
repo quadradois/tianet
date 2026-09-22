@@ -6,7 +6,7 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 import openapiTS, { astToString } from "openapi-typescript";
 
 const EXPECTED_SNAPSHOT_SHA256 =
-  "e3b75133a010c657638e84f3b16adbd830e6dbbedef9ce40c33b7b0a013c80f6";
+  "f6ea32e88a821223b5d74763a63d008b542db5b0a1092d0d18372b95a2f22e05";
 const defaultSnapshotUrl = new URL(
   "../../docs/governance/contracts/openapi/frontend-mvp-backend-openapi.json",
   import.meta.url,

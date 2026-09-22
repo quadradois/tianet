@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import base64
 import uuid
 from collections.abc import Iterator
 from datetime import UTC, datetime, timedelta
@@ -486,6 +487,104 @@ def test_imp_389_valor_nao_positivo_e_recusado_pelo_contrato(
     )
 
     assert resposta.status_code == 400
+
+
+def test_imp_390_comprovante_deduplica_por_conteudo_e_nao_devolve_o_binario(
+    client: TestClient,
+    contexto: tuple[str, str],
+) -> None:
+    """O devedor reenvia a IMAGEM, nao a requisicao: a chave e o sha256."""
+    carteira_id, devedor_id = contexto
+    emprestimo_id = _emprestimo_ativo(client, carteira_id, devedor_id)
+    conteudo = base64.b64encode(b"imagem-do-comprovante").decode()
+
+    primeiro = client.post(
+        f"/credit/emprestimos/{emprestimo_id}/comprovantes",
+        json={
+            "conteudo_base64": conteudo,
+            "tipo_midia": "image/jpeg",
+            "valor_informado": "1627.00",
+        },
+        headers={"Idempotency-Key": f"comp-{uuid.uuid4()}"},
+    )
+    segundo = client.post(
+        f"/credit/emprestimos/{emprestimo_id}/comprovantes",
+        json={
+            "conteudo_base64": conteudo,
+            "tipo_midia": "image/jpeg",
+            "valor_informado": "1627.00",
+        },
+        headers={"Idempotency-Key": f"comp-{uuid.uuid4()}"},
+    )
+    listagem = client.get(f"/credit/emprestimos/{emprestimo_id}/comprovantes")
+
+    assert primeiro.status_code == 200
+    assert primeiro.json()["duplicado"] is False
+    assert segundo.json()["id"] == primeiro.json()["id"]
+    assert segundo.json()["duplicado"] is True
+    assert len(listagem.json()) == 1
+    # O binario nunca volta: a resposta descreve, nao entrega.
+    assert "imagem-do-comprovante" not in primeiro.text
+    assert "conteudo" not in primeiro.json()
+
+
+def test_imp_390_tipo_nao_aceito_e_recusado(
+    client: TestClient,
+    contexto: tuple[str, str],
+) -> None:
+    carteira_id, devedor_id = contexto
+    emprestimo_id = _emprestimo_ativo(client, carteira_id, devedor_id)
+
+    resposta = client.post(
+        f"/credit/emprestimos/{emprestimo_id}/comprovantes",
+        json={
+            "conteudo_base64": base64.b64encode(b"nao-e-imagem").decode(),
+            "tipo_midia": "video/mp4",
+        },
+        headers={"Idempotency-Key": f"comp-{uuid.uuid4()}"},
+    )
+
+    assert resposta.status_code == 422
+
+
+def test_imp_390_base64_invalido_e_erro_de_payload(
+    client: TestClient,
+    contexto: tuple[str, str],
+) -> None:
+    carteira_id, devedor_id = contexto
+    emprestimo_id = _emprestimo_ativo(client, carteira_id, devedor_id)
+
+    resposta = client.post(
+        f"/credit/emprestimos/{emprestimo_id}/comprovantes",
+        json={"conteudo_base64": "isto!!nao!!e!!base64", "tipo_midia": "image/jpeg"},
+        headers={"Idempotency-Key": f"comp-{uuid.uuid4()}"},
+    )
+
+    assert resposta.status_code == 400
+
+
+def test_imp_390_valores_divergentes_chegam_marcados_sem_a_api_escolher(
+    client: TestClient,
+    contexto: tuple[str, str],
+) -> None:
+    carteira_id, devedor_id = contexto
+    emprestimo_id = _emprestimo_ativo(client, carteira_id, devedor_id)
+
+    resposta = client.post(
+        f"/credit/emprestimos/{emprestimo_id}/comprovantes",
+        json={
+            "conteudo_base64": base64.b64encode(b"comprovante-divergente").decode(),
+            "tipo_midia": "application/pdf",
+            "valor_extraido": "1627.00",
+            "valor_informado": "1600.00",
+        },
+        headers={"Idempotency-Key": f"comp-{uuid.uuid4()}"},
+    )
+
+    corpo = resposta.json()
+    assert corpo["divergente"] is True
+    assert Decimal(corpo["valor_extraido"]) == Decimal("1627.00")
+    assert Decimal(corpo["valor_informado"]) == Decimal("1600.00")
 
 
 def _emprestimo_ativo(client: TestClient, carteira_id: str, devedor_id: str) -> str:

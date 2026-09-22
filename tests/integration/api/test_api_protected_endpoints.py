@@ -111,6 +111,10 @@ ROTAS_COM_404_DOCUMENTADO = {
     # IMP-389: previsao de alocacao herda o 404 do emprestimo — prever a
     # divisao de um emprestimo que nao existe nao e "divisao zero".
     ("get", "/credit/emprestimos/{emprestimo_id}/alocacao-prevista"),
+    # IMP-390: comprovante pertence a um emprestimo — registrar ou listar
+    # comprovante de emprestimo inexistente e 404, nao lista vazia.
+    ("post", "/credit/emprestimos/{emprestimo_id}/comprovantes"),
+    ("get", "/credit/emprestimos/{emprestimo_id}/comprovantes"),
     ("get", "/credit/emprestimos/{emprestimo_id}/memoria-calculo"),
     ("get", "/credit/emprestimos/{emprestimo_id}/quitacao"),
     ("post", "/credit/emprestimos/{emprestimo_id}/quitacao"),
