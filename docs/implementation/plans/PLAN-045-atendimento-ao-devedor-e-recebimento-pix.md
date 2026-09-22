@@ -2,7 +2,7 @@
 
 **ID:** PLAN-045
 
-**Versão:** 1.2.0
+**Versão:** 1.3.0
 
 **Status:** Aprovado pelo proprietário em 2026-09-21 (v1.1.0); execução via [PLAN-045-execution-backlog](../backlogs/PLAN-045-execution-backlog.md) (IMP-372..387, GATE-E1..E6)
 
@@ -39,6 +39,9 @@ Credora decide.**
 | D10 | Canal único WhatsApp; e-mail, PDF, extrato, cartão, boleto fora | — |
 | D11 | DR-005 §8: política de dados do provedor deixa de ser critério de elegibilidade; rota A (`gpt-5-mini`) mantida por previsibilidade | Delegado à engenharia e decidido |
 | D12 | Tela BYOK para provedor/modelo/chave sem deploy | `LLM_*` de ambiente sai; configuração no banco, cifrada |
+| D13 | **Pix direto da Credora com comprovante** (2026-09-22): o agente informa os valores e a chave Pix dela, pede o comprovante, extrai o valor, pergunta à Credora se lança; ela confere na própria conta e autoriza | Caminho **sem taxa**; torna o Mercado Pago conveniência, não necessidade. Reverte o descarte de mídia do 356-B |
+| D14 | **Comprovante é alegação, nunca prova.** Quem verifica é a Credora, na conta dela | Modelo errar o valor vira "não" dela, nunca lançamento errado |
+| D15 | Comprovante guardado **enquanto o empréstimo vive**; na quitação, expurgado | O lançamento, a memória de cálculo e a trilha permanecem — a prova contábil não depende da imagem |
 
 ## 1.2 Fora do escopo, declarado
 
@@ -64,6 +67,8 @@ ADR-002, isolamento de contextos (ADR-016).
 | `avisos_suspensos_ate: date \| None` | campo em `PreferenciaNotificacao` | `permite_envio_proativo(hoje)` = `permite_envio and (avisos_suspensos_ate is None or hoje >= avisos_suspensos_ate)`. `permite_envio` (opt-out) permanece para resposta e confirmação. |
 | `elegivel_lembrete(dias_atraso)` | função pura, `domain/credit/regua_lembrete.py` | `dias == 1 or (dias > 1 and (dias - 1) % 3 == 0)` |
 | `ClasseContexto.DEVEDOR` | `agent/conversa.py` | terceira classe; sessão, histórico e tools isolados das outras duas |
+| `ComprovantePagamento` | `domain/credit/comprovante.py` | `emprestimo_id`, `devedor_id`, `sha256`, `tipo_midia`, `tamanho`, `recebido_em`, `valor_extraido`, `valor_informado`, `estado ∈ {recebido, lancado, recusado}`, `pagamento_id`. **INV:** binário e valores são apagados na quitação do empréstimo. |
+| `ChavePixCredora` | configuração do Tenant | tipo, valor, nome do favorecido. Ausente → agente não promete Pix. |
 | `ConfiguracaoMercadoPago` | `domain/platform/configuracao_mercadopago.py` | por tenant: `habilitado` (padrão **false**), `access_token_cifrado`, `webhook_secret_cifrado`, `testado_em`, `atualizado_em/por`. Mesmo padrão de cifra da `ConexaoWhatsApp`. Habilitar exige as duas credenciais e teste ok. |
 | `ConfiguracaoLlm` | `domain/platform/configuracao_llm.py` | por tenant: `provedor`, `base_url`, `modelo`, `chave_cifrada`, `habilitado`, `testado_em`, `atualizado_em/por`. Mesmo padrão de cifra da `ConexaoWhatsApp`. |
 | `AutorizacaoLembrete` | `domain/credit/` (registro por dia) | `tenant_id`, `data`, `mapa {n: (devedor_id, emprestimo_id)}`, `autorizados: set`, `respondido_em`. Um por tenant/dia. |
@@ -112,6 +117,31 @@ Respostas e confirmações de pagamento continuam.
 
 `falar_com_a_tia` → registra comunicação (`POST .../comunicacoes`) → avisa a
 Credora com o texto do devedor → responde ao devedor que ela foi avisada.
+
+## 3.2-b Devedor paga no Pix da Credora e envia comprovante
+
+Caminho sem taxa, disponível com o Mercado Pago ligado ou desligado.
+
+1. Devedor pede para pagar. O agente responde com os valores do Motor (juro do
+   período, saldo, quitação) e a **chave Pix da Credora** (configuração do
+   Tenant, §3.12-b), pedindo o comprovante depois do pagamento.
+2. Devedor envia imagem/PDF do comprovante, com ou sem texto.
+3. O agente **extrai o valor** do comprovante e consulta o Motor
+   (`prever_alocacao`, §4.10) para a divisão que aquele valor produziria
+   naquela data. Se o devedor também disse um valor e os dois divergem, o
+   agente **não escolhe**: relata os dois à Credora.
+4. O agente encaminha à Credora **a imagem original** e o resumo:
+   *"Alexandre pagou R$ 1.627,00 — seriam R$ 627,00 de juros e R$ 1.000,00 de
+   amortização. Comprovante anexo. Confere na conta e me diz se lanço."*
+5. Credora confere **na própria conta** (é ela quem verifica, não o agente) e
+   responde `sim` ou `não`.
+6. `sim` → lança no Motor (`origem=copilot_credora`, `Idempotency-Key` derivada
+   do comprovante) e responde ao devedor com o estado atualizado: valor
+   recebido, divisão juro/amortização, **saldo devedor atualizado, juros
+   atualizados e próxima data de acerto** — todos do Motor.
+   `não` → nada é lançado; o devedor é avisado de que a Credora vai falar com
+   ele; o comprovante fica marcado como recusado.
+7. Sem resposta da Credora, nada acontece: fail-closed, como toda escrita.
 
 ## 3.4-b Devedor quer pagar com o Mercado Pago **desligado**
 
@@ -188,6 +218,26 @@ copilot via IMP-361) → resposta com juro/amortização/saldo do Motor.
 
 `POST /credit/emprestimos/{id}/cobrancas-pix` com `origem=tela`; a tela mostra
 copia-e-cola/QR para ela enviar por onde quiser. Mesma expiração e confirmação.
+
+## 3.11-b Comprovante: recepção, guarda e expurgo
+
+- O ingress passa a **aceitar mídia** quando ela é comprovante de um devedor
+  identificado — reversão nomeada do 356-B, que descartava toda mídia. Limite de
+  payload, tipos aceitos (imagem e PDF) e descarte acima do limite continuam.
+- O binário é guardado associado ao Empréstimo, com `sha256`, tipo, tamanho,
+  remetente, recebido_em e estado (`recebido`, `lancado`, `recusado`).
+- **Expurgo na quitação:** quitado o empréstimo, os comprovantes dele são
+  apagados (binário e metadados de conteúdo). O `Pagamento`, a memória de
+  cálculo e a trilha de auditoria permanecem — a prova contábil não depende da
+  imagem.
+- Mídia de remetente não identificado como devedor continua descartada.
+
+## 3.12-b Credora configura a chave Pix própria
+
+Card em `/app/configuracoes`: tipo e valor da chave Pix (CPF/CNPJ, telefone,
+e-mail ou aleatória) e o nome que aparece para o devedor. É o que o agente
+envia no §3.2-b. Sem chave configurada, o agente informa os valores e encaminha
+à Credora, sem prometer Pix.
 
 ## 3.12 Credora liga ou desliga o Mercado Pago
 
@@ -322,6 +372,25 @@ colateral de credencial ausente:
   chamar o que não recebeu;
 - Pix `pendente` emitido antes do desligamento continua válido e conciliável.
 
+## 4.10 A divisão juro/amortização vem do Motor, não do modelo
+
+A alocação (juros → encargos → amortização → devolvido) hoje existe apenas
+dentro de `registrar_pagamento`. Ela é **extraída para uma função pura** do
+domínio e passa a servir os dois caminhos: o registro, como hoje, e uma
+previsão de leitura `prever_alocacao(emprestimo, valor, data)`.
+
+Sem isso, a frase *"R$ 627,00 de juros e R$ 1.000,00 de amortização"* sairia do
+modelo. Com isso, o modelo extrai um número do comprovante e todo o resto é
+cálculo do Motor, apresentado por apresentador.
+
+## 4.11 O comprovante não autentica pagamento
+
+Um comprovante é uma imagem — forjá-lo é trivial. Ele entra no fluxo como
+**alegação do devedor**, e a verificação é a Credora conferindo a própria
+conta. Isso muda o que a certificação precisa medir: não "o modelo lê o
+comprovante corretamente", e sim "o modelo nunca lança sem o `sim` dela" e
+"quando não consegue ler, diz que não conseguiu em vez de inventar".
+
 ## 4.9 Régua de certificação
 
 | Contexto | Utilidade | Adversarial | Rodadas |
@@ -427,6 +496,9 @@ reboot da VPS, runbook da ponte socat/Caddy.
 | Modelo extrai valor errado | Eco + confirmação; erro vira "não", nunca lançamento |
 | Devedor com dois empréstimos | `meu_saldo` lista os dois; `gerar_pix` pede qual (determinístico, por número) |
 | Chave de provedor vaza em log | Guardrail AST + DTO sem segredo + cifra em repouso |
+| Comprovante forjado | Não autentica nada: a Credora confere na conta dela antes de autorizar (§4.11) |
+| Modelo lê o valor errado do comprovante | Eco à Credora com a imagem anexa; divergência entre valor lido e valor dito é relatada, não resolvida pelo agente |
+| Mídia infla payload e armazenamento | Limite do 356-B mantido; só comprovante de devedor identificado; expurgo na quitação |
 | Taxa do provedor corrói o lucro | Integração opcional, desligada por padrão; a Credora liga e desliga no painel e vê a taxa vigente no card |
 | Desligar com Pix em trânsito | Desligamento impede emissão nova, nunca invalida `pendente`; webhook segue aceito para eles |
 
@@ -436,6 +508,7 @@ reboot da VPS, runbook da ponte socat/Caddy.
 
 | Versão | Data | Alteração |
 |---|---|---|
+| 1.3.0 | 2026-09-22 | Caminho **sem taxa** completo (D13–D15): agente envia valores e a chave Pix da Credora, recebe e guarda o comprovante, extrai o valor, consulta `prever_alocacao` no Motor, pede autorização a ela com a imagem anexa e, no `sim`, lança e devolve ao devedor saldo, juros e próximo acerto atualizados. Comprovante é alegação, não prova; guardado enquanto o empréstimo vive e expurgado na quitação. Reverte o descarte de mídia do 356-B para devedor identificado. |
 | 1.2.0 | 2026-09-22 | Mercado Pago passa a ser **opcional por Tenant**, ligado/desligado no painel, desligado por padrão: o provedor cobra 0,99% e a Credora já tem o caminho sem taxa (§3.10). Acrescenta `ConfiguracaoMercadoPago`, o caso §3.4-b (pedido de pagamento com a integração desligada), a §4.8-b (catálogo de tools montado por configuração) e a §3.12 (card no painel). |
 | 1.1.0 | 2026-09-21 | Revisão documental: contrato real de assinatura do MP (manifesto, `ts`/`v1`, `data.id` da query), separação `mp_notification_id`/`mp_payment_id`, `external_reference` modelado como chave de correlação, egress herdando ADR-009/§6.2 sem retry cego, migração governada de `LLM_*` → banco, exceção de rota pública registrada no contexto externo §2.4. |
 | 1.0.0 | 2026-09-21 | Desenho aprovado por seções em conversa com o proprietário (D1–D12). Origem: auditoria do módulo do agente em 2026-09-21. |

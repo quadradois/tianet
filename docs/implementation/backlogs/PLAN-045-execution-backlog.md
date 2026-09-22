@@ -1,6 +1,6 @@
 # PLAN-045-EXEC — Atendimento ao devedor, recebimento por Pix e BYOK
 
-**Versão:** 1.1.0
+**Versão:** 1.2.0
 
 **Status:** Aprovado pelo proprietário em 2026-09-21 (PLAN-045 v1.1.0); execução ainda não iniciada
 
@@ -176,6 +176,28 @@ Verificado em 2026-09-21 por leitura de código e do handoff vigente, não presu
 
 **GATE-E5** — IMP-385..386. Condição: véspera e lembrete reais observados; handoff.
 
+## Fase 4b — Caminho sem taxa: Pix da Credora com comprovante
+
+### IMP-389 — `prever_alocacao`: a divisão juro/amortização como leitura
+
+- **Objetivo:** o agente dizer "R$ 627 de juros e R$ 1.000 de amortização" **antes** de lançar, com número do Motor.
+- **Escopo:** extrair a alocação de `MotorFinanceiro.registrar_pagamento` (juros → encargos → amortização → devolvido) para função pura do domínio; `registrar_pagamento` passa a usá-la, sem mudar comportamento; `prever_alocacao(emprestimo, valor, data_referencia) → AlocacaoPrevista`; caso de uso de leitura e `GET /credit/emprestimos/{id}/alocacao-prevista?valor=&data=` (permissão `emprestimo.ler`); apresentador do texto.
+- **Critério de pronto:** teste de caracterização prova que a extração **não** mudou o resultado de `registrar_pagamento` em nenhum caso já coberto; previsão bate com o pagamento real registrado em seguida (mesmo valor, mesma data); valor menor que o juro, valor igual à quitação e valor acima da quitação (devolvido) cobertos; contrato reconciliado.
+
+### IMP-390 — Comprovante: recepção, guarda e expurgo na quitação
+
+- **Objetivo:** receber a imagem do comprovante, guardá-la enquanto o empréstimo vive e apagá-la na quitação.
+- **Escopo:** ingress passa a **aceitar mídia de devedor identificado** (reversão nomeada do 356-B; limite de payload e tipos — imagem e PDF — mantidos; mídia de não-devedor continua descartada); `domain/credit/comprovante.py` (`ComprovantePagamento` com `sha256`, tipo, tamanho, `valor_extraido`, `valor_informado`, estado `recebido|lancado|recusado`, `pagamento_id`); migration + ORM + repositório (binário em `bytea`, sem infraestrutura nova); **expurgo na quitação** do empréstimo, apagando binário e valores e preservando `Pagamento`, memória de cálculo e trilha; `ChavePixCredora` na configuração do Tenant + card em `/app/configuracoes`.
+- **Critério de pronto:** comprovante duplicado (mesmo `sha256`, mesmo empréstimo) não duplica registro; acima do limite → descarte com motivo, sem persistir; mídia de remetente não-devedor descartada; **quitação apaga o binário e preserva o `Pagamento` e a trilha** (teste explícito); sem `ChavePixCredora`, o agente não promete Pix; BFF + component + E2E do card.
+
+### IMP-391 — Fluxo conversacional do comprovante
+
+- **Objetivo:** o ciclo inteiro — valores e chave → comprovante → autorização da Credora → lançamento → estado atualizado ao devedor.
+- **Escopo:** tool `informar_chave_pix` no contexto Devedor (valores do Motor + chave da Credora + pedido do comprovante); recebimento do comprovante dispara extração do valor pelo modelo (visão), `prever_alocacao` e **encaminhamento da imagem original + resumo à Credora**; divergência entre valor lido e valor dito é **relatada, nunca resolvida pelo agente**; falha de leitura diz que não conseguiu ler, em vez de inventar; tool `autorizar_lancamento(comprovante)` no contexto Credora com eco + `sim`/`não` (`sim` → `POST .../pagamentos` com `origem=copilot_credora` e `Idempotency-Key` derivada do `sha256`; `não` → `recusado`, devedor avisado); resposta ao devedor com valor, divisão, **saldo atualizado, juros atualizados e próximo acerto**, todos do Motor.
+- **Critério de pronto:** jornada cobre comprovante legível, ilegível, valor divergente do informado, comprovante repetido, `sim`, `não`, sem resposta (nada lançado), crash entre autorização e lançamento (replay não duplica); nenhum valor no texto vem do modelo (teste de apresentador); certificação do contexto Credora (IMP-387) ganha casos de visão, incluindo comprovante adulterado — que **deve** chegar à Credora como alegação, nunca ser lançado sozinho.
+
+**GATE-E5b** — IMP-389..391. Condição: ciclo real observado de ponta a ponta com um devedor de teste; expurgo provado numa quitação real; handoff.
+
 ## Fase 5 — Credora registra pagamento por WhatsApp
 
 ### IMP-387 — `registrar_pagamento` com eco e certificação do contexto Credora
@@ -208,9 +230,12 @@ Verificado em 2026-09-21 por leitura de código e do handoff vigente, não presu
 | 13 | 384 | 383, 380 |
 | 14 | 385 | 382 |
 | 15 | 386 | 372, 385 |
-| 16 | 387 | 384 (Slice 6 provado), 386 |
+| 16 | 389 | — (domínio puro; pode andar antes) |
+| 17 | 390 | 383 |
+| 18 | 391 | 389, 390, 387 |
+| 19 | 387 | 384 (Slice 6 provado), 386 |
 
-Gates: E1 (372) · E2 (373–378 + 388) · E3 (379–380) · E4 (381–384) · E5 (385–386) · E6 (387). Blocos menores que 5 justificados pela fronteira de deploy observado entre fases (ALP-001 §3).
+Gates: E1 (372) · E2 (373–378 + 388) · E3 (379–380) · E4 (381–384) · E5 (385–386) · E5b (389–391) · E6 (387). Blocos menores que 5 justificados pela fronteira de deploy observado entre fases (ALP-001 §3).
 
 ---
 
@@ -224,6 +249,7 @@ PLAN-045 §1.2, na íntegra. Em particular: IMP-357 (pré-cadastro) segue no PLA
 
 | Versão | Data | Alteração |
 |---|---|---|
+| 1.2.0 | 2026-09-22 | Fase 4b (IMP-389..391): caminho sem taxa com comprovante — `prever_alocacao` no Motor, recepção/guarda/expurgo do comprovante na quitação, e o fluxo conversacional com autorização da Credora. |
 | 1.1.0 | 2026-09-22 | IMP-388: Mercado Pago opcional por Tenant (taxa de 0,99%), desligado por padrão; catálogo de tools montado por configuração; recusa no caso de uso. |
 | 1.0.3 | 2026-09-22 | IMP-373 concluído (ADR-021, CobrancaPix, régua, DOMAIN-031). |
 | 1.0.2 | 2026-09-22 | Regra 9: branch novo por IMP a partir de master (PRs entram por squash). |
