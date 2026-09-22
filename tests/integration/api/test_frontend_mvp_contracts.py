@@ -356,17 +356,17 @@ def test_imp_278_catalogo_reflete_fonte_canonica_versionada(
 
     assert resposta.status_code == 200
     corpo = resposta.json()
-    assert corpo["versao"] == "1.4.0"
+    assert corpo["versao"] == "1.5.0"
     assert [item["codigo"] for item in corpo["itens"]] == sorted(
         permissao.codigo for permissao in CATALOGO_PERMISSOES
     )
     # ADR-020: 59 com `openai.conexao.ler` e `openai.conexao.gerir`; eram 57
     # desde o IMP-367 (`whatsapp.conexao.*`), 55 desde o IMP-355
     # (`usuario.criar`), e 54 desde o IMP-360 (`proposta.submeter`). S3: 60
-    # com `agent.inbox.ler`. IMP-388: 61 com `mercadopago.configurar`. A versao
-    # do catalogo sobe junto — o contador sozinho nao diz ao frontend que o
-    # conjunto mudou.
-    assert len(corpo["itens"]) == len(CATALOGO_PERMISSOES) == 61
+    # com `agent.inbox.ler`. IMP-388: 61 com `mercadopago.configurar`. IMP-390:
+    # 62 com `comprovante.registrar`. A versao do catalogo sobe junto — o
+    # contador sozinho nao diz ao frontend que o conjunto mudou.
+    assert len(corpo["itens"]) == len(CATALOGO_PERMISSOES) == 62
     assert all(item["grupo"] == item["codigo"].split(".", maxsplit=1)[0] for item in corpo["itens"])
 
 

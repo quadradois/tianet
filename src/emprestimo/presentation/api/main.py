@@ -21,6 +21,8 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 
 from emprestimo.application.autorizacao import RecursoDeOutroTenantError
+from emprestimo.application.chave_pix import ChavePixInvalidaError
+from emprestimo.application.comprovante_pagamento import MidiaComprovanteRecusadaError
 from emprestimo.application.configuracao_mercadopago import (
     MercadoPagoDesabilitadoError,
     VerificacaoCredencialError,
@@ -163,6 +165,8 @@ def create_app() -> FastAPI:
     app.add_exception_handler(TransicaoEstadoInvalidaError, _conflito_estado)
     app.add_exception_handler(ViolacaoInvarianteError, _regra_violada)
     app.add_exception_handler(MercadoPagoDesabilitadoError, _mercadopago_desabilitado)
+    app.add_exception_handler(MidiaComprovanteRecusadaError, _midia_recusada)
+    app.add_exception_handler(ChavePixInvalidaError, _chave_pix_invalida)
     app.add_exception_handler(VerificacaoCredencialError, _credencial_recusada)
     app.add_exception_handler(DocumentoInvalidoError, _regra_violada)
     app.add_exception_handler(ContatoInvalidoError, _regra_violada)
@@ -272,6 +276,18 @@ async def _conflito_estado(_: Request, exc: Exception) -> JSONResponse:
 
 async def _regra_violada(_: Request, exc: Exception) -> JSONResponse:
     return JSONResponse(status_code=422, content=_corpo("regra_violada", str(exc)))
+
+
+async def _midia_recusada(_: Request, exc: Exception) -> JSONResponse:
+    """422: tipo ou tamanho fora do aceito — recusa nomeada, nao erro tecnico."""
+    erro = cast(MidiaComprovanteRecusadaError, exc)
+    return JSONResponse(status_code=422, content=_corpo("comprovante_recusado", erro.motivo))
+
+
+async def _chave_pix_invalida(_: Request, exc: Exception) -> JSONResponse:
+    """400: formato incompativel com o tipo — erro de payload do operador."""
+    erro = cast(ChavePixInvalidaError, exc)
+    return JSONResponse(status_code=400, content=_corpo("chave_pix_invalida", erro.motivo))
 
 
 async def _mercadopago_desabilitado(_: Request, exc: Exception) -> JSONResponse:

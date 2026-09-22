@@ -8,10 +8,11 @@ import { currentOperationalContext } from "@/lib/bff/current-context.server";
 import {
   disableMercadoPago,
   enableMercadoPago,
+  saveChavePix,
   saveMercadoPagoCredentials,
   testMercadoPagoCredentials,
 } from "@/lib/bff/mercadopago.server";
-import type { MercadoPagoActionState } from "@/lib/pagamentos/mercadopago-policy";
+import type { ChavePixActionState, MercadoPagoActionState } from "@/lib/pagamentos/mercadopago-policy";
 
 /**
  * Uma acao so, escolhida por `intent` — pelo mesmo motivo do WhatsApp: com
@@ -36,6 +37,22 @@ export async function mercadoPagoAction(
           ? await disableMercadoPago(cookieStore, context, dependencies, formData)
           : await saveMercadoPagoCredentials(cookieStore, context, dependencies, formData);
 
+  if (result.kind === "success") revalidatePath("/app/pagamentos");
+  return result;
+}
+
+
+/** Grava a chave Pix da Credora — o caminho sem taxa. */
+export async function chavePixAction(
+  _state: ChavePixActionState,
+  formData: FormData,
+): Promise<ChavePixActionState> {
+  const result = await saveChavePix(
+    await cookies(),
+    await currentOperationalContext(),
+    createRuntimeDependencies(),
+    formData,
+  );
   if (result.kind === "success") revalidatePath("/app/pagamentos");
   return result;
 }

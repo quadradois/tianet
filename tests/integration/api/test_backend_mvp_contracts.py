@@ -92,7 +92,7 @@ def test_imp_269_openapi_cobre_routers_reais_e_contratos_transversais() -> None:
     # IMP-389: +1 com GET /credit/emprestimos/{id}/alocacao-prevista.
     # IMP-388: +5 com a configuracao do Mercado Pago (GET, PUT, testar,
     # habilitar, desabilitar).
-    assert len(operations) == 124
+    assert len(operations) == 128
     assert operations.keys() == router_operations
     assert schema["components"]["schemas"]["ErroResponse"]["required"] == [
         "codigo",

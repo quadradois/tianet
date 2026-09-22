@@ -27,6 +27,7 @@ from emprestimo.application.autorizacao import (
     RecursoDeOutroTenantError,
 )
 from emprestimo.application.cadastro_devedor import DevedorCadastroService
+from emprestimo.application.chave_pix import ChavePixService
 from emprestimo.application.comercial import (
     ConsultaComercialService,
     DecisaoComercialService,
@@ -35,6 +36,7 @@ from emprestimo.application.comercial import (
     SimulacaoComercialService,
 )
 from emprestimo.application.comprovante import ComprovanteService
+from emprestimo.application.comprovante_pagamento import ComprovantePagamentoService
 from emprestimo.application.conexao_whatsapp import (
     ConectarWhatsApp,
     ConsultarConexaoWhatsApp,
@@ -231,6 +233,22 @@ def get_consultar_conexao_whatsapp() -> ConsultarConexaoWhatsApp:
 def get_numero_avisos_service() -> NumeroAvisosService:
     session_factory = get_session_factory()
     return NumeroAvisosService(
+        lambda: SqlAlchemyUnitOfWork(session_factory),
+        SqlAlchemyAuditoriaRegistro(session_factory),
+    )
+
+
+def get_chave_pix_service() -> ChavePixService:
+    session_factory = get_session_factory()
+    return ChavePixService(
+        lambda: SqlAlchemyUnitOfWork(session_factory),
+        SqlAlchemyAuditoriaRegistro(session_factory),
+    )
+
+
+def get_comprovante_pagamento_service() -> ComprovantePagamentoService:
+    session_factory = get_session_factory()
+    return ComprovantePagamentoService(
         lambda: SqlAlchemyUnitOfWork(session_factory),
         SqlAlchemyAuditoriaRegistro(session_factory),
     )

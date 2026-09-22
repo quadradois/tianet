@@ -82,6 +82,19 @@ const server = createServer(async (request, response) => {
     estados.set(selected, { ...atual(selected), habilitado: false });
     return send(response, 200, atual(selected), correlation);
   }
+  if (url.pathname === "/platform/mercadopago/chave-pix") {
+    const estado = atual(selected);
+    if (request.method === "GET") {
+      return send(response, 200, estado.chavePix ?? { tipo: null, valor: null, favorecido: null, configurada: false }, correlation);
+    }
+    if (request.method === "PUT") {
+      if (!request.headers["idempotency-key"]) return send(response, 400, { codigo: "idempotencia_invalida", mensagem: "Chave ausente." }, correlation);
+      const payload = await body(request);
+      const chavePix = { tipo: payload.tipo, valor: payload.valor, favorecido: payload.favorecido, configurada: true };
+      estados.set(selected, { ...estado, chavePix });
+      return send(response, 200, chavePix, correlation);
+    }
+  }
   return send(response, 404, { codigo: "recurso_nao_encontrado", mensagem: "Recurso não encontrado." }, correlation);
 });
 

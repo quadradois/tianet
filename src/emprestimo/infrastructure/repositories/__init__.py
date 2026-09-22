@@ -28,6 +28,11 @@ from emprestimo.domain.credit.cobranca_pix import (
     CobrancaPixState,
     OrigemCobrancaPix,
 )
+from emprestimo.domain.credit.comprovante import (
+    ComprovantePagamento,
+    ComprovanteState,
+    TipoMidiaComprovante,
+)
 from emprestimo.domain.credit.contato import Contato, TipoContato
 from emprestimo.domain.credit.contrato_credito import ContratoCredito
 from emprestimo.domain.credit.contrato_credito_state import ContratoCreditoState
@@ -47,6 +52,7 @@ from emprestimo.domain.credit.pagamento import Pagamento, PagamentoState
 from emprestimo.domain.credit.ports import (
     CarteiraRepository,
     CobrancaPixRepository,
+    ComprovantePagamentoRepository,
     ContatoRepository,
     ContratoCreditoFiltros,
     ContratoCreditoRepository,
@@ -97,6 +103,7 @@ from emprestimo.infrastructure.cifra import CifraToken, SegredoCorrompidoError
 from emprestimo.infrastructure.db.orm import (
     CarteiraORM,
     CobrancaPixORM,
+    ComprovantePagamentoORM,
     ConexaoWhatsAppORM,
     ConfiguracaoMercadoPagoORM,
     ConfiguracaoORM,
@@ -1056,6 +1063,80 @@ def _to_cobranca_pix(row: CobrancaPixORM) -> CobrancaPix:
         valor_recebido=row.valor_recebido,
         divergente=row.divergente,
     )
+
+
+def _to_comprovante_orm(comprovante: ComprovantePagamento) -> ComprovantePagamentoORM:
+    return ComprovantePagamentoORM(
+        id=comprovante.id,
+        tenant_id=comprovante.tenant_id,
+        emprestimo_id=comprovante.emprestimo_id,
+        devedor_id=comprovante.devedor_id,
+        sha256=comprovante.sha256,
+        tipo_midia=comprovante.tipo_midia.value,
+        tamanho=comprovante.tamanho,
+        conteudo=comprovante.conteudo,
+        valor_extraido=comprovante.valor_extraido,
+        valor_informado=comprovante.valor_informado,
+        estado=comprovante.estado.value,
+        pagamento_id=comprovante.pagamento_id,
+        motivo_recusa=comprovante.motivo_recusa,
+        recebido_em=comprovante.recebido_em,
+        atualizado_em=comprovante.atualizado_em,
+        expurgado_em=comprovante.expurgado_em,
+    )
+
+
+def _to_comprovante(row: ComprovantePagamentoORM) -> ComprovantePagamento:
+    return ComprovantePagamento(
+        id=row.id,
+        tenant_id=row.tenant_id,
+        emprestimo_id=row.emprestimo_id,
+        devedor_id=row.devedor_id,
+        sha256=row.sha256,
+        tipo_midia=TipoMidiaComprovante(row.tipo_midia),
+        tamanho=row.tamanho,
+        recebido_em=row.recebido_em,
+        atualizado_em=row.atualizado_em,
+        conteudo=row.conteudo,
+        valor_extraido=row.valor_extraido,
+        valor_informado=row.valor_informado,
+        estado=ComprovanteState(row.estado),
+        pagamento_id=row.pagamento_id,
+        motivo_recusa=row.motivo_recusa,
+        expurgado_em=row.expurgado_em,
+    )
+
+
+class SqlAlchemyComprovantePagamentoRepository(ComprovantePagamentoRepository):
+    """Implementacao SQLAlchemy do ComprovantePagamentoRepository (IMP-390)."""
+
+    def __init__(self, session: Session) -> None:
+        self._session = session
+
+    def save(self, comprovante: ComprovantePagamento) -> None:
+        self._session.merge(_to_comprovante_orm(comprovante))
+        self._session.flush()
+
+    def find_by_id(self, comprovante_id: uuid.UUID) -> ComprovantePagamento | None:
+        row = self._session.get(ComprovantePagamentoORM, comprovante_id)
+        return _to_comprovante(row) if row is not None else None
+
+    def find_by_sha256(self, emprestimo_id: uuid.UUID, sha256: str) -> ComprovantePagamento | None:
+        row = self._session.scalar(
+            select(ComprovantePagamentoORM).where(
+                ComprovantePagamentoORM.emprestimo_id == emprestimo_id,
+                ComprovantePagamentoORM.sha256 == sha256,
+            )
+        )
+        return _to_comprovante(row) if row is not None else None
+
+    def listar_por_emprestimo(self, emprestimo_id: uuid.UUID) -> list[ComprovantePagamento]:
+        rows = self._session.scalars(
+            select(ComprovantePagamentoORM)
+            .where(ComprovantePagamentoORM.emprestimo_id == emprestimo_id)
+            .order_by(ComprovantePagamentoORM.recebido_em, ComprovantePagamentoORM.id)
+        ).all()
+        return [_to_comprovante(row) for row in rows]
 
 
 class SqlAlchemyConfiguracaoMercadoPagoRepository(ConfiguracaoMercadoPagoRepository):

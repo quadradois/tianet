@@ -1,6 +1,6 @@
 # PLAN-045-EXEC — Atendimento ao devedor, recebimento por Pix e BYOK
 
-**Versão:** 1.3.0
+**Versão:** 1.4.0
 
 **Status:** Aprovado pelo proprietário em 2026-09-21 (PLAN-045 v1.1.0); execução ainda não iniciada
 
@@ -192,6 +192,9 @@ Verificado em 2026-09-21 por leitura de código e do handoff vigente, não presu
 
 ### IMP-390 — Comprovante: recepção, guarda e expurgo na quitação
 
+- **Status:** concluído em 2026-09-22, **menos a aceitação de mídia no ingress** — ela exige "devedor identificado", que nasce com o IMP-381 (classificação por telefone); entregá-la agora seria código sem quem o alimente. Fica declarada como parte do IMP-391.
+- **Entregue:** `ComprovantePagamento` (INV-001 conteúdo, INV-002 terminal), migration `c3d4e5f6a7b8` + permissão `comprovante.registrar`, repositório, `ComprovantePagamentoService` (dedupe por `sha256` do conteúdo, recusas nomeadas), **expurgo dentro da transação da quitação**, `POST/GET /credit/emprestimos/{id}/comprovantes`, chave Pix da Credora (`GET/PUT /platform/mercadopago/chave-pix`) e card em `/app/pagamentos`. Snapshot 128 ops / 157 schemas.
+
 - **Objetivo:** receber a imagem do comprovante, guardá-la enquanto o empréstimo vive e apagá-la na quitação.
 - **Escopo:** ingress passa a **aceitar mídia de devedor identificado** (reversão nomeada do 356-B; limite de payload e tipos — imagem e PDF — mantidos; mídia de não-devedor continua descartada); `domain/credit/comprovante.py` (`ComprovantePagamento` com `sha256`, tipo, tamanho, `valor_extraido`, `valor_informado`, estado `recebido|lancado|recusado`, `pagamento_id`); migration + ORM + repositório (binário em `bytea`, sem infraestrutura nova); **expurgo na quitação** do empréstimo, apagando binário e valores e preservando `Pagamento`, memória de cálculo e trilha; `ChavePixCredora` na configuração do Tenant + card em `/app/configuracoes`.
 - **Critério de pronto:** comprovante duplicado (mesmo `sha256`, mesmo empréstimo) não duplica registro; acima do limite → descarte com motivo, sem persistir; mídia de remetente não-devedor descartada; **quitação apaga o binário e preserva o `Pagamento` e a trilha** (teste explícito); sem `ChavePixCredora`, o agente não promete Pix; BFF + component + E2E do card.
@@ -255,6 +258,7 @@ PLAN-045 §1.2, na íntegra. Em particular: IMP-357 (pré-cadastro) segue no PLA
 
 | Versão | Data | Alteração |
 |---|---|---|
+| 1.4.0 | 2026-09-22 | IMP-390 concluído menos o ingress de mídia, que depende do IMP-381 e passa ao IMP-391. |
 | 1.3.0 | 2026-09-22 | IMP-388 concluído: interruptor do Mercado Pago ponta a ponta, em `/app/pagamentos`. |
 | 1.2.2 | 2026-09-22 | IMP-374 parcial: `cobranca_pix` e `pagamento.origem` em banco; `inbox_pagamento` movida para o IMP-377. |
 | 1.2.1 | 2026-09-22 | IMP-389 concluído. |

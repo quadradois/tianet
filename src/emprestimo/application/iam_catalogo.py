@@ -2,7 +2,7 @@
 
 from emprestimo.domain.platform.permissao import Permissao
 
-CATALOGO_PERMISSOES_VERSAO = "1.4.0"
+CATALOGO_PERMISSOES_VERSAO = "1.5.0"
 
 CATALOGO_PERMISSOES = (
     # IMP-351: o endpoint POST /platform/tenants saiu, mas esta permissao NAO.
@@ -77,6 +77,8 @@ CATALOGO_PERMISSOES = (
     # IMP-388: uma so, e de administrador. Ligar o Mercado Pago escolhe pagar
     # taxa por recebimento — decisao economica do proprietario, nao de operacao.
     Permissao("mercadopago.configurar", "Configurar o recebimento por Pix (Mercado Pago)"),
+    # IMP-390: o comprovante e alegacao do devedor; registrar nao lanca nada.
+    Permissao("comprovante.registrar", "Registrar comprovante de pagamento do Devedor"),
     Permissao("openai.conexao.ler", "Consultar a conexao e os limites OpenAI"),
     Permissao("openai.conexao.gerir", "Conectar e desconectar a conta OpenAI"),
     # S3: só leitura da inbox do agente (resumo + recentes para triagem).

@@ -2,7 +2,7 @@
 
 **ID:** PLAN-045
 
-**Versão:** 1.3.1
+**Versão:** 1.3.2
 
 **Status:** Aprovado pelo proprietário em 2026-09-21 (v1.1.0); execução via [PLAN-045-execution-backlog](../backlogs/PLAN-045-execution-backlog.md) (IMP-372..387, GATE-E1..E6)
 
@@ -479,8 +479,15 @@ seção com o código.
 **Comprovante, IMP-390:**
 
 - `POST /credit/emprestimos/{id}/comprovantes` — guarda o comprovante recebido
-  do devedor. Permissão `comprovante.registrar`, `Idempotency-Key` derivada do
-  `sha256`. Expurgado na quitação do empréstimo.
+  do devedor. Permissão `comprovante.registrar`, `Idempotency-Key` exigida pelo
+  contrato; a convergência real vem do `sha256` do conteúdo, porque o devedor
+  reenvia a **imagem**, não a requisição. Expurgado na quitação do empréstimo.
+- `GET /credit/emprestimos/{id}/comprovantes` — lista os comprovantes, **sem o
+  binário**. Permissão `comprovante.registrar`.
+- `GET /platform/mercadopago/chave-pix` e `PUT /platform/mercadopago/chave-pix`
+  — a chave Pix da Credora, que o agente oferece no caminho sem taxa. Permissão
+  `mercadopago.configurar`; `PUT` com `Idempotency-Key`. Ausente é resposta
+  válida: sem chave, o agente não promete Pix.
 
 **Provedor de IA (BYOK), IMP-379:**
 
@@ -562,6 +569,7 @@ reboot da VPS, runbook da ponte socat/Caddy.
 
 | Versão | Data | Alteração |
 |---|---|---|
+| 1.3.2 | 2026-09-22 | §6: rotas do comprovante e da chave Pix declaradas como implementadas (IMP-390). |
 | 1.3.1 | 2026-09-22 | Card do Mercado Pago vai para `/app/pagamentos` ("Recebimento"): `/app/configuracoes` colidiria com as Configurações financeiras. |
 | 1.3.0 | 2026-09-22 | Caminho **sem taxa** completo (D13–D15): agente envia valores e a chave Pix da Credora, recebe e guarda o comprovante, extrai o valor, consulta `prever_alocacao` no Motor, pede autorização a ela com a imagem anexa e, no `sim`, lança e devolve ao devedor saldo, juros e próximo acerto atualizados. Comprovante é alegação, não prova; guardado enquanto o empréstimo vive e expurgado na quitação. Reverte o descarte de mídia do 356-B para devedor identificado. |
 | 1.2.0 | 2026-09-22 | Mercado Pago passa a ser **opcional por Tenant**, ligado/desligado no painel, desligado por padrão: o provedor cobra 0,99% e a Credora já tem o caminho sem taxa (§3.10). Acrescenta `ConfiguracaoMercadoPago`, o caso §3.4-b (pedido de pagamento com a integração desligada), a §4.8-b (catálogo de tools montado por configuração) e a §3.12 (card no painel). |

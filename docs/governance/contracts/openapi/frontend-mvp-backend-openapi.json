@@ -627,6 +627,86 @@
         "title": "CapturaSnapshotConfiguracaoRequest",
         "type": "object"
       },
+      "ChavePixRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "favorecido": {
+            "maxLength": 140,
+            "minLength": 2,
+            "title": "Favorecido",
+            "type": "string"
+          },
+          "tipo": {
+            "maxLength": 20,
+            "minLength": 3,
+            "title": "Tipo",
+            "type": "string"
+          },
+          "valor": {
+            "maxLength": 140,
+            "minLength": 3,
+            "title": "Valor",
+            "type": "string"
+          }
+        },
+        "required": [
+          "tipo",
+          "valor",
+          "favorecido"
+        ],
+        "title": "ChavePixRequest",
+        "type": "object"
+      },
+      "ChavePixResponse": {
+        "description": "Chave que o agente oferece ao devedor no caminho sem taxa.",
+        "properties": {
+          "configurada": {
+            "title": "Configurada",
+            "type": "boolean"
+          },
+          "favorecido": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Favorecido"
+          },
+          "tipo": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tipo"
+          },
+          "valor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Valor"
+          }
+        },
+        "required": [
+          "tipo",
+          "valor",
+          "favorecido",
+          "configurada"
+        ],
+        "title": "ChavePixResponse",
+        "type": "object"
+      },
       "CobrancaCasoResponse": {
         "properties": {
           "carteira_id": {
@@ -729,6 +809,149 @@
           "previsto_para"
         ],
         "title": "CompromissoAgendaCreateRequest",
+        "type": "object"
+      },
+      "ComprovanteCreateRequest": {
+        "additionalProperties": false,
+        "description": "O binario chega em base64: o canal de origem (WhatsApp) ja o entrega assim.",
+        "properties": {
+          "conteudo_base64": {
+            "maxLength": 8388608,
+            "minLength": 8,
+            "title": "Conteudo Base64",
+            "type": "string"
+          },
+          "tipo_midia": {
+            "maxLength": 40,
+            "minLength": 5,
+            "title": "Tipo Midia",
+            "type": "string"
+          },
+          "valor_extraido": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Valor Extraido"
+          },
+          "valor_informado": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Valor Informado"
+          }
+        },
+        "required": [
+          "conteudo_base64",
+          "tipo_midia"
+        ],
+        "title": "ComprovanteCreateRequest",
+        "type": "object"
+      },
+      "ComprovanteResponse": {
+        "description": "Estado do comprovante. **Nunca carrega o binario.**",
+        "properties": {
+          "devedor_id": {
+            "format": "uuid",
+            "title": "Devedor Id",
+            "type": "string"
+          },
+          "divergente": {
+            "title": "Divergente",
+            "type": "boolean"
+          },
+          "duplicado": {
+            "title": "Duplicado",
+            "type": "boolean"
+          },
+          "emprestimo_id": {
+            "format": "uuid",
+            "title": "Emprestimo Id",
+            "type": "string"
+          },
+          "estado": {
+            "title": "Estado",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "recebido_em": {
+            "format": "date-time",
+            "title": "Recebido Em",
+            "type": "string"
+          },
+          "sha256": {
+            "title": "Sha256",
+            "type": "string"
+          },
+          "tamanho": {
+            "title": "Tamanho",
+            "type": "integer"
+          },
+          "tipo_midia": {
+            "title": "Tipo Midia",
+            "type": "string"
+          },
+          "valor_extraido": {
+            "anyOf": [
+              {
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Valor Extraido"
+          },
+          "valor_informado": {
+            "anyOf": [
+              {
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Valor Informado"
+          }
+        },
+        "required": [
+          "id",
+          "emprestimo_id",
+          "devedor_id",
+          "sha256",
+          "tipo_midia",
+          "tamanho",
+          "estado",
+          "valor_extraido",
+          "valor_informado",
+          "divergente",
+          "recebido_em",
+          "duplicado"
+        ],
+        "title": "ComprovanteResponse",
         "type": "object"
       },
       "ComunicacaoManualCreateRequest": {
@@ -17045,6 +17268,322 @@
         ]
       }
     },
+    "/credit/emprestimos/{emprestimo_id}/comprovantes": {
+      "get": {
+        "operationId": "listar_comprovantes_credit_emprestimos__emprestimo_id__comprovantes_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "emprestimo_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Emprestimo Id",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Identificador tecnico de correlacao aceito ou gerado pela API.",
+            "in": "header",
+            "name": "X-Correlation-ID",
+            "required": false,
+            "schema": {
+              "maxLength": 128,
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/ComprovanteResponse"
+                  },
+                  "title": "Response Listar Comprovantes Credit Emprestimos  Emprestimo Id  Comprovantes Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response",
+            "headers": {
+              "X-Correlation-ID": {
+                "description": "Identificador tecnico de correlacao da requisicao.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErroResponse"
+                }
+              }
+            },
+            "description": "Payload, parametros ou headers invalidos para a operacao.",
+            "headers": {
+              "X-Correlation-ID": {
+                "description": "Identificador tecnico de correlacao da requisicao.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErroResponse"
+                }
+              }
+            },
+            "description": "Autenticacao recusada por token ausente, invalido ou expirado.",
+            "headers": {
+              "X-Correlation-ID": {
+                "description": "Identificador tecnico de correlacao da requisicao.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErroResponse"
+                }
+              }
+            },
+            "description": "Principal autenticado nao possui permissao para a operacao.",
+            "headers": {
+              "X-Correlation-ID": {
+                "description": "Identificador tecnico de correlacao da requisicao.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErroResponse"
+                }
+              }
+            },
+            "description": "Recurso inexistente ou indisponivel para o Tenant autenticado.",
+            "headers": {
+              "X-Correlation-ID": {
+                "description": "Identificador tecnico de correlacao da requisicao.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErroResponse"
+                }
+              }
+            },
+            "description": "Erro tecnico inesperado com resposta segura e correlacionavel.",
+            "headers": {
+              "X-Correlation-ID": {
+                "description": "Identificador tecnico de correlacao da requisicao.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "summary": "Listar comprovantes do emprestimo",
+        "tags": [
+          "financial-engine"
+        ]
+      },
+      "post": {
+        "description": "Guarda a alegacao do devedor; quem verifica e a Credora, na conta dela.\n\nA `Idempotency-Key` e exigida pelo contrato do sistema, mas a convergencia\nreal vem do `sha256` do conteudo: o devedor reenvia a IMAGEM, nao a\nrequisicao, e duas linhas do mesmo arquivo confundiriam a conferencia.",
+        "operationId": "registrar_comprovante_credit_emprestimos__emprestimo_id__comprovantes_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "emprestimo_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Emprestimo Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": true,
+            "schema": {
+              "maxLength": 255,
+              "minLength": 1,
+              "title": "Idempotency-Key",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Identificador tecnico de correlacao aceito ou gerado pela API.",
+            "in": "header",
+            "name": "X-Correlation-ID",
+            "required": false,
+            "schema": {
+              "maxLength": 128,
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ComprovanteCreateRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ComprovanteResponse"
+                }
+              }
+            },
+            "description": "Successful Response",
+            "headers": {
+              "X-Correlation-ID": {
+                "description": "Identificador tecnico de correlacao da requisicao.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErroResponse"
+                }
+              }
+            },
+            "description": "Payload, parametros ou headers invalidos para a operacao.",
+            "headers": {
+              "X-Correlation-ID": {
+                "description": "Identificador tecnico de correlacao da requisicao.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErroResponse"
+                }
+              }
+            },
+            "description": "Autenticacao recusada por token ausente, invalido ou expirado.",
+            "headers": {
+              "X-Correlation-ID": {
+                "description": "Identificador tecnico de correlacao da requisicao.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErroResponse"
+                }
+              }
+            },
+            "description": "Principal autenticado nao possui permissao para a operacao.",
+            "headers": {
+              "X-Correlation-ID": {
+                "description": "Identificador tecnico de correlacao da requisicao.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErroResponse"
+                }
+              }
+            },
+            "description": "Recurso inexistente ou indisponivel para o Tenant autenticado.",
+            "headers": {
+              "X-Correlation-ID": {
+                "description": "Identificador tecnico de correlacao da requisicao.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErroResponse"
+                }
+              }
+            },
+            "description": "Erro tecnico inesperado com resposta segura e correlacionavel.",
+            "headers": {
+              "X-Correlation-ID": {
+                "description": "Identificador tecnico de correlacao da requisicao.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "summary": "Registrar comprovante de pagamento enviado pelo Devedor",
+        "tags": [
+          "financial-engine"
+        ]
+      }
+    },
     "/credit/emprestimos/{emprestimo_id}/memoria-calculo": {
       "get": {
         "operationId": "consultar_memorias_credit_emprestimos__emprestimo_id__memoria_calculo_get",
@@ -23597,6 +24136,245 @@
         "summary": "Consultar Inbox",
         "tags": [
           "Agent"
+        ]
+      }
+    },
+    "/platform/mercadopago/chave-pix": {
+      "get": {
+        "description": "Ausente e resposta valida: sem chave, o agente nao promete Pix.",
+        "operationId": "consultar_chave_pix_platform_mercadopago_chave_pix_get",
+        "parameters": [
+          {
+            "description": "Identificador tecnico de correlacao aceito ou gerado pela API.",
+            "in": "header",
+            "name": "X-Correlation-ID",
+            "required": false,
+            "schema": {
+              "maxLength": 128,
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ChavePixResponse"
+                }
+              }
+            },
+            "description": "Successful Response",
+            "headers": {
+              "X-Correlation-ID": {
+                "description": "Identificador tecnico de correlacao da requisicao.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErroResponse"
+                }
+              }
+            },
+            "description": "Autenticacao recusada por token ausente, invalido ou expirado.",
+            "headers": {
+              "X-Correlation-ID": {
+                "description": "Identificador tecnico de correlacao da requisicao.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErroResponse"
+                }
+              }
+            },
+            "description": "Principal autenticado nao possui permissao para a operacao.",
+            "headers": {
+              "X-Correlation-ID": {
+                "description": "Identificador tecnico de correlacao da requisicao.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErroResponse"
+                }
+              }
+            },
+            "description": "Erro tecnico inesperado com resposta segura e correlacionavel.",
+            "headers": {
+              "X-Correlation-ID": {
+                "description": "Identificador tecnico de correlacao da requisicao.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "summary": "Consultar Chave Pix",
+        "tags": [
+          "platform"
+        ]
+      },
+      "put": {
+        "description": "Valida o formato antes de gravar: chave errada so apareceria no banco.",
+        "operationId": "definir_chave_pix_platform_mercadopago_chave_pix_put",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": true,
+            "schema": {
+              "maxLength": 255,
+              "minLength": 1,
+              "title": "Idempotency-Key",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Identificador tecnico de correlacao aceito ou gerado pela API.",
+            "in": "header",
+            "name": "X-Correlation-ID",
+            "required": false,
+            "schema": {
+              "maxLength": 128,
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ChavePixRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ChavePixResponse"
+                }
+              }
+            },
+            "description": "Successful Response",
+            "headers": {
+              "X-Correlation-ID": {
+                "description": "Identificador tecnico de correlacao da requisicao.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErroResponse"
+                }
+              }
+            },
+            "description": "Payload, parametros ou headers invalidos para a operacao.",
+            "headers": {
+              "X-Correlation-ID": {
+                "description": "Identificador tecnico de correlacao da requisicao.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErroResponse"
+                }
+              }
+            },
+            "description": "Autenticacao recusada por token ausente, invalido ou expirado.",
+            "headers": {
+              "X-Correlation-ID": {
+                "description": "Identificador tecnico de correlacao da requisicao.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErroResponse"
+                }
+              }
+            },
+            "description": "Principal autenticado nao possui permissao para a operacao.",
+            "headers": {
+              "X-Correlation-ID": {
+                "description": "Identificador tecnico de correlacao da requisicao.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErroResponse"
+                }
+              }
+            },
+            "description": "Erro tecnico inesperado com resposta segura e correlacionavel.",
+            "headers": {
+              "X-Correlation-ID": {
+                "description": "Identificador tecnico de correlacao da requisicao.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "summary": "Definir Chave Pix",
+        "tags": [
+          "platform"
         ]
       }
     },
