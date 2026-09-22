@@ -138,13 +138,10 @@ if [ "$TOCA_BACKEND" -eq 1 ]; then
   uv run black --check . || falhou "black"
   uv run mypy src tests || falhou "mypy"
 
-  if [ -z "${DATABASE_URL:-}" ] && [ -f .env ]; then
-    SENHA=$(grep -m1 '^POSTGRES_PASSWORD=' .env | cut -d= -f2-)
-    if [ -n "$SENHA" ]; then
-      DATABASE_URL="postgresql+psycopg://emprestimo:${SENHA}@127.0.0.1:5432/emprestimo"
-      export DATABASE_URL
-    fi
-  fi
+  # Nao derive DATABASE_URL aqui: `database_url()` em infrastructure/db/session.py
+  # ja le POSTGRES_PASSWORD do .env com quote() e tolera CRLF. A copia em shell
+  # que existia neste hook nao fazia nem uma coisa nem outra, e reprovou o push
+  # com "password authentication failed" num .env vindo do Windows (2026-09-21).
 
   passo "suite completa do backend (pytest)"
   echo "pre-push: exige PostgreSQL no ar; se falhar por conexao, suba a stack antes."
