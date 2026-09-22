@@ -1,6 +1,6 @@
 # PLAN-045-EXEC — Atendimento ao devedor, recebimento por Pix e BYOK
 
-**Versão:** 1.0.3
+**Versão:** 1.1.0
 
 **Status:** Aprovado pelo proprietário em 2026-09-21 (PLAN-045 v1.1.0); execução ainda não iniciada
 
@@ -83,6 +83,13 @@ Verificado em 2026-09-21 por leitura de código e do handoff vigente, não presu
 - **Escopo:** migrations `cobranca_pix` (únicos em `external_reference`, `mp_payment_id`; parcial em `emprestimo_id WHERE estado='pendente'`), `pagamento.origem` default `manual`, `inbox_pagamento` (`mp_notification_id` único, `mp_payment_id` indexado, `tipo`, `acao`, `recebido_em`, `payload_hash`, `estado`); ORM 1:1; repositórios (merge/flush só); portas no UoW.
 - **Critério de pronto:** `upgrade → downgrade → upgrade` em PostgreSQL real; `quality:migrations` verde; segundo `pendente` para o mesmo empréstimo falha no banco, não só na aplicação.
 
+### IMP-388 — `ConfiguracaoMercadoPago`: integração opcional por Tenant
+
+- **Objetivo:** a Credora liga e desliga o recebimento por Pix no painel; desligado é o padrão.
+- **Por quê:** o provedor cobra **0,99%** por recebimento e ela já tem o caminho sem taxa (devedor paga no Pix dela, ela avisa o agente, §3.10 do plano). A integração é escolha econômica, não pressuposto.
+- **Escopo:** `domain/platform/configuracao_mercadopago.py` (`habilitado` padrão `false`, `access_token_cifrado`, `webhook_secret_cifrado`, `testado_em`, `atualizado_em/por`; habilitar exige as duas credenciais e teste ok); migration `configuracao_mercadopago`; cifra pelo mesmo `CifraToken` da `ConexaoWhatsApp`; `GET/PUT /platform/mercadopago/configuracao`, `POST .../testar|habilitar|desabilitar`; permissão `mercadopago.configurar` (administrador, nunca copilot); card em `/app/configuracoes` com interruptor, credenciais write-only e a taxa vigente; auditoria em toda mudança.
+- **Critério de pronto:** habilitar sem credencial ou sem teste → 422 nomeado; DTO nunca devolve segredo (guardrail AST); desligar **não** invalida `CobrancaPix` `pendente` nem recusa webhook delas (teste explícito); tenant novo nasce desligado; BFF + component + E2E; contrato reconciliado.
+
 ### IMP-375 — Cliente Mercado Pago
 
 - **Objetivo:** falar com o MP por `httpx`, sem SDK, com segredo fora do código.
@@ -92,8 +99,8 @@ Verificado em 2026-09-21 por leitura de código e do handoff vigente, não presu
 ### IMP-376 — Caso de uso "gerar Pix" e API
 
 - **Objetivo:** a Credora (e depois o agente) cria um Pix do acerto apurado.
-- **Escopo:** `application/cobranca_pix.py::criar(emprestimo_id, valor, origem, usuario)`: consulta Motor na data de hoje, valida INV-001, cria no MP, persiste `pendente`, auditoria; `POST /credit/emprestimos/{id}/cobrancas-pix` (permissão `cobranca_pix.criar`, `Idempotency-Key`), `GET` listando; `origem` opcional em `POST .../pagamentos`; permissões no catálogo; `export_openapi` → `api:generate` → `test:contract`; matriz e contadores.
-- **Critério de pronto:** integração cobre valor abaixo do juro (422 `INV-001`), acima da quitação, segundo pendente (409), replay idempotente, cross-tenant (404); snapshot e contadores reconciliados.
+- **Escopo:** `application/cobranca_pix.py::criar(emprestimo_id, valor, origem, usuario)`: **recusa com erro nomeado se a `ConfiguracaoMercadoPago` do Tenant estiver desligada** (checagem no caso de uso, não só na UI), consulta Motor na data de hoje, valida INV-001, cria no MP, persiste `pendente`, auditoria; `POST /credit/emprestimos/{id}/cobrancas-pix` (permissão `cobranca_pix.criar`, `Idempotency-Key`), `GET` listando; `origem` opcional em `POST .../pagamentos`; permissões no catálogo; `export_openapi` → `api:generate` → `test:contract`; matriz e contadores.
+- **Critério de pronto:** integração cobre valor abaixo do juro (422 `INV-001`), acima da quitação, segundo pendente (409), replay idempotente, cross-tenant (404), **Mercado Pago desligado (422 `mercadopago_desabilitado`)**; snapshot e contadores reconciliados.
 
 ### IMP-377 — Webhook, consumidor de pagamento, confirmação e expiração
 
@@ -107,7 +114,7 @@ Verificado em 2026-09-21 por leitura de código e do handoff vigente, não presu
 - **Escopo:** BFF server-only para `cobrancas-pix`; card no empréstimo com valor sugerido (juro do período) editável dentro do intervalo, botão "Gerar Pix", copia-e-cola/QR, lista de cobranças com estado e contagem regressiva; policy de permissão; suíte Playwright `motor` ou `cobranca` estendida.
 - **Critério de pronto:** BFF + component + E2E verdes; `test:certification` verde; valor fora do intervalo bloqueado na UI **e** rejeitado pelo backend (teste dos dois).
 
-**GATE-E2** — IMP-373..378. Condição: Pix real pago e conciliado em produção; ADR aceita; snapshot reconciliado; handoff.
+**GATE-E2** — IMP-373..378 + IMP-388. Condição: integração desligável provada (ligar, emitir, desligar, `pendente` ainda concilia); Pix real pago e conciliado em produção; ADR aceita; snapshot reconciliado; handoff.
 
 ## Fase 2b — BYOK por tela
 
@@ -142,8 +149,8 @@ Verificado em 2026-09-21 por leitura de código e do handoff vigente, não presu
 ### IMP-383 — Tools do contexto Devedor e suspensão de avisos
 
 - **Objetivo:** o devedor consulta, paga, silencia e é encaminhado — nada além.
-- **Escopo:** catálogo Devedor: `meu_saldo`, `quanto_para_quitar`, `gerar_pix(valor)` (escrita; INV-001 validada em código antes do eco; dois empréstimos → pergunta qual por número), `suspender_avisos` (escrita), `falar_com_a_tia`; apresentadores com "em aberto desde DD/MM, juro até hoje" quando atrasado; argumentos de identidade fixados pela sessão; `avisos_suspensos_ate` em `PreferenciaNotificacao` (migration) e `permite_envio_proativo(hoje)`; `POST /credit/devedores/{id}/avisos/suspender` (permissão `preferencia_notificacao.suspender`); `POST .../comunicacoes` pelo copilot; aviso à Credora em suspensão e encaminhamento; prompt do contexto Devedor (`agent/prompts.py`), sem número no texto do modelo; permissões `cobranca_pix.criar`, `preferencia_notificacao.suspender`, `comunicacao.registrar` no perfil copilot.
-- **Critério de pronto:** unitários dos apresentadores (um e dois empréstimos, atrasado, quitação); integração: `gerar_pix` fora do intervalo → mensagem fixa com limites e **sem** eco; dentro → eco → `sim` → `CobrancaPix`; suspensão grava data do próximo acerto e avisa a Credora; devedor suspenso ainda recebe resposta e confirmação de pagamento; tentativa de tool de outro contexto → recusa.
+- **Escopo:** catálogo Devedor **montado por Tenant** — com o Mercado Pago desligado, `gerar_pix` não entra na lista enviada ao modelo (§4.8-b do plano) e o pedido de pagamento cai em `falar_com_a_tia`; tools: `meu_saldo`, `quanto_para_quitar`, `gerar_pix(valor)` (escrita; INV-001 validada em código antes do eco; dois empréstimos → pergunta qual por número), `suspender_avisos` (escrita), `falar_com_a_tia`; apresentadores com "em aberto desde DD/MM, juro até hoje" quando atrasado; argumentos de identidade fixados pela sessão; `avisos_suspensos_ate` em `PreferenciaNotificacao` (migration) e `permite_envio_proativo(hoje)`; `POST /credit/devedores/{id}/avisos/suspender` (permissão `preferencia_notificacao.suspender`); `POST .../comunicacoes` pelo copilot; aviso à Credora em suspensão e encaminhamento; prompt do contexto Devedor (`agent/prompts.py`), sem número no texto do modelo; permissões `cobranca_pix.criar`, `preferencia_notificacao.suspender`, `comunicacao.registrar` no perfil copilot.
+- **Critério de pronto:** unitários dos apresentadores (um e dois empréstimos, atrasado, quitação); integração: `gerar_pix` fora do intervalo → mensagem fixa com limites e **sem** eco; dentro → eco → `sim` → `CobrancaPix`; suspensão grava data do próximo acerto e avisa a Credora; devedor suspenso ainda recebe resposta e confirmação de pagamento; tentativa de tool de outro contexto → recusa; **com o Mercado Pago desligado, `gerar_pix` ausente do catálogo e "quero pagar" vira encaminhamento à Credora** (teste do catálogo e da conversa).
 
 ### IMP-384 — Certificação do contexto Devedor e habilitação
 
@@ -188,21 +195,22 @@ Verificado em 2026-09-21 por leitura de código e do handoff vigente, não presu
 | 1 | 372 | — |
 | 2 | 373 | reserva no AMP-001 |
 | 3 | 374 | 373 |
+| 3b | 388 | 374 (cifra e migration) |
 | 4 | 375 | credenciais MP de produção verificadas |
-| 5 | 376 | 374, 375 |
+| 5 | 376 | 374, 375, 388 |
 | 6 | 377 | 376; Caddy na VPS |
 | 7 | 378 | 376 |
 | 8 | 379 | — (paralelo à Fase 2a) |
 | 9 | 380 | 379 |
 | 10 | 381 | GATE-E2, GATE-E3, pendências operacionais |
 | 11 | 382 | 381 |
-| 12 | 383 | 382, 376 |
+| 12 | 383 | 382, 376, 388 |
 | 13 | 384 | 383, 380 |
 | 14 | 385 | 382 |
 | 15 | 386 | 372, 385 |
 | 16 | 387 | 384 (Slice 6 provado), 386 |
 
-Gates: E1 (372) · E2 (373–378) · E3 (379–380) · E4 (381–384) · E5 (385–386) · E6 (387). Blocos menores que 5 justificados pela fronteira de deploy observado entre fases (ALP-001 §3).
+Gates: E1 (372) · E2 (373–378 + 388) · E3 (379–380) · E4 (381–384) · E5 (385–386) · E6 (387). Blocos menores que 5 justificados pela fronteira de deploy observado entre fases (ALP-001 §3).
 
 ---
 
@@ -216,6 +224,7 @@ PLAN-045 §1.2, na íntegra. Em particular: IMP-357 (pré-cadastro) segue no PLA
 
 | Versão | Data | Alteração |
 |---|---|---|
+| 1.1.0 | 2026-09-22 | IMP-388: Mercado Pago opcional por Tenant (taxa de 0,99%), desligado por padrão; catálogo de tools montado por configuração; recusa no caso de uso. |
 | 1.0.3 | 2026-09-22 | IMP-373 concluído (ADR-021, CobrancaPix, régua, DOMAIN-031). |
 | 1.0.2 | 2026-09-22 | Regra 9: branch novo por IMP a partir de master (PRs entram por squash). |
 | 1.0.1 | 2026-09-21 | IMP-381: identidade da Credora passa de `COPILOT_OPERATOR_ALLOWLIST` (env) para `credor_whatsapp` do Tenant, setável na tela. |
