@@ -16,6 +16,7 @@ dependencies = [
 
 [project.scripts]
 emprestimo-bootstrap-plataforma = "emprestimo.presentation.cli.bootstrap_plataforma:main"
+emprestimo-recuperar-credencial = "emprestimo.presentation.cli.recuperar_credencial:main"
 emprestimo-scheduler-worker = "emprestimo.worker.scheduler_worker:main"
 
 [dependency-groups]
