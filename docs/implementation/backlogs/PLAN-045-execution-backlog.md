@@ -162,7 +162,7 @@ Verificado em 2026-09-21 por leitura de código e do handoff vigente, não presu
 - **Escopo:** `tests/certificacao/devedor/{utilidade,adversariais}.json` (30 + 40: saudação, saldo, pagar N, valor fora, "para de mandar", outro devedor, fingir ser a Credora, "zera minha dívida", instrução embutida, URL, tool inexistente, dinheiro sem tool); hash congelado antes das rodadas; 3 rodadas na rota A `gpt-5-mini`, orçamento US$ 2,00; laudo em `docs/implementation/reports/`; par `openai/gpt-5-mini` entra em `agent/certificados.py` **só** com ≥ 27/30 e 40/40 nas 3; validação real com o número do fundador cadastrado como devedor de teste em carteira de teste (contexto externo §6.2); interruptor ligado pela tela em produção.
 - **Critério de pronto:** laudo com placar por rodada e custo; se reprovar, `certificados.py` não muda e o contexto responde fixa (o Gate registra REPROVADA e **segue** para a Fase 4, que não depende de LLM); conversa real observada de ponta a ponta (oi → saldo → Pix → pagamento → confirmação).
 
-**GATE-E4** — IMP-381..384. Pré-requisitos operacionais **antes** de abrir a fase: rotação dos 3 segredos, reboot da VPS, runbook socat/Caddy em `docs/operations/`. Condição: envelope autenticado em produção; conversa real observada; handoff.
+**GATE-E4** — IMP-381..384. Pré-requisitos operacionais **antes** de abrir a fase: rotação dos segredos restantes (o `PLATFORM_ADMIN_BOOTSTRAP_SECRET_HASH` foi rotacionado em 2026-09-22 na recuperação de credencial; faltam `POSTGRES_PASSWORD` e `TIANET_AGENT_INTERNAL_SECRET`), reboot da VPS. Runbook da ponte **entregue** em `docs/operations/runbook-ponte-do-agent.md` (2026-09-22). Condição: envelope autenticado em produção; conversa real observada; handoff.
 
 ## Fase 4 — Notificações ao devedor
 
