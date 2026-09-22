@@ -134,6 +134,12 @@ jobs:
       - name: Run OpenAI suite
         run: npm run test:openai
 
+      # IMP-388: jornada do Recebimento (interruptor do Mercado Pago). Entra
+      # aqui na mesma hora em que nasce — a suite anterior que ficou de fora
+      # custou uma jornada em obra sem gate.
+      - name: Run Pagamentos suite
+        run: npm run test:pagamentos
+
       - name: Install uv
         if: runner.os == 'Linux'
         uses: astral-sh/setup-uv@v6

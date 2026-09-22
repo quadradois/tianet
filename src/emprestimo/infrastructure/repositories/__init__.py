@@ -72,11 +72,13 @@ from emprestimo.domain.credit.proposta_comercial_state import PropostaComercialS
 from emprestimo.domain.credit.simulacao_comercial import SimulacaoComercial
 from emprestimo.domain.platform.conexao_whatsapp import ConexaoWhatsApp
 from emprestimo.domain.platform.configuracao import Configuracao
+from emprestimo.domain.platform.configuracao_mercadopago import ConfiguracaoMercadoPago
 from emprestimo.domain.platform.credencial import Credencial
 from emprestimo.domain.platform.perfil import PerfilAcesso, PerfilState
 from emprestimo.domain.platform.permissao import Permissao, normalizar_codigo_permissao
 from emprestimo.domain.platform.ports import (
     ConexaoWhatsAppRepository,
+    ConfiguracaoMercadoPagoRepository,
     ConfiguracaoRepository,
     CredencialRepository,
     PerfilAcessoRepository,
@@ -96,6 +98,7 @@ from emprestimo.infrastructure.db.orm import (
     CarteiraORM,
     CobrancaPixORM,
     ConexaoWhatsAppORM,
+    ConfiguracaoMercadoPagoORM,
     ConfiguracaoORM,
     ContatoORM,
     ContratoCreditoORM,
@@ -1053,6 +1056,47 @@ def _to_cobranca_pix(row: CobrancaPixORM) -> CobrancaPix:
         valor_recebido=row.valor_recebido,
         divergente=row.divergente,
     )
+
+
+class SqlAlchemyConfiguracaoMercadoPagoRepository(ConfiguracaoMercadoPagoRepository):
+    """Implementacao SQLAlchemy da configuracao do Mercado Pago (IMP-388).
+
+    Ausencia de linha e "desligado", nao erro: Tenant que nunca abriu o card
+    simplesmente nao recebe por Pix. Quem quiser o objeto usa `nova()`.
+    """
+
+    def __init__(self, session: Session) -> None:
+        self._session = session
+
+    def find_by_tenant_id(self, tenant_id: uuid.UUID) -> ConfiguracaoMercadoPago | None:
+        row = self._session.get(ConfiguracaoMercadoPagoORM, tenant_id)
+        if row is None:
+            return None
+        return ConfiguracaoMercadoPago(
+            tenant_id=row.tenant_id,
+            criado_em=row.criado_em,
+            atualizado_em=row.atualizado_em,
+            habilitado=row.habilitado,
+            access_token_cifrado=row.access_token_cifrado,
+            webhook_secret_cifrado=row.webhook_secret_cifrado,
+            testado_em=row.testado_em,
+            atualizado_por=row.atualizado_por,
+        )
+
+    def save(self, configuracao: ConfiguracaoMercadoPago) -> None:
+        self._session.merge(
+            ConfiguracaoMercadoPagoORM(
+                tenant_id=configuracao.tenant_id,
+                habilitado=configuracao.habilitado,
+                access_token_cifrado=configuracao.access_token_cifrado,
+                webhook_secret_cifrado=configuracao.webhook_secret_cifrado,
+                testado_em=configuracao.testado_em,
+                criado_em=configuracao.criado_em,
+                atualizado_em=configuracao.atualizado_em,
+                atualizado_por=configuracao.atualizado_por,
+            )
+        )
+        self._session.flush()
 
 
 class SqlAlchemyCobrancaPixRepository(CobrancaPixRepository):

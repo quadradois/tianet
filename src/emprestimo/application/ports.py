@@ -59,6 +59,7 @@ from emprestimo.domain.credit.ports import (
 )
 from emprestimo.domain.platform.ports import (
     ConexaoWhatsAppRepository,
+    ConfiguracaoMercadoPagoRepository,
     ConfiguracaoRepository,
     CredencialRepository,
     PerfilAcessoRepository,
@@ -182,6 +183,7 @@ class UnitOfWork(ABC):
     emprestimo: EmprestimoRepository
     pagamento: PagamentoRepository
     cobranca_pix: CobrancaPixRepository
+    configuracao_mercadopago: ConfiguracaoMercadoPagoRepository
     memoria_calculo: MemoriaCalculoRepository
     evento_financeiro: EventoFinanceiroRepository
     job_agendado: JobAgendadoRepository

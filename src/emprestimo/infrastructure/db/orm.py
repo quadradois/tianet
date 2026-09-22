@@ -540,6 +540,28 @@ class PagamentoORM(Base):
     )
 
 
+class ConfiguracaoMercadoPagoORM(Base):
+    """Tabela `configuracao_mercadopago` — interruptor do recebimento por Pix.
+
+    Uma linha por Tenant (`tenant_id` e a PK). `habilitado` com server_default
+    false: a integracao nasce desligada, e Tenant sem linha e equivalente a
+    desligado.
+    """
+
+    __tablename__ = "configuracao_mercadopago"
+
+    tenant_id: Mapped[uuid.UUID] = mapped_column(Uuid, ForeignKey("tenant.id"), primary_key=True)
+    habilitado: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    access_token_cifrado: Mapped[bytes | None] = mapped_column(LargeBinary, nullable=True)
+    webhook_secret_cifrado: Mapped[bytes | None] = mapped_column(LargeBinary, nullable=True)
+    testado_em: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    criado_em: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    atualizado_em: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    atualizado_por: Mapped[uuid.UUID | None] = mapped_column(
+        Uuid, ForeignKey("usuario.id"), nullable=True
+    )
+
+
 class CobrancaPixORM(Base):
     """Tabela `cobranca_pix` — Pix do acerto apurado (DOMAIN-031, IMP-374).
 

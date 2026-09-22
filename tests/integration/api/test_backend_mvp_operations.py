@@ -89,7 +89,9 @@ def test_imp_266_quality_migrations_gate_e_unico_head_alembic() -> None:
     # remove so ela.
     # IMP-374 cria `cobranca_pix` e acrescenta `pagamento.origem`
     # (`a1b2c3d4e5f6`); downgrade remove a tabela e a coluna.
-    assert script.get_current_head() == "a1b2c3d4e5f6"
+    # IMP-388 cria `configuracao_mercadopago` e concede
+    # `mercadopago.configurar` (`b2c3d4e5f6a7`); downgrade remove as duas.
+    assert script.get_current_head() == "b2c3d4e5f6a7"
 
 
 def test_imp_267_health_correlation_e_erro_tecnico_sem_vazamento(
