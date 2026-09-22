@@ -26,9 +26,9 @@ const CONTRACT_OPERATIONS = [
 describe("Contrato OpenAPI consumido pelo frontend", () => {
   it("preserva snapshot oficial 107/135 e SHA governado", () => {
     const operationCount = Object.values(spec.paths).flatMap((item) => Object.keys(item).filter((method) => ["get", "post", "patch", "put", "delete"].includes(method))).length;
-    expect(operationCount).toBe(116);
-    expect(Object.keys(spec.components.schemas)).toHaveLength(148);
-    expect(createHash("sha256").update(raw).digest("hex")).toBe("18a29b265e9f0b785145458cf56a6d90a83a4b41a8f63cf9c576237dfdb7cc4a");
+    expect(operationCount).toBe(118);
+    expect(Object.keys(spec.components.schemas)).toHaveLength(150);
+    expect(createHash("sha256").update(raw).digest("hex")).toBe("c0bfa8b85e1651a12a86f836e64f01e3f5ba9a075768e1911ffaeac42c435b3e");
   });
 
   it("certifica Idempotency-Key nas cinco escritas de Contratos", () => {

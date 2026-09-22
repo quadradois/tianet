@@ -77,6 +77,7 @@ from emprestimo.application.notifications import (
     NotificationService,
     TemplateNotificacaoService,
 )
+from emprestimo.application.numero_avisos import NumeroAvisosService
 from emprestimo.application.openai_conexao import (
     OpenAIConnectionProvider,
     OpenAIConnectionService,
@@ -221,6 +222,14 @@ def get_consultar_conexao_whatsapp() -> ConsultarConexaoWhatsApp:
     return ConsultarConexaoWhatsApp(
         lambda: SqlAlchemyUnitOfWork(session_factory),
         get_provedor_whatsapp(),
+        SqlAlchemyAuditoriaRegistro(session_factory),
+    )
+
+
+def get_numero_avisos_service() -> NumeroAvisosService:
+    session_factory = get_session_factory()
+    return NumeroAvisosService(
+        lambda: SqlAlchemyUnitOfWork(session_factory),
         SqlAlchemyAuditoriaRegistro(session_factory),
     )
 

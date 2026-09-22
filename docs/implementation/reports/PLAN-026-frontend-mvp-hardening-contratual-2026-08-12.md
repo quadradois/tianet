@@ -320,6 +320,13 @@ Em 2026-09-19 a S3 do agente publicou `GET /platform/agent/inbox` (resumo por
 classe + recentes da inbox, somente leitura, sem `Idempotency-Key` porque GET
 não escreve). Mudança **aditiva**: **116 operações, 148 schemas**, SHA-256
 `18a29b265e9f0b785145458cf56a6d90a83a4b41a8f63cf9c576237dfdb7cc4a`.
+Este foi o hash vigente até o IMP-353.
+
+Em 2026-09-20 o IMP-353 publicou `GET/PUT /platform/whatsapp/avisos` (número
+que recebe os avisos do sistema — configuração `credor_whatsapp` do Tenant;
+PUT com `Idempotency-Key`). Mudança **aditiva**: **118 operações, 150
+schemas**, SHA-256
+`c0bfa8b85e1651a12a86f836e64f01e3f5ba9a075768e1911ffaeac42c435b3e`.
 Este é o hash **vigente**.
 
 Das doze regeracoes registradas, as do IMP-326, IMP-355, IMP-362,
@@ -336,6 +343,7 @@ resolucao da DR-004 ou por decisao registrada. Nada do hardening foi desfeito.
 | Versao | Data | Descricao |
 |---|---|---|
 | 1.14.0 | 2026-09-19 | S3 do agente: `GET /platform/agent/inbox` publicado; snapshot 116/148 regerado e SHA vigente atualizado. |
+| 1.15.0 | 2026-09-20 | IMP-353: `GET/PUT /platform/whatsapp/avisos` publicados; snapshot 118/150 regerado e SHA vigente atualizado. |
 | 1.13.0 | 2026-09-10 | Extensão UX OpenAI/Codex: resumo anulável dos limites publicado na conexão; snapshot 115/146 regerado e SHA vigente atualizado. |
 | 1.12.0 | 2026-09-09 | Slice D OpenAI/Codex: quatro operações administrativas publicadas; snapshot 115/145 regerado e SHA vigente atualizado. |
 | 1.11.0 | 2026-09-08 | IMP-370: snapshot 111/138 regerado; SHA vigente atualizado, cadeia anterior preservada. |

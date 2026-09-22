@@ -7,9 +7,10 @@ engano.
 
 from __future__ import annotations
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 from emprestimo.application.conexao_whatsapp import EstadoConexaoWhatsApp, QrCodeConexao
+from emprestimo.application.numero_avisos import NumeroAvisos, normalizar_numero
 
 
 class ConexaoWhatsAppResponse(BaseModel):
@@ -68,3 +69,27 @@ class QrCodeConexaoResponse(BaseModel):
     @classmethod
     def de(cls, qrcode: QrCodeConexao) -> QrCodeConexaoResponse:
         return cls(qrcode_base64=qrcode.qrcode_base64)
+
+
+class NumeroAvisosResponse(BaseModel):
+    """Numero que recebe os avisos do sistema (resumo diario, sobra de pagamento)."""
+
+    numero: str | None = Field(
+        default=None,
+        description="Somente digitos, com DDI (ex.: 5511999998888). Nulo = nao cadastrado.",
+    )
+
+    @classmethod
+    def de(cls, valor: NumeroAvisos) -> NumeroAvisosResponse:
+        return cls(numero=valor.numero)
+
+
+class NumeroAvisosRequest(BaseModel):
+    numero: str = Field(
+        description="Telefone com DDI; mascara e aceita e descartada (ex.: +55 (11) 99999-8888)."
+    )
+
+    @field_validator("numero")
+    @classmethod
+    def _normalizar(cls, valor: str) -> str:
+        return normalizar_numero(valor)

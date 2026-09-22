@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import openapi from "../../../docs/governance/contracts/openapi/frontend-mvp-backend-openapi.json" with { type: "json" };
 
-const SNAPSHOT_SHA = "18a29b265e9f0b785145458cf56a6d90a83a4b41a8f63cf9c576237dfdb7cc4a";
+const SNAPSHOT_SHA = "c0bfa8b85e1651a12a86f836e64f01e3f5ba9a075768e1911ffaeac42c435b3e";
 const CONFIG_PATHS = [
   "/credit/configuracoes-financeiras",
   "/credit/configuracoes-financeiras/{configuracao_id}",
@@ -51,8 +51,8 @@ describe("contrato OpenAPI de Configuracoes Financeiras", () => {
     const { readFile } = await import("node:fs/promises");
     const bytes = await readFile(new URL("../../../docs/governance/contracts/openapi/frontend-mvp-backend-openapi.json", import.meta.url));
     expect(createHash("sha256").update(bytes).digest("hex")).toBe(SNAPSHOT_SHA);
-    expect(operations()).toHaveLength(116);
-    expect(Object.keys(openapi.components.schemas)).toHaveLength(148);
+    expect(operations()).toHaveLength(118);
+    expect(Object.keys(openapi.components.schemas)).toHaveLength(150);
   });
 
   it("certifica 13 operacoes Bearer e Idempotency-Key nas oito escritas", () => {

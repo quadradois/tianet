@@ -1,6 +1,6 @@
 # Contexto Externo
 
-**Versao:** 1.12.1
+**Versao:** 1.13.0
 
 **Status:** Vivo — mantido manualmente
 
@@ -213,15 +213,18 @@ Credor para aprovacao. E o segundo operador do sistema, conforme
 
 | Campo | Valor |
 |---|---|
-| Situacao | desenhado — PLAN-033 v1.1.0 |
+| Situacao | ingress + inbox + tela read-only **em producao** (`prod-v1.1.33`, PLAN-033); funcao **redefinida no PLAN-045** (2026-09-21): atender o devedor, informar os dois lados e receber por Pix |
 | Entra antes ou depois do wizard de emprestimo | *a preencher* |
 | Topologia de recepcao | **Evolution -> agente -> endpoint autenticado da TiaNet** (decidido em 2026-08-25) |
-| Contextos de conversa | **dois, isolados** (registrado em 2026-08-27): Operadora (allowlist de numeros, comeca so com o da Tia, unico com leitura de carteira) e Pre-cadastro (remetente desconhecido, zero acesso a dados). Nunca compartilham sessao, historico ou ferramenta. |
-| Autenticacao do remetente | allowlist de numero **nao e autenticacao**: `Info.Sender` e forjavel por quem tiver a URL do webhook. O contexto Operadora so liga com prova de origem no reverse proxy; sem prova, fica desabilitado fail-closed (PLAN-033/IMP-359). |
+| Contextos de conversa | **tres, isolados**: Credora/Operadora (allowlist; leitura de carteira, autorizacao de lembretes e registro de pagamento com eco+confirmacao — PLAN-045 §3.8/§3.10), **Devedor** (numero cadastrado no contato; saldo, Pix, suspensao de avisos, encaminhar — PLAN-045 §3.1–3.4; novo em 2026-09-21) e Pre-cadastro (desconhecido, zero acesso). Nunca compartilham sessao, historico ou ferramenta. |
+| Autenticacao do remetente | allowlist de numero **nao e autenticacao**: `Info.Sender` e forjavel por quem tiver a URL do webhook. **Prova de origem decidida em 2026-09-21 (PLAN-045 §4.1):** o envelope traz `instanceToken`, segredo da instancia que so existe no Evolution e no nosso banco; o ingress passa a compara-lo em tempo constante antes de dar valor ao `Sender`. Ate isso entrar, o contexto Credora segue fail-closed. |
 
-**A TiaNet nao tera webhook publico.** A decisao foi pela topologia (b): o
+**A API TiaNet nao tera webhook publico.** A decisao foi pela topologia (b): o
 agente recebe do Evolution e chama um endpoint autenticado da TiaNet, no mesmo
-padrao de autenticacao que o resto do sistema ja usa.
+padrao de autenticacao que o resto do sistema ja usa. *Leitura precisa, apos
+2026-09-19:* as rotas publicas existem **no servico `agent`**, nunca na API nem
+no banco — hoje `/whatsapp/webhook` (em producao) e, pelo PLAN-045,
+`/mercadopago/webhook` (excecao explicita, ver §2.4).
 
 O que isso evita, e por isso importa: a alternativa (a) exigiria uma rota **nao
 autenticada aberta para a internet**, mais validacao de assinatura do Evolution,
@@ -263,10 +266,10 @@ descreve se for escrito na hora da decisao — nao depois.
 
 | Campo | Valor |
 |---|---|
-| Situacao | **decidida a existencia; sem DR, sem ADR, sem codigo** |
+| Situacao | **desenhada no PLAN-045 (2026-09-21); sem codigo** |
 | Fluxo do dinheiro | **Devedor paga o Credor** — quitacao do acerto mensal |
 | Nao e | cobranca de assinatura do SaaS; a TiaNet nao cobra o Tenant por aqui |
-| Conta / credencial | *a preencher* — nao verificado |
+| Conta / credencial | conta **PJ** existe (declarado pelo fundador em 2026-09-21); credenciais de producao ainda nao verificadas |
 | Posicao na fila | **depois do IMP-359 (deploy)**, decidido pelo fundador |
 | Toca | Motor Financeiro e a trilha ADR-002 — nao e integracao periferica |
 
@@ -295,10 +298,32 @@ desenho, e por isso estao escritas aqui e nao descobertas no meio da execucao.
    cobranca gerada e **do acerto apurado**, com validade curta, ou de valor
    aberto. Isso muda o que o desenho pode prometer.
 
-**Ainda nao perguntado, e precisa ser antes da DR:** se o recebimento e por PIX,
-link de pagamento ou os dois; se o Credor ja tem conta Mercado Pago com as
-credenciais de producao; e o que acontece quando o devedor paga valor diferente
-do apurado — que hoje o dominio ja trata como sobra, mas por lancamento manual.
+### Respostas e decisao — 2026-09-21 (PLAN-045)
+
+As tres perguntas foram respondidas pelo fundador:
+
+- **Meio:** Pix dinamico (QR/copia-e-cola com valor), validade **60 min**;
+  expirou, cancela e o devedor pede outro. Link de checkout, cartao e boleto
+  ficam fora.
+- **Conta:** PJ existente; credenciais de producao a verificar no deploy.
+- **Valor:** e **livre, digitado pelo devedor**, validado em codigo entre o
+  juro do periodo e a quitacao apurados pelo Motor; o Motor separa juro e
+  amortizacao no lancamento. Valor divergente do Pix (nao esperado em Pix de
+  valor fixo) e registrado pelo **recebido**, marcado divergente e avisado a
+  Credora — dinheiro que entrou nunca e rejeitado.
+
+**Colisao 1 resolvida — segunda rota publica, como excecao explicita a §2.2:**
+`/mercadopago/webhook` no servico `agent`, pelo mesmo caminho Cloudflare →
+Caddy → socat → socket do webhook do WhatsApp. O argumento da §2.2 nao se
+transporta porque o Mercado Pago assina cada notificacao (`x-signature` com
+HMAC-SHA256 sobre `id:[data.id];request-id:[x-request-id];ts:[ts];`), e o
+recurso e sempre reconsultado por `GET /v1/payments/{data.id}` antes de
+qualquer lancamento. Polling a cada 5 min e o rollback documentado se o
+webhook falhar. A API TiaNet e o banco continuam sem exposicao publica.
+
+**Colisao 2 resolvida — DR-004:** nenhuma cobranca e emitida antes do acerto
+apurado; o Pix nasce do valor que o devedor pede, dentro do intervalo que o
+Motor calcula na hora, com validade curta.
 
 ---
 
@@ -555,6 +580,7 @@ Corrigir isso e item de codigo, nao de documentacao.
 | 1.11.0 | 2026-09-04 | O caveat da deduplicacao, aberto desde 2026-09-02, foi **medido e fechado**: o Evolution NAO deduplica por `id`, e reenviar entrega duas vezes. Verificado por eles no codigo-fonte, nao por teste em producao. A postura atual — nao reenviar em resultado incerto, conciliar a mao — deixa de ser cautela e passa a ser a unica opcao correta. |
 | 1.10.0 | 2026-09-03 | A remocao da `adm_tianet` deixou de ser acao pendente solta e virou item do checklist do IMP-359, com a ordem fixada: medir o `logout` repetido antes de apagar, porque ela e a unica instancia real disponivel para essa medicao — a premissa nao certificada da ADR-019. Enquanto flutuava sem dono, reaparecia em todo handoff sem ser feita. |
 | 1.9.0 | 2026-09-03 | A §5.1 estava errada em tres pontos ao mesmo tempo — data, contagem de nos e a afirmacao de que o manifesto nao fora salvo. O terceiro era o mais caro: desencorajava o `--update`, e o grafo ficou treze dias parado, escondendo cifra, persistencia e rotas da conexao de WhatsApp. Corrigidos contra o disco, o grafo atualizado (10.768 nos) e a extracao semantica executada: ele passa a **cobrir documentos**, o que a versao anterior declarava impossivel. A consulta antes de alteracao arquitetural virou governanca na SPEC-003. |
+| 1.13.0 | 2026-09-21 | §2.2 reconciliada com o estado real (ingress em producao, tres contextos, prova de origem por `instanceToken`, rotas publicas so no `agent`). §2.4: as tres perguntas do Mercado Pago respondidas pelo fundador e as duas colisoes resolvidas no PLAN-045 — Pix dinamico de valor livre com 60 min, conta PJ, segunda rota publica assinada como excecao explicita a §2.2 (com polling como rollback). |
 | 1.8.0 | 2026-09-03 | O provedor de IA foi escolhido e a chave existe: o ultimo insumo externo do IMP-359 caiu, e o deploy passa a depender so de trabalho nosso. Mercado Pago entra como §2.4 na primeira mencao — devedor paga o Credor, depois do deploy —, com as duas colisoes nomeadas antes de virarem descoberta no meio da execucao: a decisao de nao ter webhook publico (§2.2), cujo argumento nao se transporta inteiro porque o Mercado Pago assina a notificacao e o Evolution nao, e o fim do plano de parcelas (DR-004), que impede emitir cobranca antes de o Motor apurar o acerto. |
 | — | — | *Lacuna conhecida: as versoes 1.6.0 e 1.7.0 subiram o cabecalho sem deixar linha aqui. Nao reconstruidas — inventar a descricao seria pior que registrar a falta.* |
 | 1.5.0 | 2026-09-02 | O telefone da conta pareada e obtivel: `jid` em `/instance/info/:id`, autenticado por Tenant — nao por instancia, que e o motivo de ele parecer inexistente. Verificado ao vivo. |

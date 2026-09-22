@@ -124,3 +124,29 @@ test("o polling nao liga sozinho ao abrir uma instancia pendente", async ({ page
   await page.waitForTimeout(12_000); // mais que o dobro do intervalo de 5s
   expect(await contador()).toBe(antes);
 });
+
+test("o numero que recebe os avisos e salvo pela tela, com mascara descartada", async ({ page }) => {
+  await login(page, "pareada");
+  await abrirConexao(page);
+
+  // Nasce vazio, e a tela diz que os avisos nao saem — nao esconde o problema.
+  await expect(tela(page).getByText(/nenhum numero cadastrado/i)).toBeVisible();
+
+  await tela(page).getByLabel("Numero que recebe os avisos").fill("+55 (62) 98888-7777");
+  await tela(page).getByRole("button", { name: "Salvar numero" }).click();
+
+  await expect(tela(page).getByRole("status")).toContainText("Numero salvo");
+  await expect(tela(page).getByText("5562988887777")).toBeVisible();
+
+  // Recarregar le do backend: o valor persistiu, e nao e so estado da acao.
+  await page.reload();
+  await expect(tela(page).getByText("5562988887777")).toBeVisible();
+});
+
+test("quem so tem `ler` ve o numero dos avisos sem formulario", async ({ page }) => {
+  await login(page, "soleitura");
+  await abrirConexao(page);
+
+  await expect(tela(page).getByText("Avisos do sistema")).toBeVisible();
+  await expect(tela(page).getByRole("button", { name: "Salvar numero" })).toHaveCount(0);
+});

@@ -22,6 +22,8 @@ sys.path.insert(0, str(_RAIZ))
 
 from tests.db_guard import preparar_banco_descartavel  # noqa: E402
 
+from emprestimo.infrastructure.db.session import database_url  # noqa: E402
+
 
 def _alembic_config() -> Config:
     root = _RAIZ
@@ -31,7 +33,19 @@ def _alembic_config() -> Config:
 
 
 def _database_url(config: Config) -> str:
-    return os.environ.get("DATABASE_URL", config.get_main_option("sqlalchemy.url"))
+    """Mesma fonte que a API e os testes: ambiente, depois `.env`, depois convencao.
+
+    Antes lia so o ambiente e caia no default do `alembic.ini`, que nunca bate
+    com a senha que criou o container — o hook de pre-push compensava
+    derivando a URL em shell, sem `quote()` e sem tolerar CRLF (2026-09-21).
+    """
+    do_env = os.environ.get("DATABASE_URL")
+    if do_env:
+        return do_env
+    derivada = database_url()
+    if derivada:
+        return derivada
+    return config.get_main_option("sqlalchemy.url") or ""
 
 
 def _reset_public_schema(database_url: str) -> None:

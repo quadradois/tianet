@@ -2,7 +2,7 @@
 
 **ID:** PLAN-034
 
-**Versão:** 1.2.0
+**Versão:** 1.3.0
 
 **Status:** Aprovado; IMP-370 verificado no working tree, com GATE-E aberto
 
@@ -230,6 +230,18 @@ Todas exigem Principal autenticado.
   parâmetro do `desconectar`, porque são intenções diferentes: lá o operador
   troca de número, aqui ele encerra a conexão.
 
+**Número que recebe os avisos** (IMP-353, 2026-09-20). Não é a conexão: é a
+configuração `credor_whatsapp` do Tenant, destino do resumo diário de acertos
+e do aviso de sobra. Até aqui só existia por SQL direto na tabela
+`configuracao`. Duas operações no mesmo prefixo, fora da isenção da ADR-019:
+
+- `GET /platform/whatsapp/avisos` — número cadastrado, ou nulo. Permissão
+  `whatsapp.conexao.ler`.
+- `PUT /platform/whatsapp/avisos` — substitui o número (10 a 15 dígitos com
+  DDI; máscara aceita e descartada; inválido é `400`). Permissão
+  `whatsapp.conexao.gerir`. **Com `Idempotency-Key`**: mesma chave e mesmo
+  número replay, mesma chave e número diferente `409`.
+
 O contexto operacional consumido pelo shell inclui, dentro de `whatsapp`,
 `alerta_queda_ativa` e `queda_detectada_em`. O BFF exige coerência entre os dois
 campos e valida o instante como RFC 3339 com calendário válido. Quando o alerta
@@ -312,6 +324,7 @@ cada polling sem falhar nenhum teste de contrato.
 
 | Versão | Data | Descrição |
 |---|---|---|
+| 1.3.0 | 2026-09-20 | IMP-353: declara `GET/PUT /platform/whatsapp/avisos` (número que recebe os avisos do sistema, configuração `credor_whatsapp`), com `Idempotency-Key` no PUT. |
 | 1.2.0 | 2026-09-08 | Reconcilia o plano com o IMP-370 verificado: precedência do token de ambiente, estado e queda persistidos, contrato do contexto operacional, banner global e matriz ampliada de testes. Evidência em [VERIFICACAO-IMP-370-AVISO-QUEDA.md](../../governance/agents/VERIFICACAO-IMP-370-AVISO-QUEDA.md). |
 | 1.1.0 | 2026-09-02 | §3.1: `ConectarWhatsApp` nao registra `Idempotency-Key`, e o motivo fica escrito — o replay devolveria um QR ja expirado, e o nascimento da instancia, que e o efeito externo a proteger, ja e idempotente por advisory lock mais `UNIQUE (tenant_id)`. A deteccao de payload divergente fica para o IMP-368, com o contrato HTTP. |
 | 1.0.0 | 2026-08-31 | Materializa a DR-006: três operações sobre `/platform/whatsapp/conexao`, token cifrado com `cryptography`, cliente de gestão separado do adapter de envio, e o fluxo do Evolution documentado a partir do que foi verificado contra o servidor real. |

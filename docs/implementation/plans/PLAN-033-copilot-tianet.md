@@ -2,10 +2,15 @@
 
 **ID:** PLAN-033
 
-**Versao:** 1.2.0
+**Versao:** 1.4.0
 
 **Status:** Em execucao — GATE-E1a cumprido; GATE-E1b parcial (IMP-352
-cumprido em 2026-08-31, resta IMP-359, sequenciado depois do PLAN-034)
+cumprido em 2026-08-31, resta IMP-359, sequenciado depois do PLAN-034).
+**Parcialmente substituido pelo PLAN-045 (2026-09-21):** a funcao do agente,
+o contexto Devedor, a regua de certificacao e o BYOK por tela passam a ser
+governados la; o que este plano entregou (ingress, inbox, executor, egress,
+credencial, trilha, tela `/app/agent`) continua valido e e reaproveitado.
+IMP-357 (pre-cadastro) permanece aqui, fora do PLAN-045.
 
 **Backlog de execucao:**
 `docs/implementation/backlogs/PLAN-033-execution-backlog.md`
@@ -133,6 +138,7 @@ O detalhe de cada gate, com condicao para seguir, esta no backlog §11.
 
 | Versao | Data | Descricao |
 |---|---|---|
+| 1.4.0 | 2026-09-21 | Marca substituicao parcial pelo PLAN-045: funcao do agente redefinida (atendimento ao devedor, Pix, informar), terceiro contexto, certificacao por contexto, BYOK por tela, criterio de PII removido (DR-005 §8). Entregas 356-A..F permanecem validas. |
 | 1.3.0 | 2026-09-19 | Declara `GET /platform/agent/inbox` (S3, somente leitura) e a permissao `agent.inbox.ler`. |
 | 1.2.0 | 2026-09-09 | Registra a preparacao administrativa local do Codex App Server e seus quatro endpoints; mantem IMP-359 e os gates do IMP-356. |
 | 1.1.0 | 2026-09-09 | Reconcilia a aprovacao do catalogo B1 e da direcao de provedor: OpenRouter no piloto proposto, NVIDIA em comparacao sintetica e OmniRoute como gateway opcional condicionado. Gates operacionais permanecem abertos. |

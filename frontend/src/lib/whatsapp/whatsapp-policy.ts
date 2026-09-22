@@ -65,3 +65,22 @@ export function isWhatsAppQrCode(value: unknown): value is WhatsAppQrCode {
   const record = value as Record<string, unknown>;
   return record.qrcode_base64 === null || record.qrcode_base64 === undefined || typeof record.qrcode_base64 === "string";
 }
+
+export type NumeroAvisos = components["schemas"]["NumeroAvisosResponse"];
+
+export type NumeroAvisosReadResult =
+  | Readonly<{ kind: "ready"; numero: string | null }>
+  | Readonly<{ kind: "problem"; message: string; status: number; correlationId: string }>;
+
+export type NumeroAvisosActionState =
+  | Readonly<{ kind: "idle" }>
+  | Readonly<{ kind: "success"; message: string; numero: string | null; correlationId: string }>
+  | Readonly<{ kind: "problem"; message: string; status: number; correlationId: string }>;
+
+export const INITIAL_NUMERO_AVISOS_ACTION_STATE: NumeroAvisosActionState = { kind: "idle" };
+
+export function isNumeroAvisos(value: unknown): value is NumeroAvisos {
+  if (typeof value !== "object" || value === null) return false;
+  const numero = (value as { numero?: unknown }).numero;
+  return numero === null || numero === undefined || typeof numero === "string";
+}
