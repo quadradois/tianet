@@ -29,6 +29,21 @@ RAIZ=$(git rev-parse --show-toplevel)
 cd "$RAIZ" || exit 1
 INICIO=$(date +%s)
 
+# Dois pushes ao mesmo tempo se destroem: a fixture de integracao derruba e
+# recria o schema de `emprestimo_test` no inicio, e o banco e um so. Em
+# 2026-09-22 duas execucoes simultaneas produziram dezenas de F e E que nao
+# tinham nada a ver com o codigo — e custaram dois ciclos de ~13 min.
+# `pgrep -f` conta o proprio processo do hook quando ele ja virou pytest, por
+# isso a checagem acontece ANTES de qualquer suite subir.
+if command -v pgrep >/dev/null 2>&1; then
+  if pgrep -f "[p]ytest tests/" >/dev/null 2>&1; then
+    echo "pre-push: ja existe um pytest deste repositorio rodando."
+    echo "pre-push: os dois compartilham o banco emprestimo_test e se atropelam."
+    echo "pre-push: espere o outro terminar (ou interrompa-o) e tente de novo."
+    exit 1
+  fi
+fi
+
 # Sem isto o hook fica MAIS RIGIDO que o CI e reprova push que o CI aprovaria.
 # Os configs do Playwright usam process.env.CI para tres coisas, e as tres sao
 # desejaveis aqui: `retries` (o CI tenta de novo, o local nao tentava — uma
