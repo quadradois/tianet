@@ -1,6 +1,6 @@
 # PLAN-045-EXEC — Atendimento ao devedor, recebimento por Pix e BYOK
 
-**Versão:** 1.2.1
+**Versão:** 1.2.2
 
 **Status:** Aprovado pelo proprietário em 2026-09-21 (PLAN-045 v1.1.0); execução ainda não iniciada
 
@@ -78,6 +78,8 @@ Verificado em 2026-09-21 por leitura de código e do handoff vigente, não presu
 - **Critério de pronto:** testes unitários cobrem cada invariante e cada transição proibida (`ViolacaoInvarianteError` com código); `elegivel_lembrete` testado em D+1, D+2, D+3, D+4, D+7, D+30; ADR aceita; `docs:validate` verde.
 
 ### IMP-374 — Persistência de cobrança, origem de pagamento e inbox de pagamento
+
+- **Status:** parcial em 2026-09-22 — `cobranca_pix` (migration `a1b2c3d4e5f6`, ORM, repositório, porta no UoW) e `pagamento.origem` entregues, com a INV-004 provada pelo índice único parcial em banco real. `inbox_pagamento` fica para o IMP-377, junto do webhook que a alimenta.
 
 - **Objetivo:** tudo da §5 do plano existe no banco, reversível.
 - **Escopo:** migrations `cobranca_pix` (únicos em `external_reference`, `mp_payment_id`; parcial em `emprestimo_id WHERE estado='pendente'`), `pagamento.origem` default `manual`, `inbox_pagamento` (`mp_notification_id` único, `mp_payment_id` indexado, `tipo`, `acao`, `recebido_em`, `payload_hash`, `estado`); ORM 1:1; repositórios (merge/flush só); portas no UoW.
@@ -251,6 +253,7 @@ PLAN-045 §1.2, na íntegra. Em particular: IMP-357 (pré-cadastro) segue no PLA
 
 | Versão | Data | Alteração |
 |---|---|---|
+| 1.2.2 | 2026-09-22 | IMP-374 parcial: `cobranca_pix` e `pagamento.origem` em banco; `inbox_pagamento` movida para o IMP-377. |
 | 1.2.1 | 2026-09-22 | IMP-389 concluído. |
 | 1.2.0 | 2026-09-22 | Fase 4b (IMP-389..391): caminho sem taxa com comprovante — `prever_alocacao` no Motor, recepção/guarda/expurgo do comprovante na quitação, e o fluxo conversacional com autorização da Credora. |
 | 1.1.0 | 2026-09-22 | IMP-388: Mercado Pago opcional por Tenant (taxa de 0,99%), desligado por padrão; catálogo de tools montado por configuração; recusa no caso de uso. |

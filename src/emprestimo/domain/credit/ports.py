@@ -9,6 +9,7 @@ from datetime import date, datetime
 from typing import TYPE_CHECKING
 
 from emprestimo.domain.credit.carteira import Carteira
+from emprestimo.domain.credit.cobranca_pix import CobrancaPix
 from emprestimo.domain.credit.contrato_credito_state import ContratoCreditoState
 from emprestimo.domain.credit.documento import Documento
 from emprestimo.domain.credit.emprestimo import EmprestimoState
@@ -513,6 +514,28 @@ class EmprestimoRepository(ABC):
         filtros: EmprestimoFiltros,
         paginacao: Paginacao,
     ) -> EmprestimoResultadoPaginado: ...
+
+
+class CobrancaPixRepository(ABC):
+    """Contrato de persistencia das cobrancas Pix (DOMAIN-031, IMP-374)."""
+
+    @abstractmethod
+    def save(self, cobranca: CobrancaPix) -> None: ...
+
+    @abstractmethod
+    def find_by_id(self, cobranca_id: uuid.UUID) -> CobrancaPix | None: ...
+
+    @abstractmethod
+    def find_by_external_reference(self, external_reference: str) -> CobrancaPix | None: ...
+
+    @abstractmethod
+    def find_pendente_por_emprestimo(self, emprestimo_id: uuid.UUID) -> CobrancaPix | None: ...
+
+    @abstractmethod
+    def listar_por_emprestimo(self, emprestimo_id: uuid.UUID) -> list[CobrancaPix]: ...
+
+    @abstractmethod
+    def listar_pendentes_expirados(self, agora: datetime) -> list[CobrancaPix]: ...
 
 
 class PagamentoRepository(ABC):

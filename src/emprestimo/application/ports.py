@@ -40,6 +40,7 @@ from emprestimo.domain.credit.ports import (
     CalendarioFinanceiroRepository,
     CarteiraRepository,
     CobrancaCasoRepository,
+    CobrancaPixRepository,
     ConfiguracaoFinanceiraRepository,
     ContatoRepository,
     ContratoCreditoRepository,
@@ -180,6 +181,7 @@ class UnitOfWork(ABC):
     contrato_credito: ContratoCreditoRepository
     emprestimo: EmprestimoRepository
     pagamento: PagamentoRepository
+    cobranca_pix: CobrancaPixRepository
     memoria_calculo: MemoriaCalculoRepository
     evento_financeiro: EventoFinanceiroRepository
     job_agendado: JobAgendadoRepository

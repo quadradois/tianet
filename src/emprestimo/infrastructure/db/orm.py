@@ -35,6 +35,7 @@ from sqlalchemy import (
     UniqueConstraint,
     Uuid,
     func,
+    text,
 )
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -533,9 +534,60 @@ class PagamentoORM(Base):
         Uuid, ForeignKey("usuario.id"), nullable=False, index=True
     )
     estado: Mapped[str] = mapped_column(String(30), nullable=False)
+    origem: Mapped[str] = mapped_column(String(20), nullable=False, default="manual")
     criado_em: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )
+
+
+class CobrancaPixORM(Base):
+    """Tabela `cobranca_pix` — Pix do acerto apurado (DOMAIN-031, IMP-374).
+
+    O índice único PARCIAL em `emprestimo_id WHERE estado='pendente'` é a
+    INV-004: o Aggregate não enxerga conjunto, e dois Pix vivos para o mesmo
+    empréstimo produziriam pagamento duplicado sem que nenhum dos dois
+    estivesse errado isoladamente.
+    """
+
+    __tablename__ = "cobranca_pix"
+    __table_args__ = (
+        Index("uq_cobranca_pix_external_reference", "external_reference", unique=True),
+        Index(
+            "uq_cobranca_pix_mp_payment_id",
+            "mp_payment_id",
+            unique=True,
+            postgresql_where=text("mp_payment_id IS NOT NULL"),
+        ),
+        Index(
+            "uq_cobranca_pix_pendente_por_emprestimo",
+            "emprestimo_id",
+            unique=True,
+            postgresql_where=text("estado = 'pendente'"),
+        ),
+        Index("ix_cobranca_pix_tenant", "tenant_id"),
+        Index("ix_cobranca_pix_devedor", "devedor_id"),
+        CheckConstraint("valor > 0", name="ck_cobranca_pix_valor_positivo"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True)
+    tenant_id: Mapped[uuid.UUID] = mapped_column(Uuid, ForeignKey("tenant.id"), nullable=False)
+    carteira_id: Mapped[uuid.UUID] = mapped_column(Uuid, ForeignKey("carteira.id"), nullable=False)
+    emprestimo_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid, ForeignKey("emprestimo.id"), nullable=False
+    )
+    devedor_id: Mapped[uuid.UUID] = mapped_column(Uuid, ForeignKey("devedor.id"), nullable=False)
+    valor: Mapped[Decimal] = mapped_column(Numeric(18, 2), nullable=False)
+    valor_recebido: Mapped[Decimal | None] = mapped_column(Numeric(18, 2), nullable=True)
+    external_reference: Mapped[str] = mapped_column(String(64), nullable=False)
+    mp_payment_id: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    copia_cola: Mapped[str | None] = mapped_column(Text, nullable=True)
+    qr_base64: Mapped[str | None] = mapped_column(Text, nullable=True)
+    expira_em: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    estado: Mapped[str] = mapped_column(String(20), nullable=False)
+    origem: Mapped[str] = mapped_column(String(20), nullable=False)
+    divergente: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    criado_por: Mapped[uuid.UUID] = mapped_column(Uuid, ForeignKey("usuario.id"), nullable=False)
+    criado_em: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
 
 
 class MemoriaCalculoORM(Base):

@@ -87,7 +87,9 @@ def test_imp_266_quality_migrations_gate_e_unico_head_alembic() -> None:
     # remove so ela.
     # S3 concede `agent.inbox.ler` aos perfis admin (`62c5a6f94173`); downgrade
     # remove so ela.
-    assert script.get_current_head() == "62c5a6f94173"
+    # IMP-374 cria `cobranca_pix` e acrescenta `pagamento.origem`
+    # (`a1b2c3d4e5f6`); downgrade remove a tabela e a coluna.
+    assert script.get_current_head() == "a1b2c3d4e5f6"
 
 
 def test_imp_267_health_correlation_e_erro_tecnico_sem_vazamento(
