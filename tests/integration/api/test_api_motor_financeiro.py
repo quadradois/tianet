@@ -416,6 +416,78 @@ def test_api_motor_openapi_publica_respostas_protegidas(client: TestClient) -> N
     assert {"400", "401", "403", "404", "409"} <= set(quitacao["responses"])
 
 
+def test_imp_389_alocacao_prevista_bate_com_o_pagamento_registrado_depois(
+    client: TestClient,
+    contexto: tuple[str, str],
+) -> None:
+    """A previsao existe para o copiloto anunciar a divisao ANTES de lancar.
+
+    Se ela divergir do lancamento, o agente teria dito a Credora um numero e
+    gravado outro — por isso o teste registra o pagamento logo em seguida, com
+    o mesmo valor e a mesma data, e exige igualdade campo a campo.
+    """
+    carteira_id, devedor_id = contexto
+    emprestimo_id = _emprestimo_ativo(client, carteira_id, devedor_id)
+    data = "2026-09-10"
+    valor = "1627.00"
+
+    previsto = client.get(
+        f"/credit/emprestimos/{emprestimo_id}/alocacao-prevista"
+        f"?valor={valor}&data_referencia={data}"
+    )
+    assert previsto.status_code == 200
+    corpo = previsto.json()
+
+    registrado = client.post(
+        f"/credit/emprestimos/{emprestimo_id}/pagamentos",
+        json={"valor": valor, "recebido_em": f"{data}T12:00:00+00:00"},
+        headers={"Idempotency-Key": f"imp-389-{uuid.uuid4()}"},
+    )
+    assert registrado.status_code == 200
+    pagamento = registrado.json()
+
+    for campo in ("valor_juros", "valor_encargos", "valor_amortizacao", "valor_devolvido"):
+        assert Decimal(corpo[campo]) == Decimal(pagamento[campo]), campo
+    assert Decimal(corpo["valor_juros"]) + Decimal(corpo["valor_amortizacao"]) <= Decimal(valor)
+
+
+def test_imp_389_previsao_nao_registra_pagamento(
+    client: TestClient,
+    contexto: tuple[str, str],
+) -> None:
+    """Leitura pura: consultar duas vezes nao cria pagamento nem muda o saldo."""
+    carteira_id, devedor_id = contexto
+    emprestimo_id = _emprestimo_ativo(client, carteira_id, devedor_id)
+    data = "2026-09-10"
+    antes = client.get(f"/credit/emprestimos/{emprestimo_id}/saldo?data_referencia={data}")
+
+    for _ in range(2):
+        resposta = client.get(
+            f"/credit/emprestimos/{emprestimo_id}/alocacao-prevista"
+            f"?valor=500.00&data_referencia={data}"
+        )
+        assert resposta.status_code == 200
+
+    depois = client.get(f"/credit/emprestimos/{emprestimo_id}/saldo?data_referencia={data}")
+    assert Decimal(depois.json()["total"]) == Decimal(antes.json()["total"])
+
+
+def test_imp_389_valor_nao_positivo_e_recusado_pelo_contrato(
+    client: TestClient,
+    contexto: tuple[str, str],
+) -> None:
+    """400, nao 422: valor invalido e erro de payload, nao violacao de invariante."""
+    carteira_id, devedor_id = contexto
+    emprestimo_id = _emprestimo_ativo(client, carteira_id, devedor_id)
+
+    resposta = client.get(
+        f"/credit/emprestimos/{emprestimo_id}/alocacao-prevista"
+        "?valor=0.00&data_referencia=2026-09-10"
+    )
+
+    assert resposta.status_code == 400
+
+
 def _emprestimo_ativo(client: TestClient, carteira_id: str, devedor_id: str) -> str:
     contrato_id = _contrato_liberado(client, carteira_id, devedor_id)
     emprestimo = client.post(

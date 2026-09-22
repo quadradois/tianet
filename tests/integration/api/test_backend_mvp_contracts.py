@@ -88,7 +88,7 @@ def test_imp_269_openapi_cobre_routers_reais_e_contratos_transversais() -> None:
     # ADR-020: +4 com conexao, diagnostico, login e logout OpenAI.
     # S3: +1 com GET /platform/agent/inbox (somente leitura).
     # IMP-353: +2 com GET/PUT /platform/whatsapp/avisos.
-    assert len(operations) == 118
+    assert len(operations) == 119
     assert operations.keys() == router_operations
     assert schema["components"]["schemas"]["ErroResponse"]["required"] == [
         "codigo",

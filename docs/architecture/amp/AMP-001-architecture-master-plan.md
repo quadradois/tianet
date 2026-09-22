@@ -2,7 +2,7 @@
 
 **ID:** AMP-001
 
-**Versão:** 1.4.0
+**Versão:** 1.5.0
 
 **Status:** Aprovado como plano diretor; sujeito a revisoes versionadas
 
@@ -388,6 +388,7 @@ que o Identifier Registry declara que ela é, e o próximo emissor colide.
 | **ADR-018** | Identidade externa do Aggregate Devedor | **EMITIDA em 07/08/2026** — ver [ADR-018](../adrs/ADR-018-identidade-externa-do-devedor.md). Endereçamento HTTP do Devedor contextualizado por Carteira. |
 | **ADR-019** | Isenção de `Idempotency-Key` nas escritas da conexão de WhatsApp | **EMITIDA em 03/09/2026** — ver [ADR-019](../adrs/ADR-019-isencao-de-idempotency-key-nas-escritas-da-conexao-de-whatsapp.md). Promove a decisão do PLAN-034 §3.1 a decisão arquitetural, depois de quatro rodadas de review reabrirem a mesma pergunta. |
 | **ADR-020** | Autenticação OpenAI pelo Codex App Server isolado | **EMITIDA em 09/09/2026** — ver [ADR-020](../adrs/ADR-020-autenticacao-openai-codex-app-server.md). Isola a sessão ChatGPT/Codex no serviço `agent`, limita o primeiro incremento a conta/diagnóstico e isenta somente o desafio efêmero de `Idempotency-Key`. |
+| **ADR-021** | Rota pública assinada no serviço `agent` para notificação de pagamento | **EMITIDA em 22/09/2026** — ver [ADR-021](../adrs/ADR-021-rota-publica-assinada-para-notificacao-de-pagamento.md). Abre a decisão de "sem webhook público" (contexto externo §2.2) para um segundo caso, condicionado a assinatura HMAC verificável, reconsulta do recurso no provedor e rollback por polling. |
 
 ---
 
@@ -588,6 +589,7 @@ Em paralelo, pode-se iniciar o **EPIC-002 — Cadastro de Devedores**, pois é b
 
 | Versão | Data | Descrição |
 |--------|------|-----------|
+| 1.5.0 | 2026-09-22 | Registra a ADR-021 (rota pública assinada para notificação de pagamento) entre as decisões emitidas fora da reserva. |
 | 1.4.0 | 2026-09-09 | Registra a ADR-020 entre as decisões emitidas fora da reserva. |
 | 1.3.0 | 2026-08-11 | ADR-007 e ADR-009 emitidas para o EPIC-010; reservas e orientação da seção 8 atualizadas. |
 | 1.2.0 | 2026-08-08 | ADR-004 emitida com escopo reduzido; ABAC, OIDC e MFA permaneceram fora. |

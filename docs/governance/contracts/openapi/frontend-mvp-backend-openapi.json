@@ -200,6 +200,63 @@
         "title": "AgendaOperacionalResponse",
         "type": "object"
       },
+      "AlocacaoPrevistaResponse": {
+        "description": "Divisao que um valor produziria, sem pagamento registrado (IMP-389).",
+        "properties": {
+          "data_referencia": {
+            "format": "date",
+            "title": "Data Referencia",
+            "type": "string"
+          },
+          "emprestimo_id": {
+            "format": "uuid",
+            "title": "Emprestimo Id",
+            "type": "string"
+          },
+          "tenant_id": {
+            "format": "uuid",
+            "title": "Tenant Id",
+            "type": "string"
+          },
+          "valor": {
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Valor",
+            "type": "string"
+          },
+          "valor_amortizacao": {
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Valor Amortizacao",
+            "type": "string"
+          },
+          "valor_devolvido": {
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Valor Devolvido",
+            "type": "string"
+          },
+          "valor_encargos": {
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Valor Encargos",
+            "type": "string"
+          },
+          "valor_juros": {
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Valor Juros",
+            "type": "string"
+          }
+        },
+        "required": [
+          "emprestimo_id",
+          "tenant_id",
+          "data_referencia",
+          "valor",
+          "valor_juros",
+          "valor_encargos",
+          "valor_amortizacao",
+          "valor_devolvido"
+        ],
+        "title": "AlocacaoPrevistaResponse",
+        "type": "object"
+      },
       "AlterarCredencialRequest": {
         "additionalProperties": false,
         "properties": {
@@ -16723,6 +16780,181 @@
           }
         ],
         "summary": "Consultar emprestimo por ID",
+        "tags": [
+          "financial-engine"
+        ]
+      }
+    },
+    "/credit/emprestimos/{emprestimo_id}/alocacao-prevista": {
+      "get": {
+        "description": "Leitura: o copiloto anuncia a divisao antes de a Credora autorizar.",
+        "operationId": "prever_alocacao_credit_emprestimos__emprestimo_id__alocacao_prevista_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "emprestimo_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Emprestimo Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "valor",
+            "required": true,
+            "schema": {
+              "anyOf": [
+                {
+                  "exclusiveMinimum": 0.0,
+                  "type": "number"
+                },
+                {
+                  "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+                  "type": "string"
+                }
+              ],
+              "title": "Valor"
+            }
+          },
+          {
+            "in": "query",
+            "name": "data_referencia",
+            "required": true,
+            "schema": {
+              "format": "date",
+              "title": "Data Referencia",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Identificador tecnico de correlacao aceito ou gerado pela API.",
+            "in": "header",
+            "name": "X-Correlation-ID",
+            "required": false,
+            "schema": {
+              "maxLength": 128,
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AlocacaoPrevistaResponse"
+                }
+              }
+            },
+            "description": "Successful Response",
+            "headers": {
+              "X-Correlation-ID": {
+                "description": "Identificador tecnico de correlacao da requisicao.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErroResponse"
+                }
+              }
+            },
+            "description": "Payload, parametros ou headers invalidos para a operacao.",
+            "headers": {
+              "X-Correlation-ID": {
+                "description": "Identificador tecnico de correlacao da requisicao.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErroResponse"
+                }
+              }
+            },
+            "description": "Autenticacao recusada por token ausente, invalido ou expirado.",
+            "headers": {
+              "X-Correlation-ID": {
+                "description": "Identificador tecnico de correlacao da requisicao.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErroResponse"
+                }
+              }
+            },
+            "description": "Principal autenticado nao possui permissao para a operacao.",
+            "headers": {
+              "X-Correlation-ID": {
+                "description": "Identificador tecnico de correlacao da requisicao.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErroResponse"
+                }
+              }
+            },
+            "description": "Recurso inexistente ou indisponivel para o Tenant autenticado.",
+            "headers": {
+              "X-Correlation-ID": {
+                "description": "Identificador tecnico de correlacao da requisicao.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErroResponse"
+                }
+              }
+            },
+            "description": "Erro tecnico inesperado com resposta segura e correlacionavel.",
+            "headers": {
+              "X-Correlation-ID": {
+                "description": "Identificador tecnico de correlacao da requisicao.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "summary": "Prever divisao de um valor entre juros e amortizacao",
         "tags": [
           "financial-engine"
         ]

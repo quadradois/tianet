@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import uuid
 from collections.abc import Callable, Collection
-from datetime import date
+from datetime import date, datetime
 from math import ceil
 
 from sqlalchemy import delete, func, select, text
@@ -23,6 +23,11 @@ from emprestimo.domain.common.errors import (
     ViolacaoInvarianteError,
 )
 from emprestimo.domain.credit.carteira import Carteira
+from emprestimo.domain.credit.cobranca_pix import (
+    CobrancaPix,
+    CobrancaPixState,
+    OrigemCobrancaPix,
+)
 from emprestimo.domain.credit.contato import Contato, TipoContato
 from emprestimo.domain.credit.contrato_credito import ContratoCredito
 from emprestimo.domain.credit.contrato_credito_state import ContratoCreditoState
@@ -41,6 +46,7 @@ from emprestimo.domain.credit.memoria_calculo import MemoriaCalculo, PassoCalcul
 from emprestimo.domain.credit.pagamento import Pagamento, PagamentoState
 from emprestimo.domain.credit.ports import (
     CarteiraRepository,
+    CobrancaPixRepository,
     ContatoRepository,
     ContratoCreditoFiltros,
     ContratoCreditoRepository,
@@ -88,6 +94,7 @@ from emprestimo.domain.platform.usuario import Usuario, UsuarioState
 from emprestimo.infrastructure.cifra import CifraToken, SegredoCorrompidoError
 from emprestimo.infrastructure.db.orm import (
     CarteiraORM,
+    CobrancaPixORM,
     ConexaoWhatsAppORM,
     ConfiguracaoORM,
     ContatoORM,
@@ -1003,6 +1010,103 @@ class SqlAlchemyPagamentoRepository(PagamentoRepository):
             )
         )
         return _to_pagamento(row) if row is not None else None
+
+
+def _to_cobranca_pix_orm(cobranca: CobrancaPix) -> CobrancaPixORM:
+    return CobrancaPixORM(
+        id=cobranca.id,
+        tenant_id=cobranca.tenant_id,
+        carteira_id=cobranca.carteira_id,
+        emprestimo_id=cobranca.emprestimo_id,
+        devedor_id=cobranca.devedor_id,
+        valor=cobranca.valor,
+        valor_recebido=cobranca.valor_recebido,
+        external_reference=cobranca.external_reference,
+        mp_payment_id=cobranca.mp_payment_id,
+        copia_cola=cobranca.copia_cola,
+        qr_base64=cobranca.qr_base64,
+        expira_em=cobranca.expira_em,
+        estado=cobranca.estado.value,
+        origem=cobranca.origem.value,
+        divergente=cobranca.divergente,
+        criado_por=cobranca.criado_por,
+        criado_em=cobranca.criado_em,
+    )
+
+
+def _to_cobranca_pix(row: CobrancaPixORM) -> CobrancaPix:
+    return CobrancaPix(
+        id=row.id,
+        tenant_id=row.tenant_id,
+        carteira_id=row.carteira_id,
+        emprestimo_id=row.emprestimo_id,
+        devedor_id=row.devedor_id,
+        valor=row.valor,
+        expira_em=row.expira_em,
+        origem=OrigemCobrancaPix(row.origem),
+        criado_por=row.criado_por,
+        criado_em=row.criado_em,
+        estado=CobrancaPixState(row.estado),
+        mp_payment_id=row.mp_payment_id,
+        copia_cola=row.copia_cola,
+        qr_base64=row.qr_base64,
+        valor_recebido=row.valor_recebido,
+        divergente=row.divergente,
+    )
+
+
+class SqlAlchemyCobrancaPixRepository(CobrancaPixRepository):
+    """Implementacao SQLAlchemy do CobrancaPixRepository (IMP-374).
+
+    `save` faz merge/flush; o commit pertence ao UnitOfWork (SPEC-004 §2). A
+    INV-004 (um pendente por emprestimo) e do banco, nao daqui: o indice
+    unico parcial recusa o segundo insert.
+    """
+
+    def __init__(self, session: Session) -> None:
+        self._session = session
+
+    def save(self, cobranca: CobrancaPix) -> None:
+        self._session.merge(_to_cobranca_pix_orm(cobranca))
+        self._session.flush()
+
+    def find_by_id(self, cobranca_id: uuid.UUID) -> CobrancaPix | None:
+        row = self._session.get(CobrancaPixORM, cobranca_id)
+        return _to_cobranca_pix(row) if row is not None else None
+
+    def find_by_external_reference(self, external_reference: str) -> CobrancaPix | None:
+        row = self._session.scalar(
+            select(CobrancaPixORM).where(CobrancaPixORM.external_reference == external_reference)
+        )
+        return _to_cobranca_pix(row) if row is not None else None
+
+    def find_pendente_por_emprestimo(self, emprestimo_id: uuid.UUID) -> CobrancaPix | None:
+        row = self._session.scalar(
+            select(CobrancaPixORM).where(
+                CobrancaPixORM.emprestimo_id == emprestimo_id,
+                CobrancaPixORM.estado == CobrancaPixState.PENDENTE.value,
+            )
+        )
+        return _to_cobranca_pix(row) if row is not None else None
+
+    def listar_por_emprestimo(self, emprestimo_id: uuid.UUID) -> list[CobrancaPix]:
+        rows = self._session.scalars(
+            select(CobrancaPixORM)
+            .where(CobrancaPixORM.emprestimo_id == emprestimo_id)
+            .order_by(CobrancaPixORM.criado_em.desc(), CobrancaPixORM.id)
+        ).all()
+        return [_to_cobranca_pix(row) for row in rows]
+
+    def listar_pendentes_expirados(self, agora: datetime) -> list[CobrancaPix]:
+        rows = self._session.scalars(
+            select(CobrancaPixORM)
+            .where(
+                CobrancaPixORM.estado == CobrancaPixState.PENDENTE.value,
+                CobrancaPixORM.expira_em < agora,
+            )
+            .order_by(CobrancaPixORM.expira_em)
+        ).all()
+        return [_to_cobranca_pix(row) for row in rows]
 
 
 class SqlAlchemyMemoriaCalculoRepository(MemoriaCalculoRepository):
