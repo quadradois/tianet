@@ -12,6 +12,12 @@ name: tianet-prod
 services:
   postgres:
     image: postgres:16
+    # Todo servico de longa duracao volta sozinho depois de reboot do host.
+    # Ate 2026-09-22 nenhum tinha politica: um reboot (inclusive de manutencao
+    # do provedor) deixava a TiaNet fora do ar ate alguem rodar `up -d` na mao.
+    # `migrate` fica de fora de proposito — e one-shot, e com politica entraria
+    # em loop. `unless-stopped` respeita um `docker stop` deliberado.
+    restart: unless-stopped
     environment:
       POSTGRES_USER: emprestimo
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?defina no .env.prod}
@@ -48,6 +54,7 @@ services:
 
   api:
     image: ${REGISTRY:?}-tianet-api:${TAG:?}
+    restart: unless-stopped
     command: uvicorn emprestimo.presentation.api.main:app --host 0.0.0.0 --port 8000
     env_file:
       - path: /root/tianet/.env.prod
@@ -81,6 +88,7 @@ services:
 
   worker:
     image: ${REGISTRY:?}-tianet-api:${TAG:?}
+    restart: unless-stopped
     command: emprestimo-scheduler-worker
     env_file:
       - path: /root/tianet/.env.prod
@@ -96,6 +104,7 @@ services:
 
   agent:
     image: ${REGISTRY:?}-tianet-agent:${TAG:?}
+    restart: unless-stopped
     env_file:
       - path: /root/tianet/.env.prod
         required: true
@@ -146,6 +155,7 @@ services:
 
   agent-egress-proxy:
     image: ${REGISTRY:?}-tianet-egress-proxy:${TAG:?}
+    restart: unless-stopped
     networks:
       - agent-egress
       - provider-egress
@@ -165,6 +175,7 @@ services:
 
   frontend:
     image: ${REGISTRY:?}-tianet-frontend:${TAG:?}
+    restart: unless-stopped
     network_mode: "service:api"
     environment:
       FRONTEND_BACKEND_URL: http://127.0.0.1:8000
