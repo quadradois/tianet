@@ -12,15 +12,22 @@ import re
 import uuid
 from abc import ABC, abstractmethod
 from collections.abc import Iterable
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from datetime import datetime
 from enum import StrEnum
 
 
 class ClasseContexto(StrEnum):
-    """As duas classes do plano — nunca uma terceira por telefone cadastrado."""
+    """Quem escreveu, resolvido no servidor — nunca pelo que o envelope diz.
+
+    `operadora` e a Credora (numero de `credor_whatsapp` do Tenant); `devedor`
+    e um devedor ativo com esse telefone cadastrado (IMP-381, decisao D1 do
+    PLAN-045: o numero cadastrado e a identidade, sem desafio); o resto e
+    `pre_cadastro`. Os tres nunca compartilham sessao, historico ou ferramenta.
+    """
 
     OPERADORA = "operadora"
+    DEVEDOR = "devedor"
     PRE_CADASTRO = "pre_cadastro"
 
 
@@ -32,6 +39,7 @@ class MotivoDescarte(StrEnum):
     PROPRIA = "propria"
     EVENTO_NAO_SUPORTADO = "evento-nao-suportado"
     INSTANCIA_DESCONHECIDA = "instancia-desconhecida"
+    TOKEN_INVALIDO = "token-invalido"
     DUPLICADA = "duplicada"
     CARGA_EXCEDIDA = "carga-excedida"
     MIDIA_SEM_TEXTO = "midia-sem-texto"
@@ -67,6 +75,26 @@ def normalizar_remetente(sender: str) -> str:
     return _DIGITOS.sub("", local)
 
 
+def chave_telefone(numero: str) -> str:
+    """Chave comum para o mesmo celular brasileiro escrito de jeitos diferentes.
+
+    O cadastro guarda "(11) 98888-7766"; o WhatsApp manda "5511988887766" — ou,
+    em contas antigas, "551188887766", sem o nono digito. A chave e DDD + numero
+    com o nono digito, sem DDI e sem mascara: "11988887766".
+
+    Regras, na ordem: so digitos; sem zero de prefixo de operadora (nenhum DDD
+    comeca com 0); sem DDI 55 quando sobra um numero nacional; celular de 8
+    digitos (comeca com 6-9) ganha o 9. Fixo (2-5) fica com 10 digitos, e numero
+    estrangeiro so casa consigo mesmo.
+    """
+    digitos = _DIGITOS.sub("", numero).lstrip("0")
+    if len(digitos) in (12, 13) and digitos.startswith("55"):
+        digitos = digitos[2:]
+    if len(digitos) == 10 and digitos[2] in "6789":
+        digitos = digitos[:2] + "9" + digitos[2:]
+    return digitos
+
+
 def eh_remetente_de_grupo(sender: str) -> bool:
     return sender.endswith(_DOMINIO_GRUPO)
 
@@ -82,7 +110,6 @@ class ConfiguracaoIngress:
 
     tenant_id: uuid.UUID
     instancia_ref: str
-    allowlist_operadora: frozenset[str] = field(default_factory=frozenset)
     max_bytes: int = LIMITE_PADRAO_BYTES
 
 
@@ -197,17 +224,30 @@ def resolver_referencia(
 
 def classificar_entrada(
     *,
-    config: ConfiguracaoIngress,
     provider_input_id: str,
     sender: str,
     texto: str | None,
+    numero_credora: str | None,
+    telefones_devedores: frozenset[str],
 ) -> EntradaClassificada:
-    """Resolve a classe sem tocar em carteira, sessão ou histórico."""
+    """Resolve a classe na ordem credora -> devedor -> pre-cadastro.
+
+    `numero_credora` e o `credor_whatsapp` do Tenant (qualquer formato);
+    `telefones_devedores` ja vem em `chave_telefone`. A Credora vence um devedor
+    com o mesmo numero: e ela quem responde pelos avisos. LID nunca resolve
+    identidade — sem vinculo cadastral comprovado, e desconhecido.
+    """
     remetente = normalizar_remetente(sender)
-    if eh_identidade_lid(sender) or remetente not in config.allowlist_operadora:
+    chave = chave_telefone(remetente)
+    credora = chave_telefone(numero_credora) if numero_credora else ""
+    if eh_identidade_lid(sender) or not chave:
         classe = ClasseContexto.PRE_CADASTRO
-    else:
+    elif credora and chave == credora:
         classe = ClasseContexto.OPERADORA
+    elif chave in telefones_devedores:
+        classe = ClasseContexto.DEVEDOR
+    else:
+        classe = ClasseContexto.PRE_CADASTRO
     return EntradaClassificada(
         provider_input_id=provider_input_id,
         remetente_normalizado=remetente,

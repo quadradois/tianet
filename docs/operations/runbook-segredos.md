@@ -17,7 +17,6 @@
 | `EVOLUTION_HOST` | contrato Evolution (configuração, não segredo) | ambiente VPS | acompanha o provedor |
 | `LLM_API_KEY` | painel OpenAI do cliente | ambiente VPS + canal | no painel; sem fallback automático |
 | Credencial do usuário copilot + refresh token | seed Fase C | login normal, sem token eterno | revogação imediata no desligamento |
-| `COPILOT_OPERATOR_ALLOWLIST` | IMP-359 (só número da Tia) | ambiente VPS | a cada mudança de operador |
 | `TIANET_AGENT_INTERNAL_SECRET` | provisão (1b), mín. 32 aleatórios | ambiente VPS + agent | distinto de sessão humana/Codex |
 | `BACKUP_ENCRYPTION_KEY` | provisão (Slice 4) | canal, separada do backup | nunca junto do backup |
 

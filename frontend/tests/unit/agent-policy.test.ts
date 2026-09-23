@@ -24,8 +24,10 @@ describe("agent-policy", () => {
     expect(isAgentInboxEntry({ ...ENTRADA, total: 1 })).toBe(true);
     expect(isAgentInboxEntry({ ...ENTRADA, provider_input_id: 1 })).toBe(false);
     expect(isAgentInboxEntry(null)).toBe(false);
-    expect(isAgentInbox({ total: 1, operadora: 1, pre_cadastro: 0, recentes: [ENTRADA] })).toBe(true);
-    expect(isAgentInbox({ total: "1", operadora: 1, pre_cadastro: 0, recentes: [] })).toBe(false);
-    expect(isAgentInbox({ total: 1, operadora: 1, pre_cadastro: 0, recentes: [null] })).toBe(false);
+    expect(isAgentInbox({ total: 1, operadora: 1, devedor: 0, pre_cadastro: 0, recentes: [ENTRADA] })).toBe(true);
+    // IMP-381: sem a contagem de devedores o resumo esta incompleto — schema fechado.
+    expect(isAgentInbox({ total: 1, operadora: 1, pre_cadastro: 0, recentes: [ENTRADA] })).toBe(false);
+    expect(isAgentInbox({ total: "1", operadora: 1, devedor: 0, pre_cadastro: 0, recentes: [] })).toBe(false);
+    expect(isAgentInbox({ total: 1, operadora: 1, devedor: 0, pre_cadastro: 0, recentes: [null] })).toBe(false);
   });
 });

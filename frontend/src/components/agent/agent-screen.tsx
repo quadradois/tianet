@@ -8,8 +8,19 @@ const formatadorData = new Intl.DateTimeFormat("pt-BR", {
   timeZone: "America/Sao_Paulo",
 });
 
+const ROTULO_CLASSE: Record<string, string> = {
+  operadora: "Operadora",
+  devedor: "Devedor",
+  pre_cadastro: "Pre-cadastro",
+};
+
+/**
+ * Classe desconhecida aparece crua, nunca como "Pre-cadastro": o fallback
+ * anterior rotulava o devedor (IMP-381) como desconhecido, e toda classe nova
+ * repetiria o engano em silencio.
+ */
 function classeRotulo(classe: string): string {
-  return classe === "operadora" ? "Operadora" : "Pre-cadastro";
+  return ROTULO_CLASSE[classe] ?? classe;
 }
 
 /** Tela de operacao do agente (S3, somente leitura, sem Client Component). */
@@ -26,7 +37,7 @@ export function AgentScreen({ inbox }: { inbox: AgentInbox }) {
         </p>
       </header>
 
-      <div className="grid gap-3 sm:grid-cols-3" role="status" aria-label="Resumo da inbox">
+      <div className="grid gap-3 sm:grid-cols-4" role="status" aria-label="Resumo da inbox">
         <div className="rounded-xl border border-border bg-card p-5">
           <p className="text-sm text-muted-foreground">Total recebido</p>
           <p className="mt-1 text-2xl font-semibold">{inbox.total}</p>
@@ -37,6 +48,13 @@ export function AgentScreen({ inbox }: { inbox: AgentInbox }) {
             Operadora
           </p>
           <p className="mt-1 text-2xl font-semibold">{inbox.operadora}</p>
+        </div>
+        <div className="rounded-xl border border-border bg-card p-5">
+          <p className="flex items-center gap-2 text-sm text-muted-foreground">
+            <span className="size-2.5 rounded-full bg-sky-600" aria-hidden="true" />
+            Devedores
+          </p>
+          <p className="mt-1 text-2xl font-semibold">{inbox.devedor}</p>
         </div>
         <div className="rounded-xl border border-border bg-card p-5">
           <p className="flex items-center gap-2 text-sm text-muted-foreground">

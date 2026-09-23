@@ -8,14 +8,16 @@ metricas sem conteudo. Nenhum LLM, ferramenta ou envio existe nestes slices.
 from __future__ import annotations
 
 import json
+import re
 import uuid
 from collections.abc import Iterator
+from pathlib import Path
 from typing import Any
 
 import pytest
 from sqlalchemy.orm import Session, sessionmaker
 from starlette.testclient import TestClient
-from tests.factories import TenantFactory
+from tests.factories import CarteiraFactory, TenantFactory
 
 from emprestimo.agent.admissao import (
     ConfiguracaoAdmissao,
@@ -29,7 +31,14 @@ from emprestimo.agent.conversa import (
 )
 from emprestimo.agent.ingress import create_ingress_app
 from emprestimo.agent.metricas import METRICAS
+from emprestimo.application.notifications import CHAVE_WHATSAPP_CREDOR
+from emprestimo.domain.credit.contato import Contato, TipoContato
+from emprestimo.domain.credit.devedor import Devedor
+from emprestimo.domain.credit.documento import Documento
+from emprestimo.domain.platform.conexao_whatsapp import ConexaoWhatsApp
+from emprestimo.domain.platform.configuracao import Configuracao
 from emprestimo.domain.platform.tenant import TenantState
+from emprestimo.infrastructure.cifra import CifraToken
 from emprestimo.infrastructure.db.session import get_session_factory
 from emprestimo.infrastructure.repositories import SqlAlchemyTenantRepository
 from emprestimo.infrastructure.unit_of_work import SqlAlchemyUnitOfWork
@@ -37,23 +46,36 @@ from emprestimo.infrastructure.unit_of_work import SqlAlchemyUnitOfWork
 INSTANCIA_ID = "035eaa43-0000-4000-8000-aaaaaaaaaaaa"
 INSTANCIA_REF = "tianet_teste"
 OPERADORA_NUMERO = "5511999999999"
+# IMP-381: o envelope so vale com o token da instancia guardado na TiaNet.
+TOKEN_INSTANCIA = "token-da-instancia-de-teste"
+CIFRA = CifraToken(CifraToken.gerar_chave())
 
 
-def _config(
-    tenant_id: uuid.UUID, allowlist: frozenset[str] = frozenset({OPERADORA_NUMERO})
-) -> ConfiguracaoIngress:
-    return ConfiguracaoIngress(
-        tenant_id=tenant_id,
-        instancia_ref=INSTANCIA_REF,
-        allowlist_operadora=allowlist,
-    )
+def _uow(session_factory: sessionmaker[Session]) -> SqlAlchemyUnitOfWork:
+    return SqlAlchemyUnitOfWork(session_factory, cifra_factory=lambda: CIFRA)
+
+
+def _config(tenant_id: uuid.UUID) -> ConfiguracaoIngress:
+    return ConfiguracaoIngress(tenant_id=tenant_id, instancia_ref=INSTANCIA_REF)
 
 
 @pytest.fixture
 def tenant_id(session: Session) -> uuid.UUID:
+    """Tenant com instancia conectada e Credora identificada pelo numero de avisos."""
     tenant = TenantFactory.build(estado=TenantState.ATIVO)
     SqlAlchemyTenantRepository(session).save(tenant)
     session.commit()
+    with _uow(get_session_factory()) as uow:
+        uow.conexao_whatsapp.save(
+            ConexaoWhatsApp.criar(
+                tenant_id=tenant.id, instancia_id=INSTANCIA_ID, instancia_nome=INSTANCIA_REF
+            ),
+            token=TOKEN_INSTANCIA,
+        )
+        uow.configuracao.save(
+            Configuracao(tenant_id=tenant.id, chave=CHAVE_WHATSAPP_CREDOR, valor=OPERADORA_NUMERO)
+        )
+        uow.commit()
     return tenant.id
 
 
@@ -62,7 +84,7 @@ def app(tenant_id: uuid.UUID) -> Iterator[TestClient]:
     session_factory = get_session_factory()
     application = create_ingress_app(
         _config(tenant_id),
-        lambda: SqlAlchemyUnitOfWork(session_factory),
+        lambda: _uow(session_factory),
         INSTANCIA_ID,
     )
     with TestClient(application) as client:
@@ -78,6 +100,7 @@ def _envelope(
     is_from_me: bool = False,
     is_group: bool = False,
     texto: str | None = "qual e o saldo?",
+    instance_token: str | None = TOKEN_INSTANCIA,
 ) -> dict[str, Any]:
     info: dict[str, Any] = {"Sender": sender, "IsFromMe": is_from_me, "IsGroup": is_group}
     if info_id is not None:
@@ -88,7 +111,7 @@ def _envelope(
     return {
         "event": event,
         "instanceId": instance_id,
-        "instanceToken": "token-nao-confiavel",
+        "instanceToken": instance_token,
         "instanceName": "nome-nao-confiavel",
         "data": {"Info": info, "Message": mensagem},
     }
@@ -138,9 +161,8 @@ def test_mesmo_id_em_outra_instancia_nao_colide(
         ConfiguracaoIngress(
             tenant_id=tenant_id,
             instancia_ref="tianet_outra",
-            allowlist_operadora=frozenset({OPERADORA_NUMERO}),
         ),
-        lambda: SqlAlchemyUnitOfWork(session_factory),
+        lambda: _uow(session_factory),
         "ffffffff-0000-4000-8000-bbbbbbbbbbbb",
     )
     with TestClient(outra) as outra_client:
@@ -192,7 +214,7 @@ def test_desconhecido_vira_pre_cadastro_sem_leitura_de_carteira(
         uow.commit()
 
 
-def test_lid_nunca_e_operadora_mesmo_com_numero_na_allowlist(
+def test_lid_nunca_e_operadora_mesmo_com_numero_de_avisos(
     app: TestClient, tenant_id: uuid.UUID
 ) -> None:
     resposta = app.post(
@@ -259,10 +281,9 @@ def _app_com_limite(
         ConfiguracaoIngress(
             tenant_id=tenant_id,
             instancia_ref=INSTANCIA_REF,
-            allowlist_operadora=frozenset({OPERADORA_NUMERO}),
             max_bytes=max_bytes,
         ),
-        lambda: SqlAlchemyUnitOfWork(session_factory),
+        lambda: _uow(session_factory),
         INSTANCIA_ID,
     )
     return TestClient(application)
@@ -385,9 +406,8 @@ def _app_com_quota(
         ConfiguracaoIngress(
             tenant_id=tenant_id,
             instancia_ref=INSTANCIA_REF,
-            allowlist_operadora=frozenset({OPERADORA_NUMERO}),
         ),
-        lambda: SqlAlchemyUnitOfWork(session_factory),
+        lambda: _uow(session_factory),
         INSTANCIA_ID,
         admissao=ControleAdmissao(
             ConfiguracaoAdmissao(
@@ -435,3 +455,170 @@ def test_recusada_resposta_fixa_sem_linha_nem_loop(
             assert resposta.status_code == 200
             assert resposta.json()["message"] == "recusada"
     assert _contar(tenant_id) == 1
+
+
+# --- IMP-381: prova de origem e identidade por telefone -----------------------
+
+
+def _devedor_com_whatsapp(tenant_id: uuid.UUID, telefone: str, *, ativo: bool = True) -> uuid.UUID:
+    """Devedor numa carteira do tenant, com o WhatsApp cadastrado COM mascara."""
+    with _uow(get_session_factory()) as uow:
+        carteira = CarteiraFactory.build(tenant_id=tenant_id)
+        uow.carteira.save(carteira)
+        devedor = Devedor.criar(
+            carteira_id=carteira.id,
+            documento=Documento.from_str(_cpf_valido()),
+            nome=f"Devedor {uuid.uuid4().hex[:6]}",
+            contatos=(
+                Contato(
+                    devedor_id=uuid.uuid4(),
+                    tipo=TipoContato.WHATSAPP,
+                    valor=telefone,
+                    preferencial=True,
+                ),
+            ),
+        )
+        if not ativo:
+            devedor.inativar()
+        uow.devedor.save(devedor)
+        # O repositorio do Devedor nao grava contatos: vao pelo proprio, como
+        # no cadastro real (DevedorCadastroService).
+        for contato in devedor.contatos:
+            uow.contato.save(contato)
+        uow.commit()
+        return devedor.id
+
+
+def _cpf_valido() -> str:
+    base = [int(d) for d in f"{uuid.uuid4().int % 10**9:09d}"]
+    for peso_inicial in (10, 11):
+        soma = sum(d * p for d, p in zip(base, range(peso_inicial, 1, -1), strict=False))
+        base.append(0 if soma % 11 < 2 else 11 - soma % 11)
+    return "".join(map(str, base))
+
+
+@pytest.mark.parametrize("token", ["token-forjado", "", None])
+def test_token_errado_ou_ausente_e_descartado_sem_persistir(
+    app: TestClient, tenant_id: uuid.UUID, token: str | None
+) -> None:
+    """Sem o token da instancia, `Sender` e texto que qualquer um escreve."""
+    envelope = _envelope(info_id=f"3EB0FORJA{token}", instance_token=token)
+    if token is None:
+        envelope.pop("instanceToken")
+
+    resposta = app.post("/whatsapp/webhook", json=envelope)
+
+    assert resposta.status_code == 200
+    assert resposta.json()["motivo"] == "token-invalido"
+    assert _contar(tenant_id) == 0
+
+
+def test_token_rotacionado_vale_na_hora_sem_restart(app: TestClient, tenant_id: uuid.UUID) -> None:
+    with _uow(get_session_factory()) as uow:
+        conexao = uow.conexao_whatsapp.find_by_tenant_id(tenant_id)
+        assert conexao is not None
+        uow.conexao_whatsapp.save(conexao, token="token-novo-apos-rotacao")
+        uow.commit()
+
+    antigo = app.post("/whatsapp/webhook", json=_envelope(info_id="3EB0ROT01"))
+    novo = app.post(
+        "/whatsapp/webhook",
+        json=_envelope(info_id="3EB0ROT02", instance_token="token-novo-apos-rotacao"),
+    )
+
+    assert antigo.json()["motivo"] == "token-invalido"
+    assert novo.json()["message"] == "accepted"
+
+
+@pytest.mark.parametrize(
+    "sender",
+    ["5511988887766@s.whatsapp.net", "551188887766@s.whatsapp.net"],
+    ids=["com-nono-digito", "jid-antigo-sem-nono-digito"],
+)
+def test_devedor_cadastrado_com_mascara_e_reconhecido(
+    app: TestClient, tenant_id: uuid.UUID, sender: str
+) -> None:
+    _devedor_com_whatsapp(tenant_id, "(11) 98888-7766")
+
+    resposta = app.post(
+        "/whatsapp/webhook", json=_envelope(info_id=f"3EB0{sender[:12]}", sender=sender)
+    )
+
+    assert resposta.json()["classe"] == "devedor"
+
+
+def test_devedor_inativo_nao_e_reconhecido(app: TestClient, tenant_id: uuid.UUID) -> None:
+    _devedor_com_whatsapp(tenant_id, "(11) 97777-6655", ativo=False)
+
+    resposta = app.post(
+        "/whatsapp/webhook",
+        json=_envelope(info_id="3EB0INATIVO", sender="5511977776655@s.whatsapp.net"),
+    )
+
+    assert resposta.json()["classe"] == "pre_cadastro"
+
+
+def test_devedor_de_outro_tenant_nao_vaza_identidade(
+    app: TestClient, tenant_id: uuid.UUID, session: Session
+) -> None:
+    outro = TenantFactory.build(estado=TenantState.ATIVO)
+    SqlAlchemyTenantRepository(session).save(outro)
+    session.commit()
+    _devedor_com_whatsapp(outro.id, "(11) 96666-5544")
+
+    resposta = app.post(
+        "/whatsapp/webhook",
+        json=_envelope(info_id="3EB0CROSS", sender="5511966665544@s.whatsapp.net"),
+    )
+
+    assert resposta.json()["classe"] == "pre_cadastro"
+
+
+def test_trocar_numero_de_avisos_vale_na_proxima_mensagem(
+    app: TestClient, tenant_id: uuid.UUID
+) -> None:
+    """Sem cache e sem restart: o numero da tela e lido a cada mensagem."""
+    novo_numero = "5562988887777"
+    with _uow(get_session_factory()) as uow:
+        atual = next(
+            c
+            for c in uow.configuracao.find_by_tenant_id(tenant_id)
+            if c.chave == CHAVE_WHATSAPP_CREDOR
+        )
+        uow.configuracao.save(
+            Configuracao(
+                tenant_id=tenant_id, chave=CHAVE_WHATSAPP_CREDOR, valor=novo_numero, id=atual.id
+            )
+        )
+        uow.commit()
+
+    antigo = app.post("/whatsapp/webhook", json=_envelope(info_id="3EB0TROCA1"))
+    novo = app.post(
+        "/whatsapp/webhook",
+        json=_envelope(info_id="3EB0TROCA2", sender=f"{novo_numero}@s.whatsapp.net"),
+    )
+
+    assert antigo.json()["classe"] == "pre_cadastro"
+    assert novo.json()["classe"] == "operadora"
+
+
+def test_allowlist_de_ambiente_nao_existe_mais() -> None:
+    """A identidade da Credora vem da tela (`credor_whatsapp`), nao do servidor.
+
+    Duas fontes para a mesma resposta divergem; a variavel escondida venceria
+    em silencio quem a Credora cadastrou na tela.
+    """
+    raiz = Path(__file__).resolve().parents[3]
+    alvos = [
+        raiz / "src",
+        raiz / "docker-compose.yml",
+        raiz / "docker-compose.prod.yml",
+        raiz / ".env.example",
+    ]
+    encontrados = [
+        str(caminho.relative_to(raiz))
+        for alvo in alvos
+        for caminho in ([alvo] if alvo.is_file() else alvo.rglob("*.py"))
+        if re.search(r"COPILOT_OPERATOR_ALLOWLIST\s*[=:\"']", caminho.read_text(encoding="utf-8"))
+    ]
+    assert encontrados == []

@@ -31,7 +31,7 @@ export function isAgentInboxEntry(value: unknown): value is AgentInboxEntry {
 
 export function isAgentInbox(value: unknown): value is AgentInbox {
   if (!isRecord(value)) return false;
-  if (typeof value.total !== "number" || typeof value.operadora !== "number" || typeof value.pre_cadastro !== "number") return false;
+  if (typeof value.total !== "number" || typeof value.operadora !== "number" || typeof value.devedor !== "number" || typeof value.pre_cadastro !== "number") return false;
   if (!Array.isArray(value.recentes)) return false;
   return value.recentes.every(isAgentInboxEntry);
 }

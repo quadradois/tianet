@@ -2,7 +2,7 @@
 
 **ID:** PLAN-045
 
-**Versão:** 1.3.2
+**Versão:** 1.3.3
 
 **Status:** Aprovado pelo proprietário em 2026-09-21 (v1.1.0); execução via [PLAN-045-execution-backlog](../backlogs/PLAN-045-execution-backlog.md) (IMP-372..387, GATE-E1..E6)
 
@@ -466,8 +466,10 @@ seção com o código.
 
 **Devedor e avisos, IMP-381, IMP-383 e IMP-386:**
 
-- `GET /credit/devedores` com filtro `telefone` — localiza o devedor pelo
-  contato WhatsApp normalizado em E.164. Permissão `devedor.ler`.
+- ~~`GET /credit/devedores` com filtro `telefone`~~ — **não construída
+  (IMP-381).** A identificação do devedor acontece no ingress do agent, direto
+  no banco, e nenhum outro consumidor precisaria da rota. Volta se algum
+  aparecer.
 - `POST /credit/devedores/{id}/avisos/suspender` — suspende avisos proativos até
   o próximo acerto. Permissão `preferencia_notificacao.suspender`,
   `Idempotency-Key`.
@@ -569,6 +571,7 @@ reboot da VPS, runbook da ponte socat/Caddy.
 
 | Versão | Data | Alteração |
 |---|---|---|
+| 1.3.3 | 2026-09-23 | §6: rota de busca de devedor por telefone não construída — a identificação é no ingress do agent (IMP-381). |
 | 1.3.2 | 2026-09-22 | §6: rotas do comprovante e da chave Pix declaradas como implementadas (IMP-390). |
 | 1.3.1 | 2026-09-22 | Card do Mercado Pago vai para `/app/pagamentos` ("Recebimento"): `/app/configuracoes` colidiria com as Configurações financeiras. |
 | 1.3.0 | 2026-09-22 | Caminho **sem taxa** completo (D13–D15): agente envia valores e a chave Pix da Credora, recebe e guarda o comprovante, extrai o valor, consulta `prever_alocacao` no Motor, pede autorização a ela com a imagem anexa e, no `sim`, lança e devolve ao devedor saldo, juros e próximo acerto atualizados. Comprovante é alegação, não prova; guardado enquanto o empréstimo vive e expurgado na quitação. Reverte o descarte de mídia do 356-B para devedor identificado. |

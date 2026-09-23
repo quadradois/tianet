@@ -36,6 +36,7 @@ function json(body: unknown, status = 200) { return Response.json(body, { status
 const INBOX = {
   total: 2,
   operadora: 1,
+  devedor: 0,
   pre_cadastro: 1,
   recentes: [
     { provider_input_id: "a", remetente_normalizado: "556299999999", classe: "operadora", texto: "ola", estado: "recebida", recebido_em: "2026-09-19T12:00:00.000Z" },

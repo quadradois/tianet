@@ -32,7 +32,7 @@ from emprestimo.agent.codex_app_server import (
     RateLimitInfo,
     RateLimitWindow,
 )
-from emprestimo.agent.conversa import ConfiguracaoIngress, normalizar_remetente
+from emprestimo.agent.conversa import ConfiguracaoIngress
 from emprestimo.agent.ingress import create_ingress_app
 from emprestimo.infrastructure.db.session import get_session_factory
 from emprestimo.infrastructure.unit_of_work import SqlAlchemyUnitOfWork
@@ -720,17 +720,11 @@ def _montar_ingress(app: FastAPI) -> None:
         tenant_id = uuid.UUID(tenant_bruto)
     except ValueError as exc:
         raise RuntimeError("AGENT_TENANT_ID inválido") from exc
-    allowlist = frozenset(
-        normalizar_remetente(parte)
-        for parte in os.environ.get("COPILOT_OPERATOR_ALLOWLIST", "").split(",")
-        if parte.strip()
-    )
     session_factory = get_session_factory()
     ingress = create_ingress_app(
         ConfiguracaoIngress(
             tenant_id=tenant_id,
             instancia_ref=os.environ.get("AGENT_INSTANCIA_REF", "tianet").strip() or "tianet",
-            allowlist_operadora=allowlist,
         ),
         lambda: SqlAlchemyUnitOfWork(session_factory),
         instancia_id,

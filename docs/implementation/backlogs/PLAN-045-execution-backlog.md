@@ -1,6 +1,6 @@
 # PLAN-045-EXEC — Atendimento ao devedor, recebimento por Pix e BYOK
 
-**Versão:** 1.4.0
+**Versão:** 1.5.0
 
 **Status:** Aprovado pelo proprietário em 2026-09-21 (PLAN-045 v1.1.0); execução ainda não iniciada
 
@@ -140,6 +140,13 @@ Verificado em 2026-09-21 por leitura de código e do handoff vigente, não presu
 
 ### IMP-381 — Slice 6, identidade por telefone e classe `devedor`
 
+- **Status:** concluído em 2026-09-23. Três escolhas diferentes do escopo acima, todas por ser mais simples e igualmente correto:
+  1. **Sem cache** do token nem do `credor_whatsapp`: lidos do banco a cada mensagem. Rotação e troca de número valem na hora, sem invalidação para errar.
+  2. **Sem coluna normalizada com índice**: os telefones do Tenant são comparados em Python por `chave_telefone` (marcado `ponytail:` no repositório — muda quando a carteira chegar aos milhares).
+  3. **Sem `GET /credit/devedores?telefone=`**: a classificação roda no ingress, direto no banco; nenhum outro consumidor precisaria.
+- **Verificado antes de ligar em produção:** o token guardado é o mesmo que o Evolution devolve em `/instance/all` (comparação só de igualdade, sem expor valores). O Evolution não reenvia webhook — errar aqui perderia mensagens reais.
+- **Achado no caminho:** a tela `/app/agent` rotulava qualquer classe que não fosse `operadora` como "Pré-cadastro"; o devedor apareceria como desconhecido. Corrigido: rótulo explícito por classe e cartão de devedores no resumo.
+
 - **Objetivo:** só pacote do Evolution vale; o agente sabe quem é devedor pelo número.
 - **Escopo:** ingress compara `instanceToken` em tempo constante com o token da instância (decifrado, cacheado, invalidado na rotação; descarte `token_invalido` com métrica); índice em `contato.valor` normalizado E.164 para `tipo='whatsapp'` (migration + normalização na escrita); `GET /credit/devedores?telefone=` (permissão `devedor.ler`; só ativos); `ClasseContexto.DEVEDOR` e classificação na ordem credora → devedor → pré-cadastro; **a identidade da Credora deixa de ser `COPILOT_OPERATOR_ALLOWLIST` (env) e passa a ser o `credor_whatsapp` do Tenant** — o mesmo número que recebe os avisos é o que responde por eles (decisão do proprietário em 2026-09-21); a variável sai do compose e do `.env.example`, e o agent lê a configuração do Tenant como já lê o token da instância; contrato reconciliado.
 - **Critério de pronto:** pacote com token errado/ausente descartado antes de qualquer leitura de `Sender`; token rotacionado na tela → cache invalidado (teste); classificação com/sem `+`, com/sem 9º dígito; devedor inativo → `pre_cadastro`; cross-tenant 404; `credor_whatsapp` alterado na tela → próxima mensagem já classifica pelo novo número, sem restart; `grep` em teste garante que `COPILOT_OPERATOR_ALLOWLIST` não existe mais no repo.
@@ -258,6 +265,7 @@ PLAN-045 §1.2, na íntegra. Em particular: IMP-357 (pré-cadastro) segue no PLA
 
 | Versão | Data | Alteração |
 |---|---|---|
+| 1.5.0 | 2026-09-23 | IMP-381 concluído: prova de origem pelo `instanceToken`, Credora pelo `credor_whatsapp`, classe Devedor por telefone. |
 | 1.4.0 | 2026-09-22 | IMP-390 concluído menos o ingress de mídia, que depende do IMP-381 e passa ao IMP-391. |
 | 1.3.0 | 2026-09-22 | IMP-388 concluído: interruptor do Mercado Pago ponta a ponta, em `/app/pagamentos`. |
 | 1.2.2 | 2026-09-22 | IMP-374 parcial: `cobranca_pix` e `pagamento.origem` em banco; `inbox_pagamento` movida para o IMP-377. |
