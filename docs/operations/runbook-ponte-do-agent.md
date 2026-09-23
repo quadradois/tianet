@@ -1,6 +1,6 @@
 # Runbook — Ponte do agent (Caddy → socat → socket)
 
-**Versao:** 1.0.0
+**Versao:** 1.1.0
 
 **Status:** Vivo — descreve o estado de producao desde `prod-v1.1.33`
 
@@ -145,15 +145,35 @@ resolve o caminho na conexao, mas um volume recriado troca o inode do socket.
 
 ---
 
-# 6. Pendencias conhecidas
+# 6. Reboot e pendencias
 
-1. **Reboot da VPS** — o apt sinalizou reboot pendente em 2026-09-18 e ele
-   **nao foi executado**. Agendar janela; a ponte e o Caddy voltam sozinhos
-   (`enable --now` e `Restart=always`).
-2. **Rotacao de segredos** — incidente de 2026-09-18, ver
-   [`runbook-segredos.md`](runbook-segredos.md) §Vazamento.
-3. **`MP_WEBHOOK_SECRET`** entra no `.env.prod` quando o IMP-377 subir; a rota
-   `/mercadopago/webhook` ja esta na allowlist do Caddy acima.
+**Todos os servicos de longa duracao tem `restart: unless-stopped`** desde
+`prod-v1.1.41` (PR #105). Antes disso nenhum tinha politica, e um reboot do
+host deixava a TiaNet fora do ar ate alguem rodar `up -d` a mao. A ponte e o
+Caddy voltam por conta propria (`enable --now`, `Restart=always`).
+
+Provado em 2026-09-22: reboot do kernel `6.8.0-136` para `6.8.0-139`, SSH de
+volta em ~45 s, os seis containers de pe sem intervencao, `health` e a ponte
+respondendo.
+
+Depois de um reboot, confira em ordem:
+
+```bash
+uname -r
+docker ps --format "{{.Names}} {{.Status}}" | grep tianet-prod
+curl -s https://tianet.com.br/health
+systemctl is-active tianet-agent-bridge caddy
+curl -s -o /dev/null -w "%{http_code}\n" http://127.0.0.1:8010/health
+```
+
+**Recriar so o `api` derruba o `frontend`.** O frontend usa `network_mode:
+"service:api"`: recriado o api, o frontend fica preso na rede do container
+antigo e para de responder, com o Caddy devolvendo 502. Sempre recrie os dois
+juntos (`up -d --force-recreate frontend` depois do api), ou rode `up -d` sem
+nomear servicos.
+
+Pendente: `MP_WEBHOOK_SECRET` entra no `.env.prod` quando o IMP-377 subir; a
+rota `/mercadopago/webhook` ja esta na allowlist do Caddy acima.
 
 ---
 
@@ -161,4 +181,5 @@ resolve o caminho na conexao, mas um volume recriado troca o inode do socket.
 
 | Versao | Data | Alteracao |
 |---|---|---|
+| 1.1.0 | 2026-09-22 | §6 reescrita: politica de reinicio em producao (PR #105), reboot provado, checklist pos-reboot e a armadilha do `network_mode: service:api`. |
 | 1.0.0 | 2026-09-22 | Primeira versao. Tira do handoff de 2026-09-19 o arranjo Caddy/socat/socket e o registra como runbook, com diagnostico por camada e as tres regressoes que os PRs #92-#95 corrigiram. |
