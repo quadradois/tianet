@@ -1753,6 +1753,22 @@ class SqlAlchemyContatoRepository(ContatoRepository):
         row = self._session.get(ContatoORM, contato_id)
         return _to_contato(row) if row is not None else None
 
+    def telefones_de_devedores_ativos(self, tenant_id: uuid.UUID) -> list[str]:
+        # ponytail: devolve todos os telefones do Tenant a cada mensagem e a
+        # comparacao acontece em Python. Uma Credora tem dezenas de devedores;
+        # coluna normalizada com indice so quando a carteira chegar aos milhares.
+        rows = self._session.scalars(
+            select(ContatoORM.valor)
+            .join(DevedorORM, DevedorORM.id == ContatoORM.devedor_id)
+            .join(CarteiraORM, CarteiraORM.id == DevedorORM.carteira_id)
+            .where(
+                CarteiraORM.tenant_id == tenant_id,
+                DevedorORM.estado == "ativo",
+                ContatoORM.tipo.in_(("whatsapp", "telefone")),
+            )
+        ).all()
+        return list(rows)
+
     def find_by_devedor(self, devedor_id: uuid.UUID) -> list[Contato]:
         rows = self._session.scalars(
             select(ContatoORM)

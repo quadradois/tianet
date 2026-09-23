@@ -36,7 +36,7 @@ describe("Automacao OpenAPI consumida pelo frontend", () => {
     const operationCount = Object.values(spec.paths).flatMap((item) => Object.keys(item).filter((method) => ["get", "post", "patch", "put", "delete"].includes(method))).length;
     expect(operationCount).toBe(128);
     expect(Object.keys(spec.components.schemas)).toHaveLength(157);
-    expect(createHash("sha256").update(raw).digest("hex")).toBe("f6ea32e88a821223b5d74763a63d008b542db5b0a1092d0d18372b95a2f22e05");
+    expect(createHash("sha256").update(raw).digest("hex")).toBe("f433314df34f67bcfa4766606f64d2ee1c8aed902c5243da6a73860077bff52a");
   });
 
   it("certifica as 11 operacoes Automacao e Idempotency-Key nas seis escritas", () => {

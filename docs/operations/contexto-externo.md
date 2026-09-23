@@ -1,6 +1,6 @@
 # Contexto Externo
 
-**Versao:** 1.14.0
+**Versao:** 1.15.0
 
 **Status:** Vivo — mantido manualmente
 
@@ -216,8 +216,8 @@ Credor para aprovacao. E o segundo operador do sistema, conforme
 | Situacao | ingress + inbox + tela read-only **em producao** (`prod-v1.1.33`, PLAN-033); funcao **redefinida no PLAN-045** (2026-09-21): atender o devedor, informar os dois lados e receber por Pix |
 | Entra antes ou depois do wizard de emprestimo | *a preencher* |
 | Topologia de recepcao | **Evolution -> agente -> endpoint autenticado da TiaNet** (decidido em 2026-08-25) |
-| Contextos de conversa | **tres, isolados**: Credora/Operadora (allowlist; leitura de carteira, autorizacao de lembretes e registro de pagamento com eco+confirmacao — PLAN-045 §3.8/§3.10), **Devedor** (numero cadastrado no contato; saldo, Pix, suspensao de avisos, encaminhar — PLAN-045 §3.1–3.4; novo em 2026-09-21) e Pre-cadastro (desconhecido, zero acesso). Nunca compartilham sessao, historico ou ferramenta. |
-| Autenticacao do remetente | allowlist de numero **nao e autenticacao**: `Info.Sender` e forjavel por quem tiver a URL do webhook. **Prova de origem decidida em 2026-09-21 (PLAN-045 §4.1):** o envelope traz `instanceToken`, segredo da instancia que so existe no Evolution e no nosso banco; o ingress passa a compara-lo em tempo constante antes de dar valor ao `Sender`. Ate isso entrar, o contexto Credora segue fail-closed. |
+| Contextos de conversa | **tres, isolados**: Credora/Operadora (identificada pelo `credor_whatsapp` do Tenant, o numero de "Avisos do sistema" — desde o IMP-381 nao ha mais allowlist por variavel de ambiente), **Devedor** (numero de contato de um devedor ativo do Tenant, comparado por `chave_telefone`: sem mascara, sem DDI, com o nono digito) e Pre-cadastro (desconhecido, zero acesso). Nunca compartilham sessao, historico ou ferramenta. |
+| Autenticacao do remetente | **Prova de origem em producao desde o IMP-381:** o ingress compara, em tempo constante, o `instanceToken` do envelope com o token da instancia guardado (cifrado) na TiaNet, **antes** de ler o `Sender`. Sem token ou com token diferente, o pacote e descartado (`token-invalido`). Verificado antes de ligar: o token guardado e o mesmo que o Evolution devolve em `/instance/all`. |
 
 **A API TiaNet nao tera webhook publico.** A decisao foi pela topologia (b): o
 agente recebe do Evolution e chama um endpoint autenticado da TiaNet, no mesmo
@@ -581,6 +581,7 @@ Corrigir isso e item de codigo, nao de documentacao.
 | 1.11.0 | 2026-09-04 | O caveat da deduplicacao, aberto desde 2026-09-02, foi **medido e fechado**: o Evolution NAO deduplica por `id`, e reenviar entrega duas vezes. Verificado por eles no codigo-fonte, nao por teste em producao. A postura atual — nao reenviar em resultado incerto, conciliar a mao — deixa de ser cautela e passa a ser a unica opcao correta. |
 | 1.10.0 | 2026-09-03 | A remocao da `adm_tianet` deixou de ser acao pendente solta e virou item do checklist do IMP-359, com a ordem fixada: medir o `logout` repetido antes de apagar, porque ela e a unica instancia real disponivel para essa medicao — a premissa nao certificada da ADR-019. Enquanto flutuava sem dono, reaparecia em todo handoff sem ser feita. |
 | 1.9.0 | 2026-09-03 | A §5.1 estava errada em tres pontos ao mesmo tempo — data, contagem de nos e a afirmacao de que o manifesto nao fora salvo. O terceiro era o mais caro: desencorajava o `--update`, e o grafo ficou treze dias parado, escondendo cifra, persistencia e rotas da conexao de WhatsApp. Corrigidos contra o disco, o grafo atualizado (10.768 nos) e a extracao semantica executada: ele passa a **cobrir documentos**, o que a versao anterior declarava impossivel. A consulta antes de alteracao arquitetural virou governanca na SPEC-003. |
+| 1.15.0 | 2026-09-23 | §2.2: prova de origem pelo `instanceToken` em producao (IMP-381), Credora identificada pelo `credor_whatsapp` da tela no lugar da allowlist de ambiente, e a classe Devedor por telefone. |
 | 1.14.0 | 2026-09-22 | §2.4: registrada a taxa de 0,99% por recebimento e a decisao de que a integracao e opcional por Tenant, desligada por padrao. |
 | 1.13.0 | 2026-09-21 | §2.2 reconciliada com o estado real (ingress em producao, tres contextos, prova de origem por `instanceToken`, rotas publicas so no `agent`). §2.4: as tres perguntas do Mercado Pago respondidas pelo fundador e as duas colisoes resolvidas no PLAN-045 — Pix dinamico de valor livre com 60 min, conta PJ, segunda rota publica assinada como excecao explicita a §2.2 (com polling como rollback). |
 | 1.8.0 | 2026-09-03 | O provedor de IA foi escolhido e a chave existe: o ultimo insumo externo do IMP-359 caiu, e o deploy passa a depender so de trabalho nosso. Mercado Pago entra como §2.4 na primeira mencao — devedor paga o Credor, depois do deploy —, com as duas colisoes nomeadas antes de virarem descoberta no meio da execucao: a decisao de nao ter webhook publico (§2.2), cujo argumento nao se transporta inteiro porque o Mercado Pago assina a notificacao e o Evolution nao, e o fim do plano de parcelas (DR-004), que impede emitir cobranca antes de o Motor apurar o acerto. |

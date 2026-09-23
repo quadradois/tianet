@@ -642,6 +642,14 @@ class ContatoRepository(ABC):
     """
 
     @abstractmethod
+    def telefones_de_devedores_ativos(self, tenant_id: uuid.UUID) -> list[str]:
+        """Valores crus dos contatos telefone/WhatsApp de devedores ativos.
+
+        Crus de proposito: a normalizacao (mascara, DDI, nono digito) e regra
+        de quem compara, nao do armazenamento. IMP-381.
+        """
+
+    @abstractmethod
     def save(self, contato: Contato) -> None: ...
 
     @abstractmethod

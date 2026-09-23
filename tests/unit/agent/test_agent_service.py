@@ -720,7 +720,6 @@ def test_ingress_montado_com_configuracao(monkeypatch: pytest.MonkeyPatch) -> No
 
     monkeypatch.setenv("AGENT_TENANT_ID", str(uuid.uuid4()))
     monkeypatch.setenv("AGENT_INSTANCIA_ID", "inst-evolution-1")
-    monkeypatch.setenv("COPILOT_OPERATOR_ALLOWLIST", "5511999999999")
     app = create_agent_app(_settings(enabled=False, executable=Path("C:/missing.exe")))
     with TestClient(app) as client:
         resposta = client.post("/whatsapp/webhook", content=b"nao-json")

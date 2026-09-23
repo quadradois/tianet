@@ -16,7 +16,9 @@ Regras de porta, sem exceção:
 
 from __future__ import annotations
 
+import hmac
 import json
+import logging
 import uuid
 from collections.abc import Callable
 from datetime import UTC, datetime
@@ -31,13 +33,16 @@ from emprestimo.agent.conversa import (
     ConfiguracaoIngress,
     EntradaConversa,
     MotivoDescarte,
+    chave_telefone,
     classificar_entrada,
     eh_remetente_de_grupo,
 )
 from emprestimo.agent.metricas import METRICAS, MetricasIngress
+from emprestimo.application.notifications import CHAVE_WHATSAPP_CREDOR
 from emprestimo.application.ports import UnitOfWork
 
 ESTADO_RECEBIDA = "recebida"
+_LOGGER = logging.getLogger(__name__)
 
 
 def _texto_da_mensagem(data: dict[str, Any]) -> tuple[str | None, bool]:
@@ -76,6 +81,41 @@ def _aceitar(
     )
 
 
+def _token_confere(
+    uow_factory: Callable[[], UnitOfWork],
+    config: ConfiguracaoIngress,
+    recebido: object,
+) -> bool:
+    """Compara o `instanceToken` do envelope com o token guardado da instancia.
+
+    O webhook do Evolution nao tem autenticacao nenhuma — a URL e o unico
+    segredo (contexto externo §2.1). O `instanceToken` e o segredo da instancia
+    que so o Evolution e a TiaNet conhecem; e o que prova que o pacote saiu do
+    provedor. Comparacao em tempo constante.
+
+    Sem cache, de proposito: o token e lido e decifrado a cada mensagem, entao
+    rotacionar a instancia na tela vale na hora, sem invalidacao para errar.
+    Falha fechada em tudo — token ausente, conexao apagada, cifra que nao abre.
+    """
+    if not isinstance(recebido, str) or not recebido:
+        return False
+    try:
+        with uow_factory() as uow:
+            esperado = uow.conexao_whatsapp.find_token(config.tenant_id)
+    except Exception as exc:  # cifra indisponivel, token ilegivel: fail-closed
+        _LOGGER.warning("token da instancia indisponivel: %s", type(exc).__name__)
+        return False
+    return bool(esperado) and hmac.compare_digest(recebido, esperado or "")
+
+
+def _numero_credora(uow: UnitOfWork, tenant_id: uuid.UUID) -> str | None:
+    """O `credor_whatsapp` do Tenant: quem recebe os avisos responde por eles."""
+    for item in uow.configuracao.find_by_tenant_id(tenant_id):
+        if item.chave == CHAVE_WHATSAPP_CREDOR and item.valor.strip():
+            return item.valor
+    return None
+
+
 def create_ingress_app(
     config: ConfiguracaoIngress,
     uow_factory: Callable[[], UnitOfWork],
@@ -110,6 +150,10 @@ def create_ingress_app(
             return _descartar(MotivoDescarte.EVENTO_NAO_SUPORTADO)
         if envelope.get("instanceId") != instancia_id_esperada:
             return _descartar(MotivoDescarte.INSTANCIA_DESCONHECIDA)
+        if not _token_confere(uow_factory, config, envelope.get("instanceToken")):
+            # Slice 6: sem o token da instancia, `Sender` e so texto que
+            # qualquer um escreve. Nada abaixo desta linha le o remetente.
+            return _descartar(MotivoDescarte.TOKEN_INVALIDO)
 
         data = envelope.get("data")
         if not isinstance(data, dict):
@@ -132,14 +176,23 @@ def create_ingress_app(
         if eh_midia:
             return _descartar(MotivoDescarte.MIDIA_SEM_TEXTO)
 
-        classificada = classificar_entrada(
-            config=config,
-            provider_input_id=provider_input_id,
-            sender=sender,
-            texto=texto,
-        )
-
         with uow_factory() as uow:
+            # Lidos a cada mensagem, sem cache: trocar o numero de avisos na
+            # tela vale para a proxima mensagem, sem restart do agent.
+            classificada = classificar_entrada(
+                provider_input_id=provider_input_id,
+                sender=sender,
+                texto=texto,
+                numero_credora=_numero_credora(uow, config.tenant_id),
+                telefones_devedores=frozenset(
+                    chave
+                    for chave in map(
+                        chave_telefone,
+                        uow.contato.telefones_de_devedores_ativos(config.tenant_id),
+                    )
+                    if chave
+                ),
+            )
             existente = uow.inbox_conversa.buscar_por_chave(
                 config.tenant_id, config.instancia_ref, provider_input_id
             )

@@ -2541,7 +2541,7 @@
       "EntradaInboxResponse": {
         "properties": {
           "classe": {
-            "description": "operadora ou pre_cadastro.",
+            "description": "operadora, devedor ou pre_cadastro.",
             "title": "Classe",
             "type": "string"
           },
@@ -2945,6 +2945,11 @@
       "InboxAgenteResponse": {
         "description": "Resumo + recentes da inbox do Tenant.",
         "properties": {
+          "devedor": {
+            "default": 0,
+            "title": "Devedor",
+            "type": "integer"
+          },
           "operadora": {
             "default": 0,
             "title": "Operadora",
